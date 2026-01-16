@@ -3,7 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"archeryhub/utils"
+	"archeryhub-api/utils"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -192,7 +193,7 @@ func PublishTournament(db *sqlx.DB) gin.HandlerFunc {
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), id, "tournament_published", "tournament", id, "Published tournament", c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), tournamentID, "tournament_published", "tournament", tournamentID, "Published tournament", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Tournament published successfully"})
 	}
@@ -246,7 +247,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), req.TournamentID, "participant_registered", "tournament_participant", participantID, "Registered participant for event: "+req.EventID, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), tournamentID, "participant_registered", "tournament_participant", participantID, "Registered participant for event: "+req.EventID, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":      participantID,

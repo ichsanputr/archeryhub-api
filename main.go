@@ -216,6 +216,28 @@ func main() {
 			elimination.PUT("/matches/:matchId/score", middleware.AuthMiddleware(), handler.UpdateMatchScore(db))
 		}
 
+		// Team Management
+		teams := api.Group("/teams")
+		{
+			teams.GET("/tournament/:tournamentId", handler.GetTeams(db))
+			teams.GET("/:teamId", handler.GetTeam(db))
+			teams.POST("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.CreateTeam(db))
+			teams.POST("/tournament/:tournamentId/generate", middleware.AuthMiddleware(), handler.MakeTeams(db))
+			teams.POST("/scores", middleware.AuthMiddleware(), handler.SubmitTeamScore(db))
+			teams.GET("/tournament/:tournamentId/rankings", handler.GetTeamRankings(db))
+		}
+
+		// Finals & Match Management
+		finals := api.Group("/finals")
+		{
+			finals.GET("/events/:eventId/rankings", handler.GetFinalRankings(db))
+			finals.POST("/events/:eventId/advance", middleware.AuthMiddleware(), handler.AdvanceToNextPhase(db))
+			finals.GET("/matches/:matchId", handler.GetMatchDetails(db))
+			finals.PUT("/matches/:matchId/schedule", middleware.AuthMiddleware(), handler.SetMatchSchedule(db))
+			finals.POST("/matches/:matchId/start", middleware.AuthMiddleware(), handler.StartMatch(db))
+			finals.POST("/matches/:matchId/complete", middleware.AuthMiddleware(), handler.CompleteMatch(db))
+		}
+
 		// Device Management (for mobile scoring apps)
 		devices := api.Group("/devices")
 		{
@@ -232,6 +254,40 @@ func main() {
 		{
 			live.GET("/:tournamentId/rankings", handler.GetQualificationRankings(db))
 			live.GET("/events/:eventId/bracket", handler.GetEliminationBracket(db))
+		}
+
+		// Statistics (public access)
+		stats := api.Group("/statistics")
+		{
+			stats.GET("/matches/:matchId", handler.GetMatchStatistics(db))
+			stats.GET("/events/:eventId", handler.GetEventStatistics(db))
+		}
+
+		// Awards & Medals
+		awards := api.Group("/awards")
+		{
+			awards.GET("/tournament/:tournamentId", handler.GetAwards(db))
+			awards.GET("/tournament/:tournamentId/medals", handler.GetMedalTable(db))
+			awards.POST("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.CreateAward(db))
+			awards.POST("/events/:eventId/auto", middleware.AuthMiddleware(), handler.AutoAwardMedals(db))
+		}
+
+		// Accreditation & Gate Control
+		accreditation := api.Group("/accreditation")
+		{
+			accreditation.GET("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.GetAccreditations(db))
+			accreditation.POST("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.CreateAccreditation(db))
+			accreditation.POST("/tournament/:tournamentId/bulk", middleware.AuthMiddleware(), handler.BulkCreateAccreditations(db))
+			accreditation.PUT("/:accredId/status", middleware.AuthMiddleware(), handler.UpdateAccreditationStatus(db))
+			accreditation.POST("/gate-check", middleware.AuthMiddleware(), handler.GateCheck(db))
+			accreditation.GET("/tournament/:tournamentId/gate-situation", handler.GetGateSituation(db))
+		}
+
+		// Print Outputs & Reports
+		printouts := api.Group("/print")
+		{
+			printouts.POST("/generate", middleware.AuthMiddleware(), handler.GeneratePrintOutput(db))
+			printouts.GET("/export/:type", handler.ExportCSV(db))
 		}
 
 		// Admin routes (require admin role)
