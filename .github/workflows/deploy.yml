@@ -1,0 +1,80 @@
+name: Deploy Go App
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout source
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t budibadu-api:latest .
+          echo "Docker image built successfully"
+
+      # 3️⃣ Extract binary from Docker image
+      - name: Extract binary from Docker image
+        run: |
+          # Create a temporary container from the image
+          docker create --name temp-container budibadu-api:latest
+          # Copy the binary from container to host
+          docker cp temp-container:/app/budibadu-api ./budibadu-api
+          # Remove the temporary container
+          docker rm temp-container
+          # Make the binary executable
+          chmod +x ./budibadu-api
+          # Verify binary was extracted
+          ls -la ./budibadu-api
+          echo "Binary extracted successfully"
+
+      # 4️⃣ Verify .env.production exists
+      - name: Verify .env.production file exists
+        run: |
+          if [ ! -f ./.env.production ]; then
+            echo "Error: .env.production file not found!"
+            exit 1
+          fi
+          echo ".env.production file found"
+          echo "First 3 lines of .env.production:"
+          head -3 ./.env.production
+
+      # 5️⃣ Setup SSH agent using your GitHub secret
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # 6️⃣ Create directory and deploy binary and production env to VPS
+      - name: Create directory and sync binary and production env to VPS
+        run: |
+          # Create the directory if it doesn't exist
+          ssh -p 30221 -o StrictHostKeyChecking=no root@151.243.222.93 "mkdir -p /root/budibadu-api"
+          # Sync the binary
+          rsync -avz --delete -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
+          ./budibadu-api root@151.243.222.93:/root/budibadu-api/budibadu-api
+          # Copy .env.production as .env to the server
+          rsync -avz -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
+          ./.env.production root@151.243.222.93:/root/budibadu-api/.env
+
+      # 7️⃣ Verify deployment and restart the systemd service on VPS
+      - name: Verify deployment and restart budibadu-api service
+        run: |
+          ssh -p 30221 -o StrictHostKeyChecking=no root@151.243.222.93 << 'EOF'
+            # Verify files are deployed correctly
+            echo "Verifying deployed files:"
+            ls -la /root/budibadu-api/
+            echo "Environment file contents (first 3 lines):"
+            head -3 /root/budibadu-api/.env || echo ".env file not found"
+            
+            # Restart the service
+            systemctl stop budibadu-api
+            systemctl start budibadu-api
+            systemctl status budibadu-api --no-pager
+          EOF
