@@ -137,6 +137,9 @@ func main() {
 			auth.GET("/me", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
 		}
 
+		// User route (alias for /auth/me, needed for frontend compatibility)
+		api.GET("/user", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
+
 		// Tournament routes
 		tournaments := api.Group("/tournaments")
 		{
@@ -245,8 +248,8 @@ func main() {
 			devices.GET("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.GetDevices(db))
 			devices.GET("/:deviceCode/config", handler.GetDeviceConfig(db)) // Public for app login
 			devices.POST("/:deviceCode/sync", handler.SyncDevice(db))
-			devices.PUT("/:deviceId/status", middleware.AuthMiddleware(), handler.UpdateDeviceStatus(db))
-			devices.GET("/:deviceId/qrcode", middleware.AuthMiddleware(), handler.GetDeviceQRCode(db))
+			devices.PUT("/:deviceCode/status", middleware.AuthMiddleware(), handler.UpdateDeviceStatus(db))
+			devices.GET("/:deviceCode/qrcode", middleware.AuthMiddleware(), handler.GetDeviceQRCode(db))
 		}
 
 		// Live Results & Rankings (public access)

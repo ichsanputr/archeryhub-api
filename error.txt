@@ -1,0 +1,113 @@
+﻿{"level":"info","message":"Global logger initialized successfully","timestamp":"2026-01-17 08:57:09"}
+{"level":"info","message":"Initializing database connection","timestamp":"2026-01-17 08:57:09"}
+{"level":"info","message":"Database connection established successfully","timestamp":"2026-01-17 08:57:09"}
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /api/v1/                  --> main.main.func2 (4 handlers)
+[GIN-debug] POST   /api/v1/auth/register     --> main.main.Register.func3 (4 handlers)
+[GIN-debug] POST   /api/v1/auth/login        --> main.main.Login.func4 (4 handlers)
+[GIN-debug] POST   /api/v1/auth/logout       --> main.main.Logout.func5 (4 handlers)
+[GIN-debug] GET    /api/v1/auth/me           --> main.main.GetCurrentUser.func7 (5 handlers)
+[GIN-debug] GET    /api/v1/tournaments       --> main.main.GetTournaments.func8 (4 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id   --> main.main.GetTournamentByID.func9 (4 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id/events --> main.main.GetTournamentEvents.func10 (4 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id/participants --> main.main.GetTournamentParticipants.func11 (4 handlers)
+[GIN-debug] POST   /api/v1/tournaments       --> main.main.CreateTournament.func13 (5 handlers)
+[GIN-debug] PUT    /api/v1/tournaments/:id   --> main.main.UpdateTournament.func14 (5 handlers)
+[GIN-debug] DELETE /api/v1/tournaments/:id   --> main.main.DeleteTournament.func15 (5 handlers)
+[GIN-debug] POST   /api/v1/tournaments/:id/publish --> main.main.PublishTournament.func16 (5 handlers)
+[GIN-debug] POST   /api/v1/tournaments/:id/participants --> main.main.RegisterParticipant.func17 (5 handlers)
+[GIN-debug] GET    /api/v1/athletes          --> main.main.GetAthletes.func18 (4 handlers)
+[GIN-debug] GET    /api/v1/athletes/:id      --> main.main.GetAthleteByID.func19 (4 handlers)
+[GIN-debug] POST   /api/v1/athletes          --> main.main.CreateAthlete.func21 (5 handlers)
+[GIN-debug] PUT    /api/v1/athletes/:id      --> main.main.UpdateAthlete.func22 (5 handlers)
+[GIN-debug] DELETE /api/v1/athletes/:id      --> main.main.DeleteAthlete.func23 (5 handlers)
+[GIN-debug] GET    /api/v1/divisions         --> main.main.GetDivisions.func24 (4 handlers)
+[GIN-debug] GET    /api/v1/categories        --> main.main.GetCategories.func25 (4 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id/sessions --> main.main.GetSessions.func26 (4 handlers)
+[GIN-debug] POST   /api/v1/tournaments/:id/sessions --> main.main.CreateSession.func28 (5 handlers)
+[GIN-debug] PUT    /api/v1/tournaments/:id/sessions/:sessionId --> main.main.UpdateSession.func30 (5 handlers)
+[GIN-debug] DELETE /api/v1/tournaments/:id/sessions/:sessionId --> main.main.DeleteSession.func32 (5 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id/officials --> main.main.GetOfficials.func33 (4 handlers)
+[GIN-debug] POST   /api/v1/tournaments/:id/officials --> main.main.CreateOfficial.func35 (5 handlers)
+[GIN-debug] PUT    /api/v1/tournaments/:id/officials/:officialId --> main.main.UpdateOfficial.func37 (5 handlers)
+[GIN-debug] DELETE /api/v1/tournaments/:id/officials/:officialId --> main.main.DeleteOfficial.func39 (5 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id/distances --> main.main.GetDistances.func40 (4 handlers)
+[GIN-debug] POST   /api/v1/distances         --> main.main.CreateDistance.func42 (5 handlers)
+[GIN-debug] PUT    /api/v1/distances/:distanceId --> main.main.UpdateDistance.func44 (5 handlers)
+[GIN-debug] GET    /api/v1/tournaments/:id/back-numbers --> main.main.GetBackNumbers.func45 (4 handlers)
+[GIN-debug] PUT    /api/v1/participants/:participantId/assignment --> main.main.UpdateBackNumber.func47 (5 handlers)
+[GIN-debug] POST   /api/v1/qualification/scores --> main.main.SubmitQualificationScore.func49 (5 handlers)
+[GIN-debug] GET    /api/v1/qualification/participants/:participantId/scores --> main.main.GetQualificationScores.func50 (4 handlers)
+[GIN-debug] GET    /api/v1/qualification/:tournamentId/rankings --> main.main.GetQualificationRankings.func51 (4 handlers)
+[GIN-debug] POST   /api/v1/elimination/bracket --> main.main.CreateEliminationBracket.func53 (5 handlers)
+[GIN-debug] GET    /api/v1/elimination/events/:eventId/bracket --> main.main.GetEliminationBracket.func54 (4 handlers)
+[GIN-debug] PUT    /api/v1/elimination/matches/:matchId/score --> main.main.UpdateMatchScore.func56 (5 handlers)
+[GIN-debug] GET    /api/v1/teams/tournament/:tournamentId --> main.main.GetTeams.func57 (4 handlers)
+[GIN-debug] GET    /api/v1/teams/:teamId     --> main.main.GetTeam.func58 (4 handlers)
+[GIN-debug] POST   /api/v1/teams/tournament/:tournamentId --> main.main.CreateTeam.func60 (5 handlers)
+[GIN-debug] POST   /api/v1/teams/tournament/:tournamentId/generate --> main.main.MakeTeams.func62 (5 handlers)
+[GIN-debug] POST   /api/v1/teams/scores      --> main.main.SubmitTeamScore.func64 (5 handlers)
+[GIN-debug] GET    /api/v1/teams/tournament/:tournamentId/rankings --> main.main.GetTeamRankings.func65 (4 handlers)
+[GIN-debug] GET    /api/v1/finals/events/:eventId/rankings --> main.main.GetFinalRankings.func66 (4 handlers)
+[GIN-debug] POST   /api/v1/finals/events/:eventId/advance --> main.main.AdvanceToNextPhase.func68 (5 handlers)
+[GIN-debug] GET    /api/v1/finals/matches/:matchId --> main.main.GetMatchDetails.func69 (4 handlers)
+[GIN-debug] PUT    /api/v1/finals/matches/:matchId/schedule --> main.main.SetMatchSchedule.func71 (5 handlers)
+[GIN-debug] POST   /api/v1/finals/matches/:matchId/start --> main.main.StartMatch.func73 (5 handlers)
+[GIN-debug] POST   /api/v1/finals/matches/:matchId/complete --> main.main.CompleteMatch.func75 (5 handlers)
+[GIN-debug] POST   /api/v1/devices/register  --> main.main.RegisterDevice.func77 (5 handlers)
+[GIN-debug] GET    /api/v1/devices/tournament/:tournamentId --> main.main.GetDevices.func79 (5 handlers)
+[GIN-debug] GET    /api/v1/devices/:deviceCode/config --> main.main.GetDeviceConfig.func80 (4 handlers)
+[GIN-debug] POST   /api/v1/devices/:deviceCode/sync --> main.main.SyncDevice.func81 (4 handlers)
+[GIN-debug] PUT    /api/v1/devices/:deviceCode/status --> main.main.UpdateDeviceStatus.func83 (5 handlers)
+[GIN-debug] GET    /api/v1/devices/:deviceCode/qrcode --> main.main.GetDeviceQRCode.func85 (5 handlers)
+[GIN-debug] GET    /api/v1/live/:tournamentId/rankings --> main.main.GetQualificationRankings.func86 (4 handlers)
+[GIN-debug] GET    /api/v1/live/events/:eventId/bracket --> main.main.GetEliminationBracket.func87 (4 handlers)
+[GIN-debug] GET    /api/v1/statistics/matches/:matchId --> main.main.GetMatchStatistics.func88 (4 handlers)
+[GIN-debug] GET    /api/v1/statistics/events/:eventId --> main.main.GetEventStatistics.func89 (4 handlers)
+[GIN-debug] GET    /api/v1/awards/tournament/:tournamentId --> main.main.GetAwards.func90 (4 handlers)
+[GIN-debug] GET    /api/v1/awards/tournament/:tournamentId/medals --> main.main.GetMedalTable.func91 (4 handlers)
+[GIN-debug] POST   /api/v1/awards/tournament/:tournamentId --> main.main.CreateAward.func93 (5 handlers)
+[GIN-debug] POST   /api/v1/awards/events/:eventId/auto --> main.main.AutoAwardMedals.func95 (5 handlers)
+[GIN-debug] GET    /api/v1/accreditation/tournament/:tournamentId --> main.main.GetAccreditations.func97 (5 handlers)
+[GIN-debug] POST   /api/v1/accreditation/tournament/:tournamentId --> main.main.CreateAccreditation.func99 (5 handlers)
+[GIN-debug] POST   /api/v1/accreditation/tournament/:tournamentId/bulk --> main.main.BulkCreateAccreditations.func101 (5 handlers)
+[GIN-debug] PUT    /api/v1/accreditation/:accredId/status --> main.main.UpdateAccreditationStatus.func103 (5 handlers)
+[GIN-debug] POST   /api/v1/accreditation/gate-check --> main.main.GateCheck.func105 (5 handlers)
+[GIN-debug] GET    /api/v1/accreditation/tournament/:tournamentId/gate-situation --> main.main.GetGateSituation.func106 (4 handlers)
+[GIN-debug] POST   /api/v1/print/generate    --> main.main.GeneratePrintOutput.func108 (5 handlers)
+[GIN-debug] GET    /api/v1/print/export/:type --> main.main.ExportCSV.func109 (4 handlers)
+[GIN-debug] GET    /api/v1/stats/dashboard   --> main.main.GetDashboardStats.func111 (4 handlers)
+[GIN-debug] GET    /ws/live/:tournamentId    --> main.main.LiveUpdatesWebSocket.func112 (4 handlers)
+{"level":"info","message":"Archery Hub API starting","port":"8000","timestamp":"2026-01-17 08:57:09"}
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8000
+.\test.exe : 
+[GIN-debug] [ERROR] 
+listen tcp :8000: bind: 
+Only one usage of each 
+socket address 
+(protocol/network 
+address/port) is 
+normally permitted.
+At line:1 char:1
++ .\test.exe 2>&1 | 
+Out-File -FilePath 
+error.txt -Encoding utf8
++ ~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : ([GIN-debug] [ER.   
+ ..ally permitted.:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
+{"level":"fatal","message":"listen tcp :8000: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.","timestamp":"2026-01-17 08:57:09"}

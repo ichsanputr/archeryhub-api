@@ -9,25 +9,36 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-// AuthMiddleware validates JWT tokens
+// AuthMiddleware validates JWT tokens from Authorization header or auth_token cookie
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var tokenString string
+
+		// First, try to get token from Authorization header
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		if authHeader != "" {
+			// Extract token from "Bearer <token>" format
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
+		}
+
+		// If no token in header, try to get from cookie
+		if tokenString == "" {
+			cookie, err := c.Cookie("auth_token")
+			if err == nil && cookie != "" {
+				tokenString = cookie
+			}
+		}
+
+		// If still no token, return unauthorized
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
 			c.Abort()
 			return
 		}
 
-		// Extract token from "Bearer <token>" format
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
-			c.Abort()
-			return
-		}
-
-		tokenString := parts[1]
 		secret := []byte(os.Getenv("JWT_SECRET"))
 		if len(secret) == 0 {
 			secret = []byte("archeryhub-secret-key-change-in-production") // Fallback for dev only

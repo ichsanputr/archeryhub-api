@@ -139,7 +139,7 @@ func GetDeviceConfig(db *sqlx.DB) gin.HandlerFunc {
 // UpdateDeviceStatus updates device status
 func UpdateDeviceStatus(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		deviceID := c.Param("deviceId")
+		deviceCode := c.Param("deviceCode")
 
 		var req struct {
 			Status string `json:"status" binding:"required"`
@@ -150,7 +150,7 @@ func UpdateDeviceStatus(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec("UPDATE devices SET status = ? WHERE id = ?", req.Status, deviceID)
+		_, err := db.Exec("UPDATE devices SET status = ? WHERE device_code = ?", req.Status, deviceCode)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device status"})
 			return
@@ -158,7 +158,7 @@ func UpdateDeviceStatus(db *sqlx.DB) gin.HandlerFunc {
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), "", "device_status_updated", "device", deviceID, "Updated device status to: "+req.Status, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), "", "device_status_updated", "device", deviceCode, "Updated device status to: "+req.Status, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Device status updated successfully"})
 	}
@@ -182,12 +182,12 @@ func SyncDevice(db *sqlx.DB) gin.HandlerFunc {
 // GetDeviceQRCode returns a QR code image for the device
 func GetDeviceQRCode(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		deviceID := c.Param("deviceId")
+		deviceCode := c.Param("deviceCode")
 
 		var device struct {
 			QRPayload *string `db:"qr_payload"`
 		}
-		err := db.Get(&device, "SELECT qr_payload FROM devices WHERE id = ?", deviceID)
+		err := db.Get(&device, "SELECT qr_payload FROM devices WHERE device_code = ?", deviceCode)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
 			return
