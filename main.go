@@ -130,11 +130,15 @@ func main() {
 		// Authentication routes (public)
 		auth := api.Group("/auth")
 		{
-			// TODO: Implement authentication handlers
+			// Traditional auth
 			auth.POST("/register", handler.Register(db))
 			auth.POST("/login", handler.Login(db))
 			auth.POST("/logout", handler.Logout())
 			auth.GET("/me", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
+			
+			// Google OAuth
+			auth.GET("/google", handler.InitiateGoogleAuth(db))
+			auth.GET("/google/callback", handler.GoogleCallback(db))
 		}
 
 		// User route (alias for /auth/me, needed for frontend compatibility)
