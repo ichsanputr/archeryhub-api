@@ -1,0 +1,61 @@
+-- Payment Transactions Table
+-- Stores all payment transactions with Tripay
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  id VARCHAR(36) PRIMARY KEY,
+  reference VARCHAR(100) UNIQUE NOT NULL,
+  tripay_reference VARCHAR(100),
+  user_id VARCHAR(36) NOT NULL,
+  tournament_id VARCHAR(36),
+  registration_id VARCHAR(36),
+  amount DECIMAL(12,2) NOT NULL,
+  fee_amount DECIMAL(12,2) DEFAULT 0,
+  total_amount DECIMAL(12,2) NOT NULL,
+  payment_method VARCHAR(50),
+  payment_channel VARCHAR(50),
+  va_number VARCHAR(100),
+  qr_url TEXT,
+  checkout_url TEXT,
+  pay_code VARCHAR(100),
+  instructions TEXT,
+  status ENUM('pending', 'paid', 'expired', 'failed', 'refunded') DEFAULT 'pending',
+  paid_at TIMESTAMP NULL,
+  expired_at TIMESTAMP NOT NULL,
+  callback_data JSON,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_reference (reference),
+  INDEX idx_tripay_reference (tripay_reference),
+  INDEX idx_user_id (user_id),
+  INDEX idx_tournament_id (tournament_id),
+  INDEX idx_status (status)
+);
+
+-- Tournament Registrations Table
+-- Stores tournament registration data
+CREATE TABLE IF NOT EXISTS tournament_registrations (
+  id VARCHAR(36) PRIMARY KEY,
+  tournament_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  athlete_name VARCHAR(255) NOT NULL,
+  athlete_email VARCHAR(255),
+  athlete_phone VARCHAR(50),
+  club_name VARCHAR(255),
+  division VARCHAR(100) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  bow_type ENUM('recurve', 'compound', 'barebow', 'traditional') DEFAULT 'recurve',
+  entry_fee DECIMAL(12,2) NOT NULL,
+  admin_fee DECIMAL(12,2) DEFAULT 5000,
+  total_fee DECIMAL(12,2) NOT NULL,
+  payment_status ENUM('unpaid', 'pending', 'paid', 'refunded') DEFAULT 'unpaid',
+  payment_id VARCHAR(36),
+  registration_number VARCHAR(50),
+  status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_tournament_id (tournament_id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_payment_status (payment_status),
+  INDEX idx_status (status),
+  UNIQUE KEY unique_registration (tournament_id, user_id, division, category)
+);

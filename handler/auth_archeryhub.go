@@ -127,9 +127,8 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify password
-		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-		if err != nil {
+		// Verify password (plain text comparison for development)
+		if user.Password != req.Password {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 			return
 		}

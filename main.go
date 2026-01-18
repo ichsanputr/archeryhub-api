@@ -256,6 +256,18 @@ func main() {
 			devices.GET("/:deviceCode/qrcode", middleware.AuthMiddleware(), handler.GetDeviceQRCode(db))
 		}
 
+		// Payment & Registration routes
+		payment := api.Group("/payment")
+		{
+			payment.GET("/channels", handler.GetPaymentChannels(db))
+			payment.GET("/status/:reference", handler.GetPaymentStatus(db))
+			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
+			payment.POST("/tripay/callback", handler.PaymentCallback(db))
+		}
+
+		// Tournament registration
+		api.POST("/tournaments/:id/register", middleware.AuthMiddleware(), handler.RegisterTournament(db))
+
 		// Live Results & Rankings (public access)
 		live := api.Group("/live")
 		{
