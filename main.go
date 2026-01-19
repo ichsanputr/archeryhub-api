@@ -115,6 +115,13 @@ func main() {
 		c.Next()
 	})
 
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Welcome to Archeryhub.id API",
+			"status":  "running",
+		})
+	})
+
 	// API routes
 	api := r.Group("/api/v1")
 	{
