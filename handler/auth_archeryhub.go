@@ -204,6 +204,16 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Log activity
 		utils.LogActivity(db, user.ID, "", "user_logged_in", user.Type, user.ID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
 
+		// Set cookie
+		isProduction := os.Getenv("ENV") == "production"
+		domain := ""
+		if isProduction {
+			domain = ".archeryhub.id"
+		}
+
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie("auth_token", token, 60*60*24*7, "/", domain, isProduction, true)
+
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
 			User: gin.H{
@@ -218,12 +228,24 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// Logout handles user logout
+// Logout handles user logout by clearing the auth cookie
 func Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Get environment settings
+		isProduction := os.Getenv("ENV") == "production"
+		domain := ""
+		if isProduction {
+			domain = ".archeryhub.id"
+		}
+
+		// Clear the auth cookie by setting it to empty with expired time
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie("auth_token", "", -1, "/", domain, isProduction, true)
+
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 	}
 }
+
 
 // GetCurrentUser returns the currently authenticated user
 func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {

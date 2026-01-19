@@ -161,6 +161,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		var userType string
 		var role string
 		found := false
+		isNewUser := false
 
 		// Check archers
 		var existingID string
@@ -219,6 +220,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			userID = uuid.New().String()
 			userType = "archer"
 			role = "archer"
+			isNewUser = true
 			username := generateUsername(userInfo.Email)
 
 			_, err = db.Exec(`
@@ -266,7 +268,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		// Return response based on request type
 		if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" || c.Request.Method == "POST" {
 			c.JSON(http.StatusOK, gin.H{
-				"token": token,
+				"token":       token,
+				"is_new_user": isNewUser,
 				"user": gin.H{
 					"id":        userID,
 					"email":     userInfo.Email,
@@ -276,6 +279,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					"user_type": userType,
 				},
 			})
+
 		} else {
 			// Redirect back to app
 			target := appURL + "?token=" + token

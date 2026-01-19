@@ -4,9 +4,9 @@ from mysql.connector import Error
 # Remote Database Configuration
 REMOTE_CONFIG = {
     'host': '151.243.222.93',
-    'port': 3306,
+    'port': 30036,
     'user': 'ichsan',
-    'password': '123456',
+    'password': '12345',
     'database': 'archeryhub'
 }
 
