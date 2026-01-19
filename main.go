@@ -147,6 +147,7 @@ func main() {
 			auth.GET("/google", handler.InitiateGoogleAuth(db))
 			auth.GET("/google/callback", handler.GoogleCallback(db))
 			auth.POST("/google/callback", handler.GoogleCallback(db))
+			auth.GET("/sample-user", handler.GetSampleUser(db))
 		}
 
 		// User route (alias for /auth/me, needed for frontend compatibility)
