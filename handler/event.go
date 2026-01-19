@@ -11,8 +11,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// GetTournaments returns a list of tournaments
-func GetTournaments(db *sqlx.DB) gin.HandlerFunc {
+// GetEvents returns a list of events
+func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		status := c.Query("status")
 		search := c.Query("search")
@@ -26,14 +26,14 @@ func GetTournaments(db *sqlx.DB) gin.HandlerFunc {
 				u.email as organizer_email,
 				COUNT(DISTINCT tp.id) as participant_count,
 				COUNT(DISTINCT te.id) as event_count
-			FROM tournaments t
+			FROM events t
 			LEFT JOIN (
 				SELECT id, name as full_name, email FROM organizations
 				UNION ALL
 				SELECT id, name as full_name, email FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
-			LEFT JOIN tournament_events te ON t.id = te.tournament_id
+			LEFT JOIN event_participants tp ON t.id = tp.event_id
+			LEFT JOIN event_categories te ON t.id = te.event_id
 			WHERE 1=1
 		`
 		args := []interface{}{}
@@ -56,23 +56,23 @@ func GetTournaments(db *sqlx.DB) gin.HandlerFunc {
 		`
 		args = append(args, limit, offset)
 
-		var tournaments []models.TournamentWithDetails
-		err := db.Select(&tournaments, query, args...)
+		var events []models.EventWithDetails
+		err := db.Select(&events, query, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tournaments", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events", "details": err.Error()})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"tournaments": tournaments,
-			"count":       len(tournaments),
+			"events": events,
+			"count":       len(events),
 		})
 	}
 }
 
-// GetTournamentByID returns a single tournament by ID
-func GetTournamentByID(db *sqlx.DB) gin.HandlerFunc {
+// GetEventByID returns a single Event by ID
+func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
@@ -83,34 +83,34 @@ func GetTournamentByID(db *sqlx.DB) gin.HandlerFunc {
 				u.email as organizer_email,
 				COUNT(DISTINCT tp.id) as participant_count,
 				COUNT(DISTINCT te.id) as event_count
-			FROM tournaments t
+			FROM events t
 			LEFT JOIN (
 				SELECT id, name as full_name, email FROM organizations
 				UNION ALL
 				SELECT id, name as full_name, email FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
-			LEFT JOIN tournament_events te ON t.id = te.tournament_id
+			LEFT JOIN event_participants tp ON t.id = tp.event_id
+			LEFT JOIN event_categories te ON t.id = te.event_id
 			WHERE t.id = ?
 			GROUP BY t.id
 		`
 
-		var tournament models.TournamentWithDetails
-		err := db.Get(&tournament, query, id)
+		var Event models.EventWithDetails
+		err := db.Get(&Event, query, id)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tournament not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
-		c.JSON(http.StatusOK, tournament)
+		c.JSON(http.StatusOK, Event)
 	}
 }
 
-// CreateTournament creates a new tournament
-func CreateTournament(db *sqlx.DB) gin.HandlerFunc {
+// CreateEvent creates a new Event
+func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req models.CreateTournamentRequest
+		var req models.CreateEventRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
 			return
@@ -123,11 +123,11 @@ func CreateTournament(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		tournamentID := uuid.New().String()
+		EventID := uuid.New().String()
 		now := time.Now()
 
 		query := `
-			INSERT INTO tournaments (
+			INSERT INTO events (
 				id, code, name, short_name, venue, location, country, 
 				latitude, longitude, start_date, end_date, description, 
 				banner_url, logo_url, type, num_distances, num_sessions, 
@@ -138,7 +138,7 @@ func CreateTournament(db *sqlx.DB) gin.HandlerFunc {
 		`
 
 		_, err := db.Exec(query,
-			tournamentID, req.Code, req.Name, req.ShortName, req.Venue,
+			EventID, req.Code, req.Name, req.ShortName, req.Venue,
 			req.Location, req.Country, req.Latitude, req.Longitude,
 			req.StartDate, req.EndDate, req.Description, req.BannerURL,
 			req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
@@ -146,42 +146,42 @@ func CreateTournament(db *sqlx.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create tournament", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Event", "details": err.Error()})
 			return
 		}
 
 		// Log activity
 		userID, _ = c.Get("user_id")
-		utils.LogActivity(db, userID.(string), tournamentID, "tournament_created", "tournament", tournamentID, "Created new tournament: "+req.Name, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), EventID, "Event_created", "Event", EventID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":       "Tournament created successfully",
-			"tournament_id": tournamentID,
+			"message":       "Event created successfully",
+			"event_id": EventID,
 		})
 	}
 }
 
-// UpdateTournament updates an existing tournament
-func UpdateTournament(db *sqlx.DB) gin.HandlerFunc {
+// UpdateEvent updates an existing Event
+func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		var req models.UpdateTournamentRequest
+		var req models.UpdateEventRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
 			return
 		}
 
-		// Check if tournament exists
+		// Check if Event exists
 		var exists bool
-		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM tournaments WHERE id = ?)", id)
+		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM events WHERE id = ?)", id)
 		if err != nil || !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tournament not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
 		// Build dynamic update query
-		query := "UPDATE tournaments SET updated_at = NOW()"
+		query := "UPDATE events SET updated_at = NOW()"
 		args := []interface{}{}
 
 		if req.Name != nil {
@@ -226,40 +226,40 @@ func UpdateTournament(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update tournament", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update Event", "details": err.Error()})
 			return
 		}
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), id, "tournament_updated", "tournament", id, "Updated tournament", c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), id, "Event_updated", "Event", id, "Updated Event", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Tournament updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Event updated successfully"})
 	}
 }
 
-// DeleteTournament deletes a tournament
-func DeleteTournament(db *sqlx.DB) gin.HandlerFunc {
+// DeleteEvent deletes a Event
+func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		result, err := db.Exec("DELETE FROM tournaments WHERE id = ?", id)
+		result, err := db.Exec("DELETE FROM events WHERE id = ?", id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete tournament", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete Event", "details": err.Error()})
 			return
 		}
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tournament not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), "", "tournament_deleted", "tournament", id, "Deleted tournament", c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), "", "Event_deleted", "Event", id, "Deleted Event", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Tournament deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
 	}
 }
 

@@ -153,26 +153,27 @@ func main() {
 		// User route (alias for /auth/me, needed for frontend compatibility)
 		api.GET("/user", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
 
-		// Tournament routes
-		tournaments := api.Group("/tournaments")
+		// Event routes
+		events := api.Group("/events")
 		{
-			// Public tournament routes
-			tournaments.GET("", handler.GetTournaments(db))
-			tournaments.GET("/:id", handler.GetTournamentByID(db))
-			tournaments.GET("/:id/events", handler.GetTournamentEvents(db))
-			tournaments.GET("/:id/participants", handler.GetTournamentParticipants(db))
+			// Public Event routes
+			events.GET("", handler.GetEvents(db))
+			events.GET("/:id", handler.GetEventByID(db))
+			events.GET("/:id/categories", handler.GetEventEvents(db))
+			events.GET("/:id/participants", handler.GetEventParticipants(db))
 
-			// Protected tournament routes (require authentication)
-			protected := tournaments.Group("")
+			// Protected Event routes (require authentication)
+			protected := events.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
-				protected.POST("", handler.CreateTournament(db))
-				protected.PUT("/:id", handler.UpdateTournament(db))
-				protected.DELETE("/:id", handler.DeleteTournament(db))
-				protected.POST("/:id/publish", handler.PublishTournament(db))
+				protected.POST("", handler.CreateEvent(db))
+				protected.PUT("/:id", handler.UpdateEvent(db))
+				protected.DELETE("/:id", handler.DeleteEvent(db))
+				protected.POST("/:id/publish", handler.PublishEvent(db))
 				protected.POST("/:id/participants", handler.RegisterParticipant(db))
 			}
 		}
+
 
 		// Athlete routes
 		athletes := api.Group("/athletes")
@@ -195,25 +196,19 @@ func main() {
 		api.GET("/divisions", handler.GetDivisions(db))
 		api.GET("/categories", handler.GetCategories(db))
 
-		// Tournament Sessions
-		api.GET("/tournaments/:id/sessions", handler.GetSessions(db))
-		api.POST("/tournaments/:id/sessions", middleware.AuthMiddleware(), handler.CreateSession(db))
-		api.PUT("/tournaments/:id/sessions/:sessionId", middleware.AuthMiddleware(), handler.UpdateSession(db))
-		api.DELETE("/tournaments/:id/sessions/:sessionId", middleware.AuthMiddleware(), handler.DeleteSession(db))
-
-		// Tournament Officials/Staff
-		api.GET("/tournaments/:id/officials", handler.GetOfficials(db))
-		api.POST("/tournaments/:id/officials", middleware.AuthMiddleware(), handler.CreateOfficial(db))
-		api.PUT("/tournaments/:id/officials/:officialId", middleware.AuthMiddleware(), handler.UpdateOfficial(db))
-		api.DELETE("/tournaments/:id/officials/:officialId", middleware.AuthMiddleware(), handler.DeleteOfficial(db))
+		// Event Officials/Staff
+		api.GET("/events/:id/officials", handler.GetOfficials(db))
+		api.POST("/events/:id/officials", middleware.AuthMiddleware(), handler.CreateOfficial(db))
+		api.PUT("/events/:id/officials/:officialId", middleware.AuthMiddleware(), handler.UpdateOfficial(db))
+		api.DELETE("/events/:id/officials/:officialId", middleware.AuthMiddleware(), handler.DeleteOfficial(db))
 
 		// Distances Configuration
-		api.GET("/tournaments/:id/distances", handler.GetDistances(db))
+		api.GET("/events/:id/distances", handler.GetDistances(db))
 		api.POST("/distances", middleware.AuthMiddleware(), handler.CreateDistance(db))
 		api.PUT("/distances/:distanceId", middleware.AuthMiddleware(), handler.UpdateDistance(db))
 
 		// Back Numbers & Target Assignments
-		api.GET("/tournaments/:id/back-numbers", handler.GetBackNumbers(db))
+		api.GET("/events/:id/back-numbers", handler.GetBackNumbers(db))
 		api.PUT("/participants/:participantId/assignment", middleware.AuthMiddleware(), handler.UpdateBackNumber(db))
 
 		// Qualification Scoring
@@ -221,7 +216,7 @@ func main() {
 		{
 			qualification.POST("/scores", middleware.AuthMiddleware(), handler.SubmitQualificationScore(db))
 			qualification.GET("/participants/:participantId/scores", handler.GetQualificationScores(db))
-			qualification.GET("/:tournamentId/rankings", handler.GetQualificationRankings(db))
+			qualification.GET("/:EventId/rankings", handler.GetQualificationRankings(db))
 		}
 
 		// Elimination Matches
@@ -235,12 +230,12 @@ func main() {
 		// Team Management
 		teams := api.Group("/teams")
 		{
-			teams.GET("/tournament/:tournamentId", handler.GetTeams(db))
+			teams.GET("/Event/:EventId", handler.GetTeams(db))
 			teams.GET("/:teamId", handler.GetTeam(db))
-			teams.POST("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.CreateTeam(db))
-			teams.POST("/tournament/:tournamentId/generate", middleware.AuthMiddleware(), handler.MakeTeams(db))
+			teams.POST("/Event/:EventId", middleware.AuthMiddleware(), handler.CreateTeam(db))
+			teams.POST("/Event/:EventId/generate", middleware.AuthMiddleware(), handler.MakeTeams(db))
 			teams.POST("/scores", middleware.AuthMiddleware(), handler.SubmitTeamScore(db))
-			teams.GET("/tournament/:tournamentId/rankings", handler.GetTeamRankings(db))
+			teams.GET("/Event/:EventId/rankings", handler.GetTeamRankings(db))
 		}
 
 		// Finals & Match Management
@@ -254,17 +249,6 @@ func main() {
 			finals.POST("/matches/:matchId/complete", middleware.AuthMiddleware(), handler.CompleteMatch(db))
 		}
 
-		// Device Management (for mobile scoring apps)
-		devices := api.Group("/devices")
-		{
-			devices.POST("/register", middleware.AuthMiddleware(), handler.RegisterDevice(db))
-			devices.GET("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.GetDevices(db))
-			devices.GET("/:deviceCode/config", handler.GetDeviceConfig(db)) // Public for app login
-			devices.POST("/:deviceCode/sync", handler.SyncDevice(db))
-			devices.PUT("/:deviceCode/status", middleware.AuthMiddleware(), handler.UpdateDeviceStatus(db))
-			devices.GET("/:deviceCode/qrcode", middleware.AuthMiddleware(), handler.GetDeviceQRCode(db))
-		}
-
 		// Payment & Registration routes
 		payment := api.Group("/payment")
 		{
@@ -274,13 +258,12 @@ func main() {
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
 		}
 
-		// Tournament registration
-		api.POST("/tournaments/:id/register", middleware.AuthMiddleware(), handler.RegisterTournament(db))
+		// Event registration is handled via POST /events/:id/participants
 
 		// Live Results & Rankings (public access)
 		live := api.Group("/live")
 		{
-			live.GET("/:tournamentId/rankings", handler.GetQualificationRankings(db))
+			live.GET("/:EventId/rankings", handler.GetQualificationRankings(db))
 			live.GET("/events/:eventId/bracket", handler.GetEliminationBracket(db))
 		}
 
@@ -294,21 +277,21 @@ func main() {
 		// Awards & Medals
 		awards := api.Group("/awards")
 		{
-			awards.GET("/tournament/:tournamentId", handler.GetAwards(db))
-			awards.GET("/tournament/:tournamentId/medals", handler.GetMedalTable(db))
-			awards.POST("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.CreateAward(db))
+			awards.GET("/Event/:EventId", handler.GetAwards(db))
+			awards.GET("/Event/:EventId/medals", handler.GetMedalTable(db))
+			awards.POST("/Event/:EventId", middleware.AuthMiddleware(), handler.CreateAward(db))
 			awards.POST("/events/:eventId/auto", middleware.AuthMiddleware(), handler.AutoAwardMedals(db))
 		}
 
 		// Accreditation & Gate Control
 		accreditation := api.Group("/accreditation")
 		{
-			accreditation.GET("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.GetAccreditations(db))
-			accreditation.POST("/tournament/:tournamentId", middleware.AuthMiddleware(), handler.CreateAccreditation(db))
-			accreditation.POST("/tournament/:tournamentId/bulk", middleware.AuthMiddleware(), handler.BulkCreateAccreditations(db))
+			accreditation.GET("/Event/:EventId", middleware.AuthMiddleware(), handler.GetAccreditations(db))
+			accreditation.POST("/Event/:EventId", middleware.AuthMiddleware(), handler.CreateAccreditation(db))
+			accreditation.POST("/Event/:EventId/bulk", middleware.AuthMiddleware(), handler.BulkCreateAccreditations(db))
 			accreditation.PUT("/:accredId/status", middleware.AuthMiddleware(), handler.UpdateAccreditationStatus(db))
 			accreditation.POST("/gate-check", middleware.AuthMiddleware(), handler.GateCheck(db))
-			accreditation.GET("/tournament/:tournamentId/gate-situation", handler.GetGateSituation(db))
+			accreditation.GET("/Event/:EventId/gate-situation", handler.GetGateSituation(db))
 		}
 
 		// Print Outputs & Reports
@@ -335,7 +318,7 @@ func main() {
 
 	// WebSocket endpoint for real-time updates
 	// TODO: Implement WebSocket handler
-	r.GET("/ws/live/:tournamentId", handler.LiveUpdatesWebSocket(db))
+	r.GET("/ws/live/:EventId", handler.LiveUpdatesWebSocket(db))
 
 	// Get port from environment
 	port := os.Getenv("PORT")

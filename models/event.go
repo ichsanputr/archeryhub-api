@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// Tournament represents an archery tournament/competition
-type Tournament struct {
+// Event represents an archery Event/competition
+type Event struct {
 	ID           string    `json:"id" db:"id"`
 	Code         string    `json:"code" db:"code"`
 	Name         string    `json:"name" db:"name"`
@@ -29,17 +29,17 @@ type Tournament struct {
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// TournamentWithDetails includes organizer information
-type TournamentWithDetails struct {
-	Tournament
+// EventWithDetails includes organizer information
+type EventWithDetails struct {
+	Event
 	OrganizerName    *string `json:"organizer_name" db:"organizer_name"`
 	OrganizerEmail   *string `json:"organizer_email" db:"organizer_email"`
 	ParticipantCount int     `json:"participant_count" db:"participant_count"`
 	EventCount       int     `json:"event_count" db:"event_count"`
 }
 
-// CreateTournamentRequest represents the request payload for creating a tournament
-type CreateTournamentRequest struct {
+// CreateEventRequest represents the request payload for creating a Event
+type CreateEventRequest struct {
 	Code         string    `json:"code" binding:"required,min=2,max=20"`
 	Name         string    `json:"name" binding:"required,min=3,max=200"`
 	ShortName    *string   `json:"short_name"`
@@ -58,8 +58,8 @@ type CreateTournamentRequest struct {
 	NumSessions  int       `json:"num_sessions"`
 }
 
-// UpdateTournamentRequest represents the request payload for updating a tournament
-type UpdateTournamentRequest struct {
+// UpdateEventRequest represents the request payload for updating a Event
+type UpdateEventRequest struct {
 	Name         *string    `json:"name"`
 	ShortName    *string    `json:"short_name"`
 	Venue        *string    `json:"venue"`
@@ -78,10 +78,10 @@ type UpdateTournamentRequest struct {
 	Status       *string    `json:"status"`
 }
 
-// TournamentEvent represents an event within a tournament (division + category)
-type TournamentEvent struct {
+// EventEvent represents an event within a Event (division + category)
+type EventEvent struct {
 	ID                  string    `json:"id" db:"id"`
-	TournamentID        string    `json:"tournament_id" db:"tournament_id"`
+	EventID        string    `json:"Event_id" db:"Event_id"`
 	DivisionID          string    `json:"division_id" db:"division_id"`
 	CategoryID          string    `json:"category_id" db:"category_id"`
 	MaxParticipants     int       `json:"max_participants" db:"max_participants"`
@@ -91,9 +91,9 @@ type TournamentEvent struct {
 	CreatedAt           time.Time `json:"created_at" db:"created_at"`
 }
 
-// TournamentEventWithDetails includes division and category details
-type TournamentEventWithDetails struct {
-	TournamentEvent
+// EventEventWithDetails includes division and category details
+type EventEventWithDetails struct {
+	EventEvent
 	DivisionName     string `json:"division_name" db:"division_name"`
 	DivisionCode     string `json:"division_code" db:"division_code"`
 	CategoryName     string `json:"category_name" db:"category_name"`
@@ -126,7 +126,7 @@ type Category struct {
 // Session represents a competition session
 type Session struct {
 	ID                string     `json:"id" db:"id"`
-	TournamentID      string     `json:"tournament_id" db:"tournament_id"`
+	EventID      string     `json:"Event_id" db:"Event_id"`
 	SessionOrder      int        `json:"session_order" db:"session_order"`
 	Name              *string    `json:"name" db:"name"`
 	SessionDate       *time.Time `json:"session_date" db:"session_date"`
@@ -141,7 +141,6 @@ type Session struct {
 // Distance represents shooting distance configuration
 type Distance struct {
 	ID            string  `json:"id" db:"id"`
-	TournamentID  string  `json:"tournament_id" db:"tournament_id"`
 	EventID       string  `json:"event_id" db:"event_id"`
 	DistanceOrder int     `json:"distance_order" db:"distance_order"`
 	DistanceValue int     `json:"distance_value" db:"distance_value"` // in meters
@@ -149,3 +148,4 @@ type Distance struct {
 	NumEnds       int     `json:"num_ends" db:"num_ends"`
 	TargetFace    *string `json:"target_face" db:"target_face"` // 122cm, 80cm, etc.
 }
+

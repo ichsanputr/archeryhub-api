@@ -80,14 +80,14 @@ func GetCategories(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetTournamentEvents returns events for a specific tournament
-func GetTournamentEvents(db *sqlx.DB) gin.HandlerFunc {
+// GetEventEvents returns events for a specific event
+func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
-		type TournamentEvent struct {
+		type EventEvent struct {
 			ID                  string `db:"id" json:"id"`
-			TournamentID        string `db:"tournament_id" json:"tournament_id"`
+			EventID        string `db:"event_id" json:"event_id"`
 			DivisionID          string `db:"division_id" json:"division_id"`
 			DivisionName        string `db:"division_name" json:"division_name"`
 			DivisionCode        string `db:"division_code" json:"division_code"`
@@ -101,23 +101,23 @@ func GetTournamentEvents(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt           string `db:"created_at" json:"created_at"`
 		}
 
-		var events []TournamentEvent
+		var events []EventEvent
 		err := db.Select(&events, `
 			SELECT 
-				te.id, te.tournament_id, te.division_id, te.category_id,
+				te.id, te.event_id, te.division_id, te.category_id,
 				te.max_participants, te.qualification_arrows, te.elimination_format, te.team_event,
 				te.created_at,
 				d.name as division_name, d.code as division_code,
 				c.name as category_name, c.code as category_code
-			FROM tournament_events te
+			FROM event_categories te
 			JOIN divisions d ON te.division_id = d.id
 			JOIN categories c ON te.category_id = c.id
-			WHERE te.tournament_id = ?
+			WHERE te.event_id = ?
 			ORDER BY d.display_order, c.display_order
-		`, tournamentID)
+		`, eventID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tournament events"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event events"})
 			return
 		}
 
@@ -128,10 +128,10 @@ func GetTournamentEvents(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetTournamentParticipants returns participants for a specific tournament
-func GetTournamentParticipants(db *sqlx.DB) gin.HandlerFunc {
+// GetEventParticipants returns participants for a specific event
+func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
 		type Participant struct {
 			ID                  string  `db:"id" json:"id"`
@@ -159,14 +159,14 @@ func GetTournamentParticipants(db *sqlx.DB) gin.HandlerFunc {
 				tp.payment_status, tp.accreditation_status, tp.registration_date,
 				a.first_name, a.last_name, a.athlete_code, a.country, a.club,
 				d.name as division_name, c.name as category_name
-			FROM tournament_participants tp
+			FROM event_participants tp
 			JOIN athletes a ON tp.athlete_id = a.id
-			JOIN tournament_events te ON tp.event_id = te.id
+			JOIN event_categories te ON tp.event_id = te.id
 			JOIN divisions d ON te.division_id = d.id
 			JOIN categories c ON te.category_id = c.id
-			WHERE tp.tournament_id = ?
+			WHERE tp.event_id = ?
 			ORDER BY d.display_order, c.display_order, a.last_name, a.first_name
-		`, tournamentID)
+		`, eventID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants"})
@@ -180,29 +180,29 @@ func GetTournamentParticipants(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// PublishTournament changes tournament status to published
-func PublishTournament(db *sqlx.DB) gin.HandlerFunc {
+// PublishEvent changes event status to published
+func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
-		_, err := db.Exec("UPDATE tournaments SET status = 'published' WHERE id = ?", tournamentID)
+		_, err := db.Exec("UPDATE events SET status = 'published' WHERE id = ?", eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish tournament"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish event"})
 			return
 		}
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), tournamentID, "tournament_published", "tournament", tournamentID, "Published tournament", c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), eventID, "event_published", "event", eventID, "Published event", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Tournament published successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Event published successfully"})
 	}
 }
 
-// RegisterParticipant registers a participant for a tournament
+// RegisterParticipant registers a participant for a event
 func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
 		var req struct {
 			AthleteID     string  `json:"athlete_id" binding:"required"`
@@ -218,9 +218,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Check if already registered
 		var exists bool
 		err := db.Get(&exists, `
-			SELECT EXISTS(SELECT 1 FROM tournament_participants 
-			WHERE tournament_id = ? AND athlete_id = ? AND event_id = ?)
-		`, tournamentID, req.AthleteID, req.EventID)
+			SELECT EXISTS(SELECT 1 FROM event_participants 
+			WHERE event_id = ? AND athlete_id = ? AND event_id = ?)
+		`, eventID, req.AthleteID, req.EventID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -235,10 +235,10 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Insert participant
 		participantID := generateUUID()
 		_, err = db.Exec(`
-			INSERT INTO tournament_participants 
-			(id, tournament_id, athlete_id, event_id, payment_amount, payment_status, accreditation_status)
+			INSERT INTO event_participants 
+			(id, event_id, athlete_id, event_id, payment_amount, payment_status, accreditation_status)
 			VALUES (?, ?, ?, ?, ?, 'pending', 'pending')
-		`, participantID, tournamentID, req.AthleteID, req.EventID, req.PaymentAmount)
+		`, participantID, eventID, req.AthleteID, req.EventID, req.PaymentAmount)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant"})
@@ -247,7 +247,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), tournamentID, "participant_registered", "tournament_participant", participantID, "Registered participant for event: "+req.EventID, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), eventID, "participant_registered", "event_participant", participantID, "Registered participant for event: "+req.EventID, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":      participantID,
