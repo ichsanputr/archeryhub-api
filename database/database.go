@@ -15,25 +15,12 @@ func getEnv(key, defaultValue string) string {
 }
 
 func InitDB() (*sqlx.DB, error) {
-	stage := getEnv("STAGE", "development")
-
-	var host, port, user, password, dbname string
-
-	if stage == "production" {
-		// Production: use hardcoded default values
-		host = "151.243.222.93"
-		port = "30036"
-		user = "ichsan"
-		password = "12345"
-		dbname = "archeryhub"
-	} else {
-		// Development: use environment variables
-		host = getEnv("DB_HOST", "151.243.222.93")
-		port = getEnv("DB_PORT", "30036")
-		user = getEnv("DB_USER", "ichsan")
-		password = getEnv("DB_PASSWORD", "12345")
-		dbname = getEnv("DB_NAME", "archeryhub")
-	}
+	// Use environment variables with sensible local defaults
+	host := getEnv("DB_HOST", "localhost")
+	port := getEnv("DB_PORT", "3306")
+	user := getEnv("DB_USER", "root")
+	password := getEnv("DB_PASSWORD", "")
+	dbname := getEnv("DB_NAME", "archeryhub")
 
 	dsn := user + ":" + password + "@tcp(" + host + ":" + port + ")/" + dbname + "?parseTime=true"
 	db, err := sqlx.Connect("mysql", dsn)

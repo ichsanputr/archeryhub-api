@@ -27,7 +27,11 @@ func GetTournaments(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.id) as participant_count,
 				COUNT(DISTINCT te.id) as event_count
 			FROM tournaments t
-			LEFT JOIN users u ON t.organizer_id = u.id
+			LEFT JOIN (
+				SELECT id, name as full_name, email FROM organizations
+				UNION ALL
+				SELECT id, name as full_name, email FROM clubs
+			) u ON t.organizer_id = u.id
 			LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
 			LEFT JOIN tournament_events te ON t.id = te.tournament_id
 			WHERE 1=1
@@ -80,7 +84,11 @@ func GetTournamentByID(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.id) as participant_count,
 				COUNT(DISTINCT te.id) as event_count
 			FROM tournaments t
-			LEFT JOIN users u ON t.organizer_id = u.id
+			LEFT JOIN (
+				SELECT id, name as full_name, email FROM organizations
+				UNION ALL
+				SELECT id, name as full_name, email FROM clubs
+			) u ON t.organizer_id = u.id
 			LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
 			LEFT JOIN tournament_events te ON t.id = te.tournament_id
 			WHERE t.id = ?

@@ -97,11 +97,29 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 // GoogleCallback handles the OAuth callback from Google
 func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		code := c.Query("code")
-		stateData := c.Query("state")
+		var code string
+		var stateData string
+
+		// Try to get from JSON first (POST)
+		var body struct {
+			Code  string `json:"code"`
+			State string `json:"state"`
+		}
+		if err := c.ShouldBindJSON(&body); err == nil && body.Code != "" {
+			code = body.Code
+			stateData = body.State
+		} else {
+			// Fallback to query params (GET)
+			code = c.Query("code")
+			stateData = c.Query("state")
+		}
 
 		if code == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No authorization code provided"})
+			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "No authorization code provided"})
+			} else {
+				c.Redirect(http.StatusTemporaryRedirect, os.Getenv("APP_URL")+"/auth/login?error=no_code")
+			}
 			return
 		}
 
@@ -117,75 +135,125 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		// Exchange code for token
 		tokenResponse, err := exchangeGoogleCode(code)
 		if err != nil {
-			c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=token_exchange_failed")
+			msg := "token_exchange_failed"
+			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": msg, "details": err.Error()})
+			} else {
+				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error="+msg)
+			}
 			return
 		}
 
 		// Get user info from Google
 		userInfo, err := getGoogleUserInfo(tokenResponse.AccessToken)
 		if err != nil {
-			c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=user_info_failed")
+			msg := "user_info_failed"
+			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": msg, "details": err.Error()})
+			} else {
+				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error="+msg)
+			}
 			return
 		}
 
 		// Find or create user
 		var userID string
-		var userExists bool
+		var userType string
+		var role string
+		found := false
 
-		err = db.Get(&userExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = ? OR google_id = ?)", userInfo.Email, userInfo.ID)
-		if err != nil {
-			c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=database_error")
-			return
+		// Check archers
+		var existingID string
+		err = db.Get(&existingID, "SELECT id FROM archers WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+		if err == nil && existingID != "" {
+			userType = "archer"
+			userID = existingID
+			found = true
 		}
 
-		if userExists {
-			// Update existing user
-			err = db.Get(&userID, "SELECT id FROM users WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
-			if err != nil {
-				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=user_lookup_failed")
-				return
+		// Check organizations
+		if !found {
+			err = db.Get(&existingID, "SELECT id FROM organizations WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+			if err == nil && existingID != "" {
+				userType = "organization"
+				userID = existingID
+				found = true
 			}
+		}
+
+		// Check clubs
+		if !found {
+			err = db.Get(&existingID, "SELECT id FROM clubs WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+			if err == nil && existingID != "" {
+				userType = "club"
+				userID = existingID
+				found = true
+			}
+		}
+
+		if found {
+			// Update existing user
+			table := "archers"
+			nameField := "full_name"
+			if userType != "archer" {
+				table = userType + "s"
+				nameField = "name"
+			}
+			if userType == "organization" {
+				table = "organizations"
+			}
+
+			err = db.Get(&role, "SELECT role FROM "+table+" WHERE id = ?", userID)
 
 			// Update Google-specific fields
 			_, err = db.Exec(`
-				UPDATE users 
-				SET google_id = ?, avatar_url = ?, full_name = ?, updated_at = NOW()
+				UPDATE `+table+` 
+				SET google_id = ?, avatar_url = ?, `+nameField+` = ?, updated_at = NOW()
 				WHERE id = ?
 			`, userInfo.ID, userInfo.Picture, userInfo.Name, userID)
 			if err != nil {
-				// Log but don't fail
-				fmt.Printf("Failed to update user: %v\n", err)
+				fmt.Printf("Failed to update user in %s: %v\n", table, err)
 			}
 		} else {
-			// Create new user
+			// Create new user as archer
 			userID = uuid.New().String()
+			userType = "archer"
+			role = "archer"
 			username := generateUsername(userInfo.Email)
 
 			_, err = db.Exec(`
-				INSERT INTO users (id, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, 'athlete', 'active', NOW(), NOW())
+				INSERT INTO archers (id, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, 'archer', 'active', NOW(), NOW())
 			`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
 
 			if err != nil {
-				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=user_creation_failed")
+				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "user_creation_failed", "details": err.Error()})
+				} else {
+					c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=user_creation_failed")
+				}
 				return
 			}
 
 			// Log activity
-			utils.LogActivity(db, userID, "", "user_registered", "user", userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID, "", "user_registered", "archer", userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		// Generate JWT token
-		token, err := generateGoogleJWT(userID, userInfo.Email, "athlete")
+		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType)
 		if err != nil {
-			c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=token_generation_failed")
+			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "token_generation_failed"})
+			} else {
+				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=token_generation_failed")
+			}
 			return
 		}
 
 		// Log activity
-		utils.LogActivity(db, userID, "", "user_logged_in", "user", userID, "User logged in via Google", c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID, "", "user_logged_in", userType, userID, "User logged in via Google", c.ClientIP(), c.Request.UserAgent())
 
-		// Set cookie and redirect
+		// Set cookie
 		isProduction := os.Getenv("ENV") == "production"
 		domain := ""
 		if isProduction {
@@ -195,8 +263,24 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		c.SetSameSite(http.SameSiteLaxMode)
 		c.SetCookie("auth_token", token, 60*60*24*7, "/", domain, isProduction, true)
 
-		// Redirect to app with token
-		c.Redirect(http.StatusTemporaryRedirect, appURL+"?token="+token)
+		// Return response based on request type
+		if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" || c.Request.Method == "POST" {
+			c.JSON(http.StatusOK, gin.H{
+				"token": token,
+				"user": gin.H{
+					"id":        userID,
+					"email":     userInfo.Email,
+					"name":      userInfo.Name,
+					"avatar":    userInfo.Picture,
+					"role":      role,
+					"user_type": userType,
+				},
+			})
+		} else {
+			// Redirect back to app
+			target := appURL + "?token=" + token
+			c.Redirect(http.StatusTemporaryRedirect, target)
+		}
 	}
 }
 
@@ -284,18 +368,19 @@ func generateUsername(email string) string {
 }
 
 // generateGoogleJWT generates a JWT token for Google OAuth users
-func generateGoogleJWT(userID, email, role string) (string, error) {
+func generateGoogleJWT(userID, email, role, userType string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("archeryhub-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
-		"user_id": userID,
-		"email":   email,
-		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
-		"iat":     time.Now().Unix(),
+		"user_id":   userID,
+		"email":     email,
+		"role":      role,
+		"user_type": userType,
+		"exp":       time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
+		"iat":       time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

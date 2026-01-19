@@ -21,6 +21,7 @@ type RegisterRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 	FullName string `json:"full_name"`
 	Phone    string `json:"phone"`
+	UserType string `json:"user_type" binding:"required"` // archer, organization, club
 }
 
 type LoginRequest struct {
@@ -42,11 +43,32 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if user already exists
+		// Determine target table
+		table := ""
+		role := ""
+		switch req.UserType {
+		case "archer":
+			table = "archers"
+			role = "archer"
+		case "organization":
+			table = "organizations"
+			role = "organization"
+		case "club":
+			table = "clubs"
+			role = "club"
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
+			return
+		}
+
+		// Check if user already exists in any table
 		var exists bool
-		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = ? OR username = ?)", req.Email, req.Username)
+		query := "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ? OR username = ?) " +
+			"OR EXISTS(SELECT 1 FROM organizations WHERE email = ? OR username = ?) " +
+			"OR EXISTS(SELECT 1 FROM clubs WHERE email = ? OR username = ?)"
+		err := db.Get(&exists, query, req.Email, req.Username, req.Email, req.Username, req.Email, req.Username)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
 			return
 		}
 		if exists {
@@ -61,27 +83,33 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Create user
+		// Create entity
 		userID := uuid.New().String()
-		_, err = db.Exec(`
-			INSERT INTO users (id, username, email, password, full_name, phone, role, status)
-			VALUES (?, ?, ?, ?, ?, ?, 'athlete', 'active')
-		`, userID, req.Username, req.Email, string(hashedPassword), req.FullName, req.Phone)
+		nameField := "full_name"
+		if table != "archers" {
+			nameField = "name"
+		}
+
+		insertQuery := `
+			INSERT INTO ` + table + ` (id, username, email, password, ` + nameField + `, phone, role, status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+		`
+		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, string(hashedPassword), req.FullName, req.Phone, role)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
 			return
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(userID, req.Email, "athlete")
+		token, err := generateJWT(userID, req.Email, role, req.UserType)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
-		// Log activity
-		utils.LogActivity(db, userID, "", "user_registered", "user", userID, "User registered: "+req.Username, c.ClientIP(), c.Request.UserAgent())
+		// Log activity (silently fail if log table doesn't exist yet)
+		utils.LogActivity(db, userID, "", "user_registered", req.UserType, userID, "User registered: "+req.Username, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, AuthResponse{
 			Token: token,
@@ -90,7 +118,8 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				"username":  req.Username,
 				"email":     req.Email,
 				"full_name": req.FullName,
-				"role":      "athlete",
+				"role":      role,
+				"type":      req.UserType,
 			},
 		})
 	}
@@ -105,18 +134,46 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var user struct {
+		type UserResult struct {
 			ID       string `db:"id"`
 			Username string `db:"username"`
 			Email    string `db:"email"`
 			Password string `db:"password"`
-			FullName string `db:"full_name"`
+			FullName string `db:"name"`
 			Role     string `db:"role"`
 			Status   string `db:"status"`
+			Type     string
 		}
 
-		err := db.Get(&user, "SELECT id, username, email, password, full_name, role, status FROM users WHERE email = ?", req.Email)
-		if err != nil {
+		var user UserResult
+		found := false
+
+		// Check archers
+		err := db.Get(&user, "SELECT id, username, email, password, full_name as name, role, status FROM archers WHERE email = ?", req.Email)
+		if err == nil {
+			user.Type = "archer"
+			found = true
+		}
+
+		// Check organizations
+		if !found {
+			err = db.Get(&user, "SELECT id, username, email, password, name, role, status FROM organizations WHERE email = ?", req.Email)
+			if err == nil {
+				user.Type = "organization"
+				found = true
+			}
+		}
+
+		// Check clubs
+		if !found {
+			err = db.Get(&user, "SELECT id, username, email, password, name, role, status FROM clubs WHERE email = ?", req.Email)
+			if err == nil {
+				user.Type = "club"
+				found = true
+			}
+		}
+
+		if !found {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 			return
 		}
@@ -127,21 +184,25 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify password (plain text comparison for development)
-		if user.Password != req.Password {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
-			return
+		// Verify password using bcrypt
+		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+		if err != nil {
+			// Fallback check for plain text (for migrated/legacy users during transition)
+			if user.Password != req.Password {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+				return
+			}
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(user.ID, user.Email, user.Role)
+		token, err := generateJWT(user.ID, user.Email, user.Role, user.Type)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
 		// Log activity
-		utils.LogActivity(db, user.ID, "", "user_logged_in", "user", user.ID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, user.ID, "", "user_logged_in", user.Type, user.ID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
@@ -151,6 +212,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 				"email":     user.Email,
 				"full_name": user.FullName,
 				"role":      user.Role,
+				"type":      user.Type,
 			},
 		})
 	}
@@ -159,8 +221,6 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 // Logout handles user logout
 func Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// In a JWT-based system, logout is typically handled on the client-side
-		// by removing the token. This endpoint exists for completeness.
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 	}
 }
@@ -172,6 +232,19 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
+		}
+
+		userType, _ := c.Get("user_type")
+		table := "archers"
+		nameField := "full_name as full_name"
+
+		switch userType {
+		case "organization":
+			table = "organizations"
+			nameField = "name as full_name"
+		case "club":
+			table = "clubs"
+			nameField = "name as full_name"
 		}
 
 		var user struct {
@@ -186,10 +259,8 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt string  `db:"created_at" json:"created_at"`
 		}
 
-		err := db.Get(&user, `
-			SELECT id, username, email, full_name, role, avatar_url, phone, status, created_at
-			FROM users WHERE id = ?
-		`, userID)
+		query := `SELECT id, username, email, ` + nameField + `, role, NULL as avatar_url, phone, status, created_at FROM ` + table + ` WHERE id = ?`
+		err := db.Get(&user, query, userID)
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -201,22 +272,20 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // generateJWT generates a JWT token for the user
-func generateJWT(userID, email, role string) (string, error) {
+func generateJWT(userID, email, role, userType string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
-		// For production, you should return an error here or ensure the environment variable is set.
-		// For development, a fallback is provided.
-		secret = []byte("archeryhub-secret-key-change-in-production") // Fallback for dev only
+		secret = []byte("archeryhub-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
-		"user_id": userID,
-		"email":   email,
-		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(), // 3 days expiration
-		"iat":     time.Now().Unix(),
+		"user_id":   userID,
+		"email":     email,
+		"role":      role,
+		"user_type": userType,
+		"exp":       time.Now().Add(time.Hour * 72).Unix(),
+		"iat":       time.Now().Unix(),
 	}
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
 }

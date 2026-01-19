@@ -25,10 +25,10 @@ func GetDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Total Athletes
-		err = db.Get(&stats.TotalAthletes, "SELECT COUNT(*) FROM athletes")
+		// Total Archers
+		err = db.Get(&stats.TotalAthletes, "SELECT COUNT(*) FROM archers")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total athletes count"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total archers count"})
 			return
 		}
 
