@@ -36,7 +36,7 @@ RUN go mod download
 COPY . .
 
 # Build the application (static binary)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o budibadu-api .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o archeryhub-api .
 
 # Keep the binary in the container for extraction
 # The binary will be extracted by the GitHub Actions workflow
