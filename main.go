@@ -332,7 +332,7 @@ func main() {
 	// Get port from environment
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8000"
+		port = "8001"
 	}
 
 	logger.WithField("port", port).Info("Archery Hub API starting")
