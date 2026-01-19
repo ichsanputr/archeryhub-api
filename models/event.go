@@ -1,8 +1,30 @@
 package models
 
 import (
+	"strings"
 	"time"
 )
+
+// FlexibleTime handles empty strings and RFC3339 dates during JSON unmarshaling
+type FlexibleTime struct {
+	time.Time
+}
+
+func (ft *FlexibleTime) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), "\"")
+	if s == "" || s == "null" {
+		ft.Time = time.Time{}
+		return nil
+	}
+	
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		// Try other common formats if needed, or just return err
+		return err
+	}
+	ft.Time = t
+	return nil
+}
 
 // Event represents an archery Event/competition
 type Event struct {
@@ -15,18 +37,21 @@ type Event struct {
 	Country      *string   `json:"country" db:"country"`
 	Latitude     *float64  `json:"latitude" db:"latitude"`
 	Longitude    *float64  `json:"longitude" db:"longitude"`
-	StartDate    time.Time `json:"start_date" db:"start_date"`
-	EndDate      time.Time `json:"end_date" db:"end_date"`
-	Description  *string   `json:"description" db:"description"`
-	BannerURL    *string   `json:"banner_url" db:"banner_url"`
-	LogoURL      *string   `json:"logo_url" db:"logo_url"`
-	Type         *string   `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D
-	NumDistances int       `json:"num_distances" db:"num_distances"`
-	NumSessions  int       `json:"num_sessions" db:"num_sessions"`
-	Status       string    `json:"status" db:"status"` // draft, published, ongoing, completed, archived
-	OrganizerID  *string   `json:"organizer_id" db:"organizer_id"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	StartDate            *time.Time `json:"start_date" db:"start_date"`
+	EndDate              *time.Time `json:"end_date" db:"end_date"`
+	RegistrationDeadline *time.Time `json:"registration_deadline" db:"registration_deadline"`
+	Description          *string    `json:"description" db:"description"`
+	BannerURL            *string    `json:"banner_url" db:"banner_url"`
+	LogoURL              *string    `json:"logo_url" db:"logo_url"`
+	Type                 *string    `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D
+	NumDistances         *int       `json:"num_distances" db:"num_distances"`
+	NumSessions          *int       `json:"num_sessions" db:"num_sessions"`
+	EntryFee             float64    `json:"entry_fee" db:"entry_fee"`
+	MaxParticipants      *int       `json:"max_participants" db:"max_participants"`
+	Status               string     `json:"status" db:"status"` // draft, published, ongoing, completed, archived
+	OrganizerID          *string    `json:"organizer_id" db:"organizer_id"`
+	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // EventWithDetails includes organizer information
@@ -40,22 +65,28 @@ type EventWithDetails struct {
 
 // CreateEventRequest represents the request payload for creating a Event
 type CreateEventRequest struct {
-	Code         string    `json:"code" binding:"required,min=2,max=20"`
-	Name         string    `json:"name" binding:"required,min=3,max=200"`
-	ShortName    *string   `json:"short_name"`
-	Venue        *string   `json:"venue"`
-	Location     *string   `json:"location"`
-	Country      *string   `json:"country"`
-	Latitude     *float64  `json:"latitude"`
-	Longitude    *float64  `json:"longitude"`
-	StartDate    time.Time `json:"start_date" binding:"required"`
-	EndDate      time.Time `json:"end_date" binding:"required"`
-	Description  *string   `json:"description"`
-	BannerURL    *string   `json:"banner_url"`
-	LogoURL      *string   `json:"logo_url"`
-	Type         *string   `json:"type"`
-	NumDistances int       `json:"num_distances"`
-	NumSessions  int       `json:"num_sessions"`
+	Code                 string       `json:"code" binding:"required,min=2,max=20"`
+	Name                 string       `json:"name"`
+	ShortName            *string      `json:"short_name"`
+	Venue                *string      `json:"venue"`
+	Location             *string      `json:"location"`
+	Country              *string      `json:"country"`
+	Latitude             *float64     `json:"latitude"`
+	Longitude            *float64     `json:"longitude"`
+	StartDate            FlexibleTime `json:"start_date"`
+	EndDate              FlexibleTime `json:"end_date"`
+	Description          *string      `json:"description"`
+	BannerURL            *string      `json:"banner_url"`
+	LogoURL              *string      `json:"logo_url"`
+	Type                 *string      `json:"type"`
+	NumDistances         *int         `json:"num_distances"`
+	NumSessions          *int         `json:"num_sessions"`
+	EntryFee             float64      `json:"entry_fee"`
+	MaxParticipants      *int         `json:"max_participants"`
+	RegistrationDeadline FlexibleTime `json:"registration_deadline"`
+	Status               string       `json:"status"`
+	Divisions            []string     `json:"divisions"`
+	Categories           []string     `json:"categories"`
 }
 
 // UpdateEventRequest represents the request payload for updating a Event
@@ -67,8 +98,8 @@ type UpdateEventRequest struct {
 	Country      *string    `json:"country"`
 	Latitude     *float64   `json:"latitude"`
 	Longitude    *float64   `json:"longitude"`
-	StartDate    *time.Time `json:"start_date"`
-	EndDate      *time.Time `json:"end_date"`
+	StartDate    *FlexibleTime `json:"start_date"`
+	EndDate      *FlexibleTime `json:"end_date"`
 	Description  *string    `json:"description"`
 	BannerURL    *string    `json:"banner_url"`
 	LogoURL      *string    `json:"logo_url"`

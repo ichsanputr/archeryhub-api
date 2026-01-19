@@ -2,8 +2,33 @@ package models
 
 import (
 	"encoding/json"
+	"strconv"
 	"time"
 )
+
+// FlexibleFloat64 handles both string and float64 during JSON unmarshaling
+type FlexibleFloat64 float64
+
+func (ff *FlexibleFloat64) UnmarshalJSON(data []byte) error {
+	if len(data) >= 2 && data[0] == '"' && data[len(data)-1] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		val, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return err
+		}
+		*ff = FlexibleFloat64(val)
+		return nil
+	}
+	var val float64
+	if err := json.Unmarshal(data, &val); err != nil {
+		return err
+	}
+	*ff = FlexibleFloat64(val)
+	return nil
+}
 
 // PaymentTransaction represents a payment transaction with Tripay
 type PaymentTransaction struct {
@@ -11,7 +36,7 @@ type PaymentTransaction struct {
 	Reference        string          `json:"reference" db:"reference"`
 	TripayReference  *string         `json:"tripay_reference" db:"tripay_reference"`
 	UserID           string          `json:"user_id" db:"user_id"`
-	TournamentID     *string         `json:"tournament_id" db:"tournament_id"`
+	EventID          *string         `json:"event_id" db:"event_id"`
 	RegistrationID   *string         `json:"registration_id" db:"registration_id"`
 	Amount           float64         `json:"amount" db:"amount"`
 	FeeAmount        float64         `json:"fee_amount" db:"fee_amount"`
@@ -33,29 +58,39 @@ type PaymentTransaction struct {
 
 // CreatePaymentRequest represents the request to create a payment
 type CreatePaymentRequest struct {
-	Method         string `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS)
-	TournamentID   string `json:"tournament_id" binding:"required"`
-	RegistrationID string `json:"registration_id" binding:"required"`
+	Method         string  `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS)
+	EventID        string  `json:"event_id" binding:"required"`
+	RegistrationID *string `json:"registration_id"`
+	Type           string  `json:"type"` // e.g., "registration" (default) or "platform_fee"
+}
+
+// PaymentChannelFee represents the fee details for a Tripay channel
+type PaymentChannelFee struct {
+	Flat    int             `json:"flat"`
+	Percent FlexibleFloat64 `json:"percent"`
 }
 
 // PaymentChannel represents a Tripay payment channel
 type PaymentChannel struct {
-	Code         string `json:"code"`
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	FeeMerchant  int    `json:"fee_merchant"`
-	FeeCustomer  int    `json:"fee_customer"`
-	TotalFee     int    `json:"total_fee"`
-	MinimumFee   int    `json:"minimum_fee"`
-	MaximumFee   int    `json:"maximum_fee"`
-	IconURL      string `json:"icon_url"`
-	Active       bool   `json:"active"`
+	Group         string            `json:"group"`
+	Code          string            `json:"code"`
+	Name          string            `json:"name"`
+	Type          string            `json:"type"`
+	FeeMerchant   PaymentChannelFee `json:"fee_merchant"`
+	FeeCustomer   PaymentChannelFee `json:"fee_customer"`
+	TotalFee      PaymentChannelFee `json:"total_fee"`
+	MinimumFee    int               `json:"minimum_fee"`
+	MaximumFee    int               `json:"maximum_fee"`
+	MinimumAmount int               `json:"minimum_amount"`
+	MaximumAmount int               `json:"maximum_amount"`
+	IconURL       string            `json:"icon_url"`
+	Active        bool              `json:"active"`
 }
 
-// TournamentRegistration represents a user's registration for a tournament
-type TournamentRegistration struct {
+// EventRegistration represents a user's registration for a event
+type EventRegistration struct {
 	ID                 string     `json:"id" db:"id"`
-	TournamentID       string     `json:"tournament_id" db:"tournament_id"`
+	EventID            string     `json:"event_id" db:"event_id"`
 	UserID             string     `json:"user_id" db:"user_id"`
 	AthleteName        string     `json:"athlete_name" db:"athlete_name"`
 	AthleteEmail       *string    `json:"athlete_email" db:"athlete_email"`
@@ -76,8 +111,8 @@ type TournamentRegistration struct {
 	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-// RegisterTournamentRequest represents the request to register for a tournament
-type RegisterTournamentRequest struct {
+// RegisterEventRequest represents the request to register for a event
+type RegisterEventRequest struct {
 	AthleteName  string  `json:"athlete_name" binding:"required"`
 	AthleteEmail *string `json:"athlete_email"`
 	AthletePhone *string `json:"athlete_phone"`

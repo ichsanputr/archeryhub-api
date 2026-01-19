@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"archeryhub-api/models"
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -9,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"time"
 )
 
 type TripayClient struct {
@@ -18,6 +21,7 @@ type TripayClient struct {
 	PrivateKey   string
 	MerchantCode string
 	BaseURL      string
+	HTTPClient   *http.Client
 }
 
 func NewTripayClient() *TripayClient {
@@ -27,11 +31,25 @@ func NewTripayClient() *TripayClient {
 		baseURL = "https://tripay.co.id/api"
 	}
 
+	// Create a transport that prefers IPv4 as per tripay recommendation (IPRESOLVE_V4)
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
 	return &TripayClient{
 		APIKey:       os.Getenv("TRIPAY_API_KEY"),
 		PrivateKey:   os.Getenv("TRIPAY_PRIVATE_KEY"),
 		MerchantCode: os.Getenv("TRIPAY_MERCHANT_CODE"),
 		BaseURL:      baseURL,
+		HTTPClient:   &http.Client{Transport: transport},
 	}
 }
 
@@ -49,7 +67,7 @@ func (t *TripayClient) VerifyCallbackSignature(body []byte, signature string) bo
 	return expectedSignature == signature
 }
 
-func (t *TripayClient) GetPaymentChannels() ([]interface{}, error) {
+func (t *TripayClient) GetPaymentChannels() ([]models.PaymentChannel, error) {
 	url := fmt.Sprintf("%s/merchant/payment-channel", t.BaseURL)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+t.APIKey)
@@ -62,9 +80,9 @@ func (t *TripayClient) GetPaymentChannels() ([]interface{}, error) {
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool          `json:"success"`
-		Message string        `json:"message"`
-		Data    []interface{} `json:"data"`
+		Success bool                    `json:"success"`
+		Message string                  `json:"message"`
+		Data    []models.PaymentChannel `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -86,8 +104,7 @@ func (t *TripayClient) CreateTransaction(payload interface{}) (map[string]interf
 	req.Header.Set("Authorization", "Bearer "+t.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

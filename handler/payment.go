@@ -14,30 +14,30 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// RegisterTournament handles tournament registration
-func RegisterTournament(db *sqlx.DB) gin.HandlerFunc {
+// RegisterEvent handles event registration
+func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 		userID, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
 
-		var req models.RegisterTournamentRequest
+		var req models.RegisterEventRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Check if tournament exists and get entry fee
-		var tournament struct {
+		// Check if event exists and get entry fee
+		var event struct {
 			ID       string  `db:"id"`
 			EntryFee float64 `db:"entry_fee"` // Assuming there's a default entry fee
 		}
-		err := db.Get(&tournament, "SELECT id FROM tournaments WHERE id = ?", tournamentID)
+		err := db.Get(&event, "SELECT id FROM events WHERE id = ?", eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tournament not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
@@ -49,9 +49,9 @@ func RegisterTournament(db *sqlx.DB) gin.HandlerFunc {
 		registrationID := uuid.New().String()
 		regNumber := fmt.Sprintf("REG-%d-%s", time.Now().Unix(), registrationID[:8])
 
-		registration := models.TournamentRegistration{
+		registration := models.EventRegistration{
 			ID:                 registrationID,
-			TournamentID:       tournamentID,
+			EventID:            eventID,
 			UserID:             userID.(string),
 			AthleteName:        req.AthleteName,
 			AthleteEmail:       req.AthleteEmail,
@@ -69,12 +69,12 @@ func RegisterTournament(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			INSERT INTO tournament_registrations (
-				id, tournament_id, user_id, athlete_name, athlete_email, athlete_phone, 
+			INSERT INTO event_registrations (
+				id, event_id, user_id, athlete_name, athlete_email, athlete_phone, 
 				club_name, division, category, bow_type, entry_fee, admin_fee, 
 				total_fee, payment_status, registration_number, status
 			) VALUES (
-				:id, :tournament_id, :user_id, :athlete_name, :athlete_email, :athlete_phone, 
+				:id, :event_id, :user_id, :athlete_name, :athlete_email, :athlete_phone, 
 				:club_name, :division, :category, :bow_type, :entry_fee, :admin_fee, 
 				:total_fee, :payment_status, :registration_number, :status
 			)
@@ -104,45 +104,114 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get registration details
-		var reg models.TournamentRegistration
-		err := db.Get(&reg, "SELECT * FROM tournament_registrations WHERE id = ? AND user_id = ?", req.RegistrationID, userID.(string))
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
-			return
-		}
+		var amount int
+		var customerName, customerEmail, customerPhone string
+		var registrationID *string
+		var orderItems []gin.H
 
-		if reg.PaymentStatus == "paid" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Already paid"})
-			return
-		}
+		if req.Type == "platform_fee" {
+			// Get event details
+			var event models.Event
+			err := db.Get(&event, "SELECT * FROM events WHERE id = ? AND organizer_id = ?", req.EventID, userID.(string))
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found or unauthorized"})
+				return
+			}
 
-		tripay := utils.NewTripayClient()
-		merchantRef := fmt.Sprintf("PAY-%s", uuid.New().String()[:12])
-		amount := int(reg.TotalFee)
+			// Check if already published/paid (optional)
+			// amount = 50000 // Standard platform fee
+			amount = 50000 // For now hardcoded as per frontend
 
-		signature := tripay.GenerateSignature(merchantRef, amount)
+			// Get user details for customer info
+			emailCtx, _ := c.Get("email")
+			customerEmail = emailCtx.(string)
+			customerName = "Organizer" // Default
+			customerPhone = "08123456789" // Fallback default phone for Tripay
 
-		payload := gin.H{
-			"method":         req.Method,
-			"merchant_ref":   merchantRef,
-			"amount":         amount,
-			"customer_name":  reg.AthleteName,
-			"customer_email": utils.StringValue(reg.AthleteEmail, "user@archeryhub.id"),
-			"customer_phone": utils.StringValue(reg.AthletePhone, ""),
-			"order_items": []gin.H{
+			userType, _ := c.Get("user_type")
+			if userType == "organization" {
+				db.Get(&customerName, "SELECT name FROM organizations WHERE id = ?", userID.(string))
+				db.Get(&customerPhone, "SELECT phone FROM organizations WHERE id = ?", userID.(string))
+			} else if userType == "club" {
+				db.Get(&customerName, "SELECT name FROM clubs WHERE id = ?", userID.(string))
+				db.Get(&customerPhone, "SELECT phone FROM clubs WHERE id = ?", userID.(string))
+			}
+
+			if customerPhone == "" {
+				customerPhone = "08123456789"
+			}
+
+			eventName := event.Name
+			if eventName == "" {
+				eventName = "Untitled Event"
+			}
+
+			orderItems = []gin.H{
 				{
+					"sku":      "PLATFORM-FEE",
+					"name":     fmt.Sprintf("Platform Fee - %s", eventName),
+					"price":    amount,
+					"quantity": 1,
+				},
+			}
+		} else {
+			// Default to registration
+			if req.RegistrationID == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID is required for registration type"})
+				return
+			}
+
+			var reg models.EventRegistration
+			err := db.Get(&reg, "SELECT * FROM event_registrations WHERE id = ? AND user_id = ?", *req.RegistrationID, userID.(string))
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
+				return
+			}
+
+			if reg.PaymentStatus == "paid" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Already paid"})
+				return
+			}
+
+			amount = int(reg.TotalFee)
+			customerName = reg.AthleteName
+			customerEmail = utils.StringValue(reg.AthleteEmail, "user@archeryhub.id")
+			customerPhone = utils.StringValue(reg.AthletePhone, "")
+			registrationID = req.RegistrationID
+
+			orderItems = []gin.H{
+				{
+					"sku":      "TOURNAMENT-ENTRY",
 					"name":     fmt.Sprintf("Tournament Entry Fee - %s", reg.Division),
 					"price":    int(reg.EntryFee),
 					"quantity": 1,
 				},
 				{
+					"sku":      "ADMIN-FEE",
 					"name":     "Platform Admin Fee",
 					"price":    int(reg.AdminFee),
 					"quantity": 1,
 				},
-			},
-			"signature": signature,
+			}
+		}
+
+		tripay := utils.NewTripayClient()
+		merchantRef := fmt.Sprintf("PAY-%s", uuid.New().String()[:12])
+
+		signature := tripay.GenerateSignature(merchantRef, amount)
+
+		expiredTime := time.Now().Add(24 * time.Hour).Unix()
+
+		payload := gin.H{
+			"method":         req.Method,
+			"merchant_ref":   merchantRef,
+			"amount":         amount,
+			"customer_name":  customerName,
+			"customer_email": customerEmail,
+			"customer_phone": customerPhone,
+			"order_items":    orderItems,
+			"signature":      signature,
+			"expired_time":   expiredTime,
 		}
 
 		tripayResult, err := tripay.CreateTransaction(payload)
@@ -164,11 +233,11 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			Reference:       merchantRef,
 			TripayReference: &tripayRef,
 			UserID:          userID.(string),
-			TournamentID:    &reg.TournamentID,
-			RegistrationID:  &reg.ID,
-			Amount:          reg.EntryFee,
-			FeeAmount:       reg.AdminFee,
-			TotalAmount:     reg.TotalFee,
+			EventID:         &req.EventID,
+			RegistrationID:  registrationID,
+			Amount:          float64(amount),
+			FeeAmount:       0, // We'll calculate this better later if needed
+			TotalAmount:     float64(amount),
 			PaymentMethod:   utils.StringPtr(req.Method),
 			VANumber:        utils.InterfaceToStringPtr(tripayResult["pay_code"]),
 			QRURL:           utils.InterfaceToStringPtr(tripayResult["qr_url"]),
@@ -180,11 +249,11 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO payment_transactions (
-				id, reference, tripay_reference, user_id, tournament_id, registration_id,
+				id, reference, tripay_reference, user_id, event_id, registration_id,
 				amount, fee_amount, total_amount, payment_method, va_number, qr_url,
 				checkout_url, pay_code, status, expired_at
 			) VALUES (
-				:id, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id,
+				:id, :reference, :tripay_reference, :user_id, :event_id, :registration_id,
 				:amount, :fee_amount, :total_amount, :payment_method, :va_number, :qr_url,
 				:checkout_url, :pay_code, :status, :expired_at
 			)
@@ -195,14 +264,16 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update registration with payment ID and status
-		_, err = db.Exec("UPDATE tournament_registrations SET payment_id = ?, payment_status = ? WHERE id = ?", transactionID, "pending", reg.ID)
-		if err != nil {
-			// Log error but don't fail because transaction is created
-			fmt.Printf("Error updating registration: %v\n", err)
+		// Update registration if applicable
+		if registrationID != nil {
+			_, err = db.Exec("UPDATE event_registrations SET payment_id = ?, payment_status = ? WHERE id = ?", transactionID, "pending", *registrationID)
+			if err != nil {
+				// Log error but don't fail response
+				fmt.Printf("Warning: Failed to update registration: %v\n", err)
+			}
 		}
 
-		c.JSON(http.StatusOK, transaction)
+		c.JSON(http.StatusOK, tripayResult)
 	}
 }
 
@@ -237,8 +308,9 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Update transaction status
 		var transactionID string
-		var registrationID string
-		err = db.QueryRow("SELECT id, registration_id FROM payment_transactions WHERE reference = ?", payload.MerchantRef).Scan(&transactionID, &registrationID)
+		var eventID *string
+		var registrationID *string
+		err = db.QueryRow("SELECT id, event_id, registration_id FROM payment_transactions WHERE reference = ?", payload.MerchantRef).Scan(&transactionID, &eventID, &registrationID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
 			return
@@ -270,11 +342,24 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = tx.Exec("UPDATE tournament_registrations SET payment_status = ? WHERE id = ?", regPaymentStatus, registrationID)
-		if err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update registration"})
-			return
+		// Update registration if applicable
+		if registrationID != nil {
+			_, err = tx.Exec("UPDATE event_registrations SET payment_status = ? WHERE id = ?", regPaymentStatus, *registrationID)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update registration"})
+				return
+			}
+		}
+
+		// Update event status if platform fee is paid
+		if status == "paid" && registrationID == nil && eventID != nil {
+			_, err = tx.Exec("UPDATE events SET status = 'published' WHERE id = ?", *eventID)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event status"})
+				return
+			}
 		}
 
 		if err := tx.Commit(); err != nil {

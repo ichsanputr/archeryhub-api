@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -126,22 +127,35 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		EventID := uuid.New().String()
 		now := time.Now()
 
+		// Handle dates: if zero time, use nil (NULL in DB)
+		var startDate, endDate, regDeadline interface{}
+		if !req.StartDate.IsZero() {
+			startDate = req.StartDate.Time
+		}
+		if !req.EndDate.IsZero() {
+			endDate = req.EndDate.Time
+		}
+		if !req.RegistrationDeadline.IsZero() {
+			regDeadline = req.RegistrationDeadline.Time
+		}
+
 		query := `
 			INSERT INTO events (
 				id, code, name, short_name, venue, location, country, 
-				latitude, longitude, start_date, end_date, description, 
-				banner_url, logo_url, type, num_distances, num_sessions, 
-				status, organizer_id, created_at, updated_at
+				latitude, longitude, start_date, end_date, registration_deadline,
+				description, banner_url, logo_url, type, num_distances, num_sessions, 
+				entry_fee, max_participants, status, organizer_id, created_at, updated_at
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?
 			)
 		`
 
 		_, err := db.Exec(query,
 			EventID, req.Code, req.Name, req.ShortName, req.Venue,
 			req.Location, req.Country, req.Latitude, req.Longitude,
-			req.StartDate, req.EndDate, req.Description, req.BannerURL,
-			req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
+			startDate, endDate, regDeadline,
+			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
+			req.EntryFee, req.MaxParticipants,
 			userID, now, now,
 		)
 
@@ -150,13 +164,31 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Save divisions and categories if provided
+		if len(req.Divisions) > 0 && len(req.Categories) > 0 {
+			for _, divID := range req.Divisions {
+				for _, catID := range req.Categories {
+					catEventID := uuid.New().String()
+					_, err = db.Exec(`
+						INSERT INTO event_categories (
+							id, event_id, division_id, category_id, 
+							max_participants, qualification_arrows, elimination_format, team_event
+						) VALUES (?, ?, ?, ?, ?, ?, 'single', false)
+					`, catEventID, EventID, divID, catID, req.MaxParticipants, 72)
+					if err != nil {
+						fmt.Printf("Error: Failed to save event category: %v\n", err)
+					}
+				}
+			}
+		}
+
 		// Log activity
 		userID, _ = c.Get("user_id")
 		utils.LogActivity(db, userID.(string), EventID, "Event_created", "Event", EventID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":       "Event created successfully",
-			"event_id": EventID,
+			"message": "Event created successfully",
+			"id":      EventID,
 		})
 	}
 }
@@ -206,11 +238,19 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.StartDate != nil {
 			query += ", start_date = ?"
-			args = append(args, *req.StartDate)
+			if (*req.StartDate).IsZero() {
+				args = append(args, nil)
+			} else {
+				args = append(args, (*req.StartDate).Time)
+			}
 		}
 		if req.EndDate != nil {
 			query += ", end_date = ?"
-			args = append(args, *req.EndDate)
+			if (*req.EndDate).IsZero() {
+				args = append(args, nil)
+			} else {
+				args = append(args, (*req.EndDate).Time)
+			}
 		}
 		if req.Description != nil {
 			query += ", description = ?"
