@@ -67,7 +67,7 @@ func UploadMedia() gin.HandlerFunc {
 			return
 		}
 
-		// Generate unique filename
+		// Generate filename from caption or UUID
 		ext := filepath.Ext(header.Filename)
 		if ext == "" {
 			// Try to get extension from content type
@@ -85,8 +85,28 @@ func UploadMedia() gin.HandlerFunc {
 			}
 		}
 		
+		// Get caption from form
+		caption := c.PostForm("caption")
 		fileID := uuid.New().String()
-		filename := fileID + ext
+		var filename string
+		
+		if caption != "" {
+			// Slugify caption: lowercase, replace spaces with hyphens, remove special chars
+			slug := strings.ToLower(caption)
+			slug = strings.ReplaceAll(slug, " ", "-")
+			// Remove non-alphanumeric except hyphens
+			var cleanSlug strings.Builder
+			for _, r := range slug {
+				if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+					cleanSlug.WriteRune(r)
+				}
+			}
+			// Add short unique suffix to prevent collisions
+			shortID := fileID[:8]
+			filename = cleanSlug.String() + "-" + shortID + ext
+		} else {
+			filename = fileID + ext
+		}
 
 		// Ensure media directory exists
 		mediaDir := "./media"
