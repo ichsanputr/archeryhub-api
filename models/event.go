@@ -33,6 +33,7 @@ type Event struct {
 	Name         string    `json:"name" db:"name"`
 	ShortName    *string   `json:"short_name" db:"short_name"`
 	Venue        *string   `json:"venue" db:"venue"`
+	GmapLink     *string   `json:"gmaps_link" db:"gmaps_link"`
 	Location     *string   `json:"location" db:"location"`
 	Country      *string   `json:"country" db:"country"`
 	Latitude     *float64  `json:"latitude" db:"latitude"`
@@ -69,6 +70,7 @@ type CreateEventRequest struct {
 	Name                 string       `json:"name"`
 	ShortName            *string      `json:"short_name"`
 	Venue                *string      `json:"venue"`
+	GmapLink             *string      `json:"gmaps_link"`
 	Location             *string      `json:"location"`
 	Country              *string      `json:"country"`
 	Latitude             *float64     `json:"latitude"`
@@ -87,6 +89,7 @@ type CreateEventRequest struct {
 	Status               string       `json:"status"`
 	Divisions            []string     `json:"divisions"`
 	Categories           []string     `json:"categories"`
+	Images               []CreateEventImageRequest `json:"images"`
 }
 
 // UpdateEventRequest represents the request payload for updating a Event
@@ -94,6 +97,7 @@ type UpdateEventRequest struct {
 	Name         *string    `json:"name"`
 	ShortName    *string    `json:"short_name"`
 	Venue        *string    `json:"venue"`
+	GmapLink     *string    `json:"gmaps_link"`
 	Location     *string    `json:"location"`
 	Country      *string    `json:"country"`
 	Latitude     *float64   `json:"latitude"`

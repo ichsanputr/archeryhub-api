@@ -122,6 +122,9 @@ func main() {
 		})
 	})
 
+	// Serve static media files
+	r.Static("/media", "./media")
+
 	// API routes
 	api := r.Group("/api/v1")
 	{
@@ -314,6 +317,14 @@ func main() {
 
 		// Dashboard Stats
 		api.GET("/stats/dashboard", handler.GetDashboardStats(db))
+
+		// Media Upload & Management
+		media := api.Group("/media")
+		{
+			media.GET("", handler.ListMedia())
+			media.POST("/upload", handler.UploadMedia())
+			media.DELETE("/:filename", middleware.AuthMiddleware(), handler.DeleteMedia())
+		}
 	}
 
 	// WebSocket endpoint for real-time updates

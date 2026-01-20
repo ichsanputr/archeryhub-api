@@ -141,7 +141,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO events (
-				id, code, name, short_name, venue, location, country, 
+				id, code, name, short_name, venue, gmaps_link, location, country, 
 				latitude, longitude, start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at
@@ -151,7 +151,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		`
 
 		_, err := db.Exec(query,
-			EventID, req.Code, req.Name, req.ShortName, req.Venue,
+			EventID, req.Code, req.Name, req.ShortName, req.Venue, req.GmapLink,
 			req.Location, req.Country, req.Latitude, req.Longitude,
 			startDate, endDate, regDeadline,
 			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
@@ -178,6 +178,21 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 					if err != nil {
 						fmt.Printf("Error: Failed to save event category: %v\n", err)
 					}
+				}
+			}
+		}
+
+		// Save event images if provided
+		if len(req.Images) > 0 {
+			for i, img := range req.Images {
+				imageID := uuid.New().String()
+				isPrimary := img.IsPrimary || i == 0 // First image is primary by default
+				_, err = db.Exec(`
+					INSERT INTO event_images (id, event_id, url, caption, alt_text, display_order, is_primary)
+					VALUES (?, ?, ?, ?, ?, ?, ?)
+				`, imageID, EventID, img.URL, img.Caption, img.AltText, i, isPrimary)
+				if err != nil {
+					fmt.Printf("Error: Failed to save event image: %v\n", err)
 				}
 			}
 		}
@@ -227,6 +242,10 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if req.Venue != nil {
 			query += ", venue = ?"
 			args = append(args, *req.Venue)
+		}
+		if req.GmapLink != nil {
+			query += ", gmaps_link = ?"
+			args = append(args, *req.GmapLink)
 		}
 		if req.Location != nil {
 			query += ", location = ?"
