@@ -10,11 +10,11 @@ import (
 
 // PrintRequest represents a request for generating printable output
 type PrintRequest struct {
-	Type         string `json:"type" binding:"required"` // scorecard, rankings, bracket, startlist, backnumbers
-	TournamentID string `json:"tournament_id"`
-	EventID      string `json:"event_id"`
-	SessionID    string `json:"session_id"`
-	Format       string `json:"format"` // pdf, html, csv
+	Type      string `json:"type" binding:"required"` // scorecard, rankings, bracket, startlist, backnumbers
+	EventID   string `json:"event_id"`
+	CategoryID string `json:"category_id"`
+	SessionID string `json:"session_id"`
+	Format    string `json:"format"` // pdf, html, csv
 }
 
 // PrintResponse contains the generated content or URL
@@ -72,27 +72,34 @@ func generateStartList(db *sqlx.DB, req PrintRequest) interface{} {
 	query := `
 		SELECT 
 			COALESCE(tp.back_number, '') as back_number,
-			COALESCE(tp.target, '') as target,
+			COALESCE(tp.target_number, '') as target,
 			a.full_name as athlete_name,
 			a.club_id as club,
 			d.name as division, c.name as category
-		FROM tournament_participants tp
-		JOIN archers a ON tp.athlete_id = a.id
-		JOIN tournament_events te ON tp.event_id = te.id
-		JOIN divisions d ON te.division_id = d.id
-		JOIN categories c ON te.category_id = c.id
-		WHERE tp.tournament_id = ?
+		FROM event_participants tp
+		JOIN archers a ON tp.athlete_id = a.uuid
+		JOIN event_categories ec ON tp.event_category_id = ec.uuid
+		JOIN ref_disciplines d ON ec.discipline_id = d.uuid
+		JOIN ref_gender_divisions c ON ec.gender_division_id = c.uuid
+		WHERE tp.event_id = ?
 	`
-	args := []interface{}{req.TournamentID}
+	// Note: ref_disciplines and ref_gender_divisions are the actual table names in my context usually,
+	// but I should check divisions and categories names in this DB.
+	// Step 1746 showed: ref_disciplines, ref_gender_divisions, etc.
+	
+	args := []interface{}{req.EventID}
 
 	if req.SessionID != "" {
 		query += " AND tp.session = ?"
 		args = append(args, req.SessionID)
 	}
 
-	query += " ORDER BY tp.session, tp.target, tp.back_number"
+	query += " ORDER BY tp.session, tp.target_number, tp.back_number"
 
-	db.Select(&entries, query, args...)
+	err := db.Select(&entries, query, args...)
+	if err != nil {
+		return []StartListEntry{}
+	}
 	return entries
 }
 
@@ -107,21 +114,25 @@ func generateBackNumbers(db *sqlx.DB, req PrintRequest) interface{} {
 	}
 
 	var cards []BackNumberCard
-	db.Select(&cards, `
+	err := db.Select(&cards, `
 		SELECT 
 			COALESCE(tp.back_number, '') as back_number,
 			a.full_name as athlete_name,
 			a.country,
 			d.name as division,
-			COALESCE(tp.target, '') as target,
+			COALESCE(tp.target_number, '') as target,
 			COALESCE(tp.session, 1) as session
-		FROM tournament_participants tp
-		JOIN archers a ON tp.athlete_id = a.id
-		JOIN event_categories te ON tp.event_id = te.id
-		JOIN divisions d ON te.division_id = d.id
-		WHERE tp.tournament_id = ?
+		FROM event_participants tp
+		JOIN archers a ON tp.athlete_id = a.uuid
+		JOIN event_categories ec ON tp.event_category_id = ec.uuid
+		JOIN ref_disciplines d ON ec.discipline_id = d.uuid
+		WHERE tp.event_id = ?
 		ORDER BY tp.back_number
-	`, req.TournamentID)
+	`, req.EventID)
+	
+	if err != nil {
+		return []BackNumberCard{}
+	}
 
 	return cards
 }
@@ -131,14 +142,14 @@ func generateBackNumbers(db *sqlx.DB, req PrintRequest) interface{} {
 func ExportCSV(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		exportType := c.Param("type")
-		tournamentID := c.Query("tournament_id")
+		eventID := c.Query("event_id")
 
 		var data interface{}
 		var filename string
 
 		switch exportType {
 		case "startlist":
-			data = generateStartList(db, PrintRequest{TournamentID: tournamentID})
+			data = generateStartList(db, PrintRequest{EventID: eventID})
 			filename = "startlist.csv"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Unknown export type"})

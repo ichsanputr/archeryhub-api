@@ -4,11 +4,11 @@ import (
 	"time"
 )
 
-// Athlete represents an archer/athlete
-type Athlete struct {
+// Archer represents an archer
+type Archer struct {
 	UUID             string     `json:"id" db:"uuid"`
 	UserID           *string    `json:"user_id" db:"user_id"`
-	AthleteCode      *string    `json:"athlete_code" db:"athlete_code"`
+	ArcherCode       *string    `json:"archer_code" db:"athlete_code"`
 	FullName         string     `json:"full_name" db:"full_name"`
 	DateOfBirth      *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender           *string    `json:"gender" db:"gender"` // M, F, X
@@ -25,18 +25,18 @@ type Athlete struct {
 	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-// AthleteWithStats includes statistics
-type AthleteWithStats struct {
-	Athlete
+// ArcherWithStats includes statistics
+type ArcherWithStats struct {
+	Archer
 	TotalEvents     int        `json:"total_events" db:"total_events"`
 	CompletedEvents int        `json:"completed_events" db:"completed_events"`
 	LastEventDate   *time.Time `json:"last_event_date" db:"last_event_date"`
 }
 
-// CreateAthleteRequest represents the request payload for creating an athlete
-type CreateAthleteRequest struct {
+// CreateArcherRequest represents the request payload for creating an archer
+type CreateArcherRequest struct {
 	FullName         string     `json:"full_name" binding:"required,min=2,max=100"`
-	AthleteCode      *string    `json:"athlete_code"`
+	ArcherCode       *string    `json:"archer_code"`
 	DateOfBirth      *time.Time `json:"date_of_birth"`
 	Gender           *string    `json:"gender" binding:"omitempty,oneof=M F X"`
 	Country          *string    `json:"country"`
@@ -49,10 +49,10 @@ type CreateAthleteRequest struct {
 	EmergencyPhone   *string    `json:"emergency_phone"`
 }
 
-// UpdateAthleteRequest represents the request payload for updating an athlete
-type UpdateAthleteRequest struct {
+// UpdateArcherRequest represents the request payload for updating an archer
+type UpdateArcherRequest struct {
 	FullName         *string    `json:"full_name"`
-	AthleteCode      *string    `json:"athlete_code"`
+	ArcherCode       *string    `json:"archer_code"`
 	DateOfBirth      *time.Time `json:"date_of_birth"`
 	Gender           *string    `json:"gender" binding:"omitempty,oneof=M F X"`
 	Country          *string    `json:"country"`
@@ -66,12 +66,12 @@ type UpdateAthleteRequest struct {
 	Status           *string    `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 
-// TournamentParticipant represents an athlete registered for a tournament event
-type TournamentParticipant struct {
+// EventParticipant represents an archer registered for an event
+type EventParticipant struct {
 	UUID                string    `json:"id" db:"uuid"`
-	TournamentID        string    `json:"tournament_id" db:"tournament_id"`
-	AthleteID           string    `json:"athlete_id" db:"athlete_id"`
 	EventID             string    `json:"event_id" db:"event_id"`
+	ArcherID            string    `json:"archer_id" db:"archer_id"`
+	CategoryID          string    `json:"category_id" db:"category_id"`
 	BackNumber          *string   `json:"back_number" db:"back_number"`
 	TargetNumber        *string   `json:"target_number" db:"target_number"`
 	Session             *int      `json:"session" db:"session"`
@@ -82,9 +82,9 @@ type TournamentParticipant struct {
 	Notes               *string   `json:"notes" db:"notes"`
 }
 
-// ParticipantWithDetails includes athlete and event information
+// ParticipantWithDetails includes archer and event information
 type ParticipantWithDetails struct {
-	TournamentParticipant
+	EventParticipant
 	FullName     string  `json:"full_name" db:"full_name"`
 	Country      *string `json:"country" db:"country"`
 	Club         *string `json:"club" db:"club"`
@@ -97,10 +97,10 @@ type ParticipantWithDetails struct {
 	QualRank     *int    `json:"qual_rank" db:"qual_rank"`
 }
 
-// RegisterParticipantRequest represents the request to register an athlete to a tournament
+// RegisterParticipantRequest represents the request to register an archer to an event
 type RegisterParticipantRequest struct {
-	AthleteID     string   `json:"athlete_id" binding:"required"`
-	EventID       string   `json:"event_id" binding:"required"`
+	ArcherID      string   `json:"archer_id" binding:"required"`
+	CategoryID    string   `json:"category_id" binding:"required"`
 	BackNumber    *string  `json:"back_number"`
 	TargetNumber  *string  `json:"target_number"`
 	Session       *int     `json:"session"`
@@ -109,8 +109,8 @@ type RegisterParticipantRequest struct {
 	Notes         *string  `json:"notes"`
 }
 
-// BulkImportAthlete represents an athlete record for bulk import
-type BulkImportAthlete struct {
+// BulkImportArcher represents an archer record for bulk import
+type BulkImportArcher struct {
 	FullName    string `json:"full_name"`
 	DateOfBirth string `json:"date_of_birth"`
 	Gender      string `json:"gender"`

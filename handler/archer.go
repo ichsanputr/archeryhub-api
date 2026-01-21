@@ -11,8 +11,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// GetAthletes returns a list of athletes with optional filtering
-func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
+// GetArchers returns a list of archers with optional filtering
+func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		status := c.Query("status")
 		search := c.Query("search") // search by name, code, or club
@@ -23,11 +23,11 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				a.*,
-				COUNT(DISTINCT tp.id) as total_events,
-				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.id END) as completed_events,
+				COUNT(DISTINCT tp.uuid) as total_events,
+				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
-			LEFT JOIN tournament_participants tp ON a.uuid = tp.athlete_id
+			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE 1=1
 		`
@@ -50,17 +50,17 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query += `
-			GROUP BY a.id
+			GROUP BY a.uuid
 			ORDER BY a.full_name
 			LIMIT ? OFFSET ?
 		`
 		args = append(args, limit, offset)
 
-		var athletes []models.AthleteWithStats
-		err := db.Select(&athletes, query, args...)
+		var archers []models.ArcherWithStats
+		err := db.Select(&archers, query, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch athletes", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archers", "details": err.Error()})
 			return
 		}
 
@@ -77,60 +77,60 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 		db.Get(&total, countQuery, countArgs...)
 
 		c.JSON(http.StatusOK, gin.H{
-			"athletes": athletes,
-			"count":    len(athletes),
-			"total":    total,
+			"archers": archers,
+			"count":   len(archers),
+			"total":   total,
 		})
 	}
 }
 
-// GetAthleteByID returns a single athlete by ID
-func GetAthleteByID(db *sqlx.DB) gin.HandlerFunc {
+// GetArcherByID returns a single archer by ID
+func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
 		query := `
 			SELECT 
 				a.*,
-				COUNT(DISTINCT tp.id) as total_events,
-				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.id END) as completed_events,
+				COUNT(DISTINCT tp.uuid) as total_events,
+				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
-			LEFT JOIN tournament_participants tp ON a.uuid = tp.athlete_id
+			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE a.uuid = ?
 			GROUP BY a.uuid
 		`
 
-		var athlete models.AthleteWithStats
-		err := db.Get(&athlete, query, id)
+		var archer models.ArcherWithStats
+		err := db.Get(&archer, query, id)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Athlete not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
 		}
 
-		c.JSON(http.StatusOK, athlete)
+		c.JSON(http.StatusOK, archer)
 	}
 }
 
-// CreateAthlete creates a new athlete
-func CreateAthlete(db *sqlx.DB) gin.HandlerFunc {
+// CreateArcher creates a new archer
+func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req models.CreateAthleteRequest
+		var req models.CreateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
 			return
 		}
 
-		athleteID := uuid.New().String()
+		archerID := uuid.New().String()
 		now := time.Now()
 
-		// Generate athlete code if not provided
-		athleteCode := req.AthleteCode
-		if athleteCode == nil {
-			code := generateAthleteCode(db)
-			athleteCode = &code
+		// Generate archer code if not provided
+		archerCode := req.ArcherCode
+		if archerCode == nil {
+			code := generateArcherCode(db)
+			archerCode = &code
 		}
 
 		query := `
@@ -142,46 +142,46 @@ func CreateAthlete(db *sqlx.DB) gin.HandlerFunc {
 		`
 
 		_, err := db.Exec(query,
-			athleteID, athleteCode, req.FullName, req.DateOfBirth,
+			archerID, archerCode, req.FullName, req.DateOfBirth,
 			req.Gender, req.Country, req.Email, req.Phone,
 			req.Address, req.EmergencyContact, req.EmergencyPhone, now, now,
 		)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create athlete", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create archer", "details": err.Error()})
 			return
 		}
 
 		// Log activity
 		userID, _ := c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "athlete_created", "athlete", athleteID, "Created new athlete: "+req.FullName, c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID.(string), "", "archer_created", "archer", archerID, "Created new archer: "+req.FullName, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":      "Athlete created successfully",
-			"athlete_id":   athleteID,
-			"athlete_code": athleteCode,
+			"message":     "Archer created successfully",
+			"archer_id":   archerID,
+			"archer_code": archerCode,
 		})
 	}
 }
 
-// UpdateAthlete updates an existing athlete
-func UpdateAthlete(db *sqlx.DB) gin.HandlerFunc {
+// UpdateArcher updates an existing archer
+func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		var req models.UpdateAthleteRequest
+		var req models.UpdateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
 			return
 		}
 
-		// Check if athlete exists
+		// Check if archer exists
 		var exists bool
 		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE uuid = ?)", id)
 		if err != nil || !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Athlete not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
 		}
 
@@ -231,72 +231,70 @@ func UpdateAthlete(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update athlete", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update archer", "details": err.Error()})
 			return
 		}
 
 		// Log activity
 		userID, _ := c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "athlete_updated", "athlete", id, "Updated athlete", c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID.(string), "", "archer_updated", "archer", id, "Updated archer", c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Athlete updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Archer updated successfully"})
 	}
 }
 
-// DeleteAthlete deletes an athlete
-func DeleteAthlete(db *sqlx.DB) gin.HandlerFunc {
+// DeleteArcher deletes an archer
+func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		// Check if athlete has any tournament participations
+		// Check if archer has any event participations
 		var participationCount int
-		db.Get(&participationCount, "SELECT COUNT(*) FROM tournament_participants WHERE athlete_id = ?", id)
+		db.Get(&participationCount, "SELECT COUNT(*) FROM event_participants WHERE archer_id = ?", id)
 
 		if participationCount > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete athlete with tournament participations"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete archer with event participations"})
 			return
 		}
 
 		result, err := db.Exec("DELETE FROM archers WHERE uuid = ?", id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete athlete", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete archer", "details": err.Error()})
 			return
 		}
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Athlete not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
 		}
 
 		// Log activity
 		userID, _ := c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "athlete_deleted", "athlete", id, "Deleted athlete", c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID.(string), "", "archer_deleted", "archer", id, "Deleted archer", c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Athlete deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Archer deleted successfully"})
 	}
 }
 
-// RegisterParticipant and GetTournamentParticipants are now in division_category.go to avoid duplication
-
-// Helper function to generate unique athlete code
-func generateAthleteCode(db *sqlx.DB) string {
-	// Format: ATH-YYYY-NNN (e.g., ATH-2024-001)
+// Helper function to generate unique archer code
+func generateArcherCode(db *sqlx.DB) string {
+	// Format: ARC-YYYY-NNN (e.g., ARC-2024-001)
 	year := time.Now().Year()
 
 	var maxCode string
 	query := "SELECT athlete_code FROM archers WHERE athlete_code LIKE ? ORDER BY athlete_code DESC LIMIT 1"
-	err := db.Get(&maxCode, query, "ATH-"+string(year)+"-%")
+	err := db.Get(&maxCode, query, "ARC-"+string(rune(year))+"%")
 
 	if err != nil || maxCode == "" {
-		return "ATH-" + string(year) + "-001"
+		return "ARC-" + string(rune(year)) + "-001"
 	}
 
 	// Extract number and increment
 	// This is a simplified version; in production, use proper parsing
-	return "ATH-" + string(year) + "-" + string(time.Now().Unix()%1000)
+	return "ARC-" + string(rune(year)) + "-" + string(rune(time.Now().Unix()%1000))
 }

@@ -384,9 +384,9 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		type Participant struct {
 			ID                  string  `db:"id" json:"id"`
-			AthleteID           string  `db:"athlete_id" json:"athlete_id"`
+			ArcherID            string  `db:"archer_id" json:"archer_id"`
 			FullName            string  `db:"full_name" json:"full_name"`
-			AthleteCode         string  `db:"athlete_code" json:"athlete_code"`
+			ArcherCode          string  `db:"athlete_code" json:"archer_code"`
 			Country             *string `db:"country" json:"country"`
 			ClubID              *string `db:"club_id" json:"club_id"`
 			EventID             string  `db:"event_id" json:"event_id"`
@@ -403,13 +403,13 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		err := db.Select(&participants, `
 			SELECT 
-				tp.uuid as id, tp.athlete_id, tp.event_id, tp.back_number, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.back_number, tp.target_number, tp.session,
 				tp.payment_status, tp.accreditation_status, tp.registration_date,
 				a.full_name, a.athlete_code, a.country, a.club_id,
 				d.name as division_name, c.name as category_name
 			FROM event_participants tp
-			JOIN archers a ON tp.athlete_id = a.uuid
-			JOIN event_categories te ON tp.event_category_id = te.uuid
+			JOIN archers a ON tp.archer_id = a.uuid
+			JOIN event_categories te ON tp.category_id = te.uuid
 			JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			WHERE tp.event_id = ?

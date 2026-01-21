@@ -13,37 +13,37 @@ import (
 
 // Client represents a connected spectator
 type Client struct {
-	Hub  *TournamentHub
+	Hub  *EventHub
 	Conn *websocket.Conn
 	Send chan []byte
 }
 
-// TournamentHub manages connected clients for a specific tournament
-type TournamentHub struct {
-	TournamentID string
-	Clients      map[*Client]bool
-	Broadcast    chan []byte
-	Register     chan *Client
-	Unregister   chan *Client
-	mu           sync.Mutex
+// EventHub manages connected clients for a specific event
+type EventHub struct {
+	EventID    string
+	Clients    map[*Client]bool
+	Broadcast  chan []byte
+	Register   chan *Client
+	Unregister chan *Client
+	mu         sync.Mutex
 }
 
 var (
-	hubs   = make(map[string]*TournamentHub)
-	hubsMu sync.RWMutex
+	eventHubs   = make(map[string]*EventHub)
+	eventHubsMu sync.RWMutex
 )
 
-func newHub(tournamentID string) *TournamentHub {
-	return &TournamentHub{
-		TournamentID: tournamentID,
-		Broadcast:    make(chan []byte),
-		Register:     make(chan *Client),
-		Unregister:   make(chan *Client),
-		Clients:      make(map[*Client]bool),
+func newEventHub(eventID string) *EventHub {
+	return &EventHub{
+		EventID:    eventID,
+		Broadcast:  make(chan []byte),
+		Register:   make(chan *Client),
+		Unregister: make(chan *Client),
+		Clients:    make(map[*Client]bool),
 	}
 }
 
-func (h *TournamentHub) run() {
+func (h *EventHub) run() {
 	for {
 		select {
 		case client := <-h.Register:
@@ -83,7 +83,7 @@ var upgrader = websocket.Upgrader{
 // LiveUpdatesWebSocket handles websocket connections for real-time updates
 func LiveUpdatesWebSocket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("tournamentId")
+		eventID := c.Param("eventId")
 
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
@@ -91,14 +91,14 @@ func LiveUpdatesWebSocket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		hubsMu.Lock()
-		hub, ok := hubs[tournamentID]
+		eventHubsMu.Lock()
+		hub, ok := eventHubs[eventID]
 		if !ok {
-			hub = newHub(tournamentID)
-			hubs[tournamentID] = hub
+			hub = newEventHub(eventID)
+			eventHubs[eventID] = hub
 			go hub.run()
 		}
-		hubsMu.Unlock()
+		eventHubsMu.Unlock()
 
 		client := &Client{Hub: hub, Conn: conn, Send: make(chan []byte, 256)}
 		client.Hub.Register <- client
@@ -138,11 +138,11 @@ func (c *Client) writePump() {
 	}
 }
 
-// BroadcastTournamentUpdate sends a message to all clients watching a specific tournament
-func BroadcastTournamentUpdate(tournamentID string, message interface{}) {
-	hubsMu.RLock()
-	hub, ok := hubs[tournamentID]
-	hubsMu.RUnlock()
+// BroadcastEventUpdate sends a message to all clients watching a specific event
+func BroadcastEventUpdate(eventID string, message interface{}) {
+	eventHubsMu.RLock()
+	hub, ok := eventHubs[eventID]
+	eventHubsMu.RUnlock()
 
 	if ok {
 		data, err := json.Marshal(message)

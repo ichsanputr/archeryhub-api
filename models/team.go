@@ -2,11 +2,11 @@ package models
 
 import "time"
 
-// Team represents a team in a tournament event
+// Team represents a team in an event category
 type Team struct {
 	UUID         string    `json:"id" db:"uuid"`
-	TournamentID string    `json:"tournament_id" db:"tournament_id"`
-	EventID      string    `json:"event_id" db:"event_id"`
+	EventID      string    `json:"event_id" db:"tournament_id"`
+	CategoryID   string    `json:"category_id" db:"event_id"`
 	TeamName     string    `json:"team_name" db:"team_name"`
 	CountryCode  string    `json:"country_code" db:"country_code"`
 	CountryName  *string   `json:"country_name" db:"country_name"`
@@ -18,7 +18,7 @@ type Team struct {
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// TeamMember represents an individual athlete in a team
+// TeamMember represents an individual archer in a team
 type TeamMember struct {
 	UUID          string  `json:"id" db:"uuid"`
 	TeamID        string  `json:"team_id" db:"team_id"`
@@ -29,7 +29,7 @@ type TeamMember struct {
 	TotalXCount   int     `json:"total_x_count" db:"total_x_count"`
 }
 
-// TeamMemberWithDetails includes athlete info
+// TeamMemberWithDetails includes archer info
 type TeamMemberWithDetails struct {
 	TeamMember
 	FullName    string  `json:"full_name" db:"full_name"`
@@ -47,7 +47,7 @@ type TeamWithMembers struct {
 type TeamScore struct {
 	UUID         string  `json:"id" db:"uuid"`
 	TeamID       string  `json:"team_id" db:"team_id"`
-	TournamentID string  `json:"tournament_id" db:"tournament_id"`
+	EventID      string  `json:"event_id" db:"tournament_id"`
 	Session      int     `json:"session" db:"session"`
 	DistanceOrder int    `json:"distance_order" db:"distance_order"`
 	EndNumber    int     `json:"end_number" db:"end_number"`
@@ -62,7 +62,7 @@ type TeamScore struct {
 
 // CreateTeamRequest for creating a new team
 type CreateTeamRequest struct {
-	EventID     string   `json:"event_id" binding:"required"`
+	CategoryID  string   `json:"category_id" binding:"required"`
 	TeamName    string   `json:"team_name" binding:"required"`
 	CountryCode string   `json:"country_code" binding:"required"`
 	CountryName *string  `json:"country_name"`

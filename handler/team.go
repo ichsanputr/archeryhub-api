@@ -13,10 +13,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// CreateTeam creates a new team for a tournament event
+// CreateTeam creates a new team for an event category
 func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("tournamentId")
+		eventID := c.Param("eventId")
 		userID, _ := c.Get("user_id")
 
 		var req models.CreateTeamRequest
@@ -27,11 +27,10 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		teamID := uuid.New().String()
 
-		// Create team
 		_, err := db.Exec(`
-			INSERT INTO teams (id, tournament_id, event_id, team_name, country_code, country_name, status)
+			INSERT INTO teams (uuid, tournament_id, event_id, team_name, country_code, country_name, status)
 			VALUES (?, ?, ?, ?, ?, ?, 'active')
-		`, teamID, tournamentID, req.EventID, req.TeamName, req.CountryCode, req.CountryName)
+		`, teamID, eventID, req.CategoryID, req.TeamName, req.CountryCode, req.CountryName)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create team"})
@@ -52,7 +51,7 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		utils.LogActivity(db, userID.(string), tournamentID, "team_created", "team", teamID, 
+		utils.LogActivity(db, userID.(string), eventID, "team_created", "team", teamID, 
 			fmt.Sprintf("Created team: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -62,23 +61,23 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetTeams returns all teams for a tournament
+// GetTeams returns all teams for an event
 func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("tournamentId")
-		eventID := c.Query("event_id")
+		eventID := c.Param("eventId")
+		categoryID := c.Query("category_id")
 
 		query := `
 			SELECT t.*, COUNT(tm.id) as member_count 
 			FROM teams t
 			LEFT JOIN team_members tm ON t.id = tm.team_id
-			WHERE t.tournament_id = ?
+			WHERE t.event_id = ?
 		`
-		args := []interface{}{tournamentID}
+		args := []interface{}{eventID}
 
-		if eventID != "" {
-			query += " AND t.event_id = ?"
-			args = append(args, eventID)
+		if categoryID != "" {
+			query += " AND t.category_id = ?"
+			args = append(args, categoryID)
 		}
 
 		query += " GROUP BY t.id ORDER BY t.total_score DESC, t.total_x_count DESC"
@@ -114,7 +113,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&members, `
 			SELECT tm.*, a.full_name, tp.back_number, a.country
 			FROM team_members tm
-			JOIN tournament_participants tp ON tm.participant_id = tp.uuid
+			JOIN event_participants tp ON tm.participant_id = tp.uuid
 			JOIN archers a ON tp.athlete_id = a.uuid
 			WHERE tm.team_id = ?
 			ORDER BY tm.member_order
@@ -140,7 +139,7 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			TeamID        string  `json:"team_id" binding:"required"`
-			TournamentID  string  `json:"tournament_id" binding:"required"`
+			EventID       string  `json:"event_id" binding:"required"`
 			Session       int     `json:"session" binding:"required"`
 			DistanceOrder int     `json:"distance_order" binding:"required"`
 			EndNumber     int     `json:"end_number" binding:"required"`
@@ -199,7 +198,7 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 			ON DUPLICATE KEY UPDATE
 			member_scores = VALUES(member_scores), end_total = VALUES(end_total), x_count = VALUES(x_count), 
 			running_total = VALUES(running_total), entered_by = VALUES(entered_by)
-		`, scoreID, req.TeamID, req.TournamentID, req.Session, req.DistanceOrder, req.EndNumber,
+		`, scoreID, req.TeamID, req.EventID, req.Session, req.DistanceOrder, req.EndNumber,
 			string(memberScoresJSON), endTotal, xCount, runningTotal, userID.(string))
 
 		if err != nil {
@@ -216,7 +215,7 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 		`, req.TeamID, req.TeamID, req.TeamID)
 
 		// Broadcast update
-		BroadcastTournamentUpdate(req.TournamentID, gin.H{
+		BroadcastEventUpdate(req.EventID, gin.H{
 			"type": "team_score_update",
 			"data": gin.H{"team_id": req.TeamID, "end_total": endTotal, "running_total": runningTotal},
 		})
@@ -233,8 +232,8 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 // GetTeamRankings returns team qualification rankings
 func GetTeamRankings(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("tournamentId")
-		eventID := c.Query("event_id")
+		eventID := c.Param("eventId")
+		categoryID := c.Query("category_id")
 
 		query := `
 			SELECT 
@@ -247,11 +246,11 @@ func GetTeamRankings(db *sqlx.DB) gin.HandlerFunc {
 			FROM teams t
 			WHERE t.tournament_id = ?
 		`
-		args := []interface{}{tournamentID}
+		args := []interface{}{eventID}
 
-		if eventID != "" {
+		if categoryID != "" {
 			query += " AND t.event_id = ?"
-			args = append(args, eventID)
+			args = append(args, categoryID)
 		}
 
 		query += " ORDER BY t.total_score DESC, t.total_x_count DESC"

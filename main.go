@@ -183,16 +183,16 @@ func main() {
 		archers := api.Group("/archers")
 		{
 			// Public archer routes
-			archers.GET("", handler.GetAthletes(db))
-			archers.GET("/:id", handler.GetAthleteByID(db))
+			archers.GET("", handler.GetArchers(db))
+			archers.GET("/:id", handler.GetArcherByID(db))
 
 			// Protected archer routes
 			protected := archers.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
-				protected.POST("", handler.CreateAthlete(db))
-				protected.PUT("/:id", handler.UpdateAthlete(db))
-				protected.DELETE("/:id", handler.DeleteAthlete(db))
+				protected.POST("", handler.CreateArcher(db))
+				protected.PUT("/:id", handler.UpdateArcher(db))
+				protected.DELETE("/:id", handler.DeleteArcher(db))
 			}
 		}
 
@@ -214,10 +214,10 @@ func main() {
 		// Team Management
 		teams := api.Group("/teams")
 		{
-			teams.GET("/Event/:EventId", handler.GetTeams(db))
+			teams.GET("/event/:eventId", handler.GetTeams(db))
 			teams.GET("/:teamId", handler.GetTeam(db))
-			teams.POST("/Event/:EventId", middleware.AuthMiddleware(), handler.CreateTeam(db))
-			teams.GET("/Event/:EventId/rankings", handler.GetTeamRankings(db))
+			teams.POST("/event/:eventId", middleware.AuthMiddleware(), handler.CreateTeam(db))
+			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
 
@@ -263,11 +263,20 @@ func main() {
 			media.POST("/upload", handler.UploadMedia())
 			media.DELETE("/:filename", middleware.AuthMiddleware(), handler.DeleteMedia())
 		}
+
+		// Qualification Scoring
+		qual := api.Group("/qualification")
+		{
+			qual.GET("/sessions", handler.GetQualificationSessions(db))
+			qual.POST("/sessions", middleware.AuthMiddleware(), handler.CreateQualificationSession(db))
+			qual.PUT("/scores/:assignmentId", middleware.AuthMiddleware(), handler.UpdateQualificationScore(db))
+			qual.GET("/leaderboard/:categoryId", handler.GetQualificationLeaderboard(db))
+		}
 	}
 
 	// WebSocket endpoint for real-time updates
 	// TODO: Implement WebSocket handler
-	r.GET("/ws/live/:EventId", handler.LiveUpdatesWebSocket(db))
+	r.GET("/ws/live/:eventId", handler.LiveUpdatesWebSocket(db))
 
 	// Get port from environment
 	port := os.Getenv("PORT")

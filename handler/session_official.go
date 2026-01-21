@@ -12,20 +12,20 @@ import (
 // === OFFICIALS/STAFF MANAGEMENT ===
 
 type Official struct {
-	ID           string  `db:"id" json:"id"`
-	TournamentID string  `db:"tournament_id" json:"tournament_id"`
-	Name         string  `db:"name" json:"name"`
-	GivenName    *string `db:"given_name" json:"given_name"`
-	Code         *string `db:"code" json:"code"`
-	Country      *string `db:"country" json:"country"`
-	Role         string  `db:"role" json:"role"`
-	CreatedAt    string  `db:"created_at" json:"created_at"`
+	ID       string  `db:"id" json:"id"`
+	EventID  string  `db:"event_id" json:"event_id"`
+	Name     string  `db:"name" json:"name"`
+	GivenName *string `db:"given_name" json:"given_name"`
+	Code     *string `db:"code" json:"code"`
+	Country  *string `db:"country" json:"country"`
+	Role     string  `db:"role" json:"role"`
+	CreatedAt string `db:"created_at" json:"created_at"`
 }
 
-// CreateOfficial adds an official/staff member to a tournament
+// CreateOfficial adds an official/staff member to an event
 func CreateOfficial(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
 		var req Official
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -35,10 +35,10 @@ func CreateOfficial(db *sqlx.DB) gin.HandlerFunc {
 
 		officialID := uuid.New().String()
 		_, err := db.Exec(`
-			INSERT INTO tournament_officials 
-			(id, tournament_id, name, given_name, code, country, role)
+			INSERT INTO event_officials 
+			(id, event_id, name, given_name, code, country, role)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, officialID, tournamentID, req.Name, req.GivenName, req.Code, req.Country, req.Role)
+		`, officialID, eventID, req.Name, req.GivenName, req.Code, req.Country, req.Role)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add official"})
@@ -47,23 +47,23 @@ func CreateOfficial(db *sqlx.DB) gin.HandlerFunc {
 
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), tournamentID, "official_added", "official", officialID, "Added official: "+req.Name, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), eventID, "official_added", "official", officialID, "Added official: "+req.Name, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{"id": officialID, "message": "Official added successfully"})
 	}
 }
 
-// GetOfficials returns all officials for a tournament
+// GetOfficials returns all officials for an event
 func GetOfficials(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
 		var officials []Official
 		err := db.Select(&officials, `
-			SELECT * FROM tournament_officials 
-			WHERE tournament_id = ? 
+			SELECT * FROM event_officials 
+			WHERE event_id = ? 
 			ORDER BY role ASC, name ASC
-		`, tournamentID)
+		`, eventID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch officials"})
@@ -89,7 +89,7 @@ func UpdateOfficial(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			UPDATE tournament_officials SET 
+			UPDATE event_officials SET 
 				name = ?, given_name = ?, code = ?, country = ?, role = ?
 			WHERE id = ?
 		`, req.Name, req.GivenName, req.Code, req.Country, req.Role, officialID)
@@ -107,12 +107,12 @@ func UpdateOfficial(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// DeleteOfficial removes an official from a tournament
+// DeleteOfficial removes an official from an event
 func DeleteOfficial(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		officialID := c.Param("officialId")
 
-		_, err := db.Exec("DELETE FROM tournament_officials WHERE id = ?", officialID)
+		_, err := db.Exec("DELETE FROM event_officials WHERE id = ?", officialID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete official"})
 			return
@@ -144,9 +144,9 @@ func UpdateBackNumber(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			UPDATE tournament_participants 
+			UPDATE event_participants 
 			SET back_number = ?, target_number = ?, session = ?
-			WHERE id = ?
+			WHERE uuid = ?
 		`, req.BackNumber, req.TargetNumber, req.Session, participantID)
 
 		if err != nil {
@@ -165,13 +165,13 @@ func UpdateBackNumber(db *sqlx.DB) gin.HandlerFunc {
 // GetBackNumbers returns all participants with their assignments
 func GetBackNumbers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
+		eventID := c.Param("id")
 
 		type ParticipantAssignment struct {
 			ID           string  `db:"id" json:"id"`
-			AthleteID    string  `db:"athlete_id" json:"athlete_id"`
-			AthleteName  string  `db:"athlete_name" json:"athlete_name"`
-			EventName    string  `db:"event_name" json:"event_name"`
+			ArcherID     string  `db:"archer_id" json:"archer_id"`
+			ArcherName   string  `db:"archer_name" json:"archer_name"`
+			CategoryName string  `db:"category_name" json:"category_name"`
 			BackNumber   *string `db:"back_number" json:"back_number"`
 			TargetNumber *string `db:"target_number" json:"target_number"`
 			Session      *int    `db:"session" json:"session"`
@@ -180,20 +180,20 @@ func GetBackNumbers(db *sqlx.DB) gin.HandlerFunc {
 		var assignments []ParticipantAssignment
 		err := db.Select(&assignments, `
 			SELECT 
-				tp.id, tp.athlete_id, tp.back_number, tp.target_number, tp.session,
-				a.full_name as athlete_name,
-				CONCAT(d.name, ' - ', c.name) as event_name
-			FROM tournament_participants tp
-			JOIN archers a ON tp.athlete_id = a.id
-			JOIN tournament_events te ON tp.event_id = te.id
-			JOIN divisions d ON te.division_id = d.id
-			JOIN categories c ON te.category_id = c.id
-			WHERE tp.tournament_id = ?
+				tp.uuid as id, tp.archer_id, tp.back_number, tp.target_number, tp.session,
+				a.full_name as archer_name,
+				CONCAT(d.name, ' - ', c.name) as category_name
+			FROM event_participants tp
+			JOIN archers a ON tp.archer_id = a.uuid
+			JOIN event_categories ec ON tp.category_id = ec.uuid
+			JOIN ref_bow_types d ON ec.division_uuid = d.uuid
+			JOIN ref_age_groups c ON ec.category_uuid = c.uuid
+			WHERE tp.event_id = ?
 			ORDER BY tp.back_number ASC
-		`, tournamentID)
+		`, eventID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignments"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignments", "details": err.Error()})
 			return
 		}
 

@@ -41,7 +41,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Fixed entry fee for now or get from tournament events
+		// Fixed entry fee for now or get from event categories
 		entryFee := 350000.0 // Default
 		adminFee := 5000.0
 		totalFee := entryFee + adminFee
@@ -181,8 +181,8 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 			orderItems = []gin.H{
 				{
-					"sku":      "TOURNAMENT-ENTRY",
-					"name":     fmt.Sprintf("Tournament Entry Fee - %s", reg.Division),
+					"sku":      "EVENT-ENTRY",
+					"name":     fmt.Sprintf("Event Entry Fee - %s", reg.Division),
 					"price":    int(reg.EntryFee),
 					"quantity": 1,
 				},
