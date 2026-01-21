@@ -67,9 +67,12 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 			userType = "archer"
 		}
 		// Validate user type
-		if userType != "archer" && userType != "organization" && userType != "club" {
+		if userType != "archer" && userType != "organization" && userType != "club" && userType != "seller" {
 			userType = "archer"
 		}
+
+		// Get full name if provided
+		fullName := c.Query("full_name")
 
 		// Generate state for CSRF protection
 		stateBytes := make([]byte, 16)
@@ -79,9 +82,9 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 		}
 		state := hex.EncodeToString(stateBytes)
 
-		// Store state with app URL and user_type for callback
-		// Format: state|appURL|userType
-		stateData := fmt.Sprintf("%s|%s|%s", state, appURL, userType)
+		// Store state with app URL, user_type, and fullName for callback
+		// Format: state|appURL|userType|fullName
+		stateData := fmt.Sprintf("%s|%s|%s|%s", state, appURL, userType, fullName)
 
 		redirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
 		if redirectURI == "" {
@@ -133,16 +136,20 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Parse state to get app URL and user_type
-		// Format: state|appURL|userType
+		// Parse state to get app URL, user_type, and fullName
+		// Format: state|appURL|userType|fullName
 		appURL := ""
 		requestedUserType := "archer" // default
+		requestedFullName := ""
 		parts := splitState(stateData)
 		if len(parts) >= 2 {
 			appURL = parts[1]
 		}
 		if len(parts) >= 3 {
 			requestedUserType = parts[2]
+		}
+		if len(parts) >= 4 {
+			requestedFullName = parts[3]
 		}
 		if appURL == "" {
 			appURL = os.Getenv("APP_URL")
@@ -253,25 +260,36 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			isNewUser = true
 			username := generateUsername(userInfo.Email)
 
+			// Use requestedFullName if provided, otherwise use Google name
+			displayName := userInfo.Name
+			if requestedFullName != "" {
+				displayName = requestedFullName
+			}
+
 			var insertErr error
 			switch userType {
 			case "organization":
 				_, insertErr = db.Exec(`
 					INSERT INTO organizations (uuid, username, email, google_id, name, avatar_url, role, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'organization', 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "club":
 				_, insertErr = db.Exec(`
 					INSERT INTO clubs (uuid, username, email, google_id, name, avatar_url, role, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'club', 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+			case "seller":
+				_, insertErr = db.Exec(`
+					INSERT INTO sellers (uuid, username, email, google_id, store_name, avatar_url, role, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'seller', 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			default: // archer
 				userType = "archer"
 				role = "archer"
 				_, insertErr = db.Exec(`
 					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'archer', 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			}
 
 			if insertErr != nil {
