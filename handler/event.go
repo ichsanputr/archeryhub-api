@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+
 // GetEvents returns a list of events
 func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -25,16 +26,18 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
-				COUNT(DISTINCT tp.id) as participant_count,
-				COUNT(DISTINCT te.id) as event_count
+				d.name as discipline_name,
+				COUNT(DISTINCT tp.uuid) as participant_count,
+				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT id, name as full_name, email FROM organizations
+				SELECT uuid as id, name as full_name, email FROM organizations
 				UNION ALL
-				SELECT id, name as full_name, email FROM clubs
+				SELECT uuid as id, name as full_name, email FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.id = tp.event_id
-			LEFT JOIN event_categories te ON t.id = te.event_id
+			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
+			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			LEFT JOIN ref_disciplines d ON t.type = d.uuid
 			WHERE 1=1
 		`
 		args := []interface{}{}
@@ -51,7 +54,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query += `
-			GROUP BY t.id
+			GROUP BY t.uuid
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 		`
@@ -82,18 +85,20 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
-				COUNT(DISTINCT tp.id) as participant_count,
-				COUNT(DISTINCT te.id) as event_count
+				d.name as discipline_name,
+				COUNT(DISTINCT tp.uuid) as participant_count,
+				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT id, name as full_name, email FROM organizations
+				SELECT uuid as id, name as full_name, email FROM organizations
 				UNION ALL
-				SELECT id, name as full_name, email FROM clubs
+				SELECT uuid as id, name as full_name, email FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.id = tp.event_id
-			LEFT JOIN event_categories te ON t.id = te.event_id
-			WHERE t.id = ?
-			GROUP BY t.id
+			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
+			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			LEFT JOIN ref_disciplines d ON t.type = d.uuid
+			WHERE t.uuid = ?
+			GROUP BY t.uuid
 		`
 
 		var Event models.EventWithDetails
@@ -141,22 +146,27 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO events (
-				id, code, name, short_name, venue, gmaps_link, location, country, 
+				uuid, code, name, short_name, venue, gmaps_link, location, country, 
 				latitude, longitude, start_date, end_date, registration_deadline,
-				description, banner_url, logo_url, type, num_sessions, 
+				description, banner_url, logo_url, type, num_distances, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
+
+		status := req.Status
+		if status == "" {
+			status = "draft"
+		}
 
 		_, err := db.Exec(query,
 			EventID, req.Code, req.Name, req.ShortName, req.Venue, req.GmapLink,
 			req.Location, req.Country, req.Latitude, req.Longitude,
 			startDate, endDate, regDeadline,
-			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumSessions,
+			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
 			req.EntryFee, req.MaxParticipants,
-			userID, now, now,
+			status, userID, now, now,
 		)
 
 		if err != nil {
@@ -164,17 +174,18 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Save divisions and categories if provided
+		// Save categories if provided (simplified for now, expects list of category UUIDs or similar)
+		// Note: The user requested single step creation, so we might skip this if the frontend doesn't send it yet.
 		if len(req.Divisions) > 0 && len(req.Categories) > 0 {
-			for _, divID := range req.Divisions {
-				for _, catID := range req.Categories {
+			for _, divUUID := range req.Divisions {
+				for _, catUUID := range req.Categories {
 					catEventID := uuid.New().String()
 					_, err = db.Exec(`
 						INSERT INTO event_categories (
-							id, event_id, division_id, category_id, 
-							max_participants, qualification_arrows, elimination_format, team_event
-						) VALUES (?, ?, ?, ?, ?, ?, 'single', false)
-					`, catEventID, EventID, divID, catID, req.MaxParticipants, 72)
+							uuid, event_id, division_uuid, category_uuid, 
+							max_participants
+						) VALUES (?, ?, ?, ?, ?)
+					`, catEventID, EventID, divUUID, catUUID, req.MaxParticipants)
 					if err != nil {
 						fmt.Printf("Error: Failed to save event category: %v\n", err)
 					}
@@ -188,7 +199,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				imageID := uuid.New().String()
 				isPrimary := img.IsPrimary || i == 0 // First image is primary by default
 				_, err = db.Exec(`
-					INSERT INTO event_images (id, event_id, url, caption, alt_text, display_order, is_primary)
+					INSERT INTO event_images (uuid, event_id, url, caption, alt_text, display_order, is_primary)
 					VALUES (?, ?, ?, ?, ?, ?, ?)
 				`, imageID, EventID, img.URL, img.Caption, img.AltText, i, isPrimary)
 				if err != nil {
@@ -280,7 +291,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.Status)
 		}
 
-		query += " WHERE id = ?"
+		query += " WHERE uuid = ?"
 		args = append(args, id)
 
 		_, err = db.Exec(query, args...)
@@ -323,3 +334,235 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // These functions are now in division_category.go to avoid duplication
+
+// GetEventEvents returns events for a specific event
+func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		type EventEvent struct {
+			ID                  string `db:"id" json:"id"`
+			EventID        string `db:"event_id" json:"event_id"`
+			DivisionName        string `db:"division_name" json:"division_name"`
+			DivisionID          string `db:"division_id" json:"division_id"`
+			CategoryName        string `db:"category_name" json:"category_name"`
+			CategoryID          string `db:"category_id" json:"category_id"`
+			MaxParticipants     int    `db:"max_participants" json:"max_participants"`
+			CreatedAt           string `db:"created_at" json:"created_at"`
+		}
+
+		var events []EventEvent
+		err := db.Select(&events, `
+			SELECT 
+				te.uuid as id, te.event_id, 
+				te.max_participants, te.created_at,
+				d.name as division_name, d.uuid as division_id,
+				c.name as category_name, c.uuid as category_id
+			FROM event_categories te
+			JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			WHERE te.event_id = ?
+			ORDER BY d.name, c.name
+		`, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event categories", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"events": events,
+			"total":  len(events),
+		})
+	}
+}
+
+// GetEventParticipants returns participants for a specific event
+func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		type Participant struct {
+			ID                  string  `db:"id" json:"id"`
+			AthleteID           string  `db:"athlete_id" json:"athlete_id"`
+			FullName            string  `db:"full_name" json:"full_name"`
+			AthleteCode         string  `db:"athlete_code" json:"athlete_code"`
+			Country             *string `db:"country" json:"country"`
+			ClubID              *string `db:"club_id" json:"club_id"`
+			EventID             string  `db:"event_id" json:"event_id"`
+			DivisionName        string  `db:"division_name" json:"division_name"`
+			CategoryName        string  `db:"category_name" json:"category_name"`
+			BackNumber          *string `db:"back_number" json:"back_number"`
+			TargetNumber        *string `db:"target_number" json:"target_number"`
+			Session             *int    `db:"session" json:"session"`
+			PaymentStatus       string  `db:"payment_status" json:"payment_status"`
+			AccreditationStatus string  `db:"accreditation_status" json:"accreditation_status"`
+			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
+		}
+
+		var participants []Participant
+		err := db.Select(&participants, `
+			SELECT 
+				tp.uuid as id, tp.athlete_id, tp.event_id, tp.back_number, tp.target_number, tp.session,
+				tp.payment_status, tp.accreditation_status, tp.registration_date,
+				a.full_name, a.athlete_code, a.country, a.club_id,
+				d.name as division_name, c.name as category_name
+			FROM event_participants tp
+			JOIN archers a ON tp.athlete_id = a.uuid
+			JOIN event_categories te ON tp.event_category_id = te.uuid
+			JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			WHERE tp.event_id = ?
+			ORDER BY d.name, c.name, a.full_name
+		`, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"participants": participants,
+			"total":        len(participants),
+		})
+	}
+}
+
+// PublishEvent changes event status to published
+func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		_, err := db.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", eventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish event"})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "event_published", "event", eventID, "Published event", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Event published successfully"})
+	}
+}
+
+// RegisterParticipant registers a participant for a event
+func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var req struct {
+			AthleteID     string  `json:"athlete_id" binding:"required"`
+			EventCategoryID string  `json:"event_category_id" binding:"required"`
+			PaymentAmount float64 `json:"payment_amount"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Check if already registered
+		var exists bool
+		err := db.Get(&exists, `
+			SELECT EXISTS(SELECT 1 FROM event_participants 
+			WHERE event_id = ? AND athlete_id = ? AND event_category_id = ?)
+		`, eventID, req.AthleteID, req.EventCategoryID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			return
+		}
+
+		if exists {
+			c.JSON(http.StatusConflict, gin.H{"error": "Participant already registered for this event category"})
+			return
+		}
+
+		// Insert participant
+		participantID := uuid.New().String()
+		_, err = db.Exec(`
+			INSERT INTO event_participants 
+			(uuid, event_id, athlete_id, event_category_id, payment_amount, payment_status, accreditation_status)
+			VALUES (?, ?, ?, ?, ?, 'pending', 'pending')
+		`, participantID, eventID, req.AthleteID, req.EventCategoryID, req.PaymentAmount)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "participant_registered", "event_participant", participantID, "Registered participant for event category: "+req.EventCategoryID, c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusCreated, gin.H{
+			"id":      participantID,
+			"message": "Participant registered successfully",
+		})
+	}
+}
+
+// CreateEventCategories adds categories to an existing event in batch
+func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var req struct {
+			Divisions []string `json:"divisions" binding:"required"`
+			Categories []string `json:"categories" binding:"required"`
+			MaxParticipants int    `json:"max_participants"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		// Check if event exists
+		var exists bool
+		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ?)`, eventID)
+		if err != nil || !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		count := 0
+		for _, divUUID := range req.Divisions {
+			for _, catUUID := range req.Categories {
+				// Check if combination already exists
+				var catExists bool
+				err = db.Get(&catExists, `
+					SELECT EXISTS(SELECT 1 FROM event_categories 
+					WHERE event_id = ? AND division_uuid = ? AND category_uuid = ?)
+				`, eventID, divUUID, catUUID)
+				
+				if err != nil || catExists {
+					continue
+				}
+
+				catEventID := uuid.New().String()
+				_, err = db.Exec(`
+					INSERT INTO event_categories (
+						uuid, event_id, division_uuid, category_uuid, 
+						max_participants
+					) VALUES (?, ?, ?, ?, ?)
+				`, catEventID, eventID, divUUID, catUUID, req.MaxParticipants)
+				
+				if err == nil {
+					count++
+				}
+			}
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "categories_created", "event", eventID, fmt.Sprintf("Created %d categories in batch", count), c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": fmt.Sprintf("Successfully created %d categories", count),
+			"count":   count,
+		})
+	}
+}

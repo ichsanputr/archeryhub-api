@@ -45,6 +45,7 @@ type Event struct {
 	BannerURL            *string    `json:"banner_url" db:"banner_url"`
 	LogoURL              *string    `json:"logo_url" db:"logo_url"`
 	Type                 *string    `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D
+	NumDistances         *int       `json:"num_distances" db:"num_distances"`
 	NumSessions          *int       `json:"num_sessions" db:"num_sessions"`
 	EntryFee             float64    `json:"entry_fee" db:"entry_fee"`
 	MaxParticipants      *int       `json:"max_participants" db:"max_participants"`
@@ -52,6 +53,7 @@ type Event struct {
 	OrganizerID          *string    `json:"organizer_id" db:"organizer_id"`
 	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
+	DisciplineName       string     `json:"discipline_name" db:"discipline_name"`
 }
 
 // EventWithDetails includes organizer information
@@ -80,6 +82,7 @@ type CreateEventRequest struct {
 	BannerURL            *string      `json:"banner_url"`
 	LogoURL              *string      `json:"logo_url"`
 	Type                 *string      `json:"type"`
+	NumDistances         *int         `json:"num_distances"`
 	NumSessions          *int         `json:"num_sessions"`
 	EntryFee             float64      `json:"entry_fee"`
 	MaxParticipants      *int         `json:"max_participants"`
@@ -106,6 +109,7 @@ type UpdateEventRequest struct {
 	BannerURL    *string    `json:"banner_url"`
 	LogoURL      *string    `json:"logo_url"`
 	Type         *string    `json:"type"`
+	NumDistances *int       `json:"num_distances"`
 	NumSessions  *int       `json:"num_sessions"`
 	Status       *string    `json:"status"`
 }
@@ -113,9 +117,9 @@ type UpdateEventRequest struct {
 // EventEvent represents an event within a Event (division + category)
 type EventEvent struct {
 	UUID                string    `json:"id" db:"uuid"`
-	EventID        string    `json:"Event_id" db:"Event_id"`
-	DivisionID          string    `json:"division_id" db:"division_id"`
-	CategoryID          string    `json:"category_id" db:"category_id"`
+	EventID        string    `json:"event_id" db:"event_id"`
+	DivisionUUID          string    `json:"division_id" db:"division_uuid"`
+	CategoryUUID          string    `json:"category_id" db:"category_uuid"`
 	MaxParticipants     int       `json:"max_participants" db:"max_participants"`
 	QualificationArrows int       `json:"qualification_arrows" db:"qualification_arrows"`
 	EliminationFormat   string    `json:"elimination_format" db:"elimination_format"`
@@ -127,33 +131,10 @@ type EventEvent struct {
 type EventEventWithDetails struct {
 	EventEvent
 	DivisionName     string `json:"division_name" db:"division_name"`
-	DivisionCode     string `json:"division_code" db:"division_code"`
 	CategoryName     string `json:"category_name" db:"category_name"`
-	CategoryCode     string `json:"category_code" db:"category_code"`
 	ParticipantCount int    `json:"participant_count" db:"participant_count"`
 }
 
-// Division represents a bow division (Recurve, Compound, Barebow, etc.)
-type Division struct {
-	UUID         string    `json:"id" db:"uuid"` 
-	Name         string    `json:"name" db:"name"`
-	Code         string    `json:"code" db:"code"`
-	Description  *string   `json:"description" db:"description"`
-	DisplayOrder int       `json:"display_order" db:"display_order"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-}
-
-// Category represents an age/gender category
-type Category struct {
-	UUID         string    `json:"id" db:"uuid"` 
-	Name         string    `json:"name" db:"name"`
-	Code         string    `json:"code" db:"code"`
-	AgeFrom      *int      `json:"age_from" db:"age_from"`
-	AgeTo        *int      `json:"age_to" db:"age_to"`
-	Gender       string    `json:"gender" db:"gender"` // M, F, X
-	DisplayOrder int       `json:"display_order" db:"display_order"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-}
 
 // Session represents a competition session
 type Session struct {

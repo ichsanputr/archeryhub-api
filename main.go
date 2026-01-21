@@ -162,6 +162,7 @@ func main() {
 			// Public Event routes
 			events.GET("", handler.GetEvents(db))
 			events.GET("/:id", handler.GetEventByID(db))
+			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
 
 			// Protected Event routes (require authentication)
@@ -172,6 +173,7 @@ func main() {
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))
 				protected.POST("/:id/publish", handler.PublishEvent(db))
+				protected.POST("/:id/categories", handler.CreateEventCategories(db))
 				protected.POST("/:id/participants", handler.RegisterParticipant(db))
 			}
 		}
@@ -194,7 +196,12 @@ func main() {
 			}
 		}
 
-		api.GET("/divisions", handler.GetDivisions(db))
+		// Reference data routes
+		api.GET("/disciplines", handler.GetDisciplines(db))
+		api.GET("/bow-types", handler.GetBowTypes(db))
+		api.GET("/event-types", handler.GetEventTypes(db))
+		api.GET("/gender-divisions", handler.GetGenderDivisions(db))
+		api.GET("/age-groups", handler.GetAgeGroups(db))
 
 
 
