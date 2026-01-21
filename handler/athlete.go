@@ -26,9 +26,9 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.id) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.id END) as completed_events,
 				MAX(t.end_date) as last_event_date
-			FROM athletes a
-			LEFT JOIN tournament_participants tp ON a.id = tp.athlete_id
-			LEFT JOIN tournaments t ON tp.tournament_id = t.id
+			FROM archers a
+			LEFT JOIN tournament_participants tp ON a.uuid = tp.athlete_id
+			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE 1=1
 		`
 		args := []interface{}{}
@@ -39,9 +39,9 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if search != "" {
-			query += " AND (a.first_name LIKE ? OR a.last_name LIKE ? OR a.athlete_code LIKE ? OR a.club LIKE ?)"
+			query += " AND (a.full_name LIKE ? OR a.athlete_code LIKE ? OR a.club_id LIKE ?)"
 			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm, searchTerm)
+			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
 		if country != "" {
@@ -51,7 +51,7 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 
 		query += `
 			GROUP BY a.id
-			ORDER BY a.last_name, a.first_name
+			ORDER BY a.full_name
 			LIMIT ? OFFSET ?
 		`
 		args = append(args, limit, offset)
@@ -65,7 +65,7 @@ func GetAthletes(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get total count
-		countQuery := "SELECT COUNT(*) FROM athletes WHERE 1=1"
+		countQuery := "SELECT COUNT(*) FROM archers WHERE 1=1"
 		countArgs := []interface{}{}
 
 		if status != "" {
@@ -95,11 +95,11 @@ func GetAthleteByID(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.id) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.id END) as completed_events,
 				MAX(t.end_date) as last_event_date
-			FROM athletes a
-			LEFT JOIN tournament_participants tp ON a.id = tp.athlete_id
-			LEFT JOIN tournaments t ON tp.tournament_id = t.id
-			WHERE a.id = ?
-			GROUP BY a.id
+			FROM archers a
+			LEFT JOIN tournament_participants tp ON a.uuid = tp.athlete_id
+			LEFT JOIN events t ON tp.event_id = t.uuid
+			WHERE a.uuid = ?
+			GROUP BY a.uuid
 		`
 
 		var athlete models.AthleteWithStats
@@ -134,16 +134,16 @@ func CreateAthlete(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			INSERT INTO athletes (
-				id, athlete_code, first_name, last_name, date_of_birth, gender,
-				country, club, email, phone, photo_url, address,
-				emergency_contact, emergency_phone, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+			INSERT INTO archers (
+				uuid, athlete_code, full_name, date_of_birth, gender,
+				country, email, phone, address,
+				emergency_contact_name, emergency_contact_phone, status, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			athleteID, athleteCode, req.FirstName, req.LastName, req.DateOfBirth,
-			req.Gender, req.Country, req.Club, req.Email, req.Phone, req.PhotoURL,
+			athleteID, athleteCode, req.FullName, req.DateOfBirth,
+			req.Gender, req.Country, req.Email, req.Phone,
 			req.Address, req.EmergencyContact, req.EmergencyPhone, now, now,
 		)
 
@@ -155,7 +155,7 @@ func CreateAthlete(db *sqlx.DB) gin.HandlerFunc {
 		// Log activity
 		userID, _ := c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "athlete_created", "athlete", athleteID, "Created new athlete: "+req.FirstName+" "+req.LastName, c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID.(string), "", "athlete_created", "athlete", athleteID, "Created new athlete: "+req.FullName, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -179,23 +179,19 @@ func UpdateAthlete(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if athlete exists
 		var exists bool
-		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM athletes WHERE id = ?)", id)
+		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE uuid = ?)", id)
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Athlete not found"})
 			return
 		}
 
 		// Build dynamic update query
-		query := "UPDATE athletes SET updated_at = NOW()"
+		query := "UPDATE archers SET updated_at = NOW()"
 		args := []interface{}{}
 
-		if req.FirstName != nil {
-			query += ", first_name = ?"
-			args = append(args, *req.FirstName)
-		}
-		if req.LastName != nil {
-			query += ", last_name = ?"
-			args = append(args, *req.LastName)
+		if req.FullName != nil {
+			query += ", full_name = ?"
+			args = append(args, *req.FullName)
 		}
 		if req.DateOfBirth != nil {
 			query += ", date_of_birth = ?"
@@ -230,7 +226,7 @@ func UpdateAthlete(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.Status)
 		}
 
-		query += " WHERE id = ?"
+		query += " WHERE uuid = ?"
 		args = append(args, id)
 
 		_, err = db.Exec(query, args...)
@@ -263,7 +259,7 @@ func DeleteAthlete(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec("DELETE FROM athletes WHERE id = ?", id)
+		result, err := db.Exec("DELETE FROM archers WHERE uuid = ?", id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete athlete", "details": err.Error()})
 			return
@@ -293,7 +289,7 @@ func generateAthleteCode(db *sqlx.DB) string {
 	year := time.Now().Year()
 
 	var maxCode string
-	query := "SELECT athlete_code FROM athletes WHERE athlete_code LIKE ? ORDER BY athlete_code DESC LIMIT 1"
+	query := "SELECT athlete_code FROM archers WHERE athlete_code LIKE ? ORDER BY athlete_code DESC LIMIT 1"
 	err := db.Get(&maxCode, query, "ATH-"+string(year)+"-%")
 
 	if err != nil || maxCode == "" {

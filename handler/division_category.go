@@ -136,11 +136,10 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		type Participant struct {
 			ID                  string  `db:"id" json:"id"`
 			AthleteID           string  `db:"athlete_id" json:"athlete_id"`
-			FirstName           string  `db:"first_name" json:"first_name"`
-			LastName            string  `db:"last_name" json:"last_name"`
+			FullName            string  `db:"full_name" json:"full_name"`
 			AthleteCode         string  `db:"athlete_code" json:"athlete_code"`
 			Country             *string `db:"country" json:"country"`
-			Club                *string `db:"club" json:"club"`
+			ClubID              *string `db:"club_id" json:"club_id"`
 			EventID             string  `db:"event_id" json:"event_id"`
 			DivisionName        string  `db:"division_name" json:"division_name"`
 			CategoryName        string  `db:"category_name" json:"category_name"`
@@ -157,15 +156,15 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.id, tp.athlete_id, tp.event_id, tp.back_number, tp.target_number, tp.session,
 				tp.payment_status, tp.accreditation_status, tp.registration_date,
-				a.first_name, a.last_name, a.athlete_code, a.country, a.club,
+				a.full_name, a.athlete_code, a.country, a.club_id,
 				d.name as division_name, c.name as category_name
 			FROM event_participants tp
-			JOIN athletes a ON tp.athlete_id = a.id
+			JOIN archers a ON tp.athlete_id = a.id
 			JOIN event_categories te ON tp.event_id = te.id
 			JOIN divisions d ON te.division_id = d.id
 			JOIN categories c ON te.category_id = c.id
 			WHERE tp.event_id = ?
-			ORDER BY d.display_order, c.display_order, a.last_name, a.first_name
+			ORDER BY d.display_order, c.display_order, a.full_name
 		`, eventID)
 
 		if err != nil {

@@ -104,7 +104,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 		teamID := c.Param("teamId")
 
 		var team models.Team
-		err := db.Get(&team, "SELECT * FROM teams WHERE id = ?", teamID)
+		err := db.Get(&team, "SELECT * FROM teams WHERE uuid = ?", teamID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Team not found"})
 			return
@@ -112,10 +112,10 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		var members []models.TeamMemberWithDetails
 		err = db.Select(&members, `
-			SELECT tm.*, a.first_name, a.last_name, tp.back_number, a.country
+			SELECT tm.*, a.full_name, tp.back_number, a.country
 			FROM team_members tm
-			JOIN tournament_participants tp ON tm.participant_id = tp.id
-			JOIN athletes a ON tp.athlete_id = a.id
+			JOIN tournament_participants tp ON tm.participant_id = tp.uuid
+			JOIN archers a ON tp.athlete_id = a.uuid
 			WHERE tm.team_id = ?
 			ORDER BY tm.member_order
 		`, teamID)
@@ -132,110 +132,6 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MakeTeams automatically generates teams from qualification rankings (by country)
-func MakeTeams(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		tournamentID := c.Param("tournamentId")
-		userID, _ := c.Get("user_id")
-
-		var req struct {
-			EventID     string `json:"event_id" binding:"required"`
-			TeamSize    int    `json:"team_size"` // Usually 3
-			TopN        int    `json:"top_n"`     // Top N athletes per country
-		}
-
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		if req.TeamSize == 0 {
-			req.TeamSize = 3
-		}
-		if req.TopN == 0 {
-			req.TopN = 3
-		}
-
-		// Get ranked participants grouped by country
-		type RankedParticipant struct {
-			ParticipantID string  `db:"participant_id"`
-			Country       string  `db:"country"`
-			TotalScore    int     `db:"total_score"`
-			TotalXCount   int     `db:"total_x_count"`
-			RowNum        int     `db:"row_num"`
-		}
-
-		var ranked []RankedParticipant
-		err := db.Select(&ranked, `
-			SELECT 
-				tp.id as participant_id,
-				COALESCE(a.country, 'UNK') as country,
-				COALESCE(SUM(qs.end_total), 0) as total_score,
-				COALESCE(SUM(qs.x_count), 0) as total_x_count,
-				ROW_NUMBER() OVER (PARTITION BY a.country ORDER BY SUM(qs.end_total) DESC, SUM(qs.x_count) DESC) as row_num
-			FROM tournament_participants tp
-			JOIN athletes a ON tp.athlete_id = a.id
-			LEFT JOIN qualification_scores qs ON qs.participant_id = tp.id
-			WHERE tp.tournament_id = ? AND tp.event_id = ?
-			GROUP BY tp.id, a.country
-			HAVING row_num <= ?
-			ORDER BY country, row_num
-		`, tournamentID, req.EventID, req.TopN)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rankings"})
-			return
-		}
-
-		// Group by country and create teams
-		countryParticipants := make(map[string][]string)
-		countryScores := make(map[string]int)
-		countryXCounts := make(map[string]int)
-
-		for _, r := range ranked {
-			if r.RowNum <= req.TeamSize {
-				countryParticipants[r.Country] = append(countryParticipants[r.Country], r.ParticipantID)
-				countryScores[r.Country] += r.TotalScore
-				countryXCounts[r.Country] += r.TotalXCount
-			}
-		}
-
-		teamsCreated := 0
-		for country, participants := range countryParticipants {
-			if len(participants) >= req.TeamSize {
-				teamID := uuid.New().String()
-				
-				_, err = db.Exec(`
-					INSERT INTO teams (id, tournament_id, event_id, team_name, country_code, total_score, total_x_count, status)
-					VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-				`, teamID, tournamentID, req.EventID, country, country, countryScores[country], countryXCounts[country])
-
-				if err != nil {
-					continue
-				}
-
-				// Add members
-				for i, pid := range participants[:req.TeamSize] {
-					memberID := uuid.New().String()
-					db.Exec(`
-						INSERT INTO team_members (id, team_id, participant_id, member_order, is_substitute)
-						VALUES (?, ?, ?, ?, false)
-					`, memberID, teamID, pid, i+1)
-				}
-
-				teamsCreated++
-			}
-		}
-
-		utils.LogActivity(db, userID.(string), tournamentID, "teams_generated", "team", "", 
-			fmt.Sprintf("Auto-generated %d teams", teamsCreated), c.ClientIP(), c.Request.UserAgent())
-
-		c.JSON(http.StatusOK, gin.H{
-			"message":       "Teams generated successfully",
-			"teams_created": teamsCreated,
-		})
-	}
-}
 
 // SubmitTeamScore submits a score for a team end
 func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {

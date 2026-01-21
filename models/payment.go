@@ -32,7 +32,7 @@ func (ff *FlexibleFloat64) UnmarshalJSON(data []byte) error {
 
 // PaymentTransaction represents a payment transaction with Tripay
 type PaymentTransaction struct {
-	ID               string          `json:"id" db:"id"`
+	UUID             string          `json:"id" db:"uuid"`
 	Reference        string          `json:"reference" db:"reference"`
 	TripayReference  *string         `json:"tripay_reference" db:"tripay_reference"`
 	UserID           string          `json:"user_id" db:"user_id"`
@@ -89,7 +89,7 @@ type PaymentChannel struct {
 
 // EventRegistration represents a user's registration for a event
 type EventRegistration struct {
-	ID                 string     `json:"id" db:"id"`
+	UUID               string     `json:"id" db:"uuid"`
 	EventID            string     `json:"event_id" db:"event_id"`
 	UserID             string     `json:"user_id" db:"user_id"`
 	AthleteName        string     `json:"athlete_name" db:"athlete_name"`

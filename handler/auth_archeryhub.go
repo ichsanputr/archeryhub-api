@@ -135,7 +135,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type UserResult struct {
-			ID       string `db:"id"`
+			UUID     string `db:"uuid"`
 			Username string `db:"username"`
 			Email    string `db:"email"`
 			Password string `db:"password"`
@@ -149,7 +149,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		found := false
 
 		// Check archers
-		err := db.Get(&user, "SELECT id, username, email, password, full_name as name, role, status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, username, email, password, full_name as name, role, status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -157,7 +157,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check organizations
 		if !found {
-			err = db.Get(&user, "SELECT id, username, email, password, name, role, status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, name, role, status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -166,7 +166,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&user, "SELECT id, username, email, password, name, role, status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, name, role, status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -195,14 +195,14 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(user.ID, user.Email, user.Role, user.Type)
+		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
 		// Log activity
-		utils.LogActivity(db, user.ID, "", "user_logged_in", user.Type, user.ID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, user.UUID, "", "user_logged_in", user.Type, user.UUID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
 
 		// Set cookie
 		isProduction := os.Getenv("ENV") == "production"
@@ -217,7 +217,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
 			User: gin.H{
-				"id":        user.ID,
+				"id":        user.UUID,
 				"username":  user.Username,
 				"email":     user.Email,
 				"full_name": user.FullName,
@@ -281,7 +281,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt string  `db:"created_at" json:"created_at"`
 		}
 
-		query := `SELECT id, username, email, ` + nameField + `, role, NULL as avatar_url, phone, status, created_at FROM ` + table + ` WHERE id = ?`
+		query := `SELECT uuid, username, email, ` + nameField + `, role, NULL as avatar_url, phone, status, created_at FROM ` + table + ` WHERE uuid = ?`
 		err := db.Get(&user, query, userID)
 
 		if err != nil {

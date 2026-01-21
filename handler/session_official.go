@@ -126,109 +126,6 @@ func DeleteOfficial(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// === DISTANCE MANAGEMENT ===
-
-type Distance struct {
-	ID            string  `db:"id" json:"id"`
-	TournamentID  string  `db:"tournament_id" json:"tournament_id"`
-	EventID       string  `db:"event_id" json:"event_id"`
-	DistanceOrder int     `db:"distance_order" json:"distance_order"`
-	DistanceValue int     `db:"distance_value" json:"distance_value"`
-	ArrowsPerEnd  int     `db:"arrows_per_end" json:"arrows_per_end"`
-	NumEnds       int     `db:"num_ends" json:"num_ends"`
-	TargetFace    *string `db:"target_face" json:"target_face"`
-}
-
-// CreateDistance creates a distance configuration for an event
-func CreateDistance(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req Distance
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		distanceID := uuid.New().String()
-		_, err := db.Exec(`
-			INSERT INTO distances 
-			(id, tournament_id, event_id, distance_order, distance_value, arrows_per_end, num_ends, target_face)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, distanceID, req.TournamentID, req.EventID, req.DistanceOrder, req.DistanceValue,
-			req.ArrowsPerEnd, req.NumEnds, req.TargetFace)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create distance"})
-			return
-		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), req.TournamentID, "distance_created", "distance", distanceID, "Created distance configuration", c.ClientIP(), c.Request.UserAgent())
-
-		c.JSON(http.StatusCreated, gin.H{"id": distanceID, "message": "Distance created successfully"})
-	}
-}
-
-// GetDistances returns all distances for an event or tournament
-func GetDistances(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		tournamentID := c.Param("id")
-		eventID := c.Query("event_id")
-
-		query := "SELECT * FROM distances WHERE tournament_id = ?"
-		args := []interface{}{tournamentID}
-
-		if eventID != "" {
-			query += " AND event_id = ?"
-			args = append(args, eventID)
-		}
-
-		query += " ORDER BY event_id, distance_order ASC"
-
-		var distances []Distance
-		err := db.Select(&distances, query, args...)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch distances"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"distances": distances,
-			"total":     len(distances),
-		})
-	}
-}
-
-// UpdateDistance updates a distance configuration
-func UpdateDistance(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		distanceID := c.Param("distanceId")
-
-		var req Distance
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		_, err := db.Exec(`
-			UPDATE distances SET 
-				distance_order = ?, distance_value = ?, arrows_per_end = ?, num_ends = ?, target_face = ?
-			WHERE id = ?
-		`, req.DistanceOrder, req.DistanceValue, req.ArrowsPerEnd, req.NumEnds, req.TargetFace, distanceID)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update distance"})
-			return
-		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), "", "distance_updated", "distance", distanceID, "Updated distance configuration", c.ClientIP(), c.Request.UserAgent())
-
-		c.JSON(http.StatusOK, gin.H{"message": "Distance updated successfully"})
-	}
-}
 
 // UpdateBackNumber updates the back number and target for a participant
 func UpdateBackNumber(db *sqlx.DB) gin.HandlerFunc {
@@ -284,10 +181,10 @@ func GetBackNumbers(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&assignments, `
 			SELECT 
 				tp.id, tp.athlete_id, tp.back_number, tp.target_number, tp.session,
-				CONCAT(a.first_name, ' ', a.last_name) as athlete_name,
+				a.full_name as athlete_name,
 				CONCAT(d.name, ' - ', c.name) as event_name
 			FROM tournament_participants tp
-			JOIN athletes a ON tp.athlete_id = a.id
+			JOIN archers a ON tp.athlete_id = a.id
 			JOIN tournament_events te ON tp.event_id = te.id
 			JOIN divisions d ON te.division_id = d.id
 			JOIN categories c ON te.category_id = c.id

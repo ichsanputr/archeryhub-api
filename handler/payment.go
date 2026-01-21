@@ -32,10 +32,10 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if event exists and get entry fee
 		var event struct {
-			ID       string  `db:"id"`
+			UUID     string  `db:"uuid"`
 			EntryFee float64 `db:"entry_fee"` // Assuming there's a default entry fee
 		}
-		err := db.Get(&event, "SELECT id FROM events WHERE id = ?", eventID)
+		err := db.Get(&event, "SELECT uuid FROM events WHERE uuid = ?", eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -50,7 +50,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 		regNumber := fmt.Sprintf("REG-%d-%s", time.Now().Unix(), registrationID[:8])
 
 		registration := models.EventRegistration{
-			ID:                 registrationID,
+			UUID:               registrationID,
 			EventID:            eventID,
 			UserID:             userID.(string),
 			AthleteName:        req.AthleteName,
@@ -229,7 +229,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		transaction := models.PaymentTransaction{
-			ID:              transactionID,
+			UUID:            transactionID,
 			Reference:       merchantRef,
 			TripayReference: &tripayRef,
 			UserID:          userID.(string),
@@ -310,7 +310,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		var transactionID string
 		var eventID *string
 		var registrationID *string
-		err = db.QueryRow("SELECT id, event_id, registration_id FROM payment_transactions WHERE reference = ?", payload.MerchantRef).Scan(&transactionID, &eventID, &registrationID)
+		err = db.QueryRow("SELECT uuid, event_id, registration_id FROM payment_transactions WHERE reference = ?", payload.MerchantRef).Scan(&transactionID, &eventID, &registrationID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
 			return

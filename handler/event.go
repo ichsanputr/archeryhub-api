@@ -143,10 +143,10 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO events (
 				id, code, name, short_name, venue, gmaps_link, location, country, 
 				latitude, longitude, start_date, end_date, registration_deadline,
-				description, banner_url, logo_url, type, num_distances, num_sessions, 
+				description, banner_url, logo_url, type, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?
 			)
 		`
 
@@ -154,7 +154,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			EventID, req.Code, req.Name, req.ShortName, req.Venue, req.GmapLink,
 			req.Location, req.Country, req.Latitude, req.Longitude,
 			startDate, endDate, regDeadline,
-			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
+			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumSessions,
 			req.EntryFee, req.MaxParticipants,
 			userID, now, now,
 		)
@@ -221,7 +221,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if Event exists
 		var exists bool
-		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM events WHERE id = ?)", id)
+		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ?)`, id)
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -302,7 +302,7 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		result, err := db.Exec("DELETE FROM events WHERE id = ?", id)
+		result, err := db.Exec("DELETE FROM events WHERE uuid = ?", id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete Event", "details": err.Error()})
 			return

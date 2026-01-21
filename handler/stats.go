@@ -13,7 +13,7 @@ func GetDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var stats struct {
 			ActiveTournaments int `json:"activeTournaments"`
-			TotalAthletes     int `json:"totalAthletes"`
+			TotalArchers      int `json:"totalArchers"`
 			LiveEvents        int `json:"liveEvents"`
 			CompletedToday    int `json:"completedToday"`
 		}
@@ -26,7 +26,7 @@ func GetDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Total Archers
-		err = db.Get(&stats.TotalAthletes, "SELECT COUNT(*) FROM archers")
+		err = db.Get(&stats.TotalArchers, "SELECT COUNT(*) FROM archers")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total archers count"})
 			return

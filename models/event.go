@@ -28,7 +28,7 @@ func (ft *FlexibleTime) UnmarshalJSON(data []byte) error {
 
 // Event represents an archery Event/competition
 type Event struct {
-	ID           string    `json:"id" db:"id"`
+	UUID         string    `json:"id" db:"uuid"` 
 	Code         string    `json:"code" db:"code"`
 	Name         string    `json:"name" db:"name"`
 	ShortName    *string   `json:"short_name" db:"short_name"`
@@ -45,7 +45,6 @@ type Event struct {
 	BannerURL            *string    `json:"banner_url" db:"banner_url"`
 	LogoURL              *string    `json:"logo_url" db:"logo_url"`
 	Type                 *string    `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D
-	NumDistances         *int       `json:"num_distances" db:"num_distances"`
 	NumSessions          *int       `json:"num_sessions" db:"num_sessions"`
 	EntryFee             float64    `json:"entry_fee" db:"entry_fee"`
 	MaxParticipants      *int       `json:"max_participants" db:"max_participants"`
@@ -81,7 +80,6 @@ type CreateEventRequest struct {
 	BannerURL            *string      `json:"banner_url"`
 	LogoURL              *string      `json:"logo_url"`
 	Type                 *string      `json:"type"`
-	NumDistances         *int         `json:"num_distances"`
 	NumSessions          *int         `json:"num_sessions"`
 	EntryFee             float64      `json:"entry_fee"`
 	MaxParticipants      *int         `json:"max_participants"`
@@ -108,14 +106,13 @@ type UpdateEventRequest struct {
 	BannerURL    *string    `json:"banner_url"`
 	LogoURL      *string    `json:"logo_url"`
 	Type         *string    `json:"type"`
-	NumDistances *int       `json:"num_distances"`
 	NumSessions  *int       `json:"num_sessions"`
 	Status       *string    `json:"status"`
 }
 
 // EventEvent represents an event within a Event (division + category)
 type EventEvent struct {
-	ID                  string    `json:"id" db:"id"`
+	UUID                string    `json:"id" db:"uuid"`
 	EventID        string    `json:"Event_id" db:"Event_id"`
 	DivisionID          string    `json:"division_id" db:"division_id"`
 	CategoryID          string    `json:"category_id" db:"category_id"`
@@ -138,7 +135,7 @@ type EventEventWithDetails struct {
 
 // Division represents a bow division (Recurve, Compound, Barebow, etc.)
 type Division struct {
-	ID           string    `json:"id" db:"id"`
+	UUID         string    `json:"id" db:"uuid"` 
 	Name         string    `json:"name" db:"name"`
 	Code         string    `json:"code" db:"code"`
 	Description  *string   `json:"description" db:"description"`
@@ -148,7 +145,7 @@ type Division struct {
 
 // Category represents an age/gender category
 type Category struct {
-	ID           string    `json:"id" db:"id"`
+	UUID         string    `json:"id" db:"uuid"` 
 	Name         string    `json:"name" db:"name"`
 	Code         string    `json:"code" db:"code"`
 	AgeFrom      *int      `json:"age_from" db:"age_from"`
@@ -160,7 +157,7 @@ type Category struct {
 
 // Session represents a competition session
 type Session struct {
-	ID                string     `json:"id" db:"id"`
+	UUID              string     `json:"id" db:"uuid"`
 	EventID      string     `json:"Event_id" db:"Event_id"`
 	SessionOrder      int        `json:"session_order" db:"session_order"`
 	Name              *string    `json:"name" db:"name"`
@@ -168,19 +165,9 @@ type Session struct {
 	StartTime         *string    `json:"start_time" db:"start_time"`
 	EndTime           *string    `json:"end_time" db:"end_time"`
 	NumTargets        int        `json:"num_targets" db:"num_targets"`
-	AthletesPerTarget int        `json:"athletes_per_target" db:"athletes_per_target"`
+	ArchersPerTarget  int        `json:"archers_per_target" db:"archers_per_target"`
 	Locked            bool       `json:"locked" db:"locked"`
 	Notes             *string    `json:"notes" db:"notes"`
 }
 
-// Distance represents shooting distance configuration
-type Distance struct {
-	ID            string  `json:"id" db:"id"`
-	EventID       string  `json:"event_id" db:"event_id"`
-	DistanceOrder int     `json:"distance_order" db:"distance_order"`
-	DistanceValue int     `json:"distance_value" db:"distance_value"` // in meters
-	ArrowsPerEnd  int     `json:"arrows_per_end" db:"arrows_per_end"`
-	NumEnds       int     `json:"num_ends" db:"num_ends"`
-	TargetFace    *string `json:"target_face" db:"target_face"` // 122cm, 80cm, etc.
-}
 

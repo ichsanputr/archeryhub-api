@@ -165,7 +165,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check archers
 		var existingID string
-		err = db.Get(&existingID, "SELECT id FROM archers WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+		err = db.Get(&existingID, "SELECT uuid FROM archers WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
 		if err == nil && existingID != "" {
 			userType = "archer"
 			userID = existingID
@@ -174,7 +174,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check organizations
 		if !found {
-			err = db.Get(&existingID, "SELECT id FROM organizations WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+			err = db.Get(&existingID, "SELECT uuid FROM organizations WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
 			if err == nil && existingID != "" {
 				userType = "organization"
 				userID = existingID
@@ -184,7 +184,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&existingID, "SELECT id FROM clubs WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+			err = db.Get(&existingID, "SELECT uuid FROM clubs WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
 			if err == nil && existingID != "" {
 				userType = "club"
 				userID = existingID
@@ -204,13 +204,13 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				table = "organizations"
 			}
 
-			err = db.Get(&role, "SELECT role FROM "+table+" WHERE id = ?", userID)
+			err = db.Get(&role, "SELECT role FROM "+table+" WHERE uuid = ?", userID)
 
 			// Update Google-specific fields
 			_, err = db.Exec(`
 				UPDATE `+table+` 
 				SET google_id = ?, avatar_url = ?, `+nameField+` = ?, updated_at = NOW()
-				WHERE id = ?
+				WHERE uuid = ?
 			`, userInfo.ID, userInfo.Picture, userInfo.Name, userID)
 			if err != nil {
 				fmt.Printf("Failed to update user in %s: %v\n", table, err)
@@ -224,7 +224,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			username := generateUsername(userInfo.Email)
 
 			_, err = db.Exec(`
-				INSERT INTO archers (id, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
+				INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
 				VALUES (?, ?, ?, ?, ?, ?, 'archer', 'active', NOW(), NOW())
 			`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
 
