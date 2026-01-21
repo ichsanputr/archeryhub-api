@@ -153,8 +153,15 @@ func main() {
 			auth.GET("/sample-user", handler.GetSampleUser(db))
 		}
 
-		// User route (alias for /auth/me, needed for frontend compatibility)
-		api.GET("/user", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
+		// User routes
+		user := api.Group("/user")
+		user.Use(middleware.AuthMiddleware())
+		{
+			user.GET("", handler.GetCurrentUser(db))
+			user.GET("/profile", handler.GetUserProfile(db))
+			user.PUT("/profile", handler.UpdateArcher(db)) // Reusing UpdateArcher for profile update
+			user.PUT("/password", handler.UpdatePassword(db))
+		}
 
 		// Event routes
 		events := api.Group("/events")

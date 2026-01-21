@@ -208,16 +208,30 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Check sellers
+		if !found {
+			err = db.Get(&existingID, "SELECT uuid FROM sellers WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
+			if err == nil && existingID != "" {
+				userType = "seller"
+				userID = existingID
+				found = true
+			}
+		}
+
 		if found {
 			// Update existing user
 			table := "archers"
 			nameField := "full_name"
-			if userType != "archer" {
-				table = userType + "s"
-				nameField = "name"
-			}
-			if userType == "organization" {
+			switch userType {
+			case "organization":
 				table = "organizations"
+				nameField = "name"
+			case "club":
+				table = "clubs"
+				nameField = "name"
+			case "seller":
+				table = "sellers"
+				nameField = "store_name"
 			}
 
 			err = db.Get(&role, "SELECT role FROM "+table+" WHERE uuid = ?", userID)
@@ -274,7 +288,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType)
+		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, userInfo.Name, userInfo.Picture)
 		if err != nil {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "token_generation_failed"})
@@ -303,12 +317,12 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				"token":       token,
 				"is_new_user": isNewUser,
 				"user": gin.H{
-					"id":        userID,
-					"email":     userInfo.Email,
-					"name":      userInfo.Name,
-					"avatar":    userInfo.Picture,
-					"role":      role,
-					"user_type": userType,
+					"id":         userID,
+					"email":      userInfo.Email,
+					"full_name":  userInfo.Name,
+					"avatar_url": userInfo.Picture,
+					"role":       role,
+					"user_type":  userType,
 				},
 			})
 
@@ -422,7 +436,7 @@ func splitState(stateData string) []string {
 }
 
 // generateGoogleJWT generates a JWT token for Google OAuth users
-func generateGoogleJWT(userID, email, role, userType string) (string, error) {
+func generateGoogleJWT(userID, email, role, userType, name, avatar string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("archeryhub-secret-key-change-in-production")
@@ -431,6 +445,8 @@ func generateGoogleJWT(userID, email, role, userType string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":   userID,
 		"email":     email,
+		"name":      name,
+		"avatar":    avatar,
 		"role":      role,
 		"user_type": userType,
 		"exp":       time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days

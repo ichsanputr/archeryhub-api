@@ -35,7 +35,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 			UUID        string  `json:"uuid" db:"uuid"`
 			Name        string  `json:"name" db:"name"`
 			Slug        string  `json:"slug" db:"slug"`
-			LogoURL     *string `json:"logo_url" db:"logo_url"`
+			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
 			BannerURL   *string `json:"banner_url" db:"banner_url"`
 			City        *string `json:"city" db:"city"`
 			Province    *string `json:"province" db:"province"`
@@ -54,7 +54,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 				UUID        string  `json:"uuid" db:"uuid"`
 				Name        string  `json:"name" db:"name"`
 				Slug        string  `json:"slug" db:"slug"`
-				LogoURL     *string `json:"logo_url" db:"logo_url"`
+				AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
 				BannerURL   *string `json:"banner_url" db:"banner_url"`
 				City        *string `json:"city" db:"city"`
 				Province    *string `json:"province" db:"province"`
@@ -77,7 +77,7 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			Name        string  `json:"name" db:"name"`
 			Slug        string  `json:"slug" db:"slug"`
 			Description *string `json:"description" db:"description"`
-			LogoURL     *string `json:"logo_url" db:"logo_url"`
+			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
 			BannerURL   *string `json:"banner_url" db:"banner_url"`
 			Address     *string `json:"address" db:"address"`
 			City        *string `json:"city" db:"city"`
@@ -89,7 +89,7 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt   string  `json:"created_at" db:"created_at"`
 		}
 		
-		err := db.Get(&club, "SELECT * FROM clubs WHERE slug = ? OR uuid = ?", slug, slug)
+		err := db.Get(&club, "SELECT uuid, name, slug, description, avatar_url, banner_url, address, city, province, phone, email, website, is_verified, created_at FROM clubs WHERE slug = ? OR uuid = ?", slug, slug)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return

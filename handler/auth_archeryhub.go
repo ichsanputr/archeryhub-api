@@ -56,6 +56,9 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		case "club":
 			table = "clubs"
 			role = "club"
+		case "seller":
+			table = "sellers"
+			role = "seller"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
 			return
@@ -65,8 +68,9 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		var exists bool
 		query := "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ? OR username = ?) " +
 			"OR EXISTS(SELECT 1 FROM organizations WHERE email = ? OR username = ?) " +
-			"OR EXISTS(SELECT 1 FROM clubs WHERE email = ? OR username = ?)"
-		err := db.Get(&exists, query, req.Email, req.Username, req.Email, req.Username, req.Email, req.Username)
+			"OR EXISTS(SELECT 1 FROM clubs WHERE email = ? OR username = ?) " +
+			"OR EXISTS(SELECT 1 FROM sellers WHERE email = ? OR username = ?)"
+		err := db.Get(&exists, query, req.Email, req.Username, req.Email, req.Username, req.Email, req.Username, req.Email, req.Username)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
 			return
@@ -85,8 +89,12 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 
 		// Create entity
 		userID := uuid.New().String()
-		nameField := "full_name"
-		if table != "archers" {
+		var nameField string
+		if table == "archers" {
+			nameField = "full_name"
+		} else if table == "sellers" {
+			nameField = "store_name"
+		} else {
 			nameField = "name"
 		}
 
@@ -102,7 +110,9 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(userID, req.Email, role, req.UserType)
+		name := req.FullName
+		avatar := "" // New registration has no avatar yet
+		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -114,12 +124,13 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, AuthResponse{
 			Token: token,
 			User: gin.H{
-				"id":        userID,
-				"username":  req.Username,
-				"email":     req.Email,
-				"full_name": req.FullName,
-				"role":      role,
-				"type":      req.UserType,
+				"id":         userID,
+				"username":   req.Username,
+				"full_name":  req.FullName,
+				"email":      req.Email,
+				"avatar_url": avatar,
+				"role":       role,
+				"user_type":  req.UserType,
 			},
 		})
 	}
@@ -135,21 +146,22 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type UserResult struct {
-			UUID     string `db:"uuid"`
-			Username string `db:"username"`
-			Email    string `db:"email"`
-			Password string `db:"password"`
-			FullName string `db:"name"`
-			Role     string `db:"role"`
-			Status   string `db:"status"`
-			Type     string
+			UUID      string  `db:"uuid"`
+			Username  string  `db:"username"`
+			Email     string  `db:"email"`
+			Password  string  `db:"password"`
+			FullName  string  `db:"full_name"`
+			AvatarURL *string `db:"avatar_url"`
+			Role      string  `db:"role"`
+			Status    string  `db:"status"`
+			Type      string
 		}
 
 		var user UserResult
 		found := false
 
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, username, email, password, full_name as name, role, status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, username, email, password, full_name, avatar_url, role, status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -157,7 +169,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check organizations
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, name, role, status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, role, status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -166,9 +178,18 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, name, role, status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, role, status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
+				found = true
+			}
+		}
+
+		// Check sellers
+		if !found {
+			err = db.Get(&user, "SELECT uuid, username, email, password, store_name as full_name, avatar_url, role, status FROM sellers WHERE email = ?", req.Email)
+			if err == nil {
+				user.Type = "seller"
 				found = true
 			}
 		}
@@ -195,7 +216,11 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type)
+		avatar := ""
+		if user.AvatarURL != nil {
+			avatar = *user.AvatarURL
+		}
+		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -217,12 +242,13 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
 			User: gin.H{
-				"id":        user.UUID,
-				"username":  user.Username,
-				"email":     user.Email,
-				"full_name": user.FullName,
-				"role":      user.Role,
-				"type":      user.Type,
+				"id":         user.UUID,
+				"username":   user.Username,
+				"full_name":  user.FullName,
+				"email":      user.Email,
+				"avatar_url": avatar,
+				"role":       user.Role,
+				"user_type":  user.Type,
 			},
 		})
 	}
@@ -258,30 +284,34 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 
 		userType, _ := c.Get("user_type")
 		table := "archers"
-		nameField := "full_name as full_name"
+		nameField := "full_name"
 
 		switch userType {
 		case "organization":
 			table = "organizations"
-			nameField = "name as full_name"
+			nameField = "name"
 		case "club":
 			table = "clubs"
-			nameField = "name as full_name"
+			nameField = "name"
+		case "seller":
+			table = "sellers"
+			nameField = "store_name"
 		}
 
 		var user struct {
-			ID        string  `db:"id" json:"id"`
+			ID        string  `db:"uuid" json:"id"`
 			Username  string  `db:"username" json:"username"`
 			Email     string  `db:"email" json:"email"`
 			FullName  string  `db:"full_name" json:"full_name"`
 			Role      string  `db:"role" json:"role"`
 			AvatarURL *string `db:"avatar_url" json:"avatar_url"`
+			UserType  string  `db:"-" json:"user_type"`
 			Phone     *string `db:"phone" json:"phone"`
 			Status    string  `db:"status" json:"status"`
 			CreatedAt string  `db:"created_at" json:"created_at"`
 		}
 
-		query := `SELECT uuid, username, email, ` + nameField + `, role, NULL as avatar_url, phone, status, created_at FROM ` + table + ` WHERE uuid = ?`
+		query := `SELECT uuid, username, email, ` + nameField + ` as full_name, role, avatar_url, phone, status, created_at FROM ` + table + ` WHERE uuid = ?`
 		err := db.Get(&user, query, userID)
 
 		if err != nil {
@@ -289,12 +319,14 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		user.UserType = userType.(string)
+
 		c.JSON(http.StatusOK, user)
 	}
 }
 
 // generateJWT generates a JWT token for the user
-func generateJWT(userID, email, role, userType string) (string, error) {
+func generateJWT(userID, email, role, userType, name, avatar string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("archeryhub-secret-key-change-in-production")
@@ -303,6 +335,8 @@ func generateJWT(userID, email, role, userType string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":   userID,
 		"email":     email,
+		"name":      name,
+		"avatar":    avatar,
 		"role":      role,
 		"user_type": userType,
 		"exp":       time.Now().Add(time.Hour * 72).Unix(),
