@@ -109,7 +109,7 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 // JoinClub allows an archer to request membership
 func JoinClub(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clubID := c.Param("id")
+		clubID := c.Param("clubId")
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
 		
@@ -250,7 +250,7 @@ func ApproveClubMember(db *sqlx.DB) gin.HandlerFunc {
 // GetClubMembers returns all members of a club
 func GetClubMembers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clubID := c.Param("id")
+		clubID := c.Param("clubId")
 		
 		var members []struct {
 			ClubMember
@@ -278,5 +278,74 @@ func GetClubMembers(db *sqlx.DB) gin.HandlerFunc {
 		}
 		
 		c.JSON(http.StatusOK, gin.H{"data": members})
+	}
+}
+
+// InviteToClub allows club admin to invite an archer
+func InviteToClub(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+		
+		// Only club owners can invite
+		if userType != "club" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only club owners can invite members"})
+			return
+		}
+		
+		var req struct {
+			ArcherID string `json:"archer_id" binding:"required"`
+			Role     string `json:"role"`
+		}
+		
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Archer ID is required"})
+			return
+		}
+		
+		// Get club owned by user
+		var clubID string
+		err := db.Get(&clubID, "SELECT uuid FROM clubs WHERE owner_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't own any club"})
+			return
+		}
+		
+		// Check if archer exists
+		var archerExists bool
+		err = db.Get(&archerExists, "SELECT EXISTS(SELECT 1 FROM users WHERE uuid = ? AND user_type = 'archer')")
+		if err != nil || !archerExists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
+			return
+		}
+		
+		// Check if archer already has membership
+		var existingMembership string
+		err = db.Get(&existingMembership, "SELECT club_id FROM club_members WHERE archer_id = ? AND status IN ('pending', 'active', 'invited')", req.ArcherID)
+		if err == nil && existingMembership != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Archer already has a club membership"})
+			return
+		}
+		
+		if req.Role == "" {
+			req.Role = "member"
+		}
+		
+		// Create invitation
+		memberID := uuid.New().String()
+		_, err = db.Exec(`
+			INSERT INTO club_members (uuid, club_id, archer_id, status, role)
+			VALUES (?, ?, ?, 'invited', ?)
+		`, memberID, clubID, req.ArcherID, req.Role)
+		
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send invitation"})
+			return
+		}
+		
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Invitation sent successfully",
+			"id": memberID,
+		})
 	}
 }

@@ -317,16 +317,17 @@ func main() {
 		clubs := api.Group("/clubs")
 		{
 			clubs.GET("", handler.GetClubs(db))
-			clubs.GET("/:slug", handler.GetClubBySlug(db))
-			clubs.GET("/:id/members", handler.GetClubMembers(db))
+			clubs.GET("/detail/:slug", handler.GetClubBySlug(db))
+			clubs.GET("/members/:clubId", handler.GetClubMembers(db))
 			
 			protectedClubs := clubs.Group("")
 			protectedClubs.Use(middleware.AuthMiddleware())
 			{
-				protectedClubs.POST("/:id/join", handler.JoinClub(db))
+				protectedClubs.POST("/join/:clubId", handler.JoinClub(db))
 				protectedClubs.GET("/my/membership", handler.GetMyClubMembership(db))
 				protectedClubs.DELETE("/my/membership", handler.LeaveClub(db))
 				protectedClubs.PUT("/members/:memberId/approve", handler.ApproveClubMember(db))
+				protectedClubs.POST("/invite", handler.InviteToClub(db))
 			}
 		}
 	}
