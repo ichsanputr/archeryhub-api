@@ -97,6 +97,43 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetMyTeams returns all teams managed by the authenticated user's organization or club
+func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		query := `
+			SELECT t.*, e.name as event_name, c.name as category_name, COUNT(tm.id) as member_count 
+			FROM teams t
+			JOIN events e ON t.tournament_id = e.uuid
+			JOIN event_categories c ON t.event_id = c.uuid
+			LEFT JOIN team_members tm ON t.uuid = tm.team_id
+			WHERE e.organization_id = (SELECT organization_id FROM users WHERE uuid = ?)
+			   OR e.club_id = (SELECT club_id FROM users WHERE uuid = ?)
+			GROUP BY t.uuid
+			ORDER BY t.created_at DESC
+		`
+		
+		var teams []struct {
+			models.Team
+			EventName    string `json:"event_name" db:"event_name"`
+			CategoryName string `json:"category_name" db:"category_name"`
+			MemberCount  int    `json:"member_count" db:"member_count"`
+		}
+		
+		err := db.Select(&teams, query, userID, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your teams"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data":  teams,
+			"total": len(teams),
+		})
+	}
+}
+
 // GetTeam returns a single team with members
 func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -203,6 +203,23 @@ func main() {
 		api.GET("/gender-divisions", handler.GetGenderDivisions(db))
 		api.GET("/age-groups", handler.GetAgeGroups(db))
 
+		// News routes
+		news := api.Group("/news")
+		{
+			// Public news routes
+			news.GET("", handler.GetNewsPublic(db))
+			news.GET("/:id", handler.GetNewsByID(db))
+
+			// Protected news routes
+			protectedNews := news.Group("")
+			protectedNews.Use(middleware.AuthMiddleware())
+			{
+				protectedNews.GET("/my", handler.GetNews(db))
+				protectedNews.POST("", handler.CreateNews(db))
+				protectedNews.PUT("/:id", handler.UpdateNews(db))
+				protectedNews.DELETE("/:id", handler.DeleteNews(db))
+			}
+		}
 
 
 		// Back Numbers & Target Assignments
@@ -216,7 +233,14 @@ func main() {
 		{
 			teams.GET("/event/:eventId", handler.GetTeams(db))
 			teams.GET("/:teamId", handler.GetTeam(db))
-			teams.POST("/event/:eventId", middleware.AuthMiddleware(), handler.CreateTeam(db))
+			
+			protectedTeams := teams.Group("")
+			protectedTeams.Use(middleware.AuthMiddleware())
+			{
+				protectedTeams.GET("/my", handler.GetMyTeams(db))
+				protectedTeams.POST("/event/:eventId", handler.CreateTeam(db))
+			}
+			
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
@@ -264,6 +288,22 @@ func main() {
 			media.DELETE("/:filename", middleware.AuthMiddleware(), handler.DeleteMedia())
 		}
 
+		// Marketplace (Products)
+		products := api.Group("/products")
+		{
+			products.GET("", handler.GetProducts(db))
+			products.GET("/:id", handler.GetProductByID(db))
+			
+			protectedProducts := products.Group("")
+			protectedProducts.Use(middleware.AuthMiddleware())
+			{
+				protectedProducts.GET("/my", handler.GetMyProducts(db))
+				protectedProducts.POST("", handler.CreateProduct(db))
+				protectedProducts.PUT("/:id", handler.UpdateProduct(db))
+				protectedProducts.DELETE("/:id", handler.DeleteProduct(db))
+			}
+		}
+
 		// Qualification Scoring
 		qual := api.Group("/qualification")
 		{
@@ -271,6 +311,23 @@ func main() {
 			qual.POST("/sessions", middleware.AuthMiddleware(), handler.CreateQualificationSession(db))
 			qual.PUT("/scores/:assignmentId", middleware.AuthMiddleware(), handler.UpdateQualificationScore(db))
 			qual.GET("/leaderboard/:categoryId", handler.GetQualificationLeaderboard(db))
+		}
+
+		// Clubs & Membership
+		clubs := api.Group("/clubs")
+		{
+			clubs.GET("", handler.GetClubs(db))
+			clubs.GET("/:slug", handler.GetClubBySlug(db))
+			clubs.GET("/:id/members", handler.GetClubMembers(db))
+			
+			protectedClubs := clubs.Group("")
+			protectedClubs.Use(middleware.AuthMiddleware())
+			{
+				protectedClubs.POST("/:id/join", handler.JoinClub(db))
+				protectedClubs.GET("/my/membership", handler.GetMyClubMembership(db))
+				protectedClubs.DELETE("/my/membership", handler.LeaveClub(db))
+				protectedClubs.PUT("/members/:memberId/approve", handler.ApproveClubMember(db))
+			}
 		}
 	}
 

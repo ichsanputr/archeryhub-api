@@ -61,6 +61,16 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 			appURL = os.Getenv("APP_URL")
 		}
 
+		// Get user type for registration (defaults to archer)
+		userType := c.Query("user_type")
+		if userType == "" {
+			userType = "archer"
+		}
+		// Validate user type
+		if userType != "archer" && userType != "organization" && userType != "club" {
+			userType = "archer"
+		}
+
 		// Generate state for CSRF protection
 		stateBytes := make([]byte, 16)
 		if _, err := rand.Read(stateBytes); err != nil {
@@ -69,9 +79,9 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 		}
 		state := hex.EncodeToString(stateBytes)
 
-		// Store state with app URL for callback
-		// In production, use Redis or database
-		stateData := fmt.Sprintf("%s|%s", state, appURL)
+		// Store state with app URL and user_type for callback
+		// Format: state|appURL|userType
+		stateData := fmt.Sprintf("%s|%s|%s", state, appURL, userType)
 
 		redirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
 		if redirectURI == "" {
@@ -123,10 +133,16 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Parse state to get app URL
+		// Parse state to get app URL and user_type
+		// Format: state|appURL|userType
 		appURL := ""
-		if len(stateData) > 33 { // state is 32 chars + "|"
-			appURL = stateData[33:]
+		requestedUserType := "archer" // default
+		parts := splitState(stateData)
+		if len(parts) >= 2 {
+			appURL = parts[1]
+		}
+		if len(parts) >= 3 {
+			requestedUserType = parts[2]
 		}
 		if appURL == "" {
 			appURL = os.Getenv("APP_URL")
@@ -216,21 +232,37 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				fmt.Printf("Failed to update user in %s: %v\n", table, err)
 			}
 		} else {
-			// Create new user as archer
+			// Create new user based on requested user type
 			userID = uuid.New().String()
-			userType = "archer"
-			role = "archer"
+			userType = requestedUserType
+			role = requestedUserType
 			isNewUser = true
 			username := generateUsername(userInfo.Email)
 
-			_, err = db.Exec(`
-				INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, 'archer', 'active', NOW(), NOW())
-			`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+			var insertErr error
+			switch userType {
+			case "organization":
+				_, insertErr = db.Exec(`
+					INSERT INTO organizations (uuid, username, email, google_id, name, avatar_url, role, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'organization', 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+			case "club":
+				_, insertErr = db.Exec(`
+					INSERT INTO clubs (uuid, username, email, google_id, name, avatar_url, role, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'club', 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+			default: // archer
+				userType = "archer"
+				role = "archer"
+				_, insertErr = db.Exec(`
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'archer', 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, userInfo.Name, userInfo.Picture)
+			}
 
-			if err != nil {
+			if insertErr != nil {
 				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "user_creation_failed", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "user_creation_failed", "details": insertErr.Error()})
 				} else {
 					c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=user_creation_failed")
 				}
@@ -238,7 +270,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			// Log activity
-			utils.LogActivity(db, userID, "", "user_registered", "archer", userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID, "", "user_registered", userType, userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		// Generate JWT token
@@ -369,6 +401,24 @@ func generateUsername(email string) string {
 		}
 	}
 	return email
+}
+
+// splitState splits the OAuth state string into parts
+func splitState(stateData string) []string {
+	result := []string{}
+	current := ""
+	for _, c := range stateData {
+		if c == '|' {
+			result = append(result, current)
+			current = ""
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
 }
 
 // generateGoogleJWT generates a JWT token for Google OAuth users
