@@ -32,6 +32,7 @@ type Event struct {
 	Code         string    `json:"code" db:"code"`
 	Name         string    `json:"name" db:"name"`
 	ShortName    *string   `json:"short_name" db:"short_name"`
+	Slug         string    `json:"slug" db:"slug"`
 	Venue        *string   `json:"venue" db:"venue"`
 	GmapLink     *string   `json:"gmaps_link" db:"gmaps_link"`
 	Location     *string   `json:"location" db:"location"`

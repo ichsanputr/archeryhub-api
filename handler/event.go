@@ -53,6 +53,15 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
+		// Check if user is archer to filter events
+		userID, userExists := c.Get("user_id")
+		userRole, roleExists := c.Get("role")
+
+		if userExists && roleExists && userRole == "archer" {
+			query += ` AND t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)`
+			args = append(args, userID)
+		}
+
 		query += `
 			GROUP BY t.uuid
 			ORDER BY t.start_date DESC
@@ -97,12 +106,12 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
 			LEFT JOIN ref_disciplines d ON t.type = d.uuid
-			WHERE t.uuid = ?
+			WHERE t.uuid = ? OR t.slug = ?
 			GROUP BY t.uuid
 		`
 
 		var Event models.EventWithDetails
-		err := db.Get(&Event, query, id)
+		err := db.Get(&Event, query, id, id)
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
