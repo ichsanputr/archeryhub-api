@@ -26,28 +26,6 @@ type Product struct {
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// Seller represents a marketplace merchant (could be organization, club, or individual)
-type Seller struct {
-	UUID        string    `json:"id" db:"uuid"`
-	UserID      *string   `json:"user_id" db:"user_id"`
-	StoreName   string    `json:"store_name" db:"store_name"`
-	StoreSlug   string    `json:"store_slug" db:"store_slug"`
-	Description *string   `json:"description" db:"description"`
-	LogoURL     *string   `json:"logo_url" db:"logo_url"`
-	BannerURL   *string   `json:"banner_url" db:"banner_url"`
-	Phone       *string   `json:"phone" db:"phone"`
-	Email       *string   `json:"email" db:"email"`
-	Address     *string   `json:"address" db:"address"`
-	City        *string   `json:"city" db:"city"`
-	Province    *string   `json:"province" db:"province"`
-	IsVerified  bool      `json:"is_verified" db:"is_verified"`
-	Rating      float64   `json:"rating" db:"rating"`
-	TotalSales  int       `json:"total_sales" db:"total_sales"`
-	Status      string    `json:"status" db:"status"` // pending, active, suspended
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
-}
-
 // CreateProductRequest represents the payload to create a new product
 type CreateProductRequest struct {
 	Name           string   `json:"name" binding:"required"`
@@ -74,4 +52,33 @@ type UpdateProductRequest struct {
 	ImageURL       *string  `json:"image_url"`
 	Images         []string `json:"images"`
 	Specifications any      `json:"specifications"`
+}
+
+// CartItem represents an item in a user's shopping cart
+type CartItem struct {
+	UUID      string    `json:"id" db:"uuid"`
+	UserID    string    `json:"user_id" db:"user_id"`
+	ProductID string    `json:"product_id" db:"product_id"`
+	Quantity  int       `json:"quantity" db:"quantity"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+
+	// Joined data
+	ProductName    string   `json:"product_name" db:"product_name"`
+	ProductPrice   float64  `json:"product_price" db:"product_price"`
+	ProductSale    *float64 `json:"product_sale_price" db:"product_sale_price"`
+	ProductImage   *string  `json:"product_image_url" db:"product_image_url"`
+	ProductStock   int      `json:"product_stock" db:"product_stock"`
+	SellerName     string   `json:"seller_name" db:"seller_name"`
+}
+
+// AddToCartRequest represents the payload to add an item to cart
+type AddToCartRequest struct {
+	ProductID string `json:"product_id" binding:"required"`
+	Quantity  int    `json:"quantity" binding:"required,min=1"`
+}
+
+// UpdateCartItemRequest represents the payload to update cart item quantity
+type UpdateCartItemRequest struct {
+	Quantity int `json:"quantity" binding:"required,min=1"`
 }

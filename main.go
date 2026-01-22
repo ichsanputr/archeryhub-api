@@ -312,6 +312,16 @@ func main() {
 			}
 		}
 
+		// Cart routes
+		cart := api.Group("/cart")
+		cart.Use(middleware.AuthMiddleware())
+		{
+			cart.GET("", handler.GetCart(db))
+			cart.POST("", handler.AddToCart(db))
+			cart.PUT("/:id", handler.UpdateCartItem(db))
+			cart.DELETE("/:id", handler.DeleteCartItem(db))
+		}
+
 		// Qualification Scoring
 		qual := api.Group("/qualification")
 		{

@@ -42,6 +42,8 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 			err = db.Select(&products, "SELECT * FROM products WHERE organization_id = ? ORDER BY created_at DESC", userID)
 		} else if userType == "club" {
 			err = db.Select(&products, "SELECT * FROM products WHERE club_id = ? ORDER BY created_at DESC", userID)
+		} else if userType == "seller" {
+			err = db.Select(&products, "SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC", userID)
 		} else {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to view products"})
 			return
@@ -97,12 +99,14 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		imagesJSON, _ := json.Marshal(req.Images)
 		specJSON, _ := json.Marshal(req.Specifications)
 
-		var orgID, clubID *string
+		var orgID, clubID, sellerID *string
 		userIDStr := userID.(string)
 		if userType == "organization" {
 			orgID = &userIDStr
 		} else if userType == "club" {
 			clubID = &userIDStr
+		} else if userType == "seller" {
+			sellerID = &userIDStr
 		}
 
 		if req.Status == "" {
@@ -110,9 +114,9 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			INSERT INTO products (uuid, organization_id, club_id, name, slug, description, price, sale_price, category, stock, status, image_url, images, specifications)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, productID, orgID, clubID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(specJSON))
+			INSERT INTO products (uuid, organization_id, club_id, seller_id, name, slug, description, price, sale_price, category, stock, status, image_url, images, specifications)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, productID, orgID, clubID, sellerID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(specJSON))
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product: " + err.Error()})
@@ -151,6 +155,8 @@ func UpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 		if userType == "organization" && product.OrganizationID != nil && *product.OrganizationID == userID.(string) {
 			isOwner = true
 		} else if userType == "club" && product.ClubID != nil && *product.ClubID == userID.(string) {
+			isOwner = true
+		} else if userType == "seller" && product.SellerID != nil && *product.SellerID == userID.(string) {
 			isOwner = true
 		}
 
@@ -238,6 +244,8 @@ func DeleteProduct(db *sqlx.DB) gin.HandlerFunc {
 		if userType == "organization" && product.OrganizationID != nil && *product.OrganizationID == userID.(string) {
 			isOwner = true
 		} else if userType == "club" && product.ClubID != nil && *product.ClubID == userID.(string) {
+			isOwner = true
+		} else if userType == "seller" && product.SellerID != nil && *product.SellerID == userID.(string) {
 			isOwner = true
 		}
 

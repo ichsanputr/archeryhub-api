@@ -229,6 +229,75 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		if userType == "seller" {
+			var req models.UpdateSellerRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+				return
+			}
+
+			query := "UPDATE sellers SET updated_at = NOW()"
+			args := []interface{}{}
+
+			if req.StoreName != nil {
+				query += ", store_name = ?"
+				args = append(args, *req.StoreName)
+			}
+			if req.StoreSlug != nil {
+				query += ", store_slug = ?"
+				args = append(args, *req.StoreSlug)
+			}
+			if req.Description != nil {
+				query += ", description = ?"
+				args = append(args, *req.Description)
+			}
+			if req.Phone != nil {
+				query += ", phone = ?"
+				args = append(args, *req.Phone)
+			}
+			if req.Email != nil {
+				query += ", email = ?"
+				args = append(args, *req.Email)
+			}
+			if req.Address != nil {
+				query += ", address = ?"
+				args = append(args, *req.Address)
+			}
+			if req.City != nil {
+				query += ", city = ?"
+				args = append(args, *req.City)
+			}
+			if req.Province != nil {
+				query += ", province = ?"
+				args = append(args, *req.Province)
+			}
+			if req.AvatarURL != nil {
+				query += ", avatar_url = ?"
+				args = append(args, *req.AvatarURL)
+			}
+			if req.BannerURL != nil {
+				query += ", banner_url = ?"
+				args = append(args, *req.BannerURL)
+			}
+
+			if len(args) == 0 {
+				c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+				return
+			}
+
+			query += " WHERE uuid = ?"
+			args = append(args, userID)
+
+			_, err := db.Exec(query, args...)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seller profile: " + err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "Profil toko berhasil diperbarui"})
+			return
+		}
+
 		// Default to Archer update if not club (or implement others if needed)
 		var req models.UpdateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {

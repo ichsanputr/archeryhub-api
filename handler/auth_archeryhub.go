@@ -342,6 +342,10 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			Phone     *string `db:"phone" json:"phone"`
 			Bio       *string `db:"bio" json:"bio"`
 			Achievements *string `db:"achievements" json:"achievements"`
+			Description *string `db:"description" json:"description"`
+			StoreName   *string `db:"store_name" json:"store_name"`
+			StoreSlug   *string `db:"store_slug" json:"store_slug"`
+			BannerURL   *string `db:"banner_url" json:"banner_url"`
 			Status    string  `db:"status" json:"status"`
 			CreatedAt string  `db:"created_at" json:"created_at"`
 		}
@@ -349,6 +353,8 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		query := `SELECT uuid, username, email, slug, ` + nameField + ` as full_name, role, avatar_url, phone, status, created_at`
 		if table == "archers" {
 			query += ", bio, achievements"
+		} else if table == "sellers" {
+			query += ", store_name, store_slug, description, banner_url"
 		}
 		query += " FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)
