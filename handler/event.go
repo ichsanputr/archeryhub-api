@@ -377,6 +377,17 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		// First, resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `
+			SELECT uuid FROM events WHERE uuid = ? OR slug = ?
+		`, eventID, eventID)
+		
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
 		type EventEvent struct {
 			ID                  string `db:"id" json:"id"`
 			EventID        string `db:"event_id" json:"event_id"`
@@ -384,15 +395,16 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			DivisionID          string `db:"division_id" json:"division_id"`
 			CategoryName        string `db:"category_name" json:"category_name"`
 			CategoryID          string `db:"category_id" json:"category_id"`
-			MaxParticipants     int    `db:"max_participants" json:"max_participants"`
+			MaxParticipants     *int    `db:"max_participants" json:"max_participants"`
+			Status              string  `db:"status" json:"status"`
 			CreatedAt           string `db:"created_at" json:"created_at"`
 		}
 
 		var events []EventEvent
-		err := db.Select(&events, `
+		err = db.Select(&events, `
 			SELECT 
 				te.uuid as id, te.event_id, 
-				te.max_participants, te.created_at,
+				te.max_participants, te.status, te.created_at,
 				d.name as division_name, d.uuid as division_id,
 				c.name as category_name, c.uuid as category_id
 			FROM event_categories te
@@ -400,7 +412,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			WHERE te.event_id = ?
 			ORDER BY d.name, c.name
-		`, eventID)
+		`, actualEventID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event categories", "details": err.Error()})
@@ -419,6 +431,14 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		// Resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
 		type Participant struct {
 			ID                  string  `db:"id" json:"id"`
 			ArcherID            string  `db:"archer_id" json:"archer_id"`
@@ -426,6 +446,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			ArcherCode          string  `db:"athlete_code" json:"archer_code"`
 			Country             *string `db:"country" json:"country"`
 			ClubID              *string `db:"club_id" json:"club_id"`
+			ClubName            *string `db:"club_name" json:"club_name"`
 			EventID             string  `db:"event_id" json:"event_id"`
 			DivisionName        string  `db:"division_name" json:"division_name"`
 			CategoryName        string  `db:"category_name" json:"category_name"`
@@ -438,20 +459,22 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var participants []Participant
-		err := db.Select(&participants, `
+		err = db.Select(&participants, `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.back_number, tp.target_number, tp.session,
 				tp.payment_status, tp.accreditation_status, tp.registration_date,
-				a.full_name, a.athlete_code, a.country, a.club_id,
-				d.name as division_name, c.name as category_name
+				a.full_name, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
+				COALESCE(cl.name, '') as club_name,
+				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name
 			FROM event_participants tp
 			JOIN archers a ON tp.archer_id = a.uuid
-			JOIN event_categories te ON tp.category_id = te.uuid
-			JOIN ref_bow_types d ON te.division_uuid = d.uuid
-			JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			WHERE tp.event_id = ?
 			ORDER BY d.name, c.name, a.full_name
-		`, eventID)
+		`, actualEventID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
@@ -759,6 +782,208 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// CreateEventCategory creates a single event category
+func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var req struct {
+			DivisionUUID  string `json:"division_uuid" binding:"required"`
+			CategoryUUID  string `json:"category_uuid" binding:"required"`
+			MaxParticipants *int  `json:"max_participants"`
+			Status        string `json:"status"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		// Resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		// Check if combination already exists
+		var catExists bool
+		err = db.Get(&catExists, `
+			SELECT EXISTS(SELECT 1 FROM event_categories 
+			WHERE event_id = ? AND division_uuid = ? AND category_uuid = ?)
+		`, actualEventID, req.DivisionUUID, req.CategoryUUID)
+		
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check category", "details": err.Error()})
+			return
+		}
+		
+		if catExists {
+			c.JSON(http.StatusConflict, gin.H{"error": "Category already exists for this event"})
+			return
+		}
+
+		status := req.Status
+		if status == "" {
+			status = "active"
+		}
+
+		catEventID := uuid.New().String()
+		_, err = db.Exec(`
+			INSERT INTO event_categories (
+				uuid, event_id, division_uuid, category_uuid, 
+				max_participants, status
+			) VALUES (?, ?, ?, ?, ?, ?)
+		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.MaxParticipants, status)
+		
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "category_created", "event_category", catEventID, "Created event category", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusCreated, gin.H{
+			"id":      catEventID,
+			"message": "Category created successfully",
+		})
+	}
+}
+
+// UpdateEventCategory updates a single event category
+func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		categoryID := c.Param("categoryId")
+
+		var req struct {
+			DivisionUUID    *string `json:"division_uuid"`
+			CategoryUUID    *string `json:"category_uuid"`
+			MaxParticipants *int    `json:"max_participants"`
+			Status          *string `json:"status"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		// Resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		// Check if category exists and belongs to event
+		var exists bool
+		err = db.Get(&exists, `
+			SELECT EXISTS(SELECT 1 FROM event_categories 
+			WHERE uuid = ? AND event_id = ?)
+		`, categoryID, actualEventID)
+		
+		if err != nil || !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			return
+		}
+
+		// Build dynamic update query
+		query := "UPDATE event_categories SET updated_at = NOW()"
+		args := []interface{}{}
+
+		if req.DivisionUUID != nil {
+			query += ", division_uuid = ?"
+			args = append(args, *req.DivisionUUID)
+		}
+		if req.CategoryUUID != nil {
+			query += ", category_uuid = ?"
+			args = append(args, *req.CategoryUUID)
+		}
+		if req.MaxParticipants != nil {
+			query += ", max_participants = ?"
+			args = append(args, *req.MaxParticipants)
+		} else if req.MaxParticipants == nil {
+			// Allow setting to NULL
+			query += ", max_participants = NULL"
+		}
+		if req.Status != nil {
+			query += ", status = ?"
+			args = append(args, *req.Status)
+		}
+
+		query += " WHERE uuid = ? AND event_id = ?"
+		args = append(args, categoryID, actualEventID)
+
+		_, err = db.Exec(query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update category", "details": err.Error()})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "category_updated", "event_category", categoryID, "Updated event category", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Category updated successfully"})
+	}
+}
+
+// DeleteEventCategory deletes a single event category
+func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		categoryID := c.Param("categoryId")
+
+		// Resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		// Check if category exists and belongs to event
+		var exists bool
+		err = db.Get(&exists, `
+			SELECT EXISTS(SELECT 1 FROM event_categories 
+			WHERE uuid = ? AND event_id = ?)
+		`, categoryID, actualEventID)
+		
+		if err != nil || !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			return
+		}
+
+		// Check if category has participants
+		var hasParticipants bool
+		err = db.Get(&hasParticipants, `
+			SELECT EXISTS(SELECT 1 FROM event_participants 
+			WHERE category_id = ?)
+		`, categoryID)
+		
+		if err == nil && hasParticipants {
+			c.JSON(http.StatusConflict, gin.H{"error": "Cannot delete category with existing participants"})
+			return
+		}
+
+		_, err = db.Exec("DELETE FROM event_categories WHERE uuid = ? AND event_id = ?", categoryID, actualEventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete category", "details": err.Error()})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "category_deleted", "event_category", categoryID, "Deleted event category", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Category deleted successfully"})
+	}
+}
+
 // GetEventImages returns all images for an event
 func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -846,6 +1071,65 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Event images updated successfully",
 			"count":   len(req.Images),
+		})
+	}
+}
+
+// GetEventTeams returns teams for a specific event
+func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventIDParam := c.Param("id") // This can be UUID or slug
+
+		// Resolve eventIDParam to actual event UUID
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", eventIDParam, eventIDParam)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		categoryID := c.Query("category_id")
+
+		query := `
+			SELECT t.uuid, t.team_name, t.country_code, t.country_name, t.status, 
+			       t.total_score, t.total_x_count, t.created_at,
+			       COUNT(tm.uuid) as member_count 
+			FROM teams t
+			LEFT JOIN team_members tm ON t.uuid = tm.team_id
+			WHERE t.event_id = ?
+		`
+		args := []interface{}{eventUUID}
+
+		if categoryID != "" {
+			query += " AND t.category_id = ?"
+			args = append(args, categoryID)
+		}
+
+		query += " GROUP BY t.uuid ORDER BY t.total_score DESC, t.total_x_count DESC"
+
+		type Team struct {
+			ID          string  `db:"uuid" json:"id"`
+			TeamName    string  `db:"team_name" json:"team_name"`
+			CountryCode *string `db:"country_code" json:"country_code"`
+			CountryName *string `db:"country_name" json:"country_name"`
+			Status      string  `db:"status" json:"status"`
+			TotalScore  *int    `db:"total_score" json:"total_score"`
+			TotalXCount *int    `db:"total_x_count" json:"total_x_count"`
+			MemberCount int     `db:"member_count" json:"member_count"`
+			CreatedAt   string  `db:"created_at" json:"created_at"`
+		}
+
+		var teams []Team
+		err = db.Select(&teams, query, args...)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch teams", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"teams": teams,
+			"total": len(teams),
 		})
 	}
 }

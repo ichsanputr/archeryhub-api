@@ -172,6 +172,7 @@ func main() {
 			events.GET("/:id", handler.GetEventByID(db))
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
+			events.GET("/:id/teams", handler.GetEventTeams(db))
 			events.GET("/:id/images", handler.GetEventImages(db))
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))
 
@@ -182,10 +183,13 @@ func main() {
 				protected.POST("", handler.CreateEvent(db))
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))
-				protected.POST("/:id/publish", handler.PublishEvent(db))
-				protected.POST("/:id/categories", handler.CreateEventCategories(db))
-				protected.POST("/:id/participants", handler.RegisterParticipant(db))
-				protected.PUT("/:id/images", handler.UpdateEventImages(db))
+			protected.POST("/:id/publish", handler.PublishEvent(db))
+			protected.POST("/:id/categories", handler.CreateEventCategory(db))
+			protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
+			protected.PUT("/:id/categories/:categoryId", handler.UpdateEventCategory(db))
+			protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
+			protected.POST("/:id/participants", handler.RegisterParticipant(db))
+			protected.PUT("/:id/images", handler.UpdateEventImages(db))
 			}
 		}
 
