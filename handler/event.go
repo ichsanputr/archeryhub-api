@@ -26,7 +26,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
-				d.name as discipline_name,
+				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
@@ -37,7 +37,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			LEFT JOIN ref_disciplines d ON t.type = d.uuid
+			LEFT JOIN ref_disciplines d ON t.type = d.uuid OR t.type = d.code
 			WHERE 1=1
 		`
 		args := []interface{}{}
@@ -94,7 +94,7 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
-				d.name as discipline_name,
+				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
@@ -105,7 +105,7 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			LEFT JOIN ref_disciplines d ON t.type = d.uuid
+			LEFT JOIN ref_disciplines d ON t.type = d.uuid OR t.type = d.code
 			WHERE t.uuid = ? OR t.slug = ?
 			GROUP BY t.uuid
 		`
@@ -267,6 +267,10 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			query += ", gmaps_link = ?"
 			args = append(args, *req.GmapLink)
 		}
+		if req.Address != nil {
+			query += ", address = ?"
+			args = append(args, *req.Address)
+		}
 		if req.Location != nil {
 			query += ", location = ?"
 			args = append(args, *req.Location)
@@ -294,6 +298,30 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if req.Description != nil {
 			query += ", description = ?"
 			args = append(args, *req.Description)
+		}
+		if req.BannerURL != nil {
+			query += ", banner_url = ?"
+			args = append(args, *req.BannerURL)
+		}
+		if req.LogoURL != nil {
+			query += ", logo_url = ?"
+			args = append(args, *req.LogoURL)
+		}
+		if req.EntryFee != nil {
+			query += ", entry_fee = ?"
+			args = append(args, *req.EntryFee)
+		}
+		if req.MaxParticipants != nil {
+			query += ", max_participants = ?"
+			args = append(args, *req.MaxParticipants)
+		}
+		if req.RegistrationDeadline != nil {
+			query += ", registration_deadline = ?"
+			if (*req.RegistrationDeadline).IsZero() {
+				args = append(args, nil)
+			} else {
+				args = append(args, (*req.RegistrationDeadline).Time)
+			}
 		}
 		if req.Status != nil {
 			query += ", status = ?"
@@ -437,6 +465,161 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetEventSchedule returns schedule items for an event
+func GetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var exists bool
+		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ? OR slug = ?)`, eventID, eventID)
+		if err != nil || !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		var schedules []models.EventSchedule
+		err = db.Select(&schedules, `
+			SELECT es.* 
+			FROM event_schedule es
+			JOIN events e ON es.event_id = e.uuid
+			WHERE e.uuid = ? OR e.slug = ?
+			ORDER BY 
+				COALESCE(es.day_order, 0),
+				COALESCE(es.sort_order, 0),
+				es.start_time
+		`, eventID, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedule", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"schedules": schedules,
+			"count":     len(schedules),
+		})
+	}
+}
+
+// ListEventCategoryRefs returns reusable event category definitions
+func ListEventCategoryRefs(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var list []models.EventCategoryRef
+		err := db.Select(&list, `
+			SELECT 
+				ecr.uuid,
+				ecr.name,
+				ecr.bow_type_id,
+				bt.name as bow_name,
+				ecr.age_group_id,
+				ag.name as age_name,
+				ecr.status
+			FROM event_category_refs ecr
+			JOIN ref_bow_types bt ON ecr.bow_type_id = bt.uuid
+			JOIN ref_age_groups ag ON ecr.age_group_id = ag.uuid
+			ORDER BY bt.name, ag.name, ecr.name
+		`)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event categories", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"categories": list,
+			"total":      len(list),
+		})
+	}
+}
+
+// CreateEventCategoryRef creates a new reusable event category
+func CreateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Name       string `json:"name" binding:"required"`
+			BowTypeID  string `json:"bow_type_id" binding:"required"`
+			AgeGroupID string `json:"age_group_id" binding:"required"`
+			Status     string `json:"status"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		if req.Status == "" {
+			req.Status = "active"
+		}
+
+		id := uuid.New().String()
+		_, err := db.Exec(`
+			INSERT INTO event_category_refs (uuid, name, bow_type_id, age_group_id, status)
+			VALUES (?, ?, ?, ?, ?)
+		`, id, req.Name, req.BowTypeID, req.AgeGroupID, req.Status)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"id": id})
+	}
+}
+
+// UpdateEventCategoryRef updates an existing reusable event category
+func UpdateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		var req struct {
+			Name       *string `json:"name"`
+			BowTypeID  *string `json:"bow_type_id"`
+			AgeGroupID *string `json:"age_group_id"`
+			Status     *string `json:"status"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		var exists bool
+		if err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM event_category_refs WHERE uuid = ?)`, id); err != nil || !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			return
+		}
+
+		query := "UPDATE event_category_refs SET updated_at = NOW()"
+		args := []interface{}{}
+
+		if req.Name != nil {
+			query += ", name = ?"
+			args = append(args, *req.Name)
+		}
+		if req.BowTypeID != nil {
+			query += ", bow_type_id = ?"
+			args = append(args, *req.BowTypeID)
+		}
+		if req.AgeGroupID != nil {
+			query += ", age_group_id = ?"
+			args = append(args, *req.AgeGroupID)
+		}
+		if req.Status != nil {
+			query += ", status = ?"
+			args = append(args, *req.Status)
+		}
+
+		query += " WHERE uuid = ?"
+		args = append(args, id)
+
+		if _, err := db.Exec(query, args...); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update category", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Category updated"})
+	}
+}
+
 // PublishEvent changes event status to published
 func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -572,6 +755,97 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{
 			"message": fmt.Sprintf("Successfully created %d categories", count),
 			"count":   count,
+		})
+	}
+}
+
+// GetEventImages returns all images for an event
+func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		type EventImage struct {
+			UUID         string `db:"uuid" json:"id"`
+			EventID      string `db:"event_id" json:"event_id"`
+			URL          string `db:"url" json:"url"`
+			Caption      *string `db:"caption" json:"caption"`
+			AltText      *string `db:"alt_text" json:"alt_text"`
+			DisplayOrder int    `db:"display_order" json:"display_order"`
+			IsPrimary    bool   `db:"is_primary" json:"is_primary"`
+			CreatedAt    string `db:"created_at" json:"created_at"`
+		}
+
+		var images []EventImage
+		err := db.Select(&images, `
+			SELECT uuid, event_id, url, caption, alt_text, display_order, is_primary, created_at
+			FROM event_images
+			WHERE event_id = ?
+			ORDER BY display_order, created_at
+		`, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event images", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"images": images,
+			"count":  len(images),
+		})
+	}
+}
+
+// UpdateEventImages updates event images (replaces all)
+func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		var req struct {
+			Images []struct {
+				URL          string  `json:"url" binding:"required"`
+				Caption      *string `json:"caption"`
+				AltText      *string `json:"alt_text"`
+				DisplayOrder int     `json:"display_order"`
+				IsPrimary    bool    `json:"is_primary"`
+			} `json:"images"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		// Delete existing images
+		_, err := db.Exec("DELETE FROM event_images WHERE event_id = ?", eventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete existing images", "details": err.Error()})
+			return
+		}
+
+		// Insert new images
+		for i, img := range req.Images {
+			imageID := uuid.New().String()
+			displayOrder := img.DisplayOrder
+			if displayOrder == 0 {
+				displayOrder = i
+			}
+			_, err = db.Exec(`
+				INSERT INTO event_images (uuid, event_id, url, caption, alt_text, display_order, is_primary)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`, imageID, eventID, img.URL, img.Caption, img.AltText, displayOrder, img.IsPrimary)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save event image", "details": err.Error()})
+				return
+			}
+		}
+
+		// Log activity
+		utils.LogActivity(db, userID.(string), eventID, "event_images_updated", "event", eventID, fmt.Sprintf("Updated %d event images", len(req.Images)), c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Event images updated successfully",
+			"count":   len(req.Images),
 		})
 	}
 }

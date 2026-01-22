@@ -34,6 +34,7 @@ type Event struct {
 	ShortName    *string   `json:"short_name" db:"short_name"`
 	Slug         string    `json:"slug" db:"slug"`
 	Venue        *string   `json:"venue" db:"venue"`
+	Address      *string   `json:"address" db:"address"`
 	GmapLink     *string   `json:"gmaps_link" db:"gmaps_link"`
 	Location     *string   `json:"location" db:"location"`
 	Country      *string   `json:"country" db:"country"`
@@ -99,6 +100,7 @@ type UpdateEventRequest struct {
 	Name         *string    `json:"name"`
 	ShortName    *string    `json:"short_name"`
 	Venue        *string    `json:"venue"`
+	Address      *string    `json:"address"`
 	GmapLink     *string    `json:"gmaps_link"`
 	Location     *string    `json:"location"`
 	Country      *string    `json:"country"`
@@ -113,6 +115,9 @@ type UpdateEventRequest struct {
 	NumDistances *int       `json:"num_distances"`
 	NumSessions  *int       `json:"num_sessions"`
 	Status       *string    `json:"status"`
+	EntryFee     *float64   `json:"entry_fee"`
+	MaxParticipants *int    `json:"max_participants"`
+	RegistrationDeadline *FlexibleTime `json:"registration_deadline"`
 }
 
 // EventEvent represents an event within a Event (division + category)
@@ -150,6 +155,32 @@ type Session struct {
 	ArchersPerTarget  int        `json:"archers_per_target" db:"archers_per_target"`
 	Locked            bool       `json:"locked" db:"locked"`
 	Notes             *string    `json:"notes" db:"notes"`
+}
+
+// EventSchedule represents a schedule item for an event
+type EventSchedule struct {
+	UUID        string     `json:"id" db:"uuid"`
+	EventID     string     `json:"event_id" db:"event_id"`
+	Title       string     `json:"title" db:"title"`
+	Description *string    `json:"description" db:"description"`
+	StartTime   time.Time  `json:"start_time" db:"start_time"`
+	EndTime     *time.Time `json:"end_time" db:"end_time"`
+	DayOrder    *int       `json:"day_order" db:"day_order"`
+	SortOrder   *int       `json:"sort_order" db:"sort_order"`
+	Location    *string    `json:"location" db:"location"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// EventCategoryRef represents a reusable event category (bow type + age group)
+type EventCategoryRef struct {
+	UUID       string `json:"id" db:"uuid"`
+	Name       string `json:"name" db:"name"`
+	BowTypeID  string `json:"bow_type_id" db:"bow_type_id"`
+	BowName    string `json:"bow_name" db:"bow_name"`
+	AgeGroupID string `json:"age_group_id" db:"age_group_id"`
+	AgeName    string `json:"age_name" db:"age_name"`
+	Status     string `json:"status" db:"status"`
 }
 
 

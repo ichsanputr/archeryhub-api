@@ -172,6 +172,8 @@ func main() {
 			events.GET("/:id", handler.GetEventByID(db))
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
+			events.GET("/:id/images", handler.GetEventImages(db))
+			events.GET("/:id/schedule", handler.GetEventSchedule(db))
 
 			// Protected Event routes (require authentication)
 			protected := events.Group("")
@@ -183,8 +185,14 @@ func main() {
 				protected.POST("/:id/publish", handler.PublishEvent(db))
 				protected.POST("/:id/categories", handler.CreateEventCategories(db))
 				protected.POST("/:id/participants", handler.RegisterParticipant(db))
+				protected.PUT("/:id/images", handler.UpdateEventImages(db))
 			}
 		}
+
+		// Event category reference routes
+		api.GET("/event-categories", handler.ListEventCategoryRefs(db))
+		api.POST("/event-categories", handler.CreateEventCategoryRef(db))
+		api.PUT("/event-categories/:id", handler.UpdateEventCategoryRef(db))
 
 
 		// Archer routes
