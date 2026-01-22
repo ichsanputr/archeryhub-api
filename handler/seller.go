@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"database/sql"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"juno.com/archeryhub/api/models"
+	"github.com/jmoiron/sqlx"
+	"archeryhub-api/models"
 )
 
 type SellerProfile struct {
@@ -21,25 +21,21 @@ type SellerProfile struct {
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
-func GetSellerProfile(db *sql.DB) gin.HandlerFunc {
+func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetString("user_id")
 		
 		var profile SellerProfile
-		err := db.QueryRow(`
+		err := db.Get(&profile, `
 			SELECT sp.* FROM seller_profiles sp
 			JOIN sellers s ON sp.seller_id = s.uuid
-			WHERE s.user_id = ?`, userID).Scan(
-			&profile.UUID, &profile.SellerID, &profile.Sections, 
-			&profile.CatalogConfig, &profile.ThemeColor, &profile.BannerText,
-			&profile.CreatedAt, &profile.UpdatedAt,
-		)
+			WHERE s.user_id = ?`, userID)
 
-		if err == sql.ErrNoRows {
-			// Return default profile or empty
-			c.JSON(http.StatusOK, gin.H{"data": nil})
-			return
-		} else if err != nil {
+		if err != nil {
+			if err.Error() == "sql: no rows in result set" {
+				c.JSON(http.StatusOK, gin.H{"data": nil})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -48,7 +44,7 @@ func GetSellerProfile(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func UpdateSellerProfile(db *sql.DB) gin.HandlerFunc {
+func UpdateSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetString("user_id")
 		
@@ -66,7 +62,7 @@ func UpdateSellerProfile(db *sql.DB) gin.HandlerFunc {
 
 		// Get seller_id first
 		var sellerID string
-		err := db.QueryRow("SELECT uuid FROM sellers WHERE user_id = ?", userID).Scan(&sellerID)
+		err := db.Get(&sellerID, "SELECT uuid FROM sellers WHERE user_id = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Seller account not found"})
 			return

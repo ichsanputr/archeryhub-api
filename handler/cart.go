@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"archery-api/models"
+	"archeryhub-api/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
