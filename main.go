@@ -312,6 +312,24 @@ func main() {
 			}
 		}
 
+		// Order routes (Seller)
+		orders := api.Group("/orders")
+		orders.Use(middleware.AuthMiddleware())
+		{
+			orders.GET("", handler.GetSellerOrders(db))
+			orders.GET("/stats", handler.GetSellerStats(db))
+			orders.PUT("/status/:id", handler.UpdateOrderStatus(db))
+		}
+
+		// Seller Profile routes
+		sellers := api.Group("/sellers")
+		sellers.Use(middleware.AuthMiddleware())
+		{
+			sellers.GET("/profile", handler.GetSellerProfile(db))
+			sellers.PUT("/profile", handler.UpdateSellerProfile(db))
+			sellers.GET("/me/stats", handler.GetSellerStats(db)) // Re-using stats for dashboard
+		}
+
 		// Cart routes
 		cart := api.Group("/cart")
 		cart.Use(middleware.AuthMiddleware())
