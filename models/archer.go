@@ -8,6 +8,7 @@ import (
 type Archer struct {
 	UUID             string     `json:"id" db:"uuid"`
 	UserID           *string    `json:"user_id" db:"user_id"`
+	Slug             string     `json:"slug" db:"slug"`
 	ArcherCode       *string    `json:"archer_code" db:"athlete_code"`
 	FullName         string     `json:"full_name" db:"full_name"`
 	DateOfBirth      *time.Time `json:"date_of_birth" db:"date_of_birth"`
@@ -18,8 +19,11 @@ type Archer struct {
 	Phone            *string    `json:"phone" db:"phone"`
 	PhotoURL         *string    `json:"photo_url" db:"photo_url"`
 	Address          *string    `json:"address" db:"address"`
+	Bio              *string    `json:"bio" db:"bio"`
 	EmergencyContact *string    `json:"emergency_contact" db:"emergency_contact"`
 	EmergencyPhone   *string    `json:"emergency_phone" db:"emergency_phone"`
+	MedicalConditions *string   `json:"medical_conditions" db:"medical_conditions"`
+	Achievements     *string    `json:"achievements" db:"achievements"`
 	Status           string     `json:"status" db:"status"` // active, inactive, suspended, pending
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
@@ -28,6 +32,8 @@ type Archer struct {
 // ArcherWithStats includes statistics
 type ArcherWithStats struct {
 	Archer
+	ClubName        *string    `json:"club_name" db:"club_name"`
+	ClubSlug        *string    `json:"club_slug" db:"club_slug"`
 	TotalEvents     int        `json:"total_events" db:"total_events"`
 	CompletedEvents int        `json:"completed_events" db:"completed_events"`
 	LastEventDate   *time.Time `json:"last_event_date" db:"last_event_date"`
@@ -36,12 +42,17 @@ type ArcherWithStats struct {
 // CreateArcherRequest represents the request payload for creating an archer
 type CreateArcherRequest struct {
 	FullName         string     `json:"full_name" binding:"required,min=2,max=100"`
-	ArcherCode       *string    `json:"archer_code"`
-	DateOfBirth      *time.Time `json:"date_of_birth"`
-	Gender           *string    `json:"gender" binding:"omitempty,oneof=M F X"`
-	Country          *string    `json:"country"`
-	Club             *string    `json:"club"`
+	Username         *string    `json:"username"`
 	Email            *string    `json:"email" binding:"omitempty,email"`
+	Password         *string    `json:"password"`
+	ArcherCode       *string    `json:"archer_code"`
+	Nickname         *string    `json:"nickname"`
+	DateOfBirth      *time.Time `json:"date_of_birth"`
+	Gender           *string    `json:"gender" binding:"omitempty,oneof=male female M F"`
+	BowType          *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
+	Country          *string    `json:"country"`
+	City             *string    `json:"city"`
+	Club             *string    `json:"club"`
 	Phone            *string    `json:"phone"`
 	PhotoURL         *string    `json:"photo_url"`
 	Address          *string    `json:"address"`
@@ -61,6 +72,8 @@ type UpdateArcherRequest struct {
 	Phone            *string    `json:"phone"`
 	PhotoURL         *string    `json:"photo_url"`
 	Address          *string    `json:"address"`
+	Bio              *string    `json:"bio"`
+	Achievements     *string    `json:"achievements"`
 	EmergencyContact *string    `json:"emergency_contact"`
 	EmergencyPhone   *string    `json:"emergency_phone"`
 	Status           *string    `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`

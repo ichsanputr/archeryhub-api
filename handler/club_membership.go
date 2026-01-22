@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -9,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// ClubMember represents a club membership
+// ClubMember represents the relationship between an archer and a club
 type ClubMember struct {
 	UUID      string     `json:"uuid" db:"uuid"`
 	ClubID    string     `json:"club_id" db:"club_id"`
@@ -18,52 +20,104 @@ type ClubMember struct {
 	Role      string     `json:"role" db:"role"`
 	JoinedAt  *time.Time `json:"joined_at" db:"joined_at"`
 	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-// GetClubs returns all clubs (public)
+// GetClubs returns all clubs (public) with pagination and filtering
 func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		query := `
-			SELECT c.*, 
-				(SELECT COUNT(*) FROM club_members WHERE club_id = c.uuid AND status = 'active') as member_count
-			FROM clubs c 
-			WHERE c.is_verified = true OR c.status = 'active'
-			ORDER BY c.name ASC
-		`
-		
-		var clubs []struct {
-			UUID        string  `json:"uuid" db:"uuid"`
-			Name        string  `json:"name" db:"name"`
-			Slug        string  `json:"slug" db:"slug"`
-			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL   *string `json:"banner_url" db:"banner_url"`
-			City        *string `json:"city" db:"city"`
-			Province    *string `json:"province" db:"province"`
-			IsVerified  bool    `json:"verified" db:"is_verified"`
-			MemberCount int     `json:"member_count" db:"member_count"`
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		search := c.Query("q")
+		province := c.Query("province")
+		city := c.Query("city")
+
+		if page < 1 {
+			page = 1
 		}
-		
-		err := db.Select(&clubs, query)
+		offset := (page - 1) * limit
+
+		baseQuery := `
+			FROM clubs c 
+			WHERE (c.verification_status = 'verified' OR c.status = 'active')
+		`
+		args := []interface{}{}
+
+		if search != "" {
+			baseQuery += " AND (c.name LIKE ? OR c.description LIKE ?)"
+			args = append(args, "%"+search+"%", "%"+search+"%")
+		}
+
+		if province != "" {
+			baseQuery += " AND c.province = ?"
+			args = append(args, province)
+		}
+
+		if city != "" {
+			baseQuery += " AND c.city = ?"
+			args = append(args, city)
+		}
+
+		// Count total items
+		var totalItems int
+		err := db.Get(&totalItems, "SELECT COUNT(*) "+baseQuery, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch clubs"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count clubs: " + err.Error()})
 			return
 		}
-		
-		if clubs == nil {
-			clubs = make([]struct {
-				UUID        string  `json:"uuid" db:"uuid"`
-				Name        string  `json:"name" db:"name"`
-				Slug        string  `json:"slug" db:"slug"`
-				AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-				BannerURL   *string `json:"banner_url" db:"banner_url"`
-				City        *string `json:"city" db:"city"`
-				Province    *string `json:"province" db:"province"`
-				IsVerified  bool    `json:"verified" db:"is_verified"`
-				MemberCount int     `json:"member_count" db:"member_count"`
-			}, 0)
+
+		// Fetch data
+		query := `
+			SELECT c.uuid, c.name, c.slug, c.avatar_url, c.banner_url, c.city, c.province, 
+				   c.verification_status as verification_status,
+				   (SELECT COUNT(*) FROM club_members WHERE club_id = c.uuid AND status = 'active') as member_count
+		` + baseQuery + ` ORDER BY c.name ASC LIMIT ? OFFSET ?`
+
+		fetchArgs := append(args, limit, offset)
+
+		var clubs []struct {
+			UUID               string  `json:"uuid" db:"uuid"`
+			Name               string  `json:"name" db:"name"`
+			Slug               string  `json:"slug" db:"slug"`
+			AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL          *string `json:"banner_url" db:"banner_url"`
+			City               *string `json:"city" db:"city"`
+			Province           *string `json:"province" db:"province"`
+			VerificationStatus string  `json:"verification_status" db:"verification_status"`
+			MemberCount        int     `json:"member_count" db:"member_count"`
 		}
-		
-		c.JSON(http.StatusOK, gin.H{"data": clubs})
+
+		err = db.Select(&clubs, query, fetchArgs...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch clubs: " + err.Error()})
+			return
+		}
+
+		if clubs == nil {
+			clubs = []struct {
+				UUID               string  `json:"uuid" db:"uuid"`
+				Name               string  `json:"name" db:"name"`
+				Slug               string  `json:"slug" db:"slug"`
+				AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
+				BannerURL          *string `json:"banner_url" db:"banner_url"`
+				City               *string `json:"city" db:"city"`
+				Province           *string `json:"province" db:"province"`
+				VerificationStatus string  `json:"verification_status" db:"verification_status"`
+				MemberCount        int     `json:"member_count" db:"member_count"`
+			}{}
+		}
+
+		totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": clubs,
+			"meta": gin.H{
+				"current_page": page,
+				"limit":        limit,
+				"total_items":  totalItems,
+				"total_pages":  totalPages,
+			},
+		})
 	}
 }
 

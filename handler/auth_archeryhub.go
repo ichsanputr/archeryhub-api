@@ -12,7 +12,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RegisterRequest struct {
@@ -80,13 +79,6 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Hash password
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-			return
-		}
-
 		// Create entity
 		userID := uuid.New().String()
 		var nameField string
@@ -102,7 +94,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO ` + table + ` (id, username, email, password, ` + nameField + `, phone, role, status)
 			VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
 		`
-		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, string(hashedPassword), req.FullName, req.Phone, role)
+		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone, role)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
@@ -133,6 +125,50 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				"user_type":  req.UserType,
 			},
 		})
+	}
+}
+
+// CheckNameExists checks if a name already exists in the database for a specific user type
+func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Query("name")
+		userType := c.Query("type")
+
+		if name == "" || userType == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Name and type are required"})
+			return
+		}
+
+		table := ""
+		column := ""
+
+		switch userType {
+		case "archer":
+			table = "archers"
+			column = "full_name"
+		case "organization":
+			table = "organizations"
+			column = "name"
+		case "club":
+			table = "clubs"
+			column = "name"
+		case "seller":
+			table = "sellers"
+			column = "store_name"
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
+			return
+		}
+
+		var exists bool
+		query := "SELECT EXISTS(SELECT 1 FROM " + table + " WHERE " + column + " = ?)"
+		err := db.Get(&exists, query, name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"exists": exists})
 	}
 }
 
@@ -205,14 +241,10 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify password using bcrypt
-		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-		if err != nil {
-			// Fallback check for plain text (for migrated/legacy users during transition)
-			if user.Password != req.Password {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
-				return
-			}
+		// Verify password (plain text comparison)
+		if user.Password != req.Password {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+			return
 		}
 
 		// Generate JWT token
@@ -302,16 +334,23 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			ID        string  `db:"uuid" json:"id"`
 			Username  string  `db:"username" json:"username"`
 			Email     string  `db:"email" json:"email"`
+			Slug      string  `db:"slug" json:"slug"`
 			FullName  string  `db:"full_name" json:"full_name"`
 			Role      string  `db:"role" json:"role"`
 			AvatarURL *string `db:"avatar_url" json:"avatar_url"`
 			UserType  string  `db:"-" json:"user_type"`
 			Phone     *string `db:"phone" json:"phone"`
+			Bio       *string `db:"bio" json:"bio"`
+			Achievements *string `db:"achievements" json:"achievements"`
 			Status    string  `db:"status" json:"status"`
 			CreatedAt string  `db:"created_at" json:"created_at"`
 		}
 
-		query := `SELECT uuid, username, email, ` + nameField + ` as full_name, role, avatar_url, phone, status, created_at FROM ` + table + ` WHERE uuid = ?`
+		query := `SELECT uuid, username, email, slug, ` + nameField + ` as full_name, role, avatar_url, phone, status, created_at`
+		if table == "archers" {
+			query += ", bio, achievements"
+		}
+		query += " FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)
 
 		if err != nil {

@@ -1,17 +1,18 @@
 package handler
 
 import (
+	"archeryhub-api/models"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // UpdatePasswordRequest represents the password update request
 type UpdatePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password" binding:"required,min=8"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
 }
 
 // UpdatePassword allows users to set or change their password
@@ -22,7 +23,13 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 
 		var req UpdatePasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru harus minimal 8 karakter"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru harus minimal 6 karakter"})
+			return
+		}
+		
+		// Validate password length
+		if len(req.NewPassword) < 6 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru harus minimal 6 karakter"})
 			return
 		}
 
@@ -50,30 +57,22 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// If user has a password, verify the current password
+		// If user has a password, verify the current password (plain text comparison)
 		if user.HasPassword && user.Password != nil {
 			if req.CurrentPassword == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Password saat ini diperlukan"})
 				return
 			}
 			
-			err = bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(req.CurrentPassword))
-			if err != nil {
+			if *user.Password != req.CurrentPassword {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Password saat ini salah"})
 				return
 			}
 		}
 
-		// Hash the new password
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
-			return
-		}
-
-		// Update the password
+		// Update the password (store as plain text)
 		updateQuery := "UPDATE " + table + " SET password = ?, updated_at = NOW() WHERE uuid = ?"
-		_, err = db.Exec(updateQuery, string(hashedPassword), userID)
+		_, err = db.Exec(updateQuery, req.NewPassword, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
 			return
@@ -128,5 +127,166 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, user)
+	}
+}
+// UpdateUserProfile handles profile updates for different user types
+func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		if userType == "club" {
+			var req models.UpdateClubRequest
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+				return
+			}
+
+			query := "UPDATE clubs SET updated_at = NOW()"
+			args := []interface{}{}
+
+			if req.Name != nil {
+				query += ", name = ?"
+				args = append(args, *req.Name)
+			}
+			if req.Abbreviation != nil {
+				query += ", abbreviation = ?"
+				args = append(args, *req.Abbreviation)
+			}
+			if req.Description != nil {
+				query += ", description = ?"
+				args = append(args, *req.Description)
+			}
+			if req.Address != nil {
+				query += ", address = ?"
+				args = append(args, *req.Address)
+			}
+			if req.City != nil {
+				query += ", city = ?"
+				args = append(args, *req.City)
+			}
+			if req.Province != nil {
+				query += ", province = ?"
+				args = append(args, *req.Province)
+			}
+			if req.Phone != nil {
+				query += ", phone = ?"
+				args = append(args, *req.Phone)
+			}
+			if req.Email != nil {
+				query += ", email = ?"
+				args = append(args, *req.Email)
+			}
+			if req.Website != nil {
+				query += ", website = ?"
+				args = append(args, *req.Website)
+			}
+			if req.SocialFacebook != nil {
+				query += ", social_facebook = ?"
+				args = append(args, *req.SocialFacebook)
+			}
+			if req.SocialInstagram != nil {
+				query += ", social_instagram = ?"
+				args = append(args, *req.SocialInstagram)
+			}
+			if req.TrainingSchedule != nil {
+				query += ", training_schedule = ?"
+				args = append(args, *req.TrainingSchedule)
+			}
+			if req.HeadCoachName != nil {
+				query += ", head_coach_name = ?"
+				args = append(args, *req.HeadCoachName)
+			}
+			if req.HeadCoachPhone != nil {
+				query += ", head_coach_phone = ?"
+				args = append(args, *req.HeadCoachPhone)
+			}
+			if req.EstablishedDate != nil && *req.EstablishedDate != "" {
+				// Try to parse year from date string
+				t, err := time.Parse("2006-01-02", *req.EstablishedDate)
+				if err == nil {
+					year := t.Year()
+					query += ", established_year = ?"
+					args = append(args, year)
+				}
+			}
+
+			if len(args) == 0 {
+				c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+				return
+			}
+
+			query += " WHERE uuid = ?"
+			args = append(args, userID)
+
+			_, err := db.Exec(query, args...)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update club profile: " + err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "Profil klub berhasil diperbarui"})
+			return
+		}
+
+		// Default to Archer update if not club (or implement others if needed)
+		var req models.UpdateArcherRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		table := "archers"
+		if userType == "organization" {
+			table = "organizations"
+		} else if userType == "seller" {
+			table = "sellers"
+		}
+
+		query := "UPDATE " + table + " SET updated_at = NOW()"
+		args := []interface{}{}
+
+		if req.FullName != nil {
+			field := "full_name"
+			if userType == "organization" {
+				field = "name"
+			} else if userType == "seller" {
+				field = "store_name"
+			}
+			query += ", " + field + " = ?"
+			args = append(args, *req.FullName)
+		}
+		if req.Phone != nil {
+			query += ", phone = ?"
+			args = append(args, *req.Phone)
+		}
+		if req.Address != nil {
+			query += ", address = ?"
+			args = append(args, *req.Address)
+		}
+		if req.Bio != nil {
+			query += ", bio = ?"
+			args = append(args, *req.Bio)
+		}
+		if req.Achievements != nil {
+			query += ", achievements = ?"
+			args = append(args, *req.Achievements)
+		}
+
+		if len(args) == 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+			return
+		}
+
+		query += " WHERE uuid = ?"
+		args = append(args, userID)
+
+		_, err := db.Exec(query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui"})
 	}
 }

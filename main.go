@@ -144,6 +144,7 @@ func main() {
 			auth.POST("/register", handler.Register(db))
 			auth.POST("/login", handler.Login(db))
 			auth.POST("/logout", handler.Logout())
+			auth.GET("/check-name", handler.CheckNameExists(db))
 			auth.GET("/me", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
 			
 			// Google OAuth
@@ -159,7 +160,7 @@ func main() {
 		{
 			user.GET("", handler.GetCurrentUser(db))
 			user.GET("/profile", handler.GetUserProfile(db))
-			user.PUT("/profile", handler.UpdateArcher(db)) // Reusing UpdateArcher for profile update
+			user.PUT("/profile", handler.UpdateUserProfile(db)) // Generic profile update handler
 			user.PUT("/password", handler.UpdatePassword(db))
 		}
 

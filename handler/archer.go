@@ -23,10 +23,13 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				a.*,
+				c.name as club_name,
+				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
+			LEFT JOIN clubs c ON a.club_id = c.uuid
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE 1=1
@@ -84,7 +87,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetArcherByID returns a single archer by ID
+// GetArcherByID returns a single archer by ID or slug
 func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -92,18 +95,21 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				a.*,
+				c.name as club_name,
+				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
+			LEFT JOIN clubs c ON a.club_id = c.uuid
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
-			WHERE a.uuid = ?
+			WHERE a.uuid = ? OR a.slug = ?
 			GROUP BY a.uuid
 		`
 
 		var archer models.ArcherWithStats
-		err := db.Get(&archer, query, id)
+		err := db.Get(&archer, query, id, id)
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
@@ -126,6 +132,38 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		archerID := uuid.New().String()
 		now := time.Now()
 
+		// Check if email/username already exists
+		if req.Email != nil {
+			var exists bool
+			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ? OR username = ?)", req.Email, req.Email)
+			if err == nil && exists {
+				c.JSON(http.StatusConflict, gin.H{"error": "Email or username already exists"})
+				return
+			}
+		}
+
+		// Generate username from email if not provided
+		username := req.Username
+		if username == nil && req.Email != nil {
+			// Extract username from email (part before @)
+			emailStr := *req.Email
+			for i, char := range emailStr {
+				if char == '@' {
+					usernameStr := emailStr[:i]
+					username = &usernameStr
+					break
+				}
+			}
+		}
+
+		// Validate password length if provided
+		if req.Password != nil && *req.Password != "" {
+			if len(*req.Password) < 6 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Password harus minimal 6 karakter"})
+				return
+			}
+		}
+
 		// Generate archer code if not provided
 		archerCode := req.ArcherCode
 		if archerCode == nil {
@@ -133,18 +171,42 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			archerCode = &code
 		}
 
+		// Normalize gender (M/F to male/female)
+		gender := req.Gender
+		if gender != nil {
+			if *gender == "M" {
+				g := "male"
+				gender = &g
+			} else if *gender == "F" {
+				g := "female"
+				gender = &g
+			}
+		}
+
+		// Get club_id from logged-in user if user is a club
+		var clubID *string
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+		if userType == "club" && userID != nil {
+			clubIDStr := userID.(string)
+			clubID = &clubIDStr
+		}
+
+		// Build insert query with all fields
 		query := `
 			INSERT INTO archers (
-				uuid, athlete_code, full_name, date_of_birth, gender,
-				country, email, phone, address,
-				emergency_contact_name, emergency_contact_phone, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+				uuid, username, email, password, athlete_code, full_name, nickname,
+				date_of_birth, gender, bow_type, country, city, club_id,
+				phone, address, photo_url,
+				emergency_contact_name, emergency_contact_phone, role, status, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archer', 'active', ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			archerID, archerCode, req.FullName, req.DateOfBirth,
-			req.Gender, req.Country, req.Email, req.Phone,
-			req.Address, req.EmergencyContact, req.EmergencyPhone, now, now,
+			archerID, username, req.Email, req.Password, archerCode, req.FullName, req.Nickname,
+			req.DateOfBirth, gender, req.BowType, req.Country, req.City, clubID,
+			req.Phone, req.Address, req.PhotoURL,
+			req.EmergencyContact, req.EmergencyPhone, now, now,
 		)
 
 		if err != nil {
@@ -152,8 +214,20 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// If created by a club, create club_members entry
+		if clubID != nil {
+			memberID := uuid.New().String()
+			_, err = db.Exec(`
+				INSERT INTO club_members (uuid, club_id, archer_id, status, role, created_at)
+				VALUES (?, ?, ?, 'active', 'member', NOW())
+			`, memberID, *clubID, archerID)
+			if err != nil {
+				// Log error but don't fail the request
+				utils.LogActivity(db, userID.(string), "", "club_member_link_failed", "archer", archerID, "Failed to link archer to club: "+err.Error(), c.ClientIP(), c.Request.UserAgent())
+			}
+		}
+
 		// Log activity
-		userID, _ := c.Get("user_id")
 		if userID != nil {
 			utils.LogActivity(db, userID.(string), "", "archer_created", "archer", archerID, "Created new archer: "+req.FullName, c.ClientIP(), c.Request.UserAgent())
 		}
