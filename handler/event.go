@@ -390,14 +390,18 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		type EventEvent struct {
 			ID                  string `db:"id" json:"id"`
-			EventID        string `db:"event_id" json:"event_id"`
+			EventID             string `db:"event_id" json:"event_id"`
 			DivisionName        string `db:"division_name" json:"division_name"`
-			DivisionID          string `db:"division_id" json:"division_id"`
-			CategoryName        string `db:"category_name" json:"category_name"`
-			CategoryID          string `db:"category_id" json:"category_id"`
-			MaxParticipants     *int    `db:"max_participants" json:"max_participants"`
-			Status              string  `db:"status" json:"status"`
-			CreatedAt           string `db:"created_at" json:"created_at"`
+			DivisionID           string `db:"division_id" json:"division_id"`
+			CategoryName         string `db:"category_name" json:"category_name"`
+			CategoryID           string `db:"category_id" json:"category_id"`
+			EventTypeName        string `db:"event_type_name" json:"event_type_name"`
+			EventTypeID          string `db:"event_type_id" json:"event_type_id"`
+			GenderDivisionName   string `db:"gender_division_name" json:"gender_division_name"`
+			GenderDivisionID     string `db:"gender_division_id" json:"gender_division_id"`
+			MaxParticipants      *int   `db:"max_participants" json:"max_participants"`
+			Status               string `db:"status" json:"status"`
+			CreatedAt            string `db:"created_at" json:"created_at"`
 		}
 
 		var events []EventEvent
@@ -406,10 +410,14 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 				te.uuid as id, te.event_id, 
 				te.max_participants, te.status, te.created_at,
 				d.name as division_name, d.uuid as division_id,
-				c.name as category_name, c.uuid as category_id
+				c.name as category_name, c.uuid as category_id,
+				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
+				COALESCE(gd.name, '') as gender_division_name, COALESCE(te.gender_division_uuid, '') as gender_division_id
 			FROM event_categories te
 			JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE te.event_id = ?
 			ORDER BY d.name, c.name
 		`, actualEventID)
@@ -788,10 +796,12 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			DivisionUUID  string `json:"division_uuid" binding:"required"`
-			CategoryUUID  string `json:"category_uuid" binding:"required"`
-			MaxParticipants *int  `json:"max_participants"`
-			Status        string `json:"status"`
+			DivisionUUID      string `json:"division_uuid" binding:"required"`
+			CategoryUUID      string `json:"category_uuid" binding:"required"`
+			EventTypeUUID     string `json:"event_type_uuid" binding:"required"`
+			GenderDivisionUUID string `json:"gender_division_uuid" binding:"required"`
+			MaxParticipants   *int   `json:"max_participants"`
+			Status            string `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -811,8 +821,8 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		var catExists bool
 		err = db.Get(&catExists, `
 			SELECT EXISTS(SELECT 1 FROM event_categories 
-			WHERE event_id = ? AND division_uuid = ? AND category_uuid = ?)
-		`, actualEventID, req.DivisionUUID, req.CategoryUUID)
+			WHERE event_id = ? AND division_uuid = ? AND category_uuid = ? AND event_type_uuid = ? AND gender_division_uuid = ?)
+		`, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID)
 		
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check category", "details": err.Error()})
@@ -832,10 +842,10 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		catEventID := uuid.New().String()
 		_, err = db.Exec(`
 			INSERT INTO event_categories (
-				uuid, event_id, division_uuid, category_uuid, 
+				uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid,
 				max_participants, status
-			) VALUES (?, ?, ?, ?, ?, ?)
-		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.MaxParticipants, status)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
 		
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
@@ -860,10 +870,12 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Param("categoryId")
 
 		var req struct {
-			DivisionUUID    *string `json:"division_uuid"`
-			CategoryUUID    *string `json:"category_uuid"`
-			MaxParticipants *int    `json:"max_participants"`
-			Status          *string `json:"status"`
+			DivisionUUID       *string `json:"division_uuid"`
+			CategoryUUID       *string `json:"category_uuid"`
+			EventTypeUUID      *string `json:"event_type_uuid"`
+			GenderDivisionUUID *string `json:"gender_division_uuid"`
+			MaxParticipants    *int    `json:"max_participants"`
+			Status             *string `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -902,6 +914,14 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		if req.CategoryUUID != nil {
 			query += ", category_uuid = ?"
 			args = append(args, *req.CategoryUUID)
+		}
+		if req.EventTypeUUID != nil {
+			query += ", event_type_uuid = ?"
+			args = append(args, *req.EventTypeUUID)
+		}
+		if req.GenderDivisionUUID != nil {
+			query += ", gender_division_uuid = ?"
+			args = append(args, *req.GenderDivisionUUID)
 		}
 		if req.MaxParticipants != nil {
 			query += ", max_participants = ?"
