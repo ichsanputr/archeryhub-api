@@ -456,6 +456,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			ClubID              *string `db:"club_id" json:"club_id"`
 			ClubName            *string `db:"club_name" json:"club_name"`
 			EventID             string  `db:"event_id" json:"event_id"`
+			CategoryID          string  `db:"category_id" json:"category_id"`
 			DivisionName        string  `db:"division_name" json:"division_name"`
 			CategoryName        string  `db:"category_name" json:"category_name"`
 			BackNumber          *string `db:"back_number" json:"back_number"`
@@ -469,7 +470,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		err = db.Select(&participants, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.back_number, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.back_number, tp.target_number, tp.session,
 				tp.payment_status, tp.accreditation_status, tp.registration_date,
 				a.full_name, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
 				COALESCE(cl.name, '') as club_name,
@@ -724,6 +725,111 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			"id":      participantID,
 			"message": "Participant registered successfully",
 		})
+	}
+}
+
+// UpdateEventParticipant updates an existing event participant
+func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		participantID := c.Param("participantId")
+
+		var req struct {
+			CategoryID          *string  `json:"category_id"`
+			BackNumber          *string  `json:"back_number"`
+			TargetNumber        *string  `json:"target_number"`
+			Session             *int     `json:"session"`
+			PaymentStatus       *string  `json:"payment_status"`
+			PaymentAmount       *float64 `json:"payment_amount"`
+			AccreditationStatus *string  `json:"accreditation_status"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Check if participant exists and belongs to the event
+		var exists bool
+		err := db.Get(&exists, `
+			SELECT EXISTS(SELECT 1 FROM event_participants 
+			WHERE uuid = ? AND event_id = ?)
+		`, participantID, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			return
+		}
+
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})
+			return
+		}
+
+		// Build dynamic update query
+		query := "UPDATE event_participants SET updated_at = NOW()"
+		args := []interface{}{}
+
+		if req.CategoryID != nil {
+			// Verify category exists and belongs to event
+			var categoryExists bool
+			err = db.Get(&categoryExists, `
+				SELECT EXISTS(SELECT 1 FROM event_categories 
+				WHERE uuid = ? AND event_id = ?)
+			`, *req.CategoryID, eventID)
+			if err != nil || !categoryExists {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category for this event"})
+				return
+			}
+			query += ", category_id = ?"
+			args = append(args, *req.CategoryID)
+		}
+		if req.BackNumber != nil {
+			query += ", back_number = ?"
+			args = append(args, *req.BackNumber)
+		}
+		if req.TargetNumber != nil {
+			query += ", target_number = ?"
+			args = append(args, *req.TargetNumber)
+		}
+		if req.Session != nil {
+			query += ", session = ?"
+			args = append(args, *req.Session)
+		}
+		if req.PaymentStatus != nil {
+			query += ", payment_status = ?"
+			args = append(args, *req.PaymentStatus)
+		}
+		if req.PaymentAmount != nil {
+			query += ", payment_amount = ?"
+			args = append(args, *req.PaymentAmount)
+		}
+		if req.AccreditationStatus != nil {
+			query += ", accreditation_status = ?"
+			args = append(args, *req.AccreditationStatus)
+		}
+
+		if len(args) == 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+			return
+		}
+
+		query += " WHERE uuid = ? AND event_id = ?"
+		args = append(args, participantID, eventID)
+
+		_, err = db.Exec(query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update participant", "details": err.Error()})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		if userID != nil {
+			utils.LogActivity(db, userID.(string), eventID, "participant_updated", "event_participant", participantID, "Updated participant", c.ClientIP(), c.Request.UserAgent())
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Participant updated successfully"})
 	}
 }
 

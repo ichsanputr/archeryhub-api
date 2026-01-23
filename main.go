@@ -172,9 +172,11 @@ func main() {
 			events.GET("/:id", handler.GetEventByID(db))
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
+		events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
 			events.GET("/:id/images", handler.GetEventImages(db))
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))
+			events.GET("/:id/target-names", handler.GetTargetNames(db))
 
 			// Protected Event routes (require authentication)
 			protected := events.Group("")
@@ -219,7 +221,7 @@ func main() {
 		// Reference data routes
 		api.GET("/disciplines", handler.GetDisciplines(db))
 		api.GET("/bow-types", handler.GetBowTypes(db))
-		api.GET("/event-types", handler.GetEventTypes(db))
+		api.GET("/team-types", handler.GetEventTypes(db))
 		api.GET("/gender-divisions", handler.GetGenderDivisions(db))
 		api.GET("/age-groups", handler.GetAgeGroups(db))
 
@@ -359,6 +361,18 @@ func main() {
 			qual.POST("/sessions", middleware.AuthMiddleware(), handler.CreateQualificationSession(db))
 			qual.PUT("/scores/:assignmentId", middleware.AuthMiddleware(), handler.UpdateQualificationScore(db))
 			qual.GET("/leaderboard/:categoryId", handler.GetQualificationLeaderboard(db))
+		}
+
+		// Target Management
+		targets := api.Group("/targets")
+		targets.Use(middleware.AuthMiddleware())
+		{
+			targets.POST("", handler.CreateTarget(db))
+			targets.GET("", handler.GetTargets(db))
+			targets.PUT("/assignments", handler.UpdateQualificationAssignment(db))
+			targets.DELETE("/assignments/:id", handler.DeleteQualificationAssignment(db))
+			targets.POST("/cards", handler.CreateTargetCard(db))
+			targets.GET("/cards", handler.GetTargetCards(db))
 		}
 
 		// Clubs & Membership

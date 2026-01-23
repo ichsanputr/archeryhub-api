@@ -40,16 +40,16 @@ func GetBowTypes(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetEventTypes returns all event types
+// GetEventTypes returns all team types (formerly event types)
 func GetEventTypes(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var data []RefData
 		err := db.Select(&data, "SELECT uuid, code, name FROM ref_event_types ORDER BY name")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event types"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch team types"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"event_types": data, "total": len(data)})
+		c.JSON(http.StatusOK, gin.H{"team_types": data, "total": len(data)})
 	}
 }
 
