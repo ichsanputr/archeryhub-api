@@ -360,6 +360,7 @@ func main() {
 			qual.GET("/sessions", handler.GetQualificationSessions(db))
 			qual.POST("/sessions", middleware.AuthMiddleware(), handler.CreateQualificationSession(db))
 			qual.PUT("/scores/:assignmentId", middleware.AuthMiddleware(), handler.UpdateQualificationScore(db))
+			qual.GET("/scores/:assignmentId", middleware.AuthMiddleware(), handler.GetQualificationAssignmentScores(db))
 			qual.GET("/leaderboard/:categoryId", handler.GetQualificationLeaderboard(db))
 		}
 
@@ -374,6 +375,10 @@ func main() {
 			targets.POST("/cards", handler.CreateTargetCard(db))
 			targets.GET("/cards", handler.GetTargetCards(db))
 		}
+
+		// Scoring (Dashboard)
+		api.GET("/events/:id/scoring/cards", middleware.AuthMiddleware(), handler.GetScoringCards(db))
+		api.GET("/scoring/targets", middleware.AuthMiddleware(), handler.GetScoringTargets(db))
 
 		// Clubs & Membership
 		clubs := api.Group("/clubs")
