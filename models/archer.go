@@ -6,27 +6,27 @@ import (
 
 // Archer represents an archer
 type Archer struct {
-	UUID             string     `json:"id" db:"uuid"`
-	UserID           *string    `json:"user_id" db:"user_id"`
-	Slug             string     `json:"slug" db:"slug"`
-	ArcherCode       *string    `json:"archer_code" db:"athlete_code"`
-	FullName         string     `json:"full_name" db:"full_name"`
-	DateOfBirth      *time.Time `json:"date_of_birth" db:"date_of_birth"`
-	Gender           *string    `json:"gender" db:"gender"` // M, F, X
-	Country          *string    `json:"country" db:"country"`
-	Club             *string    `json:"club" db:"club"`
-	Email            *string    `json:"email" db:"email"`
-	Phone            *string    `json:"phone" db:"phone"`
-	PhotoURL         *string    `json:"photo_url" db:"photo_url"`
-	Address          *string    `json:"address" db:"address"`
-	Bio              *string    `json:"bio" db:"bio"`
-	EmergencyContact *string    `json:"emergency_contact" db:"emergency_contact"`
-	EmergencyPhone   *string    `json:"emergency_phone" db:"emergency_phone"`
-	MedicalConditions *string   `json:"medical_conditions" db:"medical_conditions"`
-	Achievements     *string    `json:"achievements" db:"achievements"`
-	Status           string     `json:"status" db:"status"` // active, inactive, suspended, pending
-	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
+	UUID              string     `json:"id" db:"uuid"`
+	UserID            *string    `json:"user_id" db:"user_id"`
+	Slug              string     `json:"slug" db:"slug"`
+	ArcherCode        *string    `json:"archer_code" db:"athlete_code"`
+	FullName          string     `json:"full_name" db:"full_name"`
+	DateOfBirth       *time.Time `json:"date_of_birth" db:"date_of_birth"`
+	Gender            *string    `json:"gender" db:"gender"` // M, F, X
+	Country           *string    `json:"country" db:"country"`
+	Club              *string    `json:"club" db:"club"`
+	Email             *string    `json:"email" db:"email"`
+	Phone             *string    `json:"phone" db:"phone"`
+	PhotoURL          *string    `json:"photo_url" db:"photo_url"`
+	Address           *string    `json:"address" db:"address"`
+	Bio               *string    `json:"bio" db:"bio"`
+	EmergencyContact  *string    `json:"emergency_contact" db:"emergency_contact"`
+	EmergencyPhone    *string    `json:"emergency_phone" db:"emergency_phone"`
+	MedicalConditions *string    `json:"medical_conditions" db:"medical_conditions"`
+	Achievements      *string    `json:"achievements" db:"achievements"`
+	Status            string     `json:"status" db:"status"` // active, inactive, suspended, pending
+	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // ArcherWithStats includes statistics
@@ -53,6 +53,7 @@ type CreateArcherRequest struct {
 	Country          *string    `json:"country"`
 	City             *string    `json:"city"`
 	Club             *string    `json:"club"`
+	ClubID           *string    `json:"club_id"`
 	Phone            *string    `json:"phone"`
 	PhotoURL         *string    `json:"photo_url"`
 	Address          *string    `json:"address"`
@@ -89,7 +90,7 @@ type EventParticipant struct {
 	TargetNumber        *string   `json:"target_number" db:"target_number"`
 	Session             *int      `json:"session" db:"session"`
 	RegistrationDate    time.Time `json:"registration_date" db:"registration_date"`
-	PaymentStatus       string    `json:"payment_status" db:"payment_status"` // pending, paid, waived, refunded
+	PaymentStatus       string    `json:"payment_status" db:"payment_status"` // menunggu_acc, belum_lunas, lunas
 	PaymentAmount       float64   `json:"payment_amount" db:"payment_amount"`
 	AccreditationStatus string    `json:"accreditation_status" db:"accreditation_status"` // pending, printed, collected
 	Notes               *string   `json:"notes" db:"notes"`
@@ -117,7 +118,7 @@ type RegisterParticipantRequest struct {
 	BackNumber    *string  `json:"back_number"`
 	TargetNumber  *string  `json:"target_number"`
 	Session       *int     `json:"session"`
-	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=pending paid waived"`
+	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=menunggu_acc belum_lunas lunas"`
 	PaymentAmount *float64 `json:"payment_amount"`
 	Notes         *string  `json:"notes"`
 }

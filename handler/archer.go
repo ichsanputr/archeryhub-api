@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"archeryhub-api/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -22,7 +23,10 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.*,
+				a.uuid, a.user_id, a.slug, a.athlete_code, a.full_name, a.date_of_birth,
+				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
+				a.bio, a.emergency_contact_name as emergency_contact, a.emergency_contact_phone as emergency_phone,
+				a.medical_conditions, a.achievements, a.status, a.created_at, a.updated_at,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -94,7 +98,10 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.*,
+				a.uuid, a.user_id, a.slug, a.athlete_code, a.full_name, a.date_of_birth,
+				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
+				a.bio, a.emergency_contact_name as emergency_contact, a.emergency_contact_phone as emergency_phone,
+				a.medical_conditions, a.achievements, a.status, a.created_at, a.updated_at,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -183,13 +190,17 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Get club_id from logged-in user if user is a club
+		// Get club_id from request or from logged-in user if user is a club
 		var clubID *string
 		userID, _ := c.Get("user_id")
-		userType, _ := c.Get("user_type")
-		if userType == "club" && userID != nil {
-			clubIDStr := userID.(string)
-			clubID = &clubIDStr
+		if req.ClubID != nil {
+			clubID = req.ClubID
+		} else {
+			userType, _ := c.Get("user_type")
+			if userType == "club" && userID != nil {
+				clubIDStr := userID.(string)
+				clubID = &clubIDStr
+			}
 		}
 
 		// Build insert query with all fields

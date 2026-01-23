@@ -173,10 +173,12 @@ func main() {
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
 		events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
+			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
 			events.GET("/:id/images", handler.GetEventImages(db))
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))
 			events.GET("/:id/target-names", handler.GetTargetNames(db))
+			events.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
 
 			// Protected Event routes (require authentication)
 			protected := events.Group("")
@@ -192,6 +194,9 @@ func main() {
 			protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
 			protected.POST("/:id/participants", handler.RegisterParticipant(db))
 			protected.PUT("/:id/images", handler.UpdateEventImages(db))
+			protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
+			protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
+			protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))
 			}
 		}
 
@@ -212,6 +217,7 @@ func main() {
 			protected := archers.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
+				protected.GET("/me", handler.GetArcherProfile(db))
 				protected.POST("", handler.CreateArcher(db))
 				protected.PUT("/:id", handler.UpdateArcher(db))
 				protected.DELETE("/:id", handler.DeleteArcher(db))
@@ -384,7 +390,8 @@ func main() {
 		clubs := api.Group("/clubs")
 		{
 			clubs.GET("", handler.GetClubs(db))
-			clubs.GET("/detail/:slug", handler.GetClubBySlug(db))
+			clubs.GET("/:slug", handler.GetClubBySlug(db))
+			clubs.GET("/detail/:slug", handler.GetClubBySlug(db)) // Backward compatibility
 			clubs.GET("/members/:clubId", handler.GetClubMembers(db))
 			
 			protectedClubs := clubs.Group("")

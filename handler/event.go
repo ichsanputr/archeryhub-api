@@ -53,21 +53,62 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
-		// Check if user is archer to filter events
+		// Check if user is archer to filter events and include participant status
 		userID, userExists := c.Get("user_id")
 		userRole, roleExists := c.Get("role")
 
 		if userExists && roleExists && userRole == "archer" {
-			query += ` AND t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)`
-			args = append(args, userID)
-		}
-
-		query += `
+			// Build archer-specific query with participant status
+			query = `
+			SELECT 
+				t.*,
+				u.full_name as organizer_name,
+				u.email as organizer_email,
+				COALESCE(d.name, t.type, '') as discipline_name,
+				COUNT(DISTINCT tp2.uuid) as participant_count,
+				COUNT(DISTINCT te.uuid) as event_count,
+				tp.accreditation_status,
+				tp.payment_status,
+				tp.uuid as participant_uuid
+			FROM events t
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, email FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, email FROM clubs
+			) u ON t.organizer_id = u.id
+			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
+			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
+			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			LEFT JOIN ref_disciplines d ON t.type = d.uuid OR t.type = d.code
+			WHERE t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)
+			`
+			args = []interface{}{userID, userID}
+			
+			if status != "" {
+				query += ` AND t.status = ?`
+				args = append(args, status)
+			}
+			
+			if search != "" {
+				query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
+				searchTerm := "%" + search + "%"
+				args = append(args, searchTerm, searchTerm, searchTerm)
+			}
+			
+			query += `
+			GROUP BY t.uuid, tp.accreditation_status, tp.payment_status, tp.uuid, u.full_name, u.email, d.name, t.type
+			ORDER BY t.start_date DESC
+			LIMIT ? OFFSET ?
+			`
+			args = append(args, limit, offset)
+		} else {
+			query += `
 			GROUP BY t.uuid
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
-		`
-		args = append(args, limit, offset)
+			`
+			args = append(args, limit, offset)
+		}
 
 		var events []models.EventWithDetails
 		err := db.Select(&events, query, args...)
@@ -451,6 +492,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			ID                  string  `db:"id" json:"id"`
 			ArcherID            string  `db:"archer_id" json:"archer_id"`
 			FullName            string  `db:"full_name" json:"full_name"`
+			Email               string  `db:"email" json:"email"`
 			ArcherCode          string  `db:"athlete_code" json:"archer_code"`
 			Country             *string `db:"country" json:"country"`
 			ClubID              *string `db:"club_id" json:"club_id"`
@@ -459,6 +501,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID          string  `db:"category_id" json:"category_id"`
 			DivisionName        string  `db:"division_name" json:"division_name"`
 			CategoryName        string  `db:"category_name" json:"category_name"`
+			EventTypeName       *string `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName  *string `db:"gender_division_name" json:"gender_division_name"`
 			BackNumber          *string `db:"back_number" json:"back_number"`
 			TargetNumber        *string `db:"target_number" json:"target_number"`
 			Session             *int    `db:"session" json:"session"`
@@ -472,15 +516,18 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.back_number, tp.target_number, tp.session,
 				tp.payment_status, tp.accreditation_status, tp.registration_date,
-				a.full_name, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
+				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
 				COALESCE(cl.name, '') as club_name,
-				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name
+				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
+				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
 			FROM event_participants tp
 			JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN event_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE tp.event_id = ?
 			ORDER BY d.name, c.name, a.full_name
 		`, actualEventID)
@@ -687,30 +734,30 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if already registered
-		var exists bool
-		err := db.Get(&exists, `
-			SELECT EXISTS(SELECT 1 FROM event_participants 
-			WHERE event_id = ? AND athlete_id = ? AND event_category_id = ?)
-		`, eventID, req.AthleteID, req.EventCategoryID)
+	// Check if already registered
+	var exists bool
+	err := db.Get(&exists, `
+		SELECT EXISTS(SELECT 1 FROM event_participants 
+		WHERE event_id = ? AND archer_id = ? AND category_id = ?)
+	`, eventID, req.AthleteID, req.EventCategoryID)
 
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
-			return
-		}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+		return
+	}
 
-		if exists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Participant already registered for this event category"})
-			return
-		}
+	if exists {
+		c.JSON(http.StatusConflict, gin.H{"error": "Participant already registered for this event category"})
+		return
+	}
 
-		// Insert participant
-		participantID := uuid.New().String()
-		_, err = db.Exec(`
-			INSERT INTO event_participants 
-			(uuid, event_id, athlete_id, event_category_id, payment_amount, payment_status, accreditation_status)
-			VALUES (?, ?, ?, ?, ?, 'pending', 'pending')
-		`, participantID, eventID, req.AthleteID, req.EventCategoryID, req.PaymentAmount)
+	// Insert participant
+	participantID := uuid.New().String()
+	_, err = db.Exec(`
+		INSERT INTO event_participants 
+		(uuid, event_id, archer_id, category_id, payment_amount, payment_status, accreditation_status)
+		VALUES (?, ?, ?, ?, ?, 'menunggu_acc', 'pending')
+	`, participantID, eventID, req.AthleteID, req.EventCategoryID, req.PaymentAmount)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
@@ -725,6 +772,51 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			"id":      participantID,
 			"message": "Participant registered successfully",
 		})
+	}
+}
+
+// CancelParticipantRegistration allows an archer to cancel their registration
+func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		participantID := c.Param("participantId")
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Verify the participant belongs to the user
+		var archerID string
+		err := db.Get(&archerID, "SELECT archer_id FROM event_participants WHERE uuid = ?", participantID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
+			return
+		}
+
+		// Check if the participant belongs to the logged-in user
+		var userArcherID string
+		err = db.Get(&userArcherID, "SELECT uuid FROM archers WHERE uuid = ? OR user_id = ?", userID, userID)
+		if err != nil || userArcherID != archerID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You can only cancel your own registration"})
+			return
+		}
+
+		// Check if already approved - can't cancel approved registrations
+		var accreditationStatus string
+		err = db.Get(&accreditationStatus, "SELECT accreditation_status FROM event_participants WHERE uuid = ?", participantID)
+		if err == nil && accreditationStatus == "approved" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot cancel an approved registration. Please contact the organizer."})
+			return
+		}
+
+		// Delete the participant registration
+		_, err = db.Exec("DELETE FROM event_participants WHERE uuid = ?", participantID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel registration"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Registration cancelled successfully"})
 	}
 }
 

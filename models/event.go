@@ -61,10 +61,13 @@ type Event struct {
 // EventWithDetails includes organizer information
 type EventWithDetails struct {
 	Event
-	OrganizerName    *string `json:"organizer_name" db:"organizer_name"`
-	OrganizerEmail   *string `json:"organizer_email" db:"organizer_email"`
-	ParticipantCount int     `json:"participant_count" db:"participant_count"`
-	EventCount       int     `json:"event_count" db:"event_count"`
+	OrganizerName      *string `json:"organizer_name" db:"organizer_name"`
+	OrganizerEmail     *string `json:"organizer_email" db:"organizer_email"`
+	ParticipantCount   int     `json:"participant_count" db:"participant_count"`
+	EventCount         int     `json:"event_count" db:"event_count"`
+	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status"`
+	PaymentStatus      *string `json:"payment_status" db:"payment_status"`
+	ParticipantUUID    *string `json:"participant_uuid" db:"participant_uuid"`
 }
 
 // CreateEventRequest represents the request payload for creating a Event

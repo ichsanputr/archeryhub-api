@@ -127,35 +127,83 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 		slug := c.Param("slug")
 		
 		var club struct {
-			UUID        string  `json:"uuid" db:"uuid"`
-			Name        string  `json:"name" db:"name"`
-			Slug        string  `json:"slug" db:"slug"`
-			Description *string `json:"description" db:"description"`
-			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL   *string `json:"banner_url" db:"banner_url"`
-			Address     *string `json:"address" db:"address"`
-			City        *string `json:"city" db:"city"`
-			Province    *string `json:"province" db:"province"`
-			Phone       *string `json:"phone" db:"phone"`
-			Email       *string `json:"email" db:"email"`
-			Website     *string `json:"website" db:"website"`
-			IsVerified  bool    `json:"verified" db:"is_verified"`
-			CreatedAt   string  `json:"created_at" db:"created_at"`
+			UUID               string  `json:"uuid" db:"uuid"`
+			Name               string  `json:"name" db:"name"`
+			Slug               string  `json:"slug" db:"slug"`
+			Description        *string `json:"description" db:"description"`
+			AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL          *string `json:"banner_url" db:"banner_url"`
+			LogoURL            *string `json:"logo_url" db:"logo_url"`
+			Address            *string `json:"address" db:"address"`
+			City               *string `json:"city" db:"city"`
+			Province           *string `json:"province" db:"province"`
+			Phone              *string `json:"phone" db:"phone"`
+			Email              *string `json:"email" db:"email"`
+			Website            *string `json:"website" db:"website"`
+			Facebook           *string `json:"facebook" db:"social_facebook"`
+			Instagram          *string `json:"instagram" db:"social_instagram"`
+			WhatsApp           *string `json:"whatsapp" db:"phone"`
+			EstablishedDate    *string `json:"established" db:"established_date"`
+			Facilities         *string `json:"facilities" db:"facilities"`
+			TrainingSchedule   *string `json:"training_schedule" db:"training_schedule"`
+			VerificationStatus string  `json:"verification_status" db:"verification_status"`
+			Verified           bool    `json:"verified"`
+			CreatedAt          string  `json:"created_at" db:"created_at"`
 		}
 		
-		err := db.Get(&club, "SELECT uuid, name, slug, description, avatar_url, banner_url, address, city, province, phone, email, website, is_verified, created_at FROM clubs WHERE slug = ? OR uuid = ?", slug, slug)
+		err := db.Get(&club, `
+			SELECT uuid, name, slug, description, avatar_url, banner_url, avatar_url as logo_url, 
+			       address, city, province, phone, email, website, social_facebook, social_instagram, 
+			       established_date, facilities, training_schedule, verification_status, created_at 
+			FROM clubs 
+			WHERE slug = ? OR uuid = ?`, slug, slug)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
 		}
 		
+		club.Verified = club.VerificationStatus == "verified"
+		club.WhatsApp = club.Phone
+		
 		// Get member count
 		var memberCount int
 		db.Get(&memberCount, "SELECT COUNT(*) FROM club_members WHERE club_id = ? AND status = 'active'", club.UUID)
 		
+		// Get event count
+		var eventCount int
+		db.Get(&eventCount, "SELECT COUNT(DISTINCT tp.event_id) FROM event_participants tp JOIN archers a ON tp.archer_id = a.uuid WHERE a.club_id = ?", club.UUID)
+		
+		// Return data in expected format
 		c.JSON(http.StatusOK, gin.H{
-			"data": club,
+			"id":           club.UUID,
+			"uuid":         club.UUID,
+			"name":         club.Name,
+			"slug":         club.Slug,
+			"description":  club.Description,
+			"avatar_url":   club.AvatarURL,
+			"logo_url":     club.LogoURL,
+			"banner_url":   club.BannerURL,
+			"address":      club.Address,
+			"city":         club.City,
+			"province":     club.Province,
+			"phone":        club.Phone,
+			"email":        club.Email,
+			"website":      club.Website,
+			"facebook":     club.Facebook,
+			"instagram":    club.Instagram,
+			"whatsapp":     club.WhatsApp,
+			"established":  club.EstablishedDate,
+			"facilities":   club.Facilities,
+			"schedules":    club.TrainingSchedule,
+			"verified":     club.Verified,
 			"member_count": memberCount,
+			"members":      memberCount,
+			"event_count":  eventCount,
+			"events":       eventCount,
+			"rating":       4.5,
+			"achievements": 0,
+			"recent_events": []interface{}{},
+			"top_members":   []interface{}{},
 		})
 	}
 }
