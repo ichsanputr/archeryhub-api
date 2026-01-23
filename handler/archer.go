@@ -42,9 +42,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if search != "" {
-			query += " AND (a.full_name LIKE ? OR a.athlete_code LIKE ? OR a.club_id LIKE ?)"
+			query += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.athlete_code LIKE ? OR a.club_id LIKE ?)"
 			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm)
+			args = append(args, searchTerm, searchTerm, searchTerm, searchTerm)
 		}
 
 		if country != "" {
