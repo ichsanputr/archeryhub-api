@@ -38,7 +38,14 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 			err := db.Select(&rows, `
 				SELECT
 					CONCAT(qs.uuid, '-', tn.target_number) as id,
-					CONCAT(qs.session_name, ' - ', COALESCE(tc.card_name, CONCAT('Target ', tn.target_number))) as label,
+					CONCAT(qs.session_name, ' - ', COALESCE(tc.card_name, CONCAT('Target ', tn.target_number)), 
+						COALESCE(CONCAT(' [', (
+							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') ORDER BY qa2.target_position SEPARATOR ', ')
+							FROM qualification_assignments qa2
+							JOIN event_participants ep2 ON qa2.participant_uuid = ep2.uuid
+							JOIN archers a2 ON ep2.archer_id = a2.uuid
+							WHERE qa2.session_uuid = qs.uuid AND qa2.target_number = tn.target_number
+						), ']'), ' (Kosong)')) as label,
 					'qualification' as phase,
 					qs.uuid as session_id,
 					qs.session_name,

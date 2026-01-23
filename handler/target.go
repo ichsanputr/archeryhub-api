@@ -303,7 +303,7 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&qualificationNames, `
 			SELECT 
 				CONCAT('qualification-', ec.uuid, '-sesi-', qs.session_order) as id,
-				CONCAT(qs.session_name, ' - ', bt.name, ' ', ag.name) as name,
+				CONCAT(bt.name, ' - ', ag.name, ' - ', et.name, ' - ', gd.name, ' (', qs.session_name, ')') as name,
 				'qualification' as phase,
 				ec.uuid as category_id,
 				qs.uuid as session_id,
@@ -312,6 +312,8 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 			JOIN event_categories ec ON qs.event_category_uuid = ec.uuid
 			JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
+			JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
 			WHERE ec.event_id = ? OR ec.event_id = (SELECT uuid FROM events WHERE slug = ?)
 			ORDER BY qs.session_order ASC, bt.name ASC, ag.name ASC
 		`, eventID, eventID)
@@ -325,7 +327,7 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&eliminationNames, `
 			SELECT DISTINCT
 				CONCAT('elimination-', ec.uuid, '-', m.round_name) as id,
-				CONCAT(m.round_name, ' - ', bt.name, ' ', ag.name) as name,
+				CONCAT(bt.name, ' - ', ag.name, ' - ', et.name, ' - ', gd.name, ' (', m.round_name, ')') as name,
 				'elimination' as phase,
 				ec.uuid as category_id,
 				'' as session_id,
@@ -335,6 +337,8 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 			JOIN event_categories ec ON m.event_category_uuid = ec.uuid
 			JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
+			JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
 			WHERE ec.event_id = ? OR ec.event_id = (SELECT uuid FROM events WHERE slug = ?)
 			ORDER BY 
 				CASE m.round_name

@@ -4,6 +4,7 @@ import (
 	"archeryhub-api/models"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"archeryhub-api/utils"
@@ -475,16 +476,29 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetEventParticipants returns participants for a specific event
+// GetEventParticipants returns participants for a specific event with pagination
 func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
+		limitStr := c.DefaultQuery("limit", "10")
+		offsetStr := c.DefaultQuery("offset", "0")
+
+		limit, _ := strconv.Atoi(limitStr)
+		offset, _ := strconv.Atoi(offsetStr)
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
 		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		// Get total count
+		var total int
+		err = db.Get(&total, "SELECT COUNT(*) FROM event_participants WHERE event_id = ?", actualEventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count participants"})
 			return
 		}
 
@@ -530,7 +544,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE tp.event_id = ?
 			ORDER BY d.name, c.name, a.full_name
-		`, actualEventID)
+			LIMIT ? OFFSET ?
+		`, actualEventID, limit, offset)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
@@ -539,7 +554,9 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"participants": participants,
-			"total":        len(participants),
+			"total":        total,
+			"limit":        limit,
+			"offset":       offset,
 		})
 	}
 }
