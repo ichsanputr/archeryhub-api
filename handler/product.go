@@ -29,25 +29,19 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetMyProducts returns products owned by the current user's organization/club
+// GetMyProducts returns products owned by the current seller
 func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
 
-		var products []models.Product
-		var err error
-
-		if userType == "organization" {
-			err = db.Select(&products, "SELECT * FROM products WHERE organization_id = ? ORDER BY created_at DESC", userID)
-		} else if userType == "club" {
-			err = db.Select(&products, "SELECT * FROM products WHERE club_id = ? ORDER BY created_at DESC", userID)
-		} else if userType == "seller" {
-			err = db.Select(&products, "SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC", userID)
-		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to view products"})
+		if userType != "seller" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only sellers can view their products"})
 			return
 		}
+
+		var products []models.Product
+		err := db.Select(&products, "SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC", userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
@@ -96,27 +90,25 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		slug := strings.ToLower(req.Name)
 		slug = strings.ReplaceAll(slug, " ", "-") + "-" + uuid.New().String()[:8]
 
+		if userType != "seller" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only sellers can create products"})
+			return
+		}
+
 		imagesJSON, _ := json.Marshal(req.Images)
 		specJSON, _ := json.Marshal(req.Specifications)
 
-		var orgID, clubID, sellerID *string
 		userIDStr := userID.(string)
-		if userType == "organization" {
-			orgID = &userIDStr
-		} else if userType == "club" {
-			clubID = &userIDStr
-		} else if userType == "seller" {
-			sellerID = &userIDStr
-		}
+		sellerID := &userIDStr
 
 		if req.Status == "" {
 			req.Status = "draft"
 		}
 
 		_, err := db.Exec(`
-			INSERT INTO products (uuid, organization_id, club_id, seller_id, name, slug, description, price, sale_price, category, stock, status, image_url, images, specifications)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, productID, orgID, clubID, sellerID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(specJSON))
+			INSERT INTO products (uuid, seller_id, name, slug, description, price, sale_price, category, stock, status, image_url, images, specifications)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, productID, sellerID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(specJSON))
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product: " + err.Error()})
@@ -151,16 +143,7 @@ func UpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		isOwner := false
-		if userType == "organization" && product.OrganizationID != nil && *product.OrganizationID == userID.(string) {
-			isOwner = true
-		} else if userType == "club" && product.ClubID != nil && *product.ClubID == userID.(string) {
-			isOwner = true
-		} else if userType == "seller" && product.SellerID != nil && *product.SellerID == userID.(string) {
-			isOwner = true
-		}
-
-		if !isOwner {
+		if userType != "seller" || product.SellerID == nil || *product.SellerID != userID.(string) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to update this product"})
 			return
 		}
@@ -240,16 +223,7 @@ func DeleteProduct(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		isOwner := false
-		if userType == "organization" && product.OrganizationID != nil && *product.OrganizationID == userID.(string) {
-			isOwner = true
-		} else if userType == "club" && product.ClubID != nil && *product.ClubID == userID.(string) {
-			isOwner = true
-		} else if userType == "seller" && product.SellerID != nil && *product.SellerID == userID.(string) {
-			isOwner = true
-		}
-
-		if !isOwner {
+		if userType != "seller" || product.SellerID == nil || *product.SellerID != userID.(string) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this product"})
 			return
 		}
