@@ -520,7 +520,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			BackNumber          *string `db:"back_number" json:"back_number"`
 			TargetNumber        *string `db:"target_number" json:"target_number"`
 			Session             *int    `db:"session" json:"session"`
-			PaymentStatus       string  `db:"payment_status" json:"payment_status"`
+			Status              string  `db:"status" json:"status"`
 			AccreditationStatus string  `db:"accreditation_status" json:"accreditation_status"`
 			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
 		}
@@ -529,7 +529,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&participants, `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.back_number, tp.target_number, tp.session,
-				tp.payment_status, tp.accreditation_status, tp.registration_date,
+				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
 				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
@@ -558,6 +558,75 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			"limit":        limit,
 			"offset":       offset,
 		})
+	}
+}
+
+// GetEventParticipant returns a single participant for an event
+func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		participantID := c.Param("participantId")
+
+		// Resolve event slug to UUID
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		type Participant struct {
+			ID                  string  `db:"id" json:"id"`
+			ArcherID            string  `db:"archer_id" json:"archer_id"`
+			FullName            string  `db:"full_name" json:"full_name"`
+			Email               string  `db:"email" json:"email"`
+			ArcherCode          string  `db:"athlete_code" json:"archer_code"`
+			Country             *string `db:"country" json:"country"`
+			ClubID              *string `db:"club_id" json:"club_id"`
+			ClubName            *string `db:"club_name" json:"club_name"`
+			EventID             string  `db:"event_id" json:"event_id"`
+			CategoryID          string  `db:"category_id" json:"category_id"`
+			DivisionName        string  `db:"division_name" json:"division_name"`
+			CategoryName        string  `db:"category_name" json:"category_name"`
+			EventTypeName       *string `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName  *string `db:"gender_division_name" json:"gender_division_name"`
+			BackNumber          *string `db:"back_number" json:"back_number"`
+			TargetNumber        *string `db:"target_number" json:"target_number"`
+			Session             *int    `db:"session" json:"session"`
+			Status              string  `db:"status" json:"status"`
+			AccreditationStatus string  `db:"accreditation_status" json:"accreditation_status"`
+			PaymentAmount       float64 `db:"payment_amount" json:"payment_amount"`
+			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
+		}
+
+		var participant Participant
+		err = db.Get(&participant, `
+			SELECT 
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.back_number, tp.target_number, tp.session,
+				tp.payment_amount,
+				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
+				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
+				COALESCE(cl.name, '') as club_name,
+				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
+				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
+			FROM event_participants tp
+			JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+			WHERE tp.event_id = ? AND (tp.uuid = ? OR a.athlete_code = ?)
+			LIMIT 1
+		`, actualEventID, participantID, participantID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, participant)
 	}
 }
 
@@ -772,8 +841,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 	participantID := uuid.New().String()
 	_, err = db.Exec(`
 		INSERT INTO event_participants 
-		(uuid, event_id, archer_id, category_id, payment_amount, payment_status, accreditation_status)
-		VALUES (?, ?, ?, ?, ?, 'menunggu_acc', 'pending')
+		(uuid, event_id, archer_id, category_id, payment_amount, status, accreditation_status)
+		VALUES (?, ?, ?, ?, ?, 'Menunggu Acc', 'pending')
 	`, participantID, eventID, req.AthleteID, req.EventCategoryID, req.PaymentAmount)
 
 		if err != nil {
@@ -848,7 +917,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			BackNumber          *string  `json:"back_number"`
 			TargetNumber        *string  `json:"target_number"`
 			Session             *int     `json:"session"`
-			PaymentStatus       *string  `json:"payment_status"`
+			Status              *string  `json:"status"`
 			PaymentAmount       *float64 `json:"payment_amount"`
 			AccreditationStatus *string  `json:"accreditation_status"`
 		}
@@ -858,19 +927,25 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if participant exists and belongs to the event
-		var exists bool
-		err := db.Get(&exists, `
-			SELECT EXISTS(SELECT 1 FROM event_participants 
-			WHERE uuid = ? AND event_id = ?)
-		`, participantID, eventID)
-
+		// Resolve event slug to UUID
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
-		if !exists {
+		// Check if participant exists and belongs to the event
+		// support both UUID and archer code
+		var actualParticipantID string
+		err = db.Get(&actualParticipantID, `
+			SELECT tp.uuid FROM event_participants tp
+			JOIN archers a ON tp.archer_id = a.uuid
+			WHERE tp.event_id = ? AND (tp.uuid = ? OR a.athlete_code = ?)
+			LIMIT 1
+		`, actualEventID, participantID, participantID)
+
+		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})
 			return
 		}
@@ -885,7 +960,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			err = db.Get(&categoryExists, `
 				SELECT EXISTS(SELECT 1 FROM event_categories 
 				WHERE uuid = ? AND event_id = ?)
-			`, *req.CategoryID, eventID)
+			`, *req.CategoryID, actualEventID)
 			if err != nil || !categoryExists {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category for this event"})
 				return
@@ -905,9 +980,9 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			query += ", session = ?"
 			args = append(args, *req.Session)
 		}
-		if req.PaymentStatus != nil {
-			query += ", payment_status = ?"
-			args = append(args, *req.PaymentStatus)
+		if req.Status != nil {
+			query += ", status = ?"
+			args = append(args, *req.Status)
 		}
 		if req.PaymentAmount != nil {
 			query += ", payment_amount = ?"
@@ -924,7 +999,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query += " WHERE uuid = ? AND event_id = ?"
-		args = append(args, participantID, eventID)
+		args = append(args, actualParticipantID, actualEventID)
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
@@ -935,7 +1010,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Log activity
 		userID, _ := c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), eventID, "participant_updated", "event_participant", participantID, "Updated participant", c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID.(string), actualEventID, "participant_updated", "event_participant", actualParticipantID, "Updated participant", c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Participant updated successfully"})

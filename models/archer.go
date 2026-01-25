@@ -20,11 +20,12 @@ type Archer struct {
 	PhotoURL          *string    `json:"photo_url" db:"photo_url"`
 	Address           *string    `json:"address" db:"address"`
 	Bio               *string    `json:"bio" db:"bio"`
-	EmergencyContact  *string    `json:"emergency_contact" db:"emergency_contact"`
-	EmergencyPhone    *string    `json:"emergency_phone" db:"emergency_phone"`
-	MedicalConditions *string    `json:"medical_conditions" db:"medical_conditions"`
 	Achievements      *string    `json:"achievements" db:"achievements"`
 	Status            string     `json:"status" db:"status"` // active, inactive, suspended, pending
+	BowType           *string    `json:"bow_type" db:"bow_type"`
+	City              *string    `json:"city" db:"city"`
+	Province          *string    `json:"province" db:"province"`
+	ExperienceYears   *int       `json:"experience_years" db:"experience_years"`
 	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -57,8 +58,6 @@ type CreateArcherRequest struct {
 	Phone            *string    `json:"phone"`
 	PhotoURL         *string    `json:"photo_url"`
 	Address          *string    `json:"address"`
-	EmergencyContact *string    `json:"emergency_contact"`
-	EmergencyPhone   *string    `json:"emergency_phone"`
 }
 
 // UpdateArcherRequest represents the request payload for updating an archer
@@ -75,8 +74,6 @@ type UpdateArcherRequest struct {
 	Address          *string    `json:"address"`
 	Bio              *string    `json:"bio"`
 	Achievements     *string    `json:"achievements"`
-	EmergencyContact *string    `json:"emergency_contact"`
-	EmergencyPhone   *string    `json:"emergency_phone"`
 	Status           *string    `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 

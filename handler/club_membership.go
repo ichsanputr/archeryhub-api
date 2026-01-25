@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"math"
 	"net/http"
 	"strconv"
@@ -174,7 +175,7 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 		db.Get(&eventCount, "SELECT COUNT(DISTINCT tp.event_id) FROM event_participants tp JOIN archers a ON tp.archer_id = a.uuid WHERE a.club_id = ?", club.UUID)
 		
 		// Return data in expected format
-		c.JSON(http.StatusOK, gin.H{
+		response := gin.H{
 			"id":           club.UUID,
 			"uuid":         club.UUID,
 			"name":         club.Name,
@@ -204,7 +205,20 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			"achievements": 0,
 			"recent_events": []interface{}{},
 			"top_members":   []interface{}{},
-		})
+		}
+
+		// Get dynamic profile sections
+		var sections string
+		_ = db.Get(&sections, "SELECT sections FROM club_profile WHERE club_uuid = ?", club.UUID)
+		if sections != "" {
+			var parsedSections interface{}
+			json.Unmarshal([]byte(sections), &parsedSections)
+			response["sections"] = parsedSections
+		} else {
+			response["sections"] = []interface{}{}
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
 

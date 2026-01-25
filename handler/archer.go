@@ -25,8 +25,8 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				a.uuid, a.user_id, a.slug, a.athlete_code, a.full_name, a.date_of_birth,
 				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
-				a.bio, a.emergency_contact_name as emergency_contact, a.emergency_contact_phone as emergency_phone,
-				a.medical_conditions, a.achievements, a.status, a.created_at, a.updated_at,
+				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
+				a.bow_type, a.city, a.province, a.experience_years,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -100,8 +100,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				a.uuid, a.user_id, a.slug, a.athlete_code, a.full_name, a.date_of_birth,
 				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
-				a.bio, a.emergency_contact_name as emergency_contact, a.emergency_contact_phone as emergency_phone,
-				a.medical_conditions, a.achievements, a.status, a.created_at, a.updated_at,
+				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
+				a.bow_type, a.city, a.province, a.experience_years,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -208,16 +208,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO archers (
 				uuid, username, email, password, athlete_code, full_name, nickname,
 				date_of_birth, gender, bow_type, country, city, club_id,
-				phone, address, photo_url,
-				emergency_contact_name, emergency_contact_phone, role, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archer', 'active', ?, ?)
+				phone, address, photo_url, role, status, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archer', 'active', ?, ?)
 		`
 
 		_, err := db.Exec(query,
 			archerID, username, req.Email, req.Password, archerCode, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.Country, req.City, clubID,
-			req.Phone, req.Address, req.PhotoURL,
-			req.EmergencyContact, req.EmergencyPhone, now, now,
+			req.Phone, req.Address, req.PhotoURL, now, now,
 		)
 
 		if err != nil {

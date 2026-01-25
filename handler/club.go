@@ -1,0 +1,164 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+)
+
+// GetClubMe returns the club profile for the authenticated user
+func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		var club struct {
+			UUID               string  `json:"uuid" db:"uuid"`
+			Name               string  `json:"name" db:"name"`
+			Slug               string  `json:"slug" db:"slug"`
+			Description        *string `json:"description" db:"description"`
+			AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL          *string `json:"banner_url" db:"banner_url"`
+			LogoURL            *string `json:"logo_url" db:"avatar_url"`
+			Address            *string `json:"address" db:"address"`
+			City               *string `json:"city" db:"city"`
+			Province           *string `json:"province" db:"province"`
+			Phone              *string `json:"phone" db:"phone"`
+			Email              *string `json:"email" db:"email"`
+			Website            *string `json:"website" db:"website"`
+			Facebook           *string `json:"facebook" db:"social_facebook"`
+			Instagram          *string `json:"instagram" db:"social_instagram"`
+			WhatsApp           *string `json:"whatsapp" db:"phone"`
+			EstablishedDate    *string `json:"established" db:"established_date"`
+			Facilities         *string `json:"facilities" db:"facilities"`
+			TrainingSchedule   *string `json:"schedules" db:"training_schedule"`
+			VerificationStatus string  `json:"verification_status" db:"verification_status"`
+		}
+
+		err := db.Get(&club, "SELECT * FROM clubs WHERE user_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, club)
+	}
+}
+
+// UpdateClubMe updates the club profile for the authenticated user
+func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		var req struct {
+			Name        string   `json:"name"`
+			Slug        string   `json:"slug"`
+			Description string   `json:"description"`
+			BannerURL   string   `json:"banner_url"`
+			LogoURL     string   `json:"logo_url"`
+			City        string   `json:"city"`
+			Province    string   `json:"province"`
+			Established string   `json:"established"`
+			Phone       string   `json:"phone"`
+			WhatsApp    string   `json:"whatsapp"`
+			Email       string   `json:"email"`
+			Instagram   string   `json:"instagram"`
+			Facebook    string   `json:"facebook"`
+			Website     string   `json:"website"`
+			Address     string   `json:"address"`
+			Facilities  []string `json:"facilities"`
+			Schedules   []interface{} `json:"schedules"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		facilitiesJSON, _ := json.Marshal(req.Facilities)
+		schedulesJSON, _ := json.Marshal(req.Schedules)
+
+		_, err := db.Exec(`
+			UPDATE clubs SET 
+				name = ?, slug = ?, description = ?, banner_url = ?, avatar_url = ?, 
+				city = ?, province = ?, established_date = ?, phone = ?, email = ?, 
+				social_facebook = ?, social_instagram = ?, website = ?, address = ?,
+				facilities = ?, training_schedule = ?, updated_at = NOW()
+			WHERE user_id = ?`,
+			req.Name, req.Slug, req.Description, req.BannerURL, req.LogoURL,
+			req.City, req.Province, req.Established, req.Phone, req.Email,
+			req.Facebook, req.Instagram, req.Website, req.Address,
+			string(facilitiesJSON), string(schedulesJSON), userID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update club: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Club profile updated successfully"})
+	}
+}
+
+// GetClubProfile returns dynamic sections for a club
+func GetClubProfile(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Param("slug")
+
+		var sections string
+		err := db.Get(&sections, `
+			SELECT sections FROM club_profile cp
+			JOIN clubs c ON cp.club_uuid = c.uuid
+			WHERE c.slug = ? OR c.uuid = ?`, slug, slug)
+		
+		if err != nil {
+			// Return default empty sections if not found
+			c.JSON(http.StatusOK, gin.H{"sections": []interface{}{}})
+			return
+		}
+
+		var parsedSections interface{}
+		json.Unmarshal([]byte(sections), &parsedSections)
+		c.JSON(http.StatusOK, gin.H{"sections": parsedSections})
+	}
+}
+
+// UpdateMyClubProfile updates dynamic sections for the authenticated club owner
+func UpdateMyClubProfile(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		var req struct {
+			Sections interface{} `json:"sections" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		sectionsJSON, _ := json.Marshal(req.Sections)
+
+		// Get club UUID first
+		var clubUUID string
+		err := db.Get(&clubUUID, "SELECT uuid FROM clubs WHERE user_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			return
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO club_profile (uuid, club_uuid, sections)
+			VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE sections = ?, updated_at = NOW()`,
+			uuid.New().String(), clubUUID, string(sectionsJSON), string(sectionsJSON))
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update sections: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Club sections updated successfully"})
+	}
+}

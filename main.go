@@ -172,6 +172,7 @@ func main() {
 			events.GET("/:id", handler.GetEventByID(db))
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
+			events.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
 		events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
@@ -402,6 +403,10 @@ func main() {
 				protectedClubs.DELETE("/my/membership", handler.LeaveClub(db))
 				protectedClubs.PUT("/members/:memberId/approve", handler.ApproveClubMember(db))
 				protectedClubs.POST("/invite", handler.InviteToClub(db))
+				protectedClubs.GET("/me", handler.GetClubMe(db))
+				protectedClubs.PUT("/me", handler.UpdateClubMe(db))
+				protectedClubs.GET("/:slug/profile", handler.GetClubProfile(db))
+				protectedClubs.PUT("/me/profile", handler.UpdateMyClubProfile(db))
 			}
 		}
 	}

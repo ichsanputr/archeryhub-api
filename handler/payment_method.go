@@ -177,15 +177,9 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			PostalCode            *string `json:"postal_code" db:"postal_code"`
 			NationalID            *string `json:"national_id" db:"national_id"`
 			BowType               string  `json:"bow_type" db:"bow_type"`
-			DominantHand          string  `json:"dominant_hand" db:"dominant_hand"`
 			ExperienceYears       int     `json:"experience_years" db:"experience_years"`
 			ClubID                *string `json:"club_id" db:"club_id"`
 			ClubName              *string `json:"club_name" db:"club_name"`
-			CurrentRanking        *int    `json:"current_ranking" db:"current_ranking"`
-			BestScore             *int    `json:"best_score" db:"best_score"`
-			EmergencyContactName  *string `json:"emergency_contact_name" db:"emergency_contact_name"`
-			EmergencyContactPhone *string `json:"emergency_contact_phone" db:"emergency_contact_phone"`
-			MedicalConditions     *string `json:"medical_conditions" db:"medical_conditions"`
 			Achievements          *string `json:"achievements" db:"achievements"`
 			Status                string  `json:"status" db:"status"`
 		}
@@ -197,12 +191,9 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		       a.country, a.phone, a.address, a.city, a.province, a.postal_code, 
 		       a.national_id, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
-		       COALESCE(a.dominant_hand, 'right') as dominant_hand,
 		       COALESCE(a.experience_years, 0) as experience_years,
 		       a.club_id, c.name as club_name,
-		       a.current_ranking, a.best_score,
-		       a.emergency_contact_name, a.emergency_contact_phone,
-		       a.medical_conditions, a.achievements,
+		       a.achievements,
 		       COALESCE(a.status, 'active') as status
 		FROM archers a
 		LEFT JOIN clubs c ON a.club_id = c.uuid
