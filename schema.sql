@@ -30,9 +30,32 @@ CREATE TABLE IF NOT EXISTS `akun` (
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.akun: ~0 rows (approximately)
+-- Dumping data for table furnifilux_dev.akun: ~2 rows (approximately)
 INSERT INTO `akun` (`uuid`, `id`, `name`, `description`, `balance`, `created_at`, `updated_at`) VALUES
-	('35e10da3-5e3e-4d94-a235-1600119e3dc3', 'AKUN#1000', 'BRI UTAMA', NULL, 30955000, '2026-01-24 03:50:04', '2026-01-24 04:09:53');
+	('bd51dedb-9bbd-4f9f-8213-9f055de6f7b7', 'AKUN#1000', 'BRI', NULL, 7600000, '2026-01-24 05:11:31', '2026-01-26 07:01:06'),
+	('2dec47ee-2721-4740-9989-73c47a56788c', 'AKUN#1001', 'BCA', 'Akun BCA', 200000, '2026-01-26 01:34:44', '2026-01-26 01:34:44');
+
+-- Dumping structure for table furnifilux_dev.finance_history_edit
+CREATE TABLE IF NOT EXISTS `finance_history_edit` (
+  `uuid` char(50) NOT NULL,
+  `transaction_uuid` char(50) NOT NULL,
+  `user_id` char(50) NOT NULL,
+  `field_name` varchar(255) NOT NULL,
+  `old_value` text DEFAULT NULL,
+  `new_value` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`uuid`),
+  KEY `idx_history_transaction` (`transaction_uuid`),
+  KEY `idx_history_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Dumping data for table furnifilux_dev.finance_history_edit: ~5 rows (approximately)
+INSERT INTO `finance_history_edit` (`uuid`, `transaction_uuid`, `user_id`, `field_name`, `old_value`, `new_value`, `created_at`) VALUES
+	('3facae82-c857-43ac-8f0c-f09b606bbc6a', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'keterangan', NULL, 'oke 1', '2026-01-24 04:38:13'),
+	('45e41956-62df-42a2-9e17-c89bfc26ef27', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'Item Pembayaran #1: Harga', 'Rp 25,000,000.00', 'Rp 20,000,000.00', '2026-01-24 04:42:14'),
+	('78835b48-73b2-4100-93a3-98e17d0082b9', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'kredit', 'Rp 30,000,000.00', 'Rp 25,000,000.00', '2026-01-24 04:42:14'),
+	('f533aca9-2768-4eee-bb28-3d4bdae22ba0', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'nominal', 'Rp 30,000,000.00', 'Rp 25,000,000.00', '2026-01-24 04:42:14'),
+	('f57cebf2-211e-4659-8d97-3f5213f80abe', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'Item Pembayaran pertama #1: Nama', 'Pembayaran pertama #1', 'Pembayaran #1', '2026-01-24 04:41:40');
 
 -- Dumping structure for table furnifilux_dev.finance_options
 CREATE TABLE IF NOT EXISTS `finance_options` (
@@ -44,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `finance_options` (
   UNIQUE KEY `unique_finance_option` (`category`,`value`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.finance_options: ~13 rows (approximately)
+-- Dumping data for table furnifilux_dev.finance_options: ~15 rows (approximately)
 INSERT INTO `finance_options` (`uuid`, `category`, `value`, `created_at`) VALUES
 	('2466ed69-1b16-4418-9cde-93ba83441bf9', 'vendor', 'HAndra / Marketing', '2025-12-16 06:50:50'),
 	('2897d67b-39b9-4880-a392-5e8b71f4c9e9', 'vendor', 'a', '2025-12-16 08:32:37'),
@@ -98,10 +121,11 @@ CREATE TABLE IF NOT EXISTS `finance_transactions` (
   KEY `lead_proyek_id` (`lead_proyek_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.finance_transactions: ~2 rows (approximately)
+-- Dumping data for table furnifilux_dev.finance_transactions: ~3 rows (approximately)
 INSERT INTO `finance_transactions` (`uuid`, `no`, `lead_pay_id`, `lead_proyek_id`, `tanggal`, `jatuh_tempo`, `jenis_transaksi`, `kategori_utama`, `sub_kategori`, `keterangan`, `nominal`, `akun_id`, `vendor`, `klien`, `lokasi`, `bulan`, `kategori_transaksi`, `kategori_arus_kas`, `kategori_aktivitas`, `arah_uang`, `debit`, `kredit`, `img_pembayaran`, `created_at`, `updated_at`) VALUES
-	('136da3fe-2598-471d-98e6-40e6c4f56752', 'FINANCE#1000', NULL, 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', '2026-01-24', '2026-01-25', 'Debit', 'Proyek', 'Pengiriman', 'oke', 45000, '35e10da3-5e3e-4d94-a235-1600119e3dc3', 'Vendor A', 'Arif Budi Setiawan', 'Bandung', 'Januari 2026', 'Pengeluaran', 'Operasional', 'Proyek', 'Keluar', 45000, NULL, 'http://localhost:8002/media/public/oAxRld_20251217_130548.png', '2026-01-24 04:02:36', '2026-01-24 04:02:36'),
-	('f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'FINANCE#1001', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', NULL, '2026-01-24', '2026-01-25', 'Kredit', 'Pendapatan', 'Pembayaran Client', NULL, 30000000, '35e10da3-5e3e-4d94-a235-1600119e3dc3', NULL, 'Arif Budi Setiawan', 'Bandung', 'Januari 2026', 'Pendapatan', 'Operasional', 'Pendapatan', 'Masuk', NULL, 30000000, 'http://localhost:8002/media/public/oAxRld_20251217_130548.png', '2026-01-24 04:09:49', '2026-01-24 05:11:24');
+	('2b5c5a9b-fdf5-47f6-bf81-d56e65e57d2c', 'FINANCE#1000', NULL, '982244ed-d91c-4fc5-b153-65b70a4c5891', '2026-01-24', '2026-01-29', 'Debit', 'Proyek', 'Material', NULL, 400000, 'bd51dedb-9bbd-4f9f-8213-9f055de6f7b7', 'HAndra / Marketing', 'Agung Firman', 'Jogja', 'Januari 2026', 'Pengeluaran', 'Operasional', 'Proyek', 'Keluar', 400000, NULL, 'https://furnivilux.namia.online/api/media/public/1gaUPY_20260124_121158.png', '2026-01-24 05:12:10', '2026-01-24 05:12:10'),
+	('40061e55-4444-4f99-94f7-c8334ebd63e0', 'FINANCE#1002', 'bb6596ac-af30-4d38-9b93-5835de41755e', NULL, '2026-01-26', NULL, 'Kredit', 'Pendapatan', 'Pembayaran Client', NULL, 5000000, 'bd51dedb-9bbd-4f9f-8213-9f055de6f7b7', NULL, 'Muhammad Ichsan', NULL, 'Januari 2026', 'Pendapatan', 'Operasional', 'Pendapatan', 'Masuk', NULL, 5000000, 'https://furnivilux.namia.online/api/media/public/1gaUPY_20260124_121158.png', '2026-01-26 07:01:06', '2026-01-26 07:01:06'),
+	('ee1f8edc-debd-4788-bc74-acd4a714b57e', 'FINANCE#1001', '982244ed-d91c-4fc5-b153-65b70a4c5891', NULL, '2026-01-24', '2026-01-27', 'Kredit', 'Pendapatan', 'Pembayaran Client', NULL, 2000000, 'bd51dedb-9bbd-4f9f-8213-9f055de6f7b7', NULL, 'Agung Firman', 'Jakarta', 'Januari 2026', 'Pendapatan', 'Operasional', 'Pendapatan', 'Masuk', NULL, 2000000, 'https://furnivilux.namia.online/api/media/public/1gaUPY_20260124_121158.png', '2026-01-24 05:12:59', '2026-01-24 05:12:59');
 
 -- Dumping structure for table furnifilux_dev.finance_transaction_items
 CREATE TABLE IF NOT EXISTS `finance_transaction_items` (
@@ -120,12 +144,11 @@ CREATE TABLE IF NOT EXISTS `finance_transaction_items` (
   CONSTRAINT `fk_transaction_items_transaction` FOREIGN KEY (`transaction_id`) REFERENCES `finance_transactions` (`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.finance_transaction_items: ~0 rows (approximately)
+-- Dumping data for table furnifilux_dev.finance_transaction_items: ~3 rows (approximately)
 INSERT INTO `finance_transaction_items` (`uuid`, `transaction_id`, `item_name`, `quantity`, `unit_price`, `subtotal`, `notes`, `created_at`, `updated_at`) VALUES
-	('0b1019c7-98a4-437d-abf2-bb56c6e4cbb0', '136da3fe-2598-471d-98e6-40e6c4f56752', 'Pengiriman cat 2 kali', 1, 20000, 20000, '', '2026-01-24 04:02:36', '2026-01-24 04:02:36'),
-	('9d8d9123-2e4b-4cdf-b58a-2be389b9d08b', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'Pembayaran pertama', 1, 25000000, 25000000, '', '2026-01-24 04:09:49', '2026-01-24 04:09:49'),
-	('be834a4a-2b5d-4b8d-b56e-fd376896db1d', 'f6ddf578-f1fc-4f68-9353-e26acaf56e9f', 'Pembayaran #2', 1, 5000000, 5000000, '', '2026-01-24 04:09:49', '2026-01-24 04:09:49'),
-	('d174243d-3823-4190-8c29-ec4f6e5aad29', '136da3fe-2598-471d-98e6-40e6c4f56752', 'Pengiriman barang semen', 1, 25000, 25000, '', '2026-01-24 04:02:36', '2026-01-24 04:02:36');
+	('15d9d2c6-0004-459f-8cdb-30154261a769', 'ee1f8edc-debd-4788-bc74-acd4a714b57e', 'pembayaran #1', 1, 2000000, 2000000, '', '2026-01-24 05:12:59', '2026-01-24 05:12:59'),
+	('65edeac6-c914-48d2-a747-f651ac11ecc2', '2b5c5a9b-fdf5-47f6-bf81-d56e65e57d2c', 'Kayu, Mebel', 1, 400000, 400000, '', '2026-01-24 05:12:10', '2026-01-24 05:12:10'),
+	('db3f3875-2845-4792-a6fd-f149a944b9b6', '40061e55-4444-4f99-94f7-c8334ebd63e0', 'pembayaran dp #1', 1, 5000000, 5000000, '', '2026-01-26 07:01:06', '2026-01-26 07:01:06');
 
 -- Dumping structure for table furnifilux_dev.leads
 CREATE TABLE IF NOT EXISTS `leads` (
@@ -182,8 +205,8 @@ CREATE TABLE IF NOT EXISTS `leads` (
 
 -- Dumping data for table furnifilux_dev.leads: ~2 rows (approximately)
 INSERT INTO `leads` (`uuid`, `id`, `tgl`, `jam_masuk`, `nama_klien`, `no_tlp`, `alamat`, `kota`, `produk`, `kategori_produk`, `status`, `kategori_leads`, `status_kategorisasi`, `sumber_leads`, `cs`, `tgl_closing`, `tgl_selesai`, `keterangan`, `tgl_fu1`, `ket_fu1`, `tgl_fu2`, `ket_fu2`, `tgl_fu3`, `ket_fu3`, `catatan`, `harga_jual`, `perkiraan_hpp`, `nilai_pipeline`, `jumlah_pembayaran`, `hpp_aktual`, `omset`, `sisa_pembayaran`, `margin_aktual`, `hari_sejak_fu`, `total_fu`, `durasi_hingga_closing`, `umur_lead`, `img_desain`, `img_survey`, `img_penawaran`, `img_closing`, `img_selesai`, `created_at`, `updated_at`) VALUES
-	('2982d9cf-8417-4c70-8aa0-1834c419042a', 'LEADS#1000', '2026-01-24', 3, 'Muhammad Ichsan', '081325184866', 'Jalan mawar\nSelomartani', 'Maluku Utara', 'Mebel Furniture', 'Exterior Luar', 'New Leads', 'Customer Leads', 'Active', 'Twitter', 'CS G', NULL, NULL, 'Ini Leads Baru', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, '2026-01-24 03:07:22', '2026-01-24 03:07:22'),
-	('d4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'LEADS#1001', '2026-01-23', 5, 'Arif Budi Setiawan', '081238664316', 'Jalan mawar\nSelomartani 2', 'Balikpapan', 'Mebel Luar', 'Exterior', 'Closing', 'Customer Leads', 'Closed', 'Instagram', 'CS B', '2026-01-25', NULL, 'baru mebel luar', '2026-01-24', 'sudah di follow up pertama x', NULL, NULL, NULL, NULL, NULL, 45000000, 35000000, 0, 30000000, 45000, 45000000, 15000000, 44955000, 0, 1, 2, 1, NULL, 'http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg', NULL, 'http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg', NULL, '2026-01-24 03:08:09', '2026-01-24 04:09:52');
+	('982244ed-d91c-4fc5-b153-65b70a4c5891', 'LEADS#1001', '2026-01-25', 4, 'Agung Firman', '0895417205060', 'Demangan, Selomartani, Kalasan, Sleman\nSelomartani', 'Bandar Lampung', 'Kayu Furni', 'Exterior Luar', 'Closing', 'Customer Leads', 'Closed', 'Instagram', 'CS B', '2026-01-25', NULL, NULL, '2026-01-26', 'Oke', NULL, NULL, NULL, NULL, NULL, 2500000, 2000000, 0, 2000000, 400000, 2500000, 500000, 2100000, -2, 1, 0, -1, NULL, NULL, NULL, 'https://furnivilux.namia.online/api/media/public/i4Bjjf_20251216_124310.jpg', NULL, '2026-01-24 04:56:35', '2026-01-24 05:12:59'),
+	('bb6596ac-af30-4d38-9b93-5835de41755e', 'LEADS#1000', '2026-01-24', 4, 'Muhammad Ichsan', '081238664315', 'Jalan mawar\nSelomartani', 'Bandar Lampung', 'Mebel Bawah', 'Desain', 'Closing', 'Customer Leads', 'Closed', 'Instagram', 'CS B', '2026-01-26', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 80000000, 50000000, 0, 5000000, 0, 80000000, 75000000, 80000000, NULL, NULL, 2, 2, NULL, NULL, NULL, 'http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg', NULL, '2026-01-24 04:55:07', '2026-01-26 07:01:06');
 
 -- Dumping structure for table furnifilux_dev.leads_history_edit
 CREATE TABLE IF NOT EXISTS `leads_history_edit` (
@@ -201,22 +224,38 @@ CREATE TABLE IF NOT EXISTS `leads_history_edit` (
   CONSTRAINT `fk_history_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.leads_history_edit: ~0 rows (approximately)
+-- Dumping data for table furnifilux_dev.leads_history_edit: ~30 rows (approximately)
 INSERT INTO `leads_history_edit` (`uuid`, `lead_uuid`, `user_id`, `field_name`, `old_value`, `new_value`, `created_at`) VALUES
-	('09a26897-d63c-441f-933d-983f31e360b6', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'nama_klien', 'Arif Budi', 'Arif Budi Setiawan', '2026-01-24 03:36:02'),
-	('0d11d953-a0e6-41f5-8ecc-a3376e819733', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'durasi_hingga_closing', NULL, '2', '2026-01-24 03:57:53'),
-	('2a4b4912-e06c-42b5-a984-aed2018cba9e', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'margin_aktual', NULL, 'Rp 45,000,000.00', '2026-01-24 03:57:53'),
-	('2e40fb9c-a9c1-4213-8926-bac5571a3763', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'status', 'Survey', 'Closing', '2026-01-24 03:57:54'),
-	('402c9df8-cf2f-4200-ad54-2f0337670c0a', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'status_kategorisasi', 'Active', 'Closed', '2026-01-24 03:57:54'),
-	('832034d9-daca-421a-b101-e908d8167960', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'sisa_pembayaran', NULL, 'Rp 45,000,000.00', '2026-01-24 03:57:54'),
-	('a7bce619-f426-48d7-967d-f5579effa2a7', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'perkiraan_hpp', NULL, 'Rp 35,000,000.00', '2026-01-24 03:57:53'),
-	('ac9a208d-2c21-498f-86fd-360c60ccc4ea', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'alamat', 'Jalan mawar\nSelomartani', 'Jalan mawar\nSelomartani 2', '2026-01-24 03:36:02'),
-	('b5c3df03-2ea6-4cbd-95d8-300db60924ee', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'harga_jual', NULL, 'Rp 45,000,000.00', '2026-01-24 03:57:53'),
-	('d63ee9f5-8898-4a88-b9ae-9f5e9c49ecd8', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'nilai_pipeline', NULL, 'Rp 0.00', '2026-01-24 03:57:53'),
-	('e049682a-c686-483d-ad4c-a09295b16d12', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'omset', NULL, 'Rp 45,000,000.00', '2026-01-24 03:57:53'),
-	('ec1a825c-9d73-421c-9803-36305c1e34ba', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'tgl_closing', NULL, '25 Januari 2026', '2026-01-24 03:57:54'),
-	('fc191f56-0cb8-433f-94a2-37fd3420a014', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'img_closing', NULL, 'http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg', '2026-01-24 03:57:53'),
-	('fc2c3a2b-b750-486c-9667-40db3a8c5261', 'd4a2352f-b2e5-4830-a6b5-6b94a95bae2d', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'no_tlp', '081238664317', '081238664316', '2026-01-24 03:36:03');
+	('0bf16549-f0a3-489d-b8c0-cb7b9cd0ccc6', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'perkiraan_hpp', NULL, 'Rp 50,000,000.00', '2026-01-26 06:58:06'),
+	('0d35ed62-8c5c-4348-bf1d-bbf301759931', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'harga_jual', NULL, 'Rp 80,000,000.00', '2026-01-26 06:58:06'),
+	('0e49971d-a94e-4fbb-bba5-fe8a6a60a721', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'status', 'Follow Up', 'Closing', '2026-01-24 05:04:20'),
+	('104e5e03-86ea-44ff-8cb2-6b62a469eccf', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'tgl_closing', NULL, '26 Januari 2026', '2026-01-26 06:58:06'),
+	('26600666-8842-4388-92b3-d1eda30cb41e', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'omset', NULL, 'Rp 2,500,000.00', '2026-01-24 05:04:20'),
+	('281fad70-5abe-4b6d-8b24-fa6546c4e704', '982244ed-d91c-4fc5-b153-65b70a4c5891', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'hpp_aktual', NULL, 'Rp 0.00', '2026-01-24 04:57:10'),
+	('2d519115-9067-4048-87e4-0a6717902ec0', '982244ed-d91c-4fc5-b153-65b70a4c5891', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'tgl_fu1', NULL, '26 Januari 2026', '2026-01-24 04:57:10'),
+	('2ed57615-15c9-4a0e-a794-1733ed8787f8', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'margin_aktual', NULL, 'Rp 2,500,000.00', '2026-01-24 05:04:20'),
+	('35241cba-2609-4cec-a8c8-4fa2c0235529', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'durasi_hingga_closing', NULL, '0', '2026-01-24 05:04:20'),
+	('43247989-4105-4929-a050-0580e2d2e214', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'tgl_closing', NULL, '25 Januari 2026', '2026-01-24 05:04:20'),
+	('5f12c406-862a-412c-bee1-0d250a31092d', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'status_kategorisasi', 'Active', 'Closed', '2026-01-26 06:58:06'),
+	('60fbce26-ad18-44ce-bc4b-fec701e658fa', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'status', 'New Leads', 'Closing', '2026-01-26 06:58:06'),
+	('69b35390-a168-4906-94d2-5f847c182f5e', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'hpp_aktual', NULL, 'Rp 0.00', '2026-01-26 06:58:06'),
+	('8113045e-7a1f-4918-91a6-1350653516e6', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'img_closing', NULL, 'http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg', '2026-01-26 06:58:06'),
+	('833faf20-c4e3-4935-9ace-c26c83c38050', '982244ed-d91c-4fc5-b153-65b70a4c5891', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'ket_fu1', NULL, 'Oke', '2026-01-24 04:57:10'),
+	('9a025bd8-fc6f-4e36-af1f-652cbc2b8259', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'perkiraan_hpp', NULL, 'Rp 2,000,000.00', '2026-01-24 05:04:20'),
+	('9aec4101-fb1f-4cdb-bc4c-c37190dadeaf', '982244ed-d91c-4fc5-b153-65b70a4c5891', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'status', 'New Leads', 'Follow Up', '2026-01-24 04:57:10'),
+	('9e52ed9e-8377-427e-80d8-f7d1a461251d', '982244ed-d91c-4fc5-b153-65b70a4c5891', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'total_fu', NULL, '1', '2026-01-24 04:57:10'),
+	('a1efeca3-a46c-4056-85f1-39d9e03469c7', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'durasi_hingga_closing', NULL, '2', '2026-01-26 06:58:06'),
+	('a2b535b2-3364-4938-8f99-3c0027ea2d28', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'img_closing', NULL, 'https://furnivilux.namia.online/api/media/public/i4Bjjf_20251216_124310.jpg', '2026-01-24 05:04:20'),
+	('ae135cee-ce6e-4db2-8a63-f9496e611aa8', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'umur_lead', '0', '2', '2026-01-26 06:58:06'),
+	('b2b4ddfd-5ea4-4a90-9e82-c43383da5c03', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'nilai_pipeline', NULL, 'Rp 0.00', '2026-01-24 05:04:20'),
+	('c02ab50a-c2fa-41ab-9c2e-fa874c345865', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'harga_jual', NULL, 'Rp 2,500,000.00', '2026-01-24 05:04:20'),
+	('d1c033a7-2c56-4ec0-ab90-beda905cc85d', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'nilai_pipeline', NULL, 'Rp 0.00', '2026-01-26 06:58:06'),
+	('dcd020e0-4875-48c7-bcb4-9544f169e63d', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'sisa_pembayaran', NULL, 'Rp 80,000,000.00', '2026-01-26 06:58:06'),
+	('dd917e37-56cf-45bf-8ea0-bb122301982b', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'omset', NULL, 'Rp 80,000,000.00', '2026-01-26 06:58:06'),
+	('ec41e61b-7aa4-4611-ade9-6acc40f53cce', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'sisa_pembayaran', NULL, 'Rp 2,500,000.00', '2026-01-24 05:04:20'),
+	('f6e99d23-5744-4782-a828-14f1eb50b0e2', '982244ed-d91c-4fc5-b153-65b70a4c5891', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'hari_sejak_fu', NULL, '-2', '2026-01-24 04:57:10'),
+	('fe6d3484-3e37-48e5-8e51-6cda5b2c7cd0', '982244ed-d91c-4fc5-b153-65b70a4c5891', '550e8400-e29b-41d4-a716-446655440003', 'status_kategorisasi', 'Active', 'Closed', '2026-01-24 05:04:20'),
+	('ff186619-89bd-47ce-afed-15917834e2bd', 'bb6596ac-af30-4d38-9b93-5835de41755e', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'margin_aktual', NULL, 'Rp 80,000,000.00', '2026-01-26 06:58:06');
 
 -- Dumping structure for table furnifilux_dev.leads_options
 CREATE TABLE IF NOT EXISTS `leads_options` (
@@ -302,20 +341,18 @@ CREATE TABLE IF NOT EXISTS `log` (
   KEY `idx_log_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.log: ~5 rows (approximately)
+-- Dumping data for table furnifilux_dev.log: ~10 rows (approximately)
 INSERT INTO `log` (`uuid`, `message`, `kind`, `user_id`, `created_at`) VALUES
-	('0d933d3b-cbeb-4702-9fa3-10a3a24a71c2', 'Mengubah lead: Arif Budi Setiawan (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:36:02'),
-	('169d69a7-531b-4e80-8ba1-0e1c75decfea', 'Mengubah lead: Arif Budi (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:10:46'),
-	('170d6121-07c2-4f1b-90f8-d8ecb919702a', 'Menambahkan opsi lokasi: Maluku', 'Finance Options', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 03:51:04'),
-	('1911f1ed-e3aa-4c86-a13f-c01a9af40f7c', 'Menambahkan akun baru: BRI UTAMA', 'akun', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 03:50:05'),
-	('2938bf7c-a48d-4ec7-975d-b77d0131d57a', 'Mengubah lead: Arif Budi (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:19:25'),
-	('45a1eca3-e415-4308-acb9-46cd08f39f90', 'Menambahkan lead baru: Muhammad Ichsan (LEADS#1000)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:07:22'),
-	('6d737149-927d-4d21-b274-0a56f1fd8425', 'Mengubah lead: Arif Budi (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:20:14'),
-	('84c080b5-1251-43a6-b388-b311dece3960', 'Menambahkan lead baru: Arif Budi (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:08:09'),
-	('c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Mengubah lead: Arif Budi Setiawan (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 03:57:51'),
-	('d3801f4e-a6c6-4145-8745-41418c810963', 'Menambahkan opsi vendor: Vendor C', 'Finance Options', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 03:50:55'),
-	('dfd8286d-8404-426a-9794-f2952a3370be', 'Menambahkan transaksi keuangan dengan nomor <b>FINANCE#1001</b> (Pendapatan - Rp 30000000)', 'Finance', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 04:09:49'),
-	('f363c1be-bc96-4dda-809c-22c257de6692', 'Menambahkan transaksi keuangan dengan nomor <b>FINANCE#1000</b> (Proyek - Rp 45000)', 'Finance', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 04:02:36');
+	('1e14c25d-1f9b-43fc-a6b9-4197bb41af14', 'Menambahkan akun baru: BCA', 'akun', '550e8400-e29b-41d4-a716-446655440003', '2026-01-26 01:34:44'),
+	('2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Menambahkan lead baru: Agung Firman (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 04:56:35'),
+	('2d1d4307-54e4-4116-a245-255a9b40e000', 'Mengubah lead: Agung Firman (LEADS#1001)', 'leads', '550e8400-e29b-41d4-a716-446655440003', '2026-01-24 05:04:20'),
+	('7455a9ce-4c51-4488-8817-b290001b83dc', 'Mengubah lead: Agung Firman (LEADS#1001)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 04:57:10'),
+	('7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Menambahkan transaksi keuangan dengan nomor <b>FINANCE#1000</b> (Proyek - Rp 400000)', 'Finance', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 05:12:10'),
+	('78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Menambahkan lead baru: Muhammad Ichsan (LEADS#1000)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-24 04:55:07'),
+	('ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Mengubah lead: Muhammad Ichsan (LEADS#1000)', 'leads', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', '2026-01-26 06:58:06'),
+	('b16cab7d-87f5-4912-b7ad-dc58353e32ca', 'Menambahkan akun baru: BRI', 'akun', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 05:11:31'),
+	('bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Menambahkan transaksi keuangan dengan nomor <b>FINANCE#1002</b> (Pendapatan - Rp 5000000)', 'Finance', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-26 07:01:06'),
+	('fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Menambahkan transaksi keuangan dengan nomor <b>FINANCE#1001</b> (Pendapatan - Rp 2000000)', 'Finance', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', '2026-01-24 05:12:59');
 
 -- Dumping structure for table furnifilux_dev.log_item
 CREATE TABLE IF NOT EXISTS `log_item` (
@@ -328,95 +365,113 @@ CREATE TABLE IF NOT EXISTS `log_item` (
   CONSTRAINT `fk_log_item_log` FOREIGN KEY (`log_id`) REFERENCES `log` (`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.log_item: ~34 rows (approximately)
+-- Dumping data for table furnifilux_dev.log_item: ~105 rows (approximately)
 INSERT INTO `log_item` (`uuid`, `log_id`, `message`, `created_at`) VALUES
-	('00361588-73c2-4b38-982c-5bea34c7dc63', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Kategori Arus Kas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Operasional</span>', '2026-01-24 04:02:36'),
-	('0079c341-e090-45ce-90be-1fb5f6adaafa', '169d69a7-531b-4e80-8ba1-0e1c75decfea', 'Data \'Status\' berubah dari <span class=\'font-semibold\'>New Leads</span> ke <span class=\'font-semibold\'>Follow Up</span>', '2026-01-24 03:10:47'),
-	('014161e7-a473-45c1-a749-84c7fc01ade2', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Umur Lead\' ditambahkan dengan nilai <span class=\'font-semibold\'>1</span>', '2026-01-24 03:08:11'),
-	('02f092c2-d6a5-466f-abae-bf10213dce6f', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Alamat\' ditambahkan dengan nilai <span class=\'font-semibold\'>Jalan mawar\nSelomartani</span>', '2026-01-24 03:08:09'),
-	('03023fe0-e46b-4b6b-8961-faad892afff7', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Status\' ditambahkan dengan nilai <span class=\'font-semibold\'>New Leads</span>', '2026-01-24 03:08:10'),
-	('04360088-182c-41f2-b02a-499bf0f3d4c0', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Bulan\' ditambahkan dengan nilai <span class=\'font-semibold\'>Januari 2026</span>', '2026-01-24 04:09:50'),
-	('0601dc2b-7d74-4bd5-badd-23b274475ba4', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Keterangan\' ditambahkan dengan nilai <span class=\'font-semibold\'>Ini Leads Baru</span>', '2026-01-24 03:07:23'),
-	('1004e14c-5d96-4fc4-b071-e0ad25da20fb', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Kategori Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-24 04:09:50'),
-	('17c8948e-6ab7-408c-904c-9b6710194860', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Jam Masuk\' ditambahkan dengan nilai <span class=\'font-semibold\'>3</span>', '2026-01-24 03:07:22'),
-	('1a75eff5-469f-48ed-9fd0-00f1d87a260b', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Umur Lead\' ditambahkan dengan nilai <span class=\'font-semibold\'>0</span>', '2026-01-24 03:07:23'),
-	('25bf5a07-39a2-4207-9dc5-9425940fa86c', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Perkiraan HPP\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 35,000,000.00</span>', '2026-01-24 03:57:52'),
-	('26142e6a-c712-45bf-9079-a2d1dfcd561d', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Status\' ditambahkan dengan nilai <span class=\'font-semibold\'>New Leads</span>', '2026-01-24 03:07:23'),
-	('2a507f46-fb61-4a5e-9151-93d366ee45ef', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Arif Budi Setiawan</span>', '2026-01-24 04:09:50'),
-	('310a9c33-2adc-469a-951e-9bb8a4cbaeb9', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Kategori Arus Kas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Operasional</span>', '2026-01-24 04:09:50'),
-	('3d5b5377-670f-422b-a108-45eb07e51c38', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'No Telp\' ditambahkan dengan nilai <span class=\'font-semibold\'>081238664315</span>', '2026-01-24 03:08:10'),
-	('3f263fb4-3885-44cf-9ce9-80d942d1637e', '2938bf7c-a48d-4ec7-975d-b77d0131d57a', 'Data \'No Telp\' berubah dari <span class=\'font-semibold\'>081238664315</span> ke <span class=\'font-semibold\'>081238664317</span>', '2026-01-24 03:19:25'),
-	('4108fd39-a76e-4a3b-8ace-69576bfee73e', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Kota\' ditambahkan dengan nilai <span class=\'font-semibold\'>Balikpapan</span>', '2026-01-24 03:08:10'),
-	('44c97ff1-9c49-4efb-ba4e-325064d927b7', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Sumber Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Instagram</span>', '2026-01-24 03:08:10'),
-	('4733d3b1-5521-484c-b073-ce330e035ca4', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Item <b>Pembayaran pertama</b> ditambahkan: Qty 1, Harga Rp 25,000,000.00, Catatan: -', '2026-01-24 04:09:51'),
-	('47fa67b2-0d16-4b93-a815-0dd7bd2c56da', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Kategori Aktivitas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Proyek</span>', '2026-01-24 04:02:36'),
-	('48b69c90-18e1-468c-943e-1a95fbaa0873', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Sub Kategori\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pembayaran Client</span>', '2026-01-24 04:09:51'),
-	('5105b3fe-2a25-40bd-a634-f8c4e725f134', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Kategori Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pengeluaran</span>', '2026-01-24 04:02:36'),
-	('514328f8-c031-48a8-a1db-6086df4c70d8', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Kategori Utama\' ditambahkan dengan nilai <span class=\'font-semibold\'>Proyek</span>', '2026-01-24 04:02:36'),
-	('53f82598-7098-49f7-b962-35579b2f2c5f', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Alamat\' ditambahkan dengan nilai <span class=\'font-semibold\'>Jalan mawar\nSelomartani</span>', '2026-01-24 03:07:22'),
-	('54121b09-a216-462a-b25e-2b963ef30211', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Jatuh Tempo\' ditambahkan dengan nilai <span class=\'font-semibold\'>25 Januari 2026</span>', '2026-01-24 04:02:36'),
-	('5698d85a-eed3-4eec-93aa-7947afad200c', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Lokasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Bandung</span>', '2026-01-24 04:02:37'),
-	('5b96749f-277f-4090-80a1-7ea40ea4f2c7', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>23 Januari 2026</span>', '2026-01-24 03:08:10'),
-	('5c75735d-5c61-4aae-a8e8-679a1ed7439d', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Tanggal Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>25 Januari 2026</span>', '2026-01-24 03:57:53'),
-	('5ea29d27-a69e-4964-a8bc-bf4b9b5e1326', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Durasi Hari Hingga Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>2</span>', '2026-01-24 03:57:52'),
-	('61122717-ec65-43d7-a328-cec137f2492c', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Status Kategorisasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Active</span>', '2026-01-24 03:08:10'),
-	('6118adf1-9816-4357-b355-9a135676069b', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Kategori Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Exterior Luar</span>', '2026-01-24 03:07:23'),
-	('6279b59c-f88d-40fa-a897-29335f5d8c2d', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Status Kategorisasi\' berubah dari <span class=\'font-semibold\'>Active</span> ke <span class=\'font-semibold\'>Closed</span>', '2026-01-24 03:57:53'),
-	('6547a3c3-d588-48eb-b85e-43f5558a95f2', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>24 Januari 2026</span>', '2026-01-24 04:09:51'),
-	('668aaa2d-4347-45cc-81e2-399cefe86e2e', '6d737149-927d-4d21-b274-0a56f1fd8425', 'Data \'Status\' berubah dari <span class=\'font-semibold\'>Follow Up</span> ke <span class=\'font-semibold\'>Survey</span>', '2026-01-24 03:20:14'),
-	('672a187b-a12d-4250-a071-5855a56eff57', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Jam Masuk\' ditambahkan dengan nilai <span class=\'font-semibold\'>5</span>', '2026-01-24 03:08:09'),
-	('698facc2-1ff2-4a0c-8204-98f3e82a0ddf', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Keterangan\' ditambahkan dengan nilai <span class=\'font-semibold\'>oke</span>', '2026-01-24 04:02:37'),
-	('6a383e04-959e-4a28-af5f-d9a379af378b', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Status Kategorisasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Active</span>', '2026-01-24 03:07:23'),
-	('6e88f5eb-74da-405a-bc20-92248cbc46e7', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Jatuh Tempo\' ditambahkan dengan nilai <span class=\'font-semibold\'>25 Januari 2026</span>', '2026-01-24 04:09:50'),
-	('6ef4cfce-c2a0-43d4-909b-2bd4dc84c91a', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Akun ID\' ditambahkan dengan nilai <span class=\'font-semibold\'>BRI UTAMA</span>', '2026-01-24 04:02:36'),
-	('6f581ad4-7699-4c99-92de-f2528990fd18', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Sub Kategori\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pengiriman</span>', '2026-01-24 04:02:37'),
-	('71c3df7a-453c-4f9e-8fdc-f0f973345262', '169d69a7-531b-4e80-8ba1-0e1c75decfea', 'Data \'Hari Sejak FU Terakhir\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>0</span>', '2026-01-24 03:10:46'),
-	('71d383be-e672-4627-a920-a03c63414fcb', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Kategori Utama\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-24 04:09:50'),
-	('7208cb45-a691-4a2d-ae8c-6f928e2e68c4', '169d69a7-531b-4e80-8ba1-0e1c75decfea', 'Data \'Total Follow Up\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>1</span>', '2026-01-24 03:10:47'),
-	('7d161a66-1e1c-40d5-a6b3-ef5c78d46a84', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Akun ID\' ditambahkan dengan nilai <span class=\'font-semibold\'>BRI UTAMA</span>', '2026-01-24 04:09:50'),
-	('7ff12b3c-f20b-48d3-a56a-10cf84d35fdb', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Status\' berubah dari <span class=\'font-semibold\'>Survey</span> ke <span class=\'font-semibold\'>Closing</span>', '2026-01-24 03:57:52'),
-	('8004607d-34c3-4d42-8537-88b7cb3038b7', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Sisa Pembayaran\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 45,000,000.00</span>', '2026-01-24 03:57:52'),
-	('8843c0bd-4b99-457b-a889-91545f51471f', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Nominal\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 30,000,000.00</span>', '2026-01-24 04:09:51'),
-	('8aecfe7e-d027-4182-8975-6203e7d20e7b', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Jenis Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Debit</span>', '2026-01-24 04:02:36'),
-	('8b27576d-e01e-45ca-a256-07a2c6e71ca0', '0d933d3b-cbeb-4702-9fa3-10a3a24a71c2', 'Data \'Alamat\' berubah dari <span class=\'font-semibold\'>Jalan mawar\nSelomartani</span> ke <span class=\'font-semibold\'>Jalan mawar\nSelomartani 2</span>', '2026-01-24 03:36:02'),
-	('8c440999-b72d-44b5-abea-0f81aee6ec41', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Debit\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 45,000.00</span>', '2026-01-24 04:02:36'),
-	('8f8ee90a-9095-4410-894c-ad9cf75c8baf', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Nama Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Arif Budi</span>', '2026-01-24 03:08:10'),
-	('9271dd7c-2e5a-4406-9587-5aa79acf2caf', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Item <b>Pengiriman barang semen</b> ditambahkan: Qty 1, Harga Rp 25,000.00, Catatan: -', '2026-01-24 04:02:37'),
-	('952a5966-5a2b-4a5f-82e9-c3c24d6c093e', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Nominal\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 45,000.00</span>', '2026-01-24 04:02:37'),
-	('96e25e2d-d0d1-4469-8141-d0322acb8a6c', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Foto Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg</span>', '2026-01-24 03:57:52'),
-	('9cff7d00-b1b3-41b8-929f-24c23c7d9b57', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Sumber Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Twitter</span>', '2026-01-24 03:07:23'),
-	('9dda2710-7438-4b2d-aa05-ec0a47173d7b', '6d737149-927d-4d21-b274-0a56f1fd8425', 'Data \'Foto Survey\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg</span>', '2026-01-24 03:20:14'),
-	('a1381103-eb15-46d4-bb34-28f6789b6f56', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Kota\' ditambahkan dengan nilai <span class=\'font-semibold\'>Maluku Utara</span>', '2026-01-24 03:07:23'),
-	('a3f9a561-d161-454d-b605-b3346cf03ed9', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Omset\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 45,000,000.00</span>', '2026-01-24 03:57:52'),
-	('a70b89c2-9003-46b7-b0f7-c29eb48eb337', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Vendor\' ditambahkan dengan nilai <span class=\'font-semibold\'>Vendor A</span>', '2026-01-24 04:02:37'),
-	('ae0fe8ea-2f49-44a6-a016-f8c5a75e7df8', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'No Telp\' ditambahkan dengan nilai <span class=\'font-semibold\'>081325184866</span>', '2026-01-24 03:07:23'),
-	('ae51185e-2137-4ec6-9b71-1a08b38bd567', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Kredit\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 30,000,000.00</span>', '2026-01-24 04:09:51'),
-	('af181ca4-eb69-4f14-a20d-32c01562fe30', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Item <b>Pembayaran #2</b> ditambahkan: Qty 1, Harga Rp 5,000,000.00, Catatan: -', '2026-01-24 04:09:52'),
-	('b3223b90-65b6-47f5-9e9c-8981fa7234d7', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Kategori Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Customer Leads</span>', '2026-01-24 03:07:22'),
-	('b6dfeb20-60f9-4e94-bec0-509dfa656953', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Keterangan\' ditambahkan dengan nilai <span class=\'font-semibold\'>baru mebel luar</span>', '2026-01-24 03:08:10'),
-	('ba722e06-542e-4e84-8a5c-315a151ff672', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Bulan\' ditambahkan dengan nilai <span class=\'font-semibold\'>Januari 2026</span>', '2026-01-24 04:02:36'),
-	('ba909e4b-d481-4643-a181-e6ed953f80d7', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Mebel Luar</span>', '2026-01-24 03:08:10'),
-	('bf7f3b6e-4f0f-419f-bc2c-308db3a38a3c', '0d933d3b-cbeb-4702-9fa3-10a3a24a71c2', 'Data \'No Telp\' berubah dari <span class=\'font-semibold\'>081238664317</span> ke <span class=\'font-semibold\'>081238664316</span>', '2026-01-24 03:36:02'),
-	('c0a8b310-5216-4933-9d39-230aa5a745fe', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Mebel Furniture</span>', '2026-01-24 03:07:23'),
-	('c50a683f-cbaa-44d9-a7c5-ae36dfbeb492', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Item <b>Pengiriman cat 2 kali</b> ditambahkan: Qty 1, Harga Rp 20,000.00, Catatan: -', '2026-01-24 04:02:37'),
-	('c56a0e4b-5c75-4f02-b400-e498c30bc555', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Arif Budi Setiawan</span>', '2026-01-24 04:02:37'),
-	('caada27a-d7e5-47aa-b826-78909ccd0821', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Kategori Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Exterior</span>', '2026-01-24 03:08:10'),
-	('ccfbe7e7-ab02-42a3-b5f6-d570c9b8d8c1', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Lokasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Bandung</span>', '2026-01-24 04:09:51'),
-	('cd23ff70-5f5f-4e61-a6e3-59557f47dfbf', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Harga Jual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 45,000,000.00</span>', '2026-01-24 03:57:52'),
-	('cfda3250-b748-4a6f-8f42-3775ea055bfb', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'Kategori Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Customer Leads</span>', '2026-01-24 03:08:10'),
-	('d02d1197-04e6-4020-92ad-65e2623dd99c', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Nilai Pipeline\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 0.00</span>', '2026-01-24 03:57:52'),
-	('d2129973-e6c7-42dd-ac79-0d08225eb828', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'CS\' ditambahkan dengan nilai <span class=\'font-semibold\'>CS G</span>', '2026-01-24 03:07:22'),
-	('d3b430ed-a6ff-48f5-b4ec-423ca8dbb2df', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Nama Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Muhammad Ichsan</span>', '2026-01-24 03:07:23'),
-	('d4aa48d9-87aa-4ea0-a1fb-a4e395834527', '84c080b5-1251-43a6-b388-b311dece3960', 'Data \'CS\' ditambahkan dengan nilai <span class=\'font-semibold\'>CS B</span>', '2026-01-24 03:08:09'),
-	('d9b279f6-2224-426b-8463-7c01b9a4c379', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Arah Uang\' ditambahkan dengan nilai <span class=\'font-semibold\'>Masuk</span>', '2026-01-24 04:09:50'),
-	('ddb6b29a-97d1-4dd4-906a-f1fd63708285', '169d69a7-531b-4e80-8ba1-0e1c75decfea', 'Data \'HPP Aktual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 0.00</span>', '2026-01-24 03:10:46'),
-	('de87349b-efcc-43ef-9bba-814fe2dcc947', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Kategori Aktivitas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-24 04:09:50'),
-	('dec67f3d-8a0b-400f-a607-8477d14abb27', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Arah Uang\' ditambahkan dengan nilai <span class=\'font-semibold\'>Keluar</span>', '2026-01-24 04:02:36'),
-	('e839220b-efc8-46a2-93a9-632962d1864a', 'c17386bf-0154-4f5e-954f-afb9f9d8eab9', 'Data \'Margin Aktual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 45,000,000.00</span>', '2026-01-24 03:57:52'),
-	('f6026070-ad73-4e6f-82c3-6a1f9a34f84a', '0d933d3b-cbeb-4702-9fa3-10a3a24a71c2', 'Data \'Nama Klien\' berubah dari <span class=\'font-semibold\'>Arif Budi</span> ke <span class=\'font-semibold\'>Arif Budi Setiawan</span>', '2026-01-24 03:36:02'),
-	('f729efdb-efbe-42fa-ab9e-6cdc7a953adb', 'f363c1be-bc96-4dda-809c-22c257de6692', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>24 Januari 2026</span>', '2026-01-24 04:02:37'),
-	('f8906a15-a41b-4954-ab71-8b42d23ea613', '45a1eca3-e415-4308-acb9-46cd08f39f90', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>24 Januari 2026</span>', '2026-01-24 03:07:23'),
-	('f8ebafbf-9c18-4c8c-b9a3-14475dfd5bb9', 'dfd8286d-8404-426a-9794-f2952a3370be', 'Data \'Jenis Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Kredit</span>', '2026-01-24 04:09:50');
+	('024a7ef5-1fe7-49b2-a014-ec5ca906c30e', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Tanggal Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>26 Januari 2026</span>', '2026-01-26 06:58:06'),
+	('032410e5-23a8-47ca-8202-8d75ff3f7196', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Bulan\' ditambahkan dengan nilai <span class=\'font-semibold\'>Januari 2026</span>', '2026-01-24 05:12:59'),
+	('08974e13-232b-4d3f-9adc-8175025ce1e0', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'CS\' ditambahkan dengan nilai <span class=\'font-semibold\'>CS B</span>', '2026-01-24 04:56:35'),
+	('08ac1c40-7414-40d6-a8f6-3baca8d90fb4', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Durasi Hari Hingga Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>0</span>', '2026-01-24 05:04:20'),
+	('0948b8a6-86c2-4abf-af3b-786e3d3ec707', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'No Telp\' ditambahkan dengan nilai <span class=\'font-semibold\'>081238664315</span>', '2026-01-24 04:55:08'),
+	('0bcda492-6bdf-4f45-995c-21f60540fd3f', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Kategori Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Desain</span>', '2026-01-24 04:55:08'),
+	('14d95bfd-af7c-4c10-a48c-0008a7f31d5b', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Kategori Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Customer Leads</span>', '2026-01-24 04:55:08'),
+	('1e1fcf2a-75a9-4544-a989-43319426b5bb', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Lokasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Jogja</span>', '2026-01-24 05:12:10'),
+	('227b5497-44cd-4838-bf1f-5f4148c86b11', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Bulan\' ditambahkan dengan nilai <span class=\'font-semibold\'>Januari 2026</span>', '2026-01-24 05:12:10'),
+	('25efeb35-8ce3-4418-a80c-0645a274c8d8', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Mebel Bawah</span>', '2026-01-24 04:55:08'),
+	('2ae8322f-9f15-4185-9c3d-5e2af3d920a2', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Kategori Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Exterior Luar</span>', '2026-01-24 04:56:35'),
+	('2b2e7c25-ba23-4c50-b3f3-f8edca6ce84b', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Kredit\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 5,000,000.00</span>', '2026-01-26 07:01:06'),
+	('2cae444a-0f15-414c-ba0d-8d6ba4460b1e', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Margin Aktual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 80,000,000.00</span>', '2026-01-26 06:58:06'),
+	('2d63fc06-7e37-4ebf-b8c4-0bdfc56c01f9', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Akun ID\' ditambahkan dengan nilai <span class=\'font-semibold\'>BRI</span>', '2026-01-24 05:12:10'),
+	('2f1de728-e127-4cc3-9722-7b1c87dce27c', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Status Kategorisasi\' berubah dari <span class=\'font-semibold\'>Active</span> ke <span class=\'font-semibold\'>Closed</span>', '2026-01-26 06:58:06'),
+	('30768762-88ae-4d28-a8a5-55dcdc305443', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Jatuh Tempo\' ditambahkan dengan nilai <span class=\'font-semibold\'>29 Januari 2026</span>', '2026-01-24 05:12:10'),
+	('31e3d80b-79cb-40b5-8ded-59e555188428', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'CS\' ditambahkan dengan nilai <span class=\'font-semibold\'>CS B</span>', '2026-01-24 04:55:08'),
+	('3366e531-a377-4984-8b1c-34dcfdd2ff39', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>24 Januari 2026</span>', '2026-01-24 05:12:10'),
+	('33ed7c1e-15a0-46aa-a70f-d6b13199e8cf', '7455a9ce-4c51-4488-8817-b290001b83dc', 'Data \'Tanggal FU 1\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>26 Januari 2026</span>', '2026-01-24 04:57:10'),
+	('34a803f5-99a6-49ba-9432-628a7bf10199', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>24 Januari 2026</span>', '2026-01-24 05:12:59'),
+	('3d3b4dbe-e1ea-4845-b1b5-495f3300450f', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Kategori Utama\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-24 05:12:59'),
+	('43664ef8-f868-423a-bd5a-353655e651d0', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Kategori Utama\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-26 07:01:06'),
+	('458a0840-6433-4dca-ac71-06bfa5f15cf2', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Jenis Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Kredit</span>', '2026-01-24 05:12:59'),
+	('495ca51e-cdf9-479d-8690-cac3ff7f6ad5', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Perkiraan HPP\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 50,000,000.00</span>', '2026-01-26 06:58:06'),
+	('4ac16b05-7a7a-4bcb-821a-2a4617bfccd6', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Nama Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Muhammad Ichsan</span>', '2026-01-24 04:55:08'),
+	('4f896a82-e34e-44ba-a30e-f475e630e363', '7455a9ce-4c51-4488-8817-b290001b83dc', 'Data \'Keterangan FU 1\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Oke</span>', '2026-01-24 04:57:10'),
+	('5076864d-74ad-40ce-8788-2ceb8416c0c7', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Agung Firman</span>', '2026-01-24 05:12:10'),
+	('51f74596-5bae-4737-a716-d880148a0255', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Nominal\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 5,000,000.00</span>', '2026-01-26 07:01:06'),
+	('58dc3d94-b519-4cbf-ad11-dbca87992e64', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Harga Jual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 80,000,000.00</span>', '2026-01-26 06:58:06'),
+	('5ad69976-b593-4b46-b2af-13265f54ef31', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Status Kategorisasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Active</span>', '2026-01-24 04:55:08'),
+	('5edaf0b2-3b4e-499d-a80a-2f47de3f11ae', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Agung Firman</span>', '2026-01-24 05:12:59'),
+	('621ef719-bc07-49a5-ae12-e0dc984314c1', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Kategori Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pengeluaran</span>', '2026-01-24 05:12:10'),
+	('626e4ef8-259b-4e0d-997c-23113f2338b9', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Umur Lead\' berubah dari <span class=\'font-semibold\'>0</span> ke <span class=\'font-semibold\'>2</span>', '2026-01-26 06:58:06'),
+	('6b61b327-8f87-49f4-a5a7-f667feb9988b', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Nominal\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 400,000.00</span>', '2026-01-24 05:12:10'),
+	('6ba03cfc-3eee-488d-b93c-250d35865e0b', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Status\' ditambahkan dengan nilai <span class=\'font-semibold\'>New Leads</span>', '2026-01-24 04:55:08'),
+	('6d0ead06-2fcc-477a-bb24-c4c2f48261d1', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'HPP Aktual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 0.00</span>', '2026-01-26 06:58:06'),
+	('6ecf95c6-2602-43dc-806c-76692cb3a2f4', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Item <b>Kayu, Mebel</b> ditambahkan: Qty 1, Harga Rp 400,000.00, Catatan: -', '2026-01-24 05:12:10'),
+	('6fb023f6-2f65-45b9-a8bf-1309220a86c2', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Status Kategorisasi\' berubah dari <span class=\'font-semibold\'>Active</span> ke <span class=\'font-semibold\'>Closed</span>', '2026-01-24 05:04:20'),
+	('738593dd-2f41-4962-9278-1b9bf6afc7f8', '7455a9ce-4c51-4488-8817-b290001b83dc', 'Data \'Hari Sejak FU Terakhir\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>-2</span>', '2026-01-24 04:57:10'),
+	('73c99d76-da91-45ca-ad5d-c53589089824', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Omset\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 2,500,000.00</span>', '2026-01-24 05:04:20'),
+	('777e9719-214f-4e0d-81dd-9b15ac527698', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Kategori Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-26 07:01:06'),
+	('79267db5-2178-4028-810e-892032ff6245', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Vendor\' ditambahkan dengan nilai <span class=\'font-semibold\'>HAndra / Marketing</span>', '2026-01-24 05:12:10'),
+	('7a23e47d-801f-4f46-849f-aa12ba24f9f3', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Muhammad Ichsan</span>', '2026-01-26 07:01:06'),
+	('7a7862ed-16f8-4d46-a4c2-5ff03cdccd90', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Kategori Utama\' ditambahkan dengan nilai <span class=\'font-semibold\'>Proyek</span>', '2026-01-24 05:12:10'),
+	('7c2681d5-cae9-472e-8f06-56fed70147ea', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Margin Aktual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 2,500,000.00</span>', '2026-01-24 05:04:20'),
+	('7c5041ca-6d81-4032-8897-e6cb4f24e56b', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Kategori Aktivitas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-24 05:12:59'),
+	('7c9f8d70-6fc6-477b-8843-12abcfcdfc75', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Perkiraan HPP\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 2,000,000.00</span>', '2026-01-24 05:04:20'),
+	('8510acd0-0d49-4390-b169-54bbeb1081be', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Item <b>pembayaran #1</b> ditambahkan: Qty 1, Harga Rp 2,000,000.00, Catatan: -', '2026-01-24 05:12:59'),
+	('86a1a2c7-ea3f-4884-a3b3-228d7cdffb3a', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Nominal\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 2,000,000.00</span>', '2026-01-24 05:12:59'),
+	('89f27214-6580-43b2-9d71-4eec32212ff5', '7455a9ce-4c51-4488-8817-b290001b83dc', 'Data \'Status\' berubah dari <span class=\'font-semibold\'>New Leads</span> ke <span class=\'font-semibold\'>Follow Up</span>', '2026-01-24 04:57:10'),
+	('8db61857-b886-489c-828d-7625673a0ade', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Sumber Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Instagram</span>', '2026-01-24 04:55:08'),
+	('909cc16a-bf80-4b70-a040-709e7d6e7225', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Kategori Arus Kas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Operasional</span>', '2026-01-26 07:01:06'),
+	('92a72d08-8f69-48c4-a554-68c28b94176c', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Status Kategorisasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Active</span>', '2026-01-24 04:56:35'),
+	('92b72c66-358e-47d2-bc03-a264b70f900e', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Sisa Pembayaran\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 2,500,000.00</span>', '2026-01-24 05:04:20'),
+	('93a6bbbe-62d3-4515-9507-1f21a2d49773', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Item <b>pembayaran dp #1</b> ditambahkan: Qty 1, Harga Rp 5,000,000.00, Catatan: -', '2026-01-26 07:01:06'),
+	('94088637-38a6-4246-b7cb-b0b1888cddee', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Lokasi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Jakarta</span>', '2026-01-24 05:12:59'),
+	('97e4e900-9e2a-440c-bf2b-33780a012246', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Foto Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg</span>', '2026-01-26 06:58:06'),
+	('9924b38c-0979-47d1-bff5-7cdfd0dfe363', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Arah Uang\' ditambahkan dengan nilai <span class=\'font-semibold\'>Masuk</span>', '2026-01-24 05:12:59'),
+	('9b5416a9-0124-49bb-9093-bb7df14de561', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'No Telp\' ditambahkan dengan nilai <span class=\'font-semibold\'>0895417205060</span>', '2026-01-24 04:56:35'),
+	('a2640fd5-f5ae-4987-b68e-31ef5e1db0ff', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Umur Lead\' ditambahkan dengan nilai <span class=\'font-semibold\'>-1</span>', '2026-01-24 04:56:35'),
+	('a4efe483-b387-42a0-800f-afa26d4b5b94', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Akun ID\' ditambahkan dengan nilai <span class=\'font-semibold\'>BRI</span>', '2026-01-26 07:01:06'),
+	('a704a0ef-403d-4a73-baa0-3b58249c145d', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Akun ID\' ditambahkan dengan nilai <span class=\'font-semibold\'>BRI</span>', '2026-01-24 05:12:59'),
+	('a783983f-3436-4e2b-bbc6-132a03bae9d2', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Sumber Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Instagram</span>', '2026-01-24 04:56:35'),
+	('ab3e1505-67bb-426b-8c83-2d7925928279', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Sub Kategori\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pembayaran Client</span>', '2026-01-26 07:01:06'),
+	('abba93a2-cfb7-40e4-bf2d-3848047a7b4f', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Status\' berubah dari <span class=\'font-semibold\'>New Leads</span> ke <span class=\'font-semibold\'>Closing</span>', '2026-01-26 06:58:06'),
+	('ac2dc068-b18f-4a6c-843b-4b6a0a7459e3', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Kategori Aktivitas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-26 07:01:06'),
+	('ae0979ad-3a2e-46ab-a40e-6285365d30d1', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Alamat\' ditambahkan dengan nilai <span class=\'font-semibold\'>Demangan, Selomartani, Kalasan, Sleman\nSelomartani</span>', '2026-01-24 04:56:35'),
+	('af8c085a-123d-4595-b1f0-3759946f83d6', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Jenis Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Debit</span>', '2026-01-24 05:12:10'),
+	('b131a750-ee8a-4398-91ad-aa4684df268c', '7455a9ce-4c51-4488-8817-b290001b83dc', 'Data \'HPP Aktual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 0.00</span>', '2026-01-24 04:57:10'),
+	('b4cd35a1-6d2e-46bc-b070-204c1ff56366', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>25 Januari 2026</span>', '2026-01-24 04:56:35'),
+	('b6653acb-2559-49b6-9fed-e02bb4416b68', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Debit\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 400,000.00</span>', '2026-01-24 05:12:10'),
+	('b6979665-3fb7-45c2-947e-0868545ea662', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Jam Masuk\' ditambahkan dengan nilai <span class=\'font-semibold\'>4</span>', '2026-01-24 04:55:08'),
+	('b992665a-1b7e-4337-9fbe-3ed8c8e49238', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Umur Lead\' ditambahkan dengan nilai <span class=\'font-semibold\'>0</span>', '2026-01-24 04:55:08'),
+	('bce58380-1469-43f2-9ee5-b61e3e4c625c', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Nama Klien\' ditambahkan dengan nilai <span class=\'font-semibold\'>Agung Firman</span>', '2026-01-24 04:56:35'),
+	('bd67b3e1-cf5c-467f-9c2b-43d5932ea37e', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Arah Uang\' ditambahkan dengan nilai <span class=\'font-semibold\'>Keluar</span>', '2026-01-24 05:12:10'),
+	('c34927e6-94d3-40e9-bfe0-26aa1657e24a', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Jam Masuk\' ditambahkan dengan nilai <span class=\'font-semibold\'>4</span>', '2026-01-24 04:56:35'),
+	('c6937d6d-775d-4555-bc22-6468f3fb03cb', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Kredit\' ditambahkan dengan nilai <span class=\'font-semibold\'>Rp 2,000,000.00</span>', '2026-01-24 05:12:59'),
+	('c723de4a-e7db-4d7d-832e-e07c72b736ac', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Tanggal Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>25 Januari 2026</span>', '2026-01-24 05:04:20'),
+	('c896bf78-a717-4ea0-bdbc-bfb3593f6406', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Kategori Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pendapatan</span>', '2026-01-24 05:12:59'),
+	('cc662afa-1374-443b-9521-26ef4730956e', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Produk\' ditambahkan dengan nilai <span class=\'font-semibold\'>Kayu Furni</span>', '2026-01-24 04:56:35'),
+	('ccac4745-5948-4903-af23-fb157baee4ab', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Kota\' ditambahkan dengan nilai <span class=\'font-semibold\'>Bandar Lampung</span>', '2026-01-24 04:55:08'),
+	('d101ce28-b6f9-4121-80c2-185499e17816', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Sub Kategori\' ditambahkan dengan nilai <span class=\'font-semibold\'>Pembayaran Client</span>', '2026-01-24 05:12:59'),
+	('d322ba07-6770-4e50-8331-7900e9e5ccf9', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Sisa Pembayaran\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 80,000,000.00</span>', '2026-01-26 06:58:06'),
+	('d6f583bd-4609-47e5-81a5-ee4cf465ba2c', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Status\' berubah dari <span class=\'font-semibold\'>Follow Up</span> ke <span class=\'font-semibold\'>Closing</span>', '2026-01-24 05:04:20'),
+	('d74c8ed8-bb23-48e7-9f22-6eaa40bb2e20', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Kategori Arus Kas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Operasional</span>', '2026-01-24 05:12:59'),
+	('d772f077-e2c0-43b1-a2ee-5043090a9cc1', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>26 Januari 2026</span>', '2026-01-26 07:01:06'),
+	('d8cb7140-dce0-446c-8161-b1d5fe138e17', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Tanggal\' ditambahkan dengan nilai <span class=\'font-semibold\'>24 Januari 2026</span>', '2026-01-24 04:55:08'),
+	('da9203d0-b43f-4b9f-b5a1-0e8558b2b3a0', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Kota\' ditambahkan dengan nilai <span class=\'font-semibold\'>Bandar Lampung</span>', '2026-01-24 04:56:35'),
+	('dc01d6da-8c3f-485e-92eb-01891caeb527', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Nilai Pipeline\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 0.00</span>', '2026-01-24 05:04:20'),
+	('de0e7ce1-7393-42ef-8276-7a5671947415', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Kategori Arus Kas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Operasional</span>', '2026-01-24 05:12:10'),
+	('e09e2cdd-2df2-4f8f-bbf9-b78e5ac8f99e', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Bulan\' ditambahkan dengan nilai <span class=\'font-semibold\'>Januari 2026</span>', '2026-01-26 07:01:06'),
+	('e1914950-ddd9-4342-b5e6-815dd25f0ffb', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Arah Uang\' ditambahkan dengan nilai <span class=\'font-semibold\'>Masuk</span>', '2026-01-26 07:01:06'),
+	('ea967920-213c-4faa-9a4d-8dd899460c60', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Foto Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>https://furnivilux.namia.online/api/media/public/i4Bjjf_20251216_124310.jpg</span>', '2026-01-24 05:04:20'),
+	('ec9d53ae-32da-457a-ba36-dcfaed921b4c', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Omset\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 80,000,000.00</span>', '2026-01-26 06:58:06'),
+	('ed886847-3689-4274-aa46-4167e9491534', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Status\' ditambahkan dengan nilai <span class=\'font-semibold\'>New Leads</span>', '2026-01-24 04:56:35'),
+	('ede27a1c-ca31-4ec1-8b5d-c7069b11678d', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Nilai Pipeline\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 0.00</span>', '2026-01-26 06:58:06'),
+	('ee75be11-f064-4e8b-8e7a-37e9dc03e858', 'fbf4a649-2b4f-4e4a-b577-8d259c9d3136', 'Data \'Jatuh Tempo\' ditambahkan dengan nilai <span class=\'font-semibold\'>27 Januari 2026</span>', '2026-01-24 05:12:59'),
+	('eff6dd8b-6ae1-4e20-9809-f949cf8d311a', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Kategori Aktivitas\' ditambahkan dengan nilai <span class=\'font-semibold\'>Proyek</span>', '2026-01-24 05:12:10'),
+	('f087a0de-65d5-4b6c-a4f5-21d1ea4d4b74', 'ab0955fe-c417-4ac7-b424-099d4d0e0deb', 'Data \'Durasi Hari Hingga Closing\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>2</span>', '2026-01-26 06:58:06'),
+	('f0c0ab3a-2f13-4d84-bd5d-89bce2473d37', '7455a9ce-4c51-4488-8817-b290001b83dc', 'Data \'Total Follow Up\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>1</span>', '2026-01-24 04:57:10'),
+	('f6204de2-6cff-4dcf-9637-09aa24ae3071', '2af4e380-1816-4ffc-b649-2abf3d8b132c', 'Data \'Kategori Leads\' ditambahkan dengan nilai <span class=\'font-semibold\'>Customer Leads</span>', '2026-01-24 04:56:35'),
+	('f6be9e31-baaf-4ffc-9e14-757d87f83c5d', 'bf1b7636-7293-4803-a7f3-cc1e3c58a806', 'Data \'Jenis Transaksi\' ditambahkan dengan nilai <span class=\'font-semibold\'>Kredit</span>', '2026-01-26 07:01:06'),
+	('f7317fe0-5464-434c-9990-529cf4c56967', '7790c297-8201-45ba-8f33-aeb8c821eb8b', 'Data \'Sub Kategori\' ditambahkan dengan nilai <span class=\'font-semibold\'>Material</span>', '2026-01-24 05:12:10'),
+	('fa0d3308-222f-4fd4-82f1-80bad9d8a600', '2d1d4307-54e4-4116-a245-255a9b40e000', 'Data \'Harga Jual\' berubah dari <span class=\'font-semibold\'>-</span> ke <span class=\'font-semibold\'>Rp 2,500,000.00</span>', '2026-01-24 05:04:20'),
+	('fc558829-47a9-4822-be0d-1d055b8dda26', '78ffe166-2ff5-4c9e-83da-3c7e249e4092', 'Data \'Alamat\' ditambahkan dengan nilai <span class=\'font-semibold\'>Jalan mawar\nSelomartani</span>', '2026-01-24 04:55:08');
 
 -- Dumping structure for table furnifilux_dev.media
 CREATE TABLE IF NOT EXISTS `media` (
@@ -431,13 +486,14 @@ CREATE TABLE IF NOT EXISTS `media` (
   CONSTRAINT `fk_media_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Dumping data for table furnifilux_dev.media: ~7 rows (approximately)
+-- Dumping data for table furnifilux_dev.media: ~9 rows (approximately)
 INSERT INTO `media` (`uuid`, `user_id`, `url`, `kind`, `created_at`) VALUES
 	('1641aa3a-2ac1-44b8-b84d-ab99dfb9184e', '550e8400-e29b-41d4-a716-446655440003', 'https://i.pinimg.com/1200x/96/be/d6/96bed63e541a937c3ce6f51850ece087.jpg', 'image', '2025-12-16 05:24:55'),
 	('1ce3f52d-bebd-4eff-9fa9-8424e8aa5077', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'http://localhost:8002/media/public/oAxRld_20251217_130548.png', 'image', '2025-12-17 06:05:49'),
 	('30d66007-516b-4c68-b35e-baaba9e4d4f5', '550e8400-e29b-41d4-a716-446655440003', 'https://furnivilux.namia.online/api/media/public/lqjuQr_20251216_141714.jpg', 'image', '2025-12-16 07:17:14'),
 	('669da5c4-36e6-44a8-a663-c103cf4eb6a4', 'b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'http://localhost:8002/media/public/wYoEU8_20260124_102001.jpeg', 'image', '2026-01-24 03:20:04'),
 	('78e911a8-5495-4cd0-acbb-a4e2d4439c57', '550e8400-e29b-41d4-a716-446655440003', 'https://furnivilux.namia.online/api/media/public/i4Bjjf_20251216_124310.jpg', 'image', '2025-12-16 05:43:10'),
+	('82dc5ceb-6f5c-48f6-8fe9-9f6781707018', 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'https://furnivilux.namia.online/api/media/public/1gaUPY_20260124_121158.png', 'image', '2026-01-24 05:11:58'),
 	('8b2e59f6-f8f2-420e-af73-35d7f6992802', '550e8400-e29b-41d4-a716-446655440003', 'https://i.pinimg.com/1200x/c8/01/7b/c8017b681e08f1c747852dc0c870fd45.jpg', 'image', '2025-12-16 05:24:55'),
 	('c0e802c1-4227-4083-9327-3a4e0fa69dbd', '550e8400-e29b-41d4-a716-446655440003', 'http://i.pinimg.com/736x/62/3a/5c/623a5cd339cad02e6bbf0c3421325725.jpg', 'image', '2025-12-16 05:24:55'),
 	('c0e802c1-4227-4083-9327-3a4e0fa69dbk', '550e8400-e29b-41d4-a716-446655440003', 'https://i.pinimg.com/1200x/d8/52/48/d85248983d5bb1bc201a1d6c4e692671.jpg', 'image', '2025-12-16 05:24:55');
@@ -453,9 +509,9 @@ CREATE TABLE IF NOT EXISTS `number_id` (
 
 -- Dumping data for table furnifilux_dev.number_id: ~3 rows (approximately)
 INSERT INTO `number_id` (`kind`, `latest_number`, `created_at`, `updated_at`) VALUES
-	('akun', 1001, '2025-11-07 08:30:19', '2026-01-24 03:50:04'),
-	('finance_transactions', 1002, '2025-10-27 07:39:40', '2026-01-24 04:09:48'),
-	('leads', 1002, '2025-10-27 07:39:40', '2026-01-24 03:08:09');
+	('akun', 1002, '2025-11-07 08:30:19', '2026-01-26 01:34:44'),
+	('finance_transactions', 1003, '2025-10-27 07:39:40', '2026-01-26 07:01:06'),
+	('leads', 1002, '2025-10-27 07:39:40', '2026-01-24 04:56:35');
 
 -- Dumping structure for table furnifilux_dev.roles
 CREATE TABLE IF NOT EXISTS `roles` (
@@ -502,7 +558,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 -- Dumping data for table furnifilux_dev.users: ~6 rows (approximately)
 INSERT INTO `users` (`uuid`, `username`, `email`, `password`, `name`, `role_id`, `status`, `created_at`, `updated_at`) VALUES
-	('550e8400-e29b-41d4-a716-446655440003', 'admin', 'admin@furnifilux.com', 'admin123', 'System Administrator', '550e8400-e29b-41d4-a716-446655440001', 'Active', '2025-10-27 04:29:05', '2025-10-27 04:33:39'),
+	('550e8400-e29b-41d4-a716-446655440003', 'admin', 'admin@furnifilux.com', 'admin123', 'System Administrator 1', '550e8400-e29b-41d4-a716-446655440001', 'Active', '2025-10-27 04:29:05', '2026-01-26 02:44:25'),
 	('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', 'finance_user', 'finance@furnifilux.com', 'admin123', 'Staf Keuangan', '94354894-3531-411a-821f-998845244501', 'Active', '2025-12-16 09:15:53', '2025-12-16 09:19:58'),
 	('b2c3d4e5-f6a1-4b2c-9d3e-4f5a6b7c8d9e', 'cs_user', 'cs@furnifilux.com', 'admin123', 'Customer Service', 'c2834bba-9588-444a-9524-118464332512', 'Active', '2025-12-16 09:15:53', '2025-12-16 09:19:59'),
 	('c3d4e5f6-a1b2-4c3d-0e4f-5a6b7c8d9e0f', 'direktur_user', 'direktur@furnifilux.com', 'admin123', 'Bapak Direktur', 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6', 'Active', '2025-12-16 09:15:53', '2025-12-16 09:20:01'),

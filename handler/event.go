@@ -518,7 +518,6 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			CategoryName        string  `db:"category_name" json:"category_name"`
 			EventTypeName       *string `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName  *string `db:"gender_division_name" json:"gender_division_name"`
-			BackNumber          *string `db:"back_number" json:"back_number"`
 			TargetNumber        *string `db:"target_number" json:"target_number"`
 			Session             *int    `db:"session" json:"session"`
 			Status              string  `db:"status" json:"status"`
@@ -529,7 +528,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		err = db.Select(&participants, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.back_number, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
 				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
 				COALESCE(cl.name, '') as club_name,
@@ -595,7 +594,6 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			CategoryName        string  `db:"category_name" json:"category_name"`
 			EventTypeName       *string `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName  *string `db:"gender_division_name" json:"gender_division_name"`
-			BackNumber          *string `db:"back_number" json:"back_number"`
 			TargetNumber        *string `db:"target_number" json:"target_number"`
 			Session             *int    `db:"session" json:"session"`
 			Status              string  `db:"status" json:"status"`
@@ -608,7 +606,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var participant Participant
 		err = db.Get(&participant, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.back_number, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
 				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
@@ -938,7 +936,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			CategoryID          *string  `json:"category_id"`
-			BackNumber          *string  `json:"back_number"`
 			TargetNumber        *string  `json:"target_number"`
 			Session             *int     `json:"session"`
 			Status              *string  `json:"status"`
@@ -992,10 +989,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 			query += ", category_id = ?"
 			args = append(args, *req.CategoryID)
-		}
-		if req.BackNumber != nil {
-			query += ", back_number = ?"
-			args = append(args, *req.BackNumber)
 		}
 		if req.TargetNumber != nil {
 			query += ", target_number = ?"

@@ -409,6 +409,20 @@ func main() {
 				protectedClubs.PUT("/me/profile", handler.UpdateMyClubProfile(db))
 			}
 		}
+
+		// Organization routes
+		organizations := api.Group("/organizations")
+		{
+			organizations.GET("", handler.GetOrganizations(db))
+			organizations.GET("/:slug", handler.GetOrganizationBySlug(db))
+
+			protectedOrgs := organizations.Group("")
+			protectedOrgs.Use(middleware.AuthMiddleware())
+			{
+				protectedOrgs.GET("/me", handler.GetOrganizationProfile(db))
+				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
+			}
+		}
 	}
 
 	// WebSocket endpoint for real-time updates
