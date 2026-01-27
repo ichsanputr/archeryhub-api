@@ -163,7 +163,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Username              *string `json:"username" db:"username"`
 			Slug                  *string `json:"slug" db:"slug"`
 			Email                 *string `json:"email" db:"email"`
-			AthleteCode           *string `json:"athlete_code" db:"athlete_code"`
 			AvatarURL             *string `json:"avatar_url" db:"avatar_url"`
 			FullName              string  `json:"full_name" db:"full_name"`
 			Nickname              *string `json:"nickname" db:"nickname"`
@@ -174,10 +173,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Address               *string `json:"address" db:"address"`
 			City                  *string `json:"city" db:"city"`
 			Province              *string `json:"province" db:"province"`
-			PostalCode            *string `json:"postal_code" db:"postal_code"`
-			NationalID            *string `json:"national_id" db:"national_id"`
 			BowType               string  `json:"bow_type" db:"bow_type"`
-			ExperienceYears       int     `json:"experience_years" db:"experience_years"`
 			ClubID                *string `json:"club_id" db:"club_id"`
 			ClubName              *string `json:"club_name" db:"club_name"`
 			Achievements          *string `json:"achievements" db:"achievements"`
@@ -185,13 +181,11 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 	err := db.Get(&archer, `
-		SELECT a.uuid, a.username, a.slug, a.email, a.athlete_code, a.avatar_url, 
+		SELECT a.uuid, a.username, a.slug, a.email, a.avatar_url, 
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.country, a.phone, a.address, a.city, a.province, a.postal_code, 
-		       a.national_id, 
+		       a.country, a.phone, a.address, a.city, a.province, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
-		       COALESCE(a.experience_years, 0) as experience_years,
 		       a.club_id, c.name as club_name,
 		       a.achievements,
 		       COALESCE(a.status, 'active') as status

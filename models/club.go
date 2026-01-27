@@ -23,7 +23,6 @@ type Club struct {
 	Website            *string    `json:"website" db:"website"`
 	SocialFacebook     *string    `json:"social_facebook" db:"social_facebook"`
 	SocialInstagram    *string    `json:"social_instagram" db:"social_instagram"`
-	MemberCount        int        `json:"member_count" db:"member_count"`
 	VerificationStatus string     `json:"verification_status" db:"verification_status"`
 	Status             string     `json:"status" db:"status"`
 	CreatedAt          time.Time  `json:"created_at" db:"created_at"`

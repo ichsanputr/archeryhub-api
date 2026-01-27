@@ -9,7 +9,6 @@ type Archer struct {
 	UUID              string     `json:"id" db:"uuid"`
 	UserID            *string    `json:"user_id" db:"user_id"`
 	Slug              string     `json:"slug" db:"slug"`
-	ArcherCode        *string    `json:"archer_code" db:"athlete_code"`
 	FullName          string     `json:"full_name" db:"full_name"`
 	DateOfBirth       *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender            *string    `json:"gender" db:"gender"` // M, F, X
@@ -25,7 +24,6 @@ type Archer struct {
 	BowType           *string    `json:"bow_type" db:"bow_type"`
 	City              *string    `json:"city" db:"city"`
 	Province          *string    `json:"province" db:"province"`
-	ExperienceYears   *int       `json:"experience_years" db:"experience_years"`
 	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -46,7 +44,6 @@ type CreateArcherRequest struct {
 	Username         *string    `json:"username"`
 	Email            *string    `json:"email" binding:"omitempty,email"`
 	Password         *string    `json:"password"`
-	ArcherCode       *string    `json:"archer_code"`
 	Nickname         *string    `json:"nickname"`
 	DateOfBirth      *time.Time `json:"date_of_birth"`
 	Gender           *string    `json:"gender" binding:"omitempty,oneof=male female M F"`
@@ -63,7 +60,6 @@ type CreateArcherRequest struct {
 // UpdateArcherRequest represents the request payload for updating an archer
 type UpdateArcherRequest struct {
 	FullName         *string    `json:"full_name"`
-	ArcherCode       *string    `json:"archer_code"`
 	DateOfBirth      *time.Time `json:"date_of_birth"`
 	Gender           *string    `json:"gender" binding:"omitempty,oneof=M F X"`
 	Country          *string    `json:"country"`

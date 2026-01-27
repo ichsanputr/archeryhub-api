@@ -23,10 +23,10 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.user_id, a.slug, a.athlete_code, a.full_name, a.date_of_birth,
+				a.uuid, a.user_id, a.slug, a.full_name, a.date_of_birth,
 				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city, a.province, a.experience_years,
+				a.bow_type, a.city, a.province,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -46,9 +46,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if search != "" {
-			query += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.athlete_code LIKE ? OR a.club_id LIKE ?)"
+			query += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
 			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm, searchTerm)
+			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
 		if country != "" {
@@ -98,10 +98,10 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.user_id, a.slug, a.athlete_code, a.full_name, a.date_of_birth,
+				a.uuid, a.user_id, a.slug, a.full_name, a.date_of_birth,
 				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city, a.province, a.experience_years,
+				a.bow_type, a.city, a.province,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -171,12 +171,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Generate archer code if not provided
-		archerCode := req.ArcherCode
-		if archerCode == nil {
-			code := generateArcherCode(db)
-			archerCode = &code
-		}
+		// Generate archer code removed as athlete_code column is deleted
 
 		// Normalize gender (M/F to male/female)
 		gender := req.Gender
@@ -203,17 +198,16 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Build insert query with all fields
 		query := `
 			INSERT INTO archers (
-				uuid, username, email, password, athlete_code, full_name, nickname,
+				uuid, username, email, password, full_name, nickname,
 				date_of_birth, gender, bow_type, country, city, club_id,
 				phone, address, photo_url, role, status, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archer', 'active', ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			archerID, username, req.Email, req.Password, archerCode, req.FullName, req.Nickname,
+			archerID, username, req.Email, req.Password, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.Country, req.City, clubID,
 			req.Phone, req.Address, req.PhotoURL, now, now,
 		)
@@ -244,7 +238,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{
 			"message":     "Archer created successfully",
 			"archer_id":   archerID,
-			"archer_code": archerCode,
 		})
 	}
 }
@@ -364,20 +357,3 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// Helper function to generate unique archer code
-func generateArcherCode(db *sqlx.DB) string {
-	// Format: ARC-YYYY-NNN (e.g., ARC-2024-001)
-	year := time.Now().Year()
-
-	var maxCode string
-	query := "SELECT athlete_code FROM archers WHERE athlete_code LIKE ? ORDER BY athlete_code DESC LIMIT 1"
-	err := db.Get(&maxCode, query, "ARC-"+string(rune(year))+"%")
-
-	if err != nil || maxCode == "" {
-		return "ARC-" + string(rune(year)) + "-001"
-	}
-
-	// Extract number and increment
-	// This is a simplified version; in production, use proper parsing
-	return "ARC-" + string(rune(year)) + "-" + string(rune(time.Now().Unix()%1000))
-}

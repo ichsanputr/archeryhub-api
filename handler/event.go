@@ -195,15 +195,15 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if !req.RegistrationDeadline.IsZero() {
 			regDeadline = req.RegistrationDeadline.Time
 		}
-
 		query := `
 			INSERT INTO events (
 				uuid, code, name, short_name, venue, gmaps_link, location, country, 
 				latitude, longitude, start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
-				entry_fee, max_participants, status, organizer_id, created_at, updated_at
+				entry_fee, max_participants, status, organizer_id, created_at, updated_at,
+				total_prize, technical_guidebook_url
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -219,6 +219,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
 			req.EntryFee, req.MaxParticipants,
 			status, userID, now, now,
+			req.TotalPrize, req.TechnicalGuidebookURL,
 		)
 
 		if err != nil {
@@ -369,6 +370,14 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if req.Status != nil {
 			query += ", status = ?"
 			args = append(args, *req.Status)
+		}
+		if req.TotalPrize != nil {
+			query += ", total_prize = ?"
+			args = append(args, *req.TotalPrize)
+		}
+		if req.TechnicalGuidebookURL != nil {
+			query += ", technical_guidebook_url = ?"
+			args = append(args, *req.TechnicalGuidebookURL)
 		}
 
 		query += " WHERE uuid = ?"
