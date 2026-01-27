@@ -197,13 +197,13 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		query := `
 			INSERT INTO events (
-				uuid, code, name, short_name, venue, gmaps_link, location, country, 
-				latitude, longitude, start_date, end_date, registration_deadline,
+				uuid, code, name, short_name, venue, gmaps_link, location, city, 
+				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -214,7 +214,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec(query,
 			EventID, req.Code, req.Name, req.ShortName, req.Venue, req.GmapLink,
-			req.Location, req.Country, req.Latitude, req.Longitude,
+			req.Location, req.City,
 			startDate, endDate, regDeadline,
 			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
 			req.EntryFee, req.MaxParticipants,
@@ -319,9 +319,9 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			query += ", location = ?"
 			args = append(args, *req.Location)
 		}
-		if req.Country != nil {
-			query += ", country = ?"
-			args = append(args, *req.Country)
+		if req.City != nil {
+			query += ", city = ?"
+			args = append(args, *req.City)
 		}
 		if req.StartDate != nil {
 			query += ", start_date = ?"

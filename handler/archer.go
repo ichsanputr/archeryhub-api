@@ -18,7 +18,8 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		status := c.Query("status")
 		search := c.Query("search") // search by name, code, or club
 		country := c.Query("country")
-		limit := c.DefaultQuery("limit", "50")
+		bowType := c.Query("bow_type")
+		limit := c.DefaultQuery("limit", "12")
 		offset := c.DefaultQuery("offset", "0")
 
 		query := `
@@ -56,6 +57,11 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, country)
 		}
 
+		if bowType != "" && bowType != "all" {
+			query += " AND a.bow_type = ?"
+			args = append(args, bowType)
+		}
+
 		query += `
 			GROUP BY a.uuid
 			ORDER BY a.full_name
@@ -78,6 +84,22 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		if status != "" {
 			countQuery += " AND status = ?"
 			countArgs = append(countArgs, status)
+		}
+
+		if search != "" {
+			countQuery += " AND (full_name LIKE ? OR email LIKE ? OR club_id LIKE ?)"
+			searchTerm := "%" + search + "%"
+			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
+		}
+
+		if country != "" {
+			countQuery += " AND country = ?"
+			countArgs = append(countArgs, country)
+		}
+
+		if bowType != "" && bowType != "all" {
+			countQuery += " AND bow_type = ?"
+			countArgs = append(countArgs, bowType)
 		}
 
 		var total int

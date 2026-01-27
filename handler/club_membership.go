@@ -244,10 +244,21 @@ func JoinClub(db *sqlx.DB) gin.HandlerFunc {
 		}
 		
 		// Check if already a member of any club
-		var existingMembership string
-		err = db.Get(&existingMembership, "SELECT club_id FROM club_members WHERE archer_id = ? AND status IN ('pending', 'active')", userID)
-		if err == nil && existingMembership != "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "You are already a member or have a pending request to another club"})
+		var existing struct {
+			ClubID string `db:"club_id"`
+			Status string `db:"status"`
+		}
+		err = db.Get(&existing, "SELECT club_id, status FROM club_members WHERE archer_id = ? AND status IN ('pending', 'active')", userID)
+		if err == nil {
+			if existing.ClubID == clubID {
+				if existing.Status == "active" {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "You are already an active member of this club"})
+				} else {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "You already have a pending membership request to this club"})
+				}
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "You are already a member or have a pending request to another club"})
+			}
 			return
 		}
 		

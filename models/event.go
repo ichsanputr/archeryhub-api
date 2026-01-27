@@ -37,9 +37,7 @@ type Event struct {
 	Address      *string   `json:"address" db:"address"`
 	GmapLink     *string   `json:"gmaps_link" db:"gmaps_link"`
 	Location     *string   `json:"location" db:"location"`
-	Country      *string   `json:"country" db:"country"`
-	Latitude     *float64  `json:"latitude" db:"latitude"`
-	Longitude    *float64  `json:"longitude" db:"longitude"`
+	City         *string   `json:"city" db:"city"`
 	StartDate            *time.Time `json:"start_date" db:"start_date"`
 	EndDate              *time.Time `json:"end_date" db:"end_date"`
 	RegistrationDeadline *time.Time `json:"registration_deadline" db:"registration_deadline"`
@@ -80,9 +78,7 @@ type CreateEventRequest struct {
 	Venue                *string      `json:"venue"`
 	GmapLink             *string      `json:"gmaps_link"`
 	Location             *string      `json:"location"`
-	Country              *string      `json:"country"`
-	Latitude             *float64     `json:"latitude"`
-	Longitude            *float64     `json:"longitude"`
+	City                 *string      `json:"city"`
 	StartDate            FlexibleTime `json:"start_date"`
 	EndDate              FlexibleTime `json:"end_date"`
 	Description          *string      `json:"description"`
@@ -110,9 +106,7 @@ type UpdateEventRequest struct {
 	Address      *string    `json:"address"`
 	GmapLink     *string    `json:"gmaps_link"`
 	Location     *string    `json:"location"`
-	Country      *string    `json:"country"`
-	Latitude     *float64   `json:"latitude"`
-	Longitude    *float64   `json:"longitude"`
+	City         *string    `json:"city"`
 	StartDate    *FlexibleTime `json:"start_date"`
 	EndDate      *FlexibleTime `json:"end_date"`
 	Description  *string    `json:"description"`
