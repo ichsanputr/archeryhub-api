@@ -91,7 +91,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		insertQuery := `
-			INSERT INTO ` + table + ` (id, username, email, password, ` + nameField + `, phone, role, status)
+			INSERT INTO ` + table + ` (uuid, username, email, password, ` + nameField + `, phone, role, status)
 			VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
 		`
 		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone, role)

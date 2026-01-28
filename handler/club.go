@@ -21,7 +21,7 @@ func CheckSlugAvailability(db *sqlx.DB) gin.HandlerFunc {
 		// Get current user's club UUID to exclude from check
 		userID, _ := c.Get("user_id")
 		var currentClubUUID string
-		db.Get(&currentClubUUID, "SELECT uuid FROM clubs WHERE user_id = ?", userID)
+		db.Get(&currentClubUUID, "SELECT uuid FROM clubs WHERE uuid = ?", userID)
 
 		var count int
 		query := "SELECT COUNT(*) FROM clubs WHERE slug = ?"
@@ -55,7 +55,7 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			Description      *string `json:"description" db:"description"`
 			AvatarURL        *string `json:"avatar_url" db:"avatar_url"`
 			BannerURL        *string `json:"banner_url" db:"banner_url"`
-			LogoURL          *string `json:"logo_url" db:"avatar_url"`
+			LogoURL          *string `json:"logo_url" db:"logo_url"`
 			Address          *string `json:"address" db:"address"`
 			City             *string `json:"city" db:"city"`
 			Province         *string `json:"province" db:"province"`
@@ -64,7 +64,7 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			Website          *string `json:"website" db:"website"`
 			Facebook         *string `json:"facebook" db:"social_facebook"`
 			Instagram        *string `json:"instagram" db:"social_instagram"`
-			WhatsApp         *string `json:"whatsapp" db:"phone"`
+			WhatsApp         *string `json:"whatsapp" db:"-"`
 			EstablishedDate  *string `json:"established" db:"established_date"`
 			Facilities       *string `json:"facilities" db:"facilities"`
 			TrainingSchedule *string `json:"schedules" db:"training_schedule"`
@@ -72,9 +72,12 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			PageSettings     *string `json:"page_settings" db:"page_settings"`
 		}
 
-		err := db.Get(&club, "SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, address, city, province, phone, email, website, social_facebook, social_instagram, established_date, facilities, training_schedule, social_media, page_settings FROM clubs WHERE user_id = ?", userID)
+		err := db.Get(&club, `
+			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, established_date, facilities, training_schedule, social_media, page_settings 
+			FROM clubs 
+			WHERE uuid = ?`, userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error or club not found: " + err.Error()})
 			return
 		}
 
@@ -117,12 +120,12 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 		// Check if slug has already been changed
 		var currentSlug string
 		var slugChanged bool
-		err := db.Get(&currentSlug, "SELECT COALESCE(slug, '') FROM clubs WHERE user_id = ?", userID)
+		err := db.Get(&currentSlug, "SELECT COALESCE(slug, '') FROM clubs WHERE uuid = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
 		}
-		db.Get(&slugChanged, "SELECT COALESCE(slug_changed, 0) FROM clubs WHERE user_id = ?", userID)
+		db.Get(&slugChanged, "SELECT COALESCE(slug_changed, 0) FROM clubs WHERE uuid = ?", userID)
 
 		// Determine if we should update the slug
 		newSlug := currentSlug
@@ -134,7 +137,7 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 			} else {
 				// Check if new slug is available
 				var count int
-				err := db.Get(&count, "SELECT COUNT(*) FROM clubs WHERE slug = ? AND user_id != ?", req.Slug, userID)
+				err := db.Get(&count, "SELECT COUNT(*) FROM clubs WHERE slug = ? AND uuid != ?", req.Slug, userID)
 				if err == nil && count == 0 {
 					newSlug = req.Slug
 					newSlugChanged = true
@@ -149,12 +152,12 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(`
 			UPDATE clubs SET 
-				name = ?, slug = ?, slug_changed = ?, description = ?, banner_url = ?, avatar_url = ?, 
+				name = ?, slug = ?, slug_changed = ?, description = ?, banner_url = ?, logo_url = ?, avatar_url = ?, 
 				city = ?, province = ?, established_date = ?, phone = ?, email = ?, 
 				social_facebook = ?, social_instagram = ?, website = ?, address = ?,
 				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, updated_at = NOW()
-			WHERE user_id = ?`,
-			req.Name, newSlug, newSlugChanged, req.Description, req.BannerURL, req.LogoURL,
+			WHERE uuid = ?`,
+			req.Name, newSlug, newSlugChanged, req.Description, req.BannerURL, req.LogoURL, req.LogoURL,
 			req.City, req.Province, req.Established, req.Phone, req.Email,
 			req.Facebook, req.Instagram, req.Website, req.Address,
 			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), userID)
@@ -209,7 +212,7 @@ func UpdateMyClubProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get club UUID first
 		var clubUUID string
-		err := db.Get(&clubUUID, "SELECT uuid FROM clubs WHERE user_id = ?", userID)
+		err := db.Get(&clubUUID, "SELECT uuid FROM clubs WHERE uuid = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
@@ -237,7 +240,7 @@ func GetClubDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get club UUID
 		var clubID string
-		err := db.Get(&clubID, "SELECT uuid FROM clubs WHERE user_id = ?", userID)
+		err := db.Get(&clubID, "SELECT uuid FROM clubs WHERE uuid = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
