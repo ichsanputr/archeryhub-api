@@ -250,7 +250,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Generate JWT token
 		avatar := ""
 		if user.AvatarURL != nil {
-			avatar = *user.AvatarURL
+			avatar = utils.MaskMediaURL(*user.AvatarURL)
 		}
 		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar)
 		if err != nil {
@@ -365,6 +365,16 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		user.UserType = userType.(string)
+
+		// Mask media URLs
+		if user.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*user.AvatarURL)
+			user.AvatarURL = &masked
+		}
+		if user.BannerURL != nil {
+			masked := utils.MaskMediaURL(*user.BannerURL)
+			user.BannerURL = &masked
+		}
 
 		c.JSON(http.StatusOK, user)
 	}

@@ -12,7 +12,9 @@ func ToJSON(obj interface{}) string {
 		return ""
 	}
 	return string(b)
-}// FromPtr returns the value of a string pointer, or empty string if nil
+}
+
+// FromPtr returns the value of a string pointer, or empty string if nil
 func FromPtr(s *string) string {
 	if s == nil {
 		return ""
