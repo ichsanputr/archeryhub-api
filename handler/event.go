@@ -201,9 +201,9 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at,
-				total_prize, technical_guidebook_url
+				total_prize, technical_guidebook_url, page_settings
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -219,7 +219,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
 			req.EntryFee, req.MaxParticipants,
 			status, userID, now, now,
-			req.TotalPrize, req.TechnicalGuidebookURL,
+			req.TotalPrize, req.TechnicalGuidebookURL, req.PageSettings,
 		)
 
 		if err != nil {
@@ -379,6 +379,10 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			query += ", technical_guidebook_url = ?"
 			args = append(args, *req.TechnicalGuidebookURL)
 		}
+		if req.PageSettings != nil {
+			query += ", page_settings = ?"
+			args = append(args, *req.PageSettings)
+		}
 
 		query += " WHERE uuid = ?"
 		args = append(args, id)
@@ -517,7 +521,6 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID            string  `db:"archer_id" json:"archer_id"`
 			FullName            string  `db:"full_name" json:"full_name"`
 			Email               string  `db:"email" json:"email"`
-			ArcherCode          string  `db:"athlete_code" json:"archer_code"`
 			Country             *string `db:"country" json:"country"`
 			ClubID              *string `db:"club_id" json:"club_id"`
 			ClubName            *string `db:"club_name" json:"club_name"`
@@ -539,7 +542,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
-				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
+				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
@@ -593,7 +596,6 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID            string  `db:"archer_id" json:"archer_id"`
 			FullName            string  `db:"full_name" json:"full_name"`
 			Email               string  `db:"email" json:"email"`
-			ArcherCode          string  `db:"athlete_code" json:"archer_code"`
 			Country             *string `db:"country" json:"country"`
 			ClubID              *string `db:"club_id" json:"club_id"`
 			ClubName            *string `db:"club_name" json:"club_name"`
@@ -618,7 +620,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
-				a.full_name, COALESCE(a.email, '') as email, COALESCE(a.athlete_code, '') as athlete_code, a.country, a.club_id,
+				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
@@ -630,9 +632,9 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
-			WHERE tp.event_id = ? AND (tp.uuid = ? OR LOWER(a.athlete_code) = LOWER(?))
+			WHERE tp.event_id = ? AND tp.uuid = ?
 			LIMIT 1
-		`, actualEventID, participantID, participantID)
+		`, actualEventID, participantID)
 
 		if err != nil {
 			fmt.Printf("[DEBUG] Participant not found error: %v\n", err)
@@ -967,14 +969,12 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Check if participant exists and belongs to the event
-		// support both UUID and archer code
 		var actualParticipantID string
 		err = db.Get(&actualParticipantID, `
 			SELECT tp.uuid FROM event_participants tp
-			JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.event_id = ? AND (tp.uuid = ? OR LOWER(a.athlete_code) = LOWER(?))
+			WHERE tp.event_id = ? AND tp.uuid = ?
 			LIMIT 1
-		`, actualEventID, participantID, participantID)
+		`, actualEventID, participantID)
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})

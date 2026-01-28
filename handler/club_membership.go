@@ -40,7 +40,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 
 		baseQuery := `
 			FROM clubs c 
-			WHERE (c.verification_status = 'verified' OR c.status = 'active')
+			WHERE c.status = 'active'
 		`
 		args := []interface{}{}
 
@@ -55,8 +55,8 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if city != "" {
-			baseQuery += " AND c.city = ?"
-			args = append(args, city)
+			baseQuery += " AND c.city LIKE ?"
+			args = append(args, "%"+city+"%")
 		}
 
 		// Count total items
@@ -69,23 +69,22 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 
 		// Fetch data
 		query := `
-			SELECT c.uuid, c.name, c.slug, c.avatar_url, c.banner_url, c.city, c.province, 
-				   c.verification_status as verification_status,
+			SELECT c.uuid, c.name, c.slug, c.avatar_url, c.banner_url, c.logo_url, c.city, c.province, 
 				   (SELECT COUNT(*) FROM club_members WHERE club_id = c.uuid AND status = 'active') as member_count
 		` + baseQuery + ` ORDER BY c.name ASC LIMIT ? OFFSET ?`
 
 		fetchArgs := append(args, limit, offset)
 
 		var clubs []struct {
-			UUID               string  `json:"uuid" db:"uuid"`
-			Name               string  `json:"name" db:"name"`
-			Slug               string  `json:"slug" db:"slug"`
-			AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL          *string `json:"banner_url" db:"banner_url"`
-			City               *string `json:"city" db:"city"`
-			Province           *string `json:"province" db:"province"`
-			VerificationStatus string  `json:"verification_status" db:"verification_status"`
-			MemberCount        int     `json:"member_count" db:"member_count"`
+			UUID        string  `json:"uuid" db:"uuid"`
+			Name        string  `json:"name" db:"name"`
+			Slug        string  `json:"slug" db:"slug"`
+			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL   *string `json:"banner_url" db:"banner_url"`
+			LogoURL     *string `json:"logo_url" db:"logo_url"`
+			City        *string `json:"city" db:"city"`
+			Province    *string `json:"province" db:"province"`
+			MemberCount int     `json:"member_count" db:"member_count"`
 		}
 
 		err = db.Select(&clubs, query, fetchArgs...)
@@ -96,15 +95,15 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 
 		if clubs == nil {
 			clubs = []struct {
-				UUID               string  `json:"uuid" db:"uuid"`
-				Name               string  `json:"name" db:"name"`
-				Slug               string  `json:"slug" db:"slug"`
-				AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
-				BannerURL          *string `json:"banner_url" db:"banner_url"`
-				City               *string `json:"city" db:"city"`
-				Province           *string `json:"province" db:"province"`
-				VerificationStatus string  `json:"verification_status" db:"verification_status"`
-				MemberCount        int     `json:"member_count" db:"member_count"`
+				UUID        string  `json:"uuid" db:"uuid"`
+				Name        string  `json:"name" db:"name"`
+				Slug        string  `json:"slug" db:"slug"`
+				AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+				BannerURL   *string `json:"banner_url" db:"banner_url"`
+				LogoURL     *string `json:"logo_url" db:"logo_url"`
+				City        *string `json:"city" db:"city"`
+				Province    *string `json:"province" db:"province"`
+				MemberCount int     `json:"member_count" db:"member_count"`
 			}{}
 		}
 
@@ -128,34 +127,33 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 		slug := c.Param("slug")
 		
 		var club struct {
-			UUID               string  `json:"uuid" db:"uuid"`
-			Name               string  `json:"name" db:"name"`
-			Slug               string  `json:"slug" db:"slug"`
-			Description        *string `json:"description" db:"description"`
-			AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL          *string `json:"banner_url" db:"banner_url"`
-			LogoURL            *string `json:"logo_url" db:"logo_url"`
-			Address            *string `json:"address" db:"address"`
-			City               *string `json:"city" db:"city"`
-			Province           *string `json:"province" db:"province"`
-			Phone              *string `json:"phone" db:"phone"`
-			Email              *string `json:"email" db:"email"`
-			Website            *string `json:"website" db:"website"`
-			Facebook           *string `json:"facebook" db:"social_facebook"`
-			Instagram          *string `json:"instagram" db:"social_instagram"`
-			WhatsApp           *string `json:"whatsapp" db:"phone"`
-			EstablishedDate    *string `json:"established" db:"established_date"`
-			Facilities         *string `json:"facilities" db:"facilities"`
-			TrainingSchedule   *string `json:"training_schedule" db:"training_schedule"`
-			VerificationStatus string  `json:"verification_status" db:"verification_status"`
-			Verified           bool    `json:"verified"`
-			CreatedAt          string  `json:"created_at" db:"created_at"`
+			UUID             string  `json:"uuid" db:"uuid"`
+			Name             string  `json:"name" db:"name"`
+			Slug             string  `json:"slug" db:"slug"`
+			Description      *string `json:"description" db:"description"`
+			AvatarURL        *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL        *string `json:"banner_url" db:"banner_url"`
+			LogoURL          *string `json:"logo_url" db:"logo_url"`
+			Address          *string `json:"address" db:"address"`
+			City             *string `json:"city" db:"city"`
+			Province         *string `json:"province" db:"province"`
+			Phone            *string `json:"phone" db:"phone"`
+			Email            *string `json:"email" db:"email"`
+			Website          *string `json:"website" db:"website"`
+			Facebook         *string `json:"facebook" db:"social_facebook"`
+			Instagram        *string `json:"instagram" db:"social_instagram"`
+			WhatsApp         *string `json:"whatsapp" db:"phone"`
+			EstablishedDate  *string `json:"established" db:"established_date"`
+			Facilities       *string `json:"facilities" db:"facilities"`
+			TrainingSchedule *string `json:"training_schedule" db:"training_schedule"`
+			SocialMedia      *string `json:"social_media" db:"social_media"`
+			CreatedAt        string  `json:"created_at" db:"created_at"`
 		}
 		
 		err := db.Get(&club, `
 			SELECT uuid, name, slug, description, avatar_url, banner_url, avatar_url as logo_url, 
 			       address, city, province, phone, email, website, social_facebook, social_instagram, 
-			       established_date, facilities, training_schedule, verification_status, created_at 
+			       established_date, facilities, training_schedule, social_media, created_at 
 			FROM clubs 
 			WHERE slug = ? OR uuid = ?`, slug, slug)
 		if err != nil {
@@ -163,7 +161,6 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 		
-		club.Verified = club.VerificationStatus == "verified"
 		club.WhatsApp = club.Phone
 		
 		// Get member count
@@ -196,15 +193,22 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			"established":  club.EstablishedDate,
 			"facilities":   club.Facilities,
 			"schedules":    club.TrainingSchedule,
-			"verified":     club.Verified,
 			"member_count": memberCount,
 			"members":      memberCount,
 			"event_count":  eventCount,
 			"events":       eventCount,
-			"rating":       4.5,
 			"achievements": 0,
 			"recent_events": []interface{}{},
 			"top_members":   []interface{}{},
+		}
+
+		// Parse social media
+		if club.SocialMedia != nil && *club.SocialMedia != "" {
+			var parsedSocialMedia interface{}
+			json.Unmarshal([]byte(*club.SocialMedia), &parsedSocialMedia)
+			response["social_media"] = parsedSocialMedia
+		} else {
+			response["social_media"] = []interface{}{}
 		}
 
 		// Get dynamic profile sections

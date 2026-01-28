@@ -405,6 +405,7 @@ func main() {
 				protectedClubs.POST("/invite", handler.InviteToClub(db))
 				protectedClubs.GET("/me", handler.GetClubMe(db))
 				protectedClubs.PUT("/me", handler.UpdateClubMe(db))
+				protectedClubs.GET("/check-slug", handler.CheckSlugAvailability(db))
 				protectedClubs.GET("/:slug/profile", handler.GetClubProfile(db))
 				protectedClubs.PUT("/me/profile", handler.UpdateMyClubProfile(db))
 			}

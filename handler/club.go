@@ -9,35 +9,70 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// CheckSlugAvailability checks if a club slug is available
+func CheckSlugAvailability(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Query("slug")
+		if slug == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "slug is required"})
+			return
+		}
+
+		// Get current user's club UUID to exclude from check
+		userID, _ := c.Get("user_id")
+		var currentClubUUID string
+		db.Get(&currentClubUUID, "SELECT uuid FROM clubs WHERE user_id = ?", userID)
+
+		var count int
+		query := "SELECT COUNT(*) FROM clubs WHERE slug = ?"
+		args := []interface{}{slug}
+		
+		if currentClubUUID != "" {
+			query += " AND uuid != ?"
+			args = append(args, currentClubUUID)
+		}
+
+		err := db.Get(&count, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check slug"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"available": count == 0, "slug": slug})
+	}
+}
+
 // GetClubMe returns the club profile for the authenticated user
 func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 
 		var club struct {
-			UUID               string  `json:"uuid" db:"uuid"`
-			Name               string  `json:"name" db:"name"`
-			Slug               string  `json:"slug" db:"slug"`
-			Description        *string `json:"description" db:"description"`
-			AvatarURL          *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL          *string `json:"banner_url" db:"banner_url"`
-			LogoURL            *string `json:"logo_url" db:"avatar_url"`
-			Address            *string `json:"address" db:"address"`
-			City               *string `json:"city" db:"city"`
-			Province           *string `json:"province" db:"province"`
-			Phone              *string `json:"phone" db:"phone"`
-			Email              *string `json:"email" db:"email"`
-			Website            *string `json:"website" db:"website"`
-			Facebook           *string `json:"facebook" db:"social_facebook"`
-			Instagram          *string `json:"instagram" db:"social_instagram"`
-			WhatsApp           *string `json:"whatsapp" db:"phone"`
-			EstablishedDate    *string `json:"established" db:"established_date"`
-			Facilities         *string `json:"facilities" db:"facilities"`
-			TrainingSchedule   *string `json:"schedules" db:"training_schedule"`
-			VerificationStatus string  `json:"verification_status" db:"verification_status"`
+			UUID             string  `json:"uuid" db:"uuid"`
+			Name             string  `json:"name" db:"name"`
+			Slug             string  `json:"slug" db:"slug"`
+			SlugChanged      bool    `json:"slug_changed" db:"slug_changed"`
+			Description      *string `json:"description" db:"description"`
+			AvatarURL        *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL        *string `json:"banner_url" db:"banner_url"`
+			LogoURL          *string `json:"logo_url" db:"avatar_url"`
+			Address          *string `json:"address" db:"address"`
+			City             *string `json:"city" db:"city"`
+			Province         *string `json:"province" db:"province"`
+			Phone            *string `json:"phone" db:"phone"`
+			Email            *string `json:"email" db:"email"`
+			Website          *string `json:"website" db:"website"`
+			Facebook         *string `json:"facebook" db:"social_facebook"`
+			Instagram        *string `json:"instagram" db:"social_instagram"`
+			WhatsApp         *string `json:"whatsapp" db:"phone"`
+			EstablishedDate  *string `json:"established" db:"established_date"`
+			Facilities       *string `json:"facilities" db:"facilities"`
+			TrainingSchedule *string `json:"schedules" db:"training_schedule"`
+			SocialMedia      *string `json:"social_media" db:"social_media"`
+			PageSettings     *string `json:"page_settings" db:"page_settings"`
 		}
 
-		err := db.Get(&club, "SELECT * FROM clubs WHERE user_id = ?", userID)
+		err := db.Get(&club, "SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, address, city, province, phone, email, website, social_facebook, social_instagram, established_date, facilities, training_schedule, social_media, page_settings FROM clubs WHERE user_id = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
@@ -53,23 +88,25 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 
 		var req struct {
-			Name        string   `json:"name"`
-			Slug        string   `json:"slug"`
-			Description string   `json:"description"`
-			BannerURL   string   `json:"banner_url"`
-			LogoURL     string   `json:"logo_url"`
-			City        string   `json:"city"`
-			Province    string   `json:"province"`
-			Established string   `json:"established"`
-			Phone       string   `json:"phone"`
-			WhatsApp    string   `json:"whatsapp"`
-			Email       string   `json:"email"`
-			Instagram   string   `json:"instagram"`
-			Facebook    string   `json:"facebook"`
-			Website     string   `json:"website"`
-			Address     string   `json:"address"`
-			Facilities  []string `json:"facilities"`
-			Schedules   []interface{} `json:"schedules"`
+			Name         string        `json:"name"`
+			Slug         string        `json:"slug"`
+			Description  string        `json:"description"`
+			BannerURL    string        `json:"banner_url"`
+			LogoURL      string        `json:"logo_url"`
+			City         string        `json:"city"`
+			Province     string        `json:"province"`
+			Established  string        `json:"established"`
+			Phone        string        `json:"phone"`
+			WhatsApp     string        `json:"whatsapp"`
+			Email        string        `json:"email"`
+			Instagram    string        `json:"instagram"`
+			Facebook     string        `json:"facebook"`
+			Website      string        `json:"website"`
+			Address      string        `json:"address"`
+			Facilities   []string      `json:"facilities"`
+			Schedules    []interface{} `json:"schedules"`
+			SocialMedia  []interface{} `json:"social_media"`
+			PageSettings interface{}   `json:"page_settings"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -77,20 +114,50 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Check if slug has already been changed
+		var currentSlug string
+		var slugChanged bool
+		err := db.Get(&currentSlug, "SELECT COALESCE(slug, '') FROM clubs WHERE user_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			return
+		}
+		db.Get(&slugChanged, "SELECT COALESCE(slug_changed, 0) FROM clubs WHERE user_id = ?", userID)
+
+		// Determine if we should update the slug
+		newSlug := currentSlug
+		newSlugChanged := slugChanged
+		if req.Slug != "" && req.Slug != currentSlug {
+			if slugChanged {
+				// Slug already changed once, keep old slug
+				newSlug = currentSlug
+			} else {
+				// Check if new slug is available
+				var count int
+				err := db.Get(&count, "SELECT COUNT(*) FROM clubs WHERE slug = ? AND user_id != ?", req.Slug, userID)
+				if err == nil && count == 0 {
+					newSlug = req.Slug
+					newSlugChanged = true
+				}
+			}
+		}
+
 		facilitiesJSON, _ := json.Marshal(req.Facilities)
 		schedulesJSON, _ := json.Marshal(req.Schedules)
+		socialMediaJSON, _ := json.Marshal(req.SocialMedia)
+		pageSettingsJSON, _ := json.Marshal(req.PageSettings)
 
-		_, err := db.Exec(`
+		_, err = db.Exec(`
 			UPDATE clubs SET 
-				name = ?, slug = ?, description = ?, banner_url = ?, avatar_url = ?, 
+				name = ?, slug = ?, slug_changed = ?, description = ?, banner_url = ?, avatar_url = ?, 
 				city = ?, province = ?, established_date = ?, phone = ?, email = ?, 
 				social_facebook = ?, social_instagram = ?, website = ?, address = ?,
-				facilities = ?, training_schedule = ?, updated_at = NOW()
+				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, updated_at = NOW()
 			WHERE user_id = ?`,
-			req.Name, req.Slug, req.Description, req.BannerURL, req.LogoURL,
+			req.Name, newSlug, newSlugChanged, req.Description, req.BannerURL, req.LogoURL,
 			req.City, req.Province, req.Established, req.Phone, req.Email,
 			req.Facebook, req.Instagram, req.Website, req.Address,
-			string(facilitiesJSON), string(schedulesJSON), userID)
+			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update club: " + err.Error()})

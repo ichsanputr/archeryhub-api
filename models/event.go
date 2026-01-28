@@ -56,6 +56,7 @@ type Event struct {
 	DisciplineName       string     `json:"discipline_name" db:"discipline_name"`
 	TotalPrize           float64    `json:"total_prize" db:"total_prize"`
 	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url"`
+	PageSettings         *string    `json:"page_settings" db:"page_settings"`
 }
 
 // EventWithDetails includes organizer information
@@ -96,6 +97,7 @@ type CreateEventRequest struct {
 	Images               []CreateEventImageRequest `json:"images"`
 	TotalPrize           float64      `json:"total_prize"`
 	TechnicalGuidebookURL *string      `json:"technical_guidebook_url"`
+	PageSettings         *string      `json:"page_settings"`
 }
 
 // UpdateEventRequest represents the request payload for updating a Event
@@ -121,6 +123,7 @@ type UpdateEventRequest struct {
 	RegistrationDeadline *FlexibleTime `json:"registration_deadline"`
 	TotalPrize           *float64   `json:"total_prize"`
 	TechnicalGuidebookURL *string    `json:"technical_guidebook_url"`
+	PageSettings         *string    `json:"page_settings"`
 }
 
 // EventEvent represents an event within a Event (division + category)
