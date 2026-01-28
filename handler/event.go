@@ -28,14 +28,15 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
+				u.slug as organizer_slug,
 				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email FROM organizations
+				SELECT uuid as id, name as full_name, email, username as slug FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email FROM clubs
+				SELECT uuid as id, name as full_name, email, slug FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
@@ -66,6 +67,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
+				u.slug as organizer_slug,
 				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp2.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
@@ -73,9 +75,9 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as participant_uuid
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email FROM organizations
+				SELECT uuid as id, name as full_name, email, username as slug FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email FROM clubs
+				SELECT uuid as id, name as full_name, email, slug FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
@@ -153,14 +155,15 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				u.full_name as organizer_name,
 				u.email as organizer_email,
 				u.avatar_url as organizer_avatar_url,
+				u.slug as organizer_slug,
 				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, avatar_url FROM organizations
+				SELECT uuid as id, name as full_name, email, avatar_url, username as slug FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, avatar_url FROM clubs
+				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id

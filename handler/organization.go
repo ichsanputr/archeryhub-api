@@ -15,7 +15,6 @@ type Organization struct {
 	Username           *string `db:"username" json:"username"`
 	Name               string  `db:"name" json:"name"`
 	Acronym            *string `db:"acronym" json:"acronym"`
-	Type               *string `db:"type" json:"type"`
 	Description        *string `db:"description" json:"description"`
 	Website            *string `db:"website" json:"website"`
 	Email              string  `db:"email" json:"email"`
@@ -24,7 +23,6 @@ type Organization struct {
 	BannerURL          *string `db:"banner_url" json:"banner_url"`
 	Address            *string `db:"address" json:"address"`
 	City               *string `db:"city" json:"city"`
-	Province           *string `db:"province" json:"province"`
 	Country            *string `db:"country" json:"country"`
 	RegistrationNumber *string `db:"registration_number" json:"registration_number"`
 	EstablishedDate    *string `db:"established_date" json:"established_date"`
@@ -47,8 +45,8 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 		status := c.DefaultQuery("status", "active")
 
 		query := `
-			SELECT uuid, username, name, acronym, type, description, website, email, phone,
-				   avatar_url, banner_url, address, city, province, country,
+			SELECT uuid, username, name, acronym, description, website, email, phone,
+				   avatar_url, banner_url, address, city, country,
 				   verification_status, status, created_at
 			FROM organizations
 			WHERE status = ?
@@ -95,8 +93,8 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 
 		var org Organization
 		err := db.Get(&org, `
-			SELECT uuid, username, name, acronym, type, description, website, email, phone,
-				   avatar_url, banner_url, address, city, province, country,
+			SELECT uuid, username, name, acronym, description, website, email, phone,
+				   avatar_url, banner_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter,
@@ -164,8 +162,8 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		var org Organization
 		err := db.Get(&org, `
-			SELECT uuid, username, name, acronym, type, description, website, email, phone,
-				   avatar_url, banner_url, address, city, province, country,
+			SELECT uuid, username, name, acronym, description, website, email, phone,
+				   avatar_url, banner_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter,
@@ -206,7 +204,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			Username           *string `json:"username"`
 			Name               *string `json:"name"`
 			Acronym            *string `json:"acronym"`
-			Type               *string `json:"type"`
 			Description        *string `json:"description"`
 			Website            *string `json:"website"`
 			Phone              *string `json:"phone"`
@@ -214,7 +211,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			BannerURL          *string `json:"banner_url"`
 			Address            *string `json:"address"`
 			City               *string `json:"city"`
-			Province           *string `json:"province"`
 			Country            *string `json:"country"`
 			RegistrationNumber *string `json:"registration_number"`
 			EstablishedDate    *string `json:"established_date"`
@@ -254,10 +250,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", acronym = ?"
 			args = append(args, *req.Acronym)
 		}
-		if req.Type != nil {
-			query += ", type = ?"
-			args = append(args, *req.Type)
-		}
 		if req.Description != nil {
 			query += ", description = ?"
 			args = append(args, *req.Description)
@@ -285,10 +277,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.City != nil {
 			query += ", city = ?"
 			args = append(args, *req.City)
-		}
-		if req.Province != nil {
-			query += ", province = ?"
-			args = append(args, *req.Province)
 		}
 		if req.Country != nil {
 			query += ", country = ?"

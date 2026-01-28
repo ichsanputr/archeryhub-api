@@ -319,6 +319,16 @@ func main() {
 			media.DELETE("/:id", handler.DeleteMedia(db))
 		}
 
+		// Notifications
+		notifications := api.Group("/notifications")
+		notifications.Use(middleware.AuthMiddleware())
+		{
+			notifications.GET("", handler.GetNotifications(db))
+			notifications.PUT("/:id/read", handler.MarkNotificationAsRead(db))
+			notifications.PUT("/mark-all-read", handler.MarkAllNotificationsAsRead(db))
+			notifications.POST("", handler.CreateNotification(db))
+		}
+
 		// Marketplace (Products)
 		products := api.Group("/products")
 		{
