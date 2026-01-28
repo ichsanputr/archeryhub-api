@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -150,6 +152,25 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 		socialMediaJSON, _ := json.Marshal(req.SocialMedia)
 		pageSettingsJSON, _ := json.Marshal(req.PageSettings)
 
+		// Parse established date from ISO format to MySQL date format
+		var establishedDate interface{}
+		if req.Established != "" {
+			// Try to parse ISO format (2020-01-15T00:00:00Z or 2020-01-15T00:00:00+00:00)
+			dateStr := strings.TrimSpace(req.Established)
+			// Remove timezone and time if present
+			if strings.Contains(dateStr, "T") {
+				dateStr = strings.Split(dateStr, "T")[0]
+			}
+			// Validate it's a valid date format (YYYY-MM-DD)
+			if parsedDate, err := time.Parse("2006-01-02", dateStr); err == nil {
+				establishedDate = parsedDate.Format("2006-01-02")
+			} else {
+				establishedDate = nil
+			}
+		} else {
+			establishedDate = nil
+		}
+
 		_, err = db.Exec(`
 			UPDATE clubs SET 
 				name = ?, slug = ?, slug_changed = ?, description = ?, banner_url = ?, logo_url = ?, avatar_url = ?, 
@@ -158,7 +179,7 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, updated_at = NOW()
 			WHERE uuid = ?`,
 			req.Name, newSlug, newSlugChanged, req.Description, req.BannerURL, req.LogoURL, req.LogoURL,
-			req.City, req.Province, req.Established, req.Phone, req.Email,
+			req.City, req.Province, establishedDate, req.Phone, req.Email,
 			req.Facebook, req.Instagram, req.Website, req.Address,
 			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), userID)
 
