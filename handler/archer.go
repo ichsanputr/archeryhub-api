@@ -105,6 +105,14 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		var total int
 		db.Get(&total, countQuery, countArgs...)
 
+		// Mask URLs
+		for i := range archers {
+			if archers[i].PhotoURL != nil {
+				masked := utils.MaskMediaURL(*archers[i].PhotoURL)
+				archers[i].PhotoURL = &masked
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"archers": archers,
 			"count":   len(archers),
@@ -139,10 +147,15 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		var archer models.ArcherWithStats
 		err := db.Get(&archer, query, id, id)
-
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
+		}
+
+		// Mask URLs
+		if archer.PhotoURL != nil {
+			masked := utils.MaskMediaURL(*archer.PhotoURL)
+			archer.PhotoURL = &masked
 		}
 
 		c.JSON(http.StatusOK, archer)

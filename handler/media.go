@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"archeryhub-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -142,17 +143,10 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Build the URL
-		baseURL := os.Getenv("API_BASE_URL")
-		if baseURL == "" {
-			baseURL = "http://localhost:8001"
-		}
-		fileURL := fmt.Sprintf("%s/media/%s", baseURL, filename)
-
 		response := MediaUploadResponse{
 			ID:        fileID,
 			Filename:  filename,
-			URL:       fileURL,
+			URL:       utils.MaskMediaURL(filename),
 			Size:      written,
 			MimeType:  contentType,
 			CreatedAt: time.Now().Format(time.RFC3339),
@@ -217,14 +211,8 @@ func ListMedia(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Reconstruct full URLs
-		baseURL := os.Getenv("API_BASE_URL")
-		if baseURL == "" {
-			baseURL = "http://localhost:8001"
-		}
 		for i := range mediaFiles {
-			// mediaFiles[i].URL now contains only filename from DB
-			mediaFiles[i].URL = fmt.Sprintf("%s/media/%s", baseURL, mediaFiles[i].URL)
+			mediaFiles[i].URL = utils.MaskMediaURL(mediaFiles[i].URL)
 		}
 
 		c.JSON(http.StatusOK, gin.H{

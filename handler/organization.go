@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"archeryhub-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -69,6 +70,17 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		for i := range orgs {
+			if orgs[i].AvatarURL != nil {
+				masked := utils.MaskMediaURL(*orgs[i].AvatarURL)
+				orgs[i].AvatarURL = &masked
+			}
+			if orgs[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*orgs[i].BannerURL)
+				orgs[i].BannerURL = &masked
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"organizations": orgs,
 			"total":         len(orgs),
@@ -98,6 +110,16 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Mask URLs
+		if org.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*org.AvatarURL)
+			org.AvatarURL = &masked
+		}
+		if org.BannerURL != nil {
+			masked := utils.MaskMediaURL(*org.BannerURL)
+			org.BannerURL = &masked
+		}
+
 		// Get events organized by this organization
 		var events []struct {
 			UUID      string  `db:"uuid" json:"id"`
@@ -116,6 +138,13 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY start_date DESC
 			LIMIT 10
 		`, org.UUID)
+
+		for i := range events {
+			if events[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*events[i].LogoURL)
+				events[i].LogoURL = &masked
+			}
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"organization": org,
@@ -148,6 +177,16 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found"})
 			return
+		}
+
+		// Mask URLs
+		if org.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*org.AvatarURL)
+			org.AvatarURL = &masked
+		}
+		if org.BannerURL != nil {
+			masked := utils.MaskMediaURL(*org.BannerURL)
+			org.BannerURL = &masked
 		}
 
 		c.JSON(http.StatusOK, gin.H{"organization": org})
@@ -233,11 +272,11 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.AvatarURL != nil {
 			query += ", avatar_url = ?"
-			args = append(args, *req.AvatarURL)
+			args = append(args, utils.ExtractFilename(*req.AvatarURL))
 		}
 		if req.BannerURL != nil {
 			query += ", banner_url = ?"
-			args = append(args, *req.BannerURL)
+			args = append(args, utils.ExtractFilename(*req.BannerURL))
 		}
 		if req.Address != nil {
 			query += ", address = ?"

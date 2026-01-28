@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"archeryhub-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -81,6 +82,20 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error or club not found: " + err.Error()})
 			return
+		}
+
+		// Mask URLs
+		if club.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*club.AvatarURL)
+			club.AvatarURL = &masked
+		}
+		if club.BannerURL != nil {
+			masked := utils.MaskMediaURL(*club.BannerURL)
+			club.BannerURL = &masked
+		}
+		if club.LogoURL != nil {
+			masked := utils.MaskMediaURL(*club.LogoURL)
+			club.LogoURL = &masked
 		}
 
 		c.JSON(http.StatusOK, club)
@@ -178,7 +193,7 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 				social_facebook = ?, social_instagram = ?, website = ?, address = ?,
 				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, updated_at = NOW()
 			WHERE uuid = ?`,
-			req.Name, newSlug, newSlugChanged, req.Description, req.BannerURL, req.LogoURL, req.LogoURL,
+			req.Name, newSlug, newSlugChanged, req.Description, utils.ExtractFilename(req.BannerURL), utils.ExtractFilename(req.LogoURL), utils.ExtractFilename(req.LogoURL),
 			req.City, req.Province, establishedDate, req.Phone, req.Email,
 			req.Facebook, req.Instagram, req.Website, req.Address,
 			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), userID)

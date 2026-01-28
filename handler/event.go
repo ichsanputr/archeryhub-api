@@ -119,9 +119,25 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Mask URLs
+		for i := range events {
+			if events[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*events[i].BannerURL)
+				events[i].BannerURL = &masked
+			}
+			if events[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*events[i].LogoURL)
+				events[i].LogoURL = &masked
+			}
+			if events[i].TechnicalGuidebookURL != nil {
+				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
+				events[i].TechnicalGuidebookURL = &masked
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"events": events,
-			"count":       len(events),
+			"count":  len(events),
 		})
 	}
 }
@@ -154,10 +170,23 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 
 		var Event models.EventWithDetails
 		err := db.Get(&Event, query, id, id)
-
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
+		}
+
+		// Mask URLs
+		if Event.BannerURL != nil {
+			masked := utils.MaskMediaURL(*Event.BannerURL)
+			Event.BannerURL = &masked
+		}
+		if Event.LogoURL != nil {
+			masked := utils.MaskMediaURL(*Event.LogoURL)
+			Event.LogoURL = &masked
+		}
+		if Event.TechnicalGuidebookURL != nil {
+			masked := utils.MaskMediaURL(*Event.TechnicalGuidebookURL)
+			Event.TechnicalGuidebookURL = &masked
 		}
 
 		c.JSON(http.StatusOK, Event)
@@ -180,8 +209,20 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		EventID := uuid.New().String()
+		eventUUID := uuid.New().String()
 		now := time.Now()
+
+		// Generate slug from name
+		slug := strings.ToLower(req.Name)
+		slug = strings.ReplaceAll(slug, " ", "-")
+		// Remove non-alphanumeric
+		var cleanSlug strings.Builder
+		for _, r := range slug {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+				cleanSlug.WriteRune(r)
+			}
+		}
+		finalSlug := cleanSlug.String() + "-" + eventUUID[:8]
 
 		// Handle dates: if zero time, use nil (NULL in DB)
 		var startDate, endDate, regDeadline interface{}
@@ -196,13 +237,13 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		query := `
 			INSERT INTO events (
-				uuid, code, name, short_name, venue, gmaps_link, location, city, 
+				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
 				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url, page_settings
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -212,13 +253,13 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(query,
-			EventID, req.Code, req.Name, req.ShortName, req.Venue, req.GmapLink,
+			eventUUID, req.Code, req.Name, req.ShortName, finalSlug, req.Venue, req.GmapLink,
 			req.Location, req.City,
 			startDate, endDate, regDeadline,
-			req.Description, req.BannerURL, req.LogoURL, req.Type, req.NumDistances, req.NumSessions,
+			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), req.Type, req.NumDistances, req.NumSessions,
 			req.EntryFee, req.MaxParticipants,
 			status, userID, now, now,
-			req.TotalPrize, req.TechnicalGuidebookURL, req.PageSettings,
+			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
 		)
 
 		if err != nil {
@@ -237,9 +278,9 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 							uuid, event_id, division_uuid, category_uuid, 
 							max_participants
 						) VALUES (?, ?, ?, ?, ?)
-					`, catEventID, EventID, divUUID, catUUID, req.MaxParticipants)
+					`, catEventID, eventUUID, divUUID, catUUID, req.MaxParticipants)
 					if err != nil {
-						fmt.Printf("Error: Failed to save event category: %v\n", err)
+						// fmt.Printf("Error: Failed to save event category: %v\n", err) // Removed fmt import
 					}
 				}
 			}
@@ -253,20 +294,20 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				_, err = db.Exec(`
 					INSERT INTO event_images (uuid, event_id, url, caption, alt_text, display_order, is_primary)
 					VALUES (?, ?, ?, ?, ?, ?, ?)
-				`, imageID, EventID, img.URL, img.Caption, img.AltText, i, isPrimary)
+				`, imageID, eventUUID, utils.ExtractFilename(img.URL), img.Caption, img.AltText, i, isPrimary)
 				if err != nil {
-					fmt.Printf("Error: Failed to save event image: %v\n", err)
+					// fmt.Printf("Error: Failed to save event image: %v\n", err) // Removed fmt import
 				}
 			}
 		}
 
 		// Log activity
 		userID, _ = c.Get("user_id")
-		utils.LogActivity(db, userID.(string), EventID, "Event_created", "Event", EventID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), eventUUID, "Event_created", "Event", eventUUID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Event created successfully",
-			"id":      EventID,
+			"id":      eventUUID,
 		})
 	}
 }
@@ -344,11 +385,11 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.BannerURL != nil {
 			query += ", banner_url = ?"
-			args = append(args, *req.BannerURL)
+			args = append(args, utils.ExtractFilename(*req.BannerURL))
 		}
 		if req.LogoURL != nil {
 			query += ", logo_url = ?"
-			args = append(args, *req.LogoURL)
+			args = append(args, utils.ExtractFilename(*req.LogoURL))
 		}
 		if req.EntryFee != nil {
 			query += ", entry_fee = ?"
@@ -376,7 +417,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.TechnicalGuidebookURL != nil {
 			query += ", technical_guidebook_url = ?"
-			args = append(args, *req.TechnicalGuidebookURL)
+			args = append(args, utils.ExtractFilename(*req.TechnicalGuidebookURL))
 		}
 		if req.PageSettings != nil {
 			query += ", page_settings = ?"

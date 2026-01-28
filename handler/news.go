@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"archeryhub-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -134,8 +135,11 @@ func GetNewsByID(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Increment views
-		db.Exec("UPDATE news SET views = views + 1 WHERE uuid = ?", article.UUID)
+		// Mask URL
+		if article.ImageURL != nil {
+			masked := utils.MaskMediaURL(*article.ImageURL)
+			article.ImageURL = &masked
+		}
 
 		c.JSON(http.StatusOK, gin.H{"data": article})
 	}
@@ -191,7 +195,7 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO news (uuid, organization_id, club_id, title, slug, excerpt, content, image_url, 
 			                  category, status, author_name, author_id, meta_title, meta_description, published_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, newsID, orgID, clubID, req.Title, slug, req.Excerpt, req.Content, req.ImageURL,
+		`, newsID, orgID, clubID, req.Title, slug, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
 			req.Category, req.Status, authorName, userID, req.MetaTitle, req.MetaDescription, publishedAt)
 
 		if err != nil {
@@ -246,7 +250,7 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 				title = ?, excerpt = ?, content = ?, image_url = ?, 
 				category = ?, status = ?, meta_title = ?, meta_description = ?`+publishedAtUpdate+`
 			WHERE uuid = ?
-		`, req.Title, req.Excerpt, req.Content, req.ImageURL,
+		`, req.Title, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
 			req.Category, req.Status, req.MetaTitle, req.MetaDescription, id)
 
 		if err != nil {

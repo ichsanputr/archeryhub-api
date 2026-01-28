@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"archeryhub-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -132,6 +133,16 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Mask URLs
+		if user.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*user.AvatarURL)
+			user.AvatarURL = &masked
+		}
+		if user.LogoURL != nil {
+			masked := utils.MaskMediaURL(*user.LogoURL)
+			user.LogoURL = &masked
+		}
+
 		c.JSON(http.StatusOK, user)
 	}
 }
@@ -207,6 +218,14 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				query += ", head_coach_phone = ?"
 				args = append(args, *req.HeadCoachPhone)
 			}
+			if req.AvatarURL != nil {
+				query += ", avatar_url = ?"
+				args = append(args, utils.ExtractFilename(*req.AvatarURL))
+			}
+			if req.BannerURL != nil {
+				query += ", banner_url = ?"
+				args = append(args, utils.ExtractFilename(*req.BannerURL))
+			}
 			if req.EstablishedDate != nil && *req.EstablishedDate != "" {
 				// Try to parse year from date string
 				t, err := time.Parse("2006-01-02", *req.EstablishedDate)
@@ -279,11 +298,11 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			}
 			if req.AvatarURL != nil {
 				query += ", avatar_url = ?"
-				args = append(args, *req.AvatarURL)
+				args = append(args, utils.ExtractFilename(*req.AvatarURL))
 			}
 			if req.BannerURL != nil {
 				query += ", banner_url = ?"
-				args = append(args, *req.BannerURL)
+				args = append(args, utils.ExtractFilename(*req.BannerURL))
 			}
 
 			if len(args) == 0 {
