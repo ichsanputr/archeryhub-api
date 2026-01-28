@@ -152,14 +152,15 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				u.full_name as organizer_name,
 				u.email as organizer_email,
+				u.avatar_url as organizer_avatar_url,
 				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email FROM organizations
+				SELECT uuid as id, name as full_name, email, avatar_url FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email FROM clubs
+				SELECT uuid as id, name as full_name, email, avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
@@ -187,6 +188,10 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 		if Event.TechnicalGuidebookURL != nil {
 			masked := utils.MaskMediaURL(*Event.TechnicalGuidebookURL)
 			Event.TechnicalGuidebookURL = &masked
+		}
+		if Event.OrganizerAvatarURL != nil {
+			masked := utils.MaskMediaURL(*Event.OrganizerAvatarURL)
+			Event.OrganizerAvatarURL = &masked
 		}
 
 		c.JSON(http.StatusOK, Event)

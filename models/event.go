@@ -64,6 +64,7 @@ type EventWithDetails struct {
 	Event
 	OrganizerName      *string `json:"organizer_name" db:"organizer_name"`
 	OrganizerEmail     *string `json:"organizer_email" db:"organizer_email"`
+	OrganizerAvatarURL *string `json:"organizer_avatar_url" db:"organizer_avatar_url"`
 	ParticipantCount   int     `json:"participant_count" db:"participant_count"`
 	EventCount         int     `json:"event_count" db:"event_count"`
 	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status"`
