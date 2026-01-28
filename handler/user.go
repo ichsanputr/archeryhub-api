@@ -111,11 +111,17 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			FullName     *string `json:"full_name" db:"full_name"`
 			UserType     string  `json:"user_type" db:"user_type"`
 			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
+			LogoURL      *string `json:"logo_url" db:"logo_url"`
 			HasPassword  bool    `json:"has_password" db:"has_password"`
 		}
 
+		logoField := "NULL as logo_url"
+		if userType == "club" {
+			logoField = "logo_url"
+		}
+
 		query := `
-			SELECT uuid, email, ` + nameField + ` as full_name, role as user_type, avatar_url,
+			SELECT uuid, email, ` + nameField + ` as full_name, role as user_type, avatar_url, ` + logoField + `,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password
 			FROM ` + table + ` WHERE uuid = ?
 		`

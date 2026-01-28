@@ -195,6 +195,7 @@ func main() {
 			protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
 			protected.POST("/:id/participants", handler.RegisterParticipant(db))
 			protected.PUT("/:id/images", handler.UpdateEventImages(db))
+			protected.PUT("/:id/schedule", handler.UpdateEventSchedule(db))
 			protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
 			protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
 			protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))

@@ -496,6 +496,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		limitStr := c.DefaultQuery("limit", "10")
 		offsetStr := c.DefaultQuery("offset", "0")
+		categoryFilter := c.Query("category")
+		searchQuery := c.Query("search")
 
 		limit, _ := strconv.Atoi(limitStr)
 		offset, _ := strconv.Atoi(offsetStr)
@@ -508,11 +510,42 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get total count
+		// Build WHERE clause for filtering
+		whereClause := "WHERE tp.event_id = ?"
+		args := []interface{}{actualEventID}
+		countArgs := []interface{}{actualEventID}
+
+		// Filter by category (format: "Division Gender" e.g., "Recurve Men", "Compound Women")
+		if categoryFilter != "" && categoryFilter != "Semua" {
+			parts := strings.Fields(categoryFilter)
+			if len(parts) >= 2 {
+				divisionName := parts[0]
+				genderName := parts[1]
+				whereClause += " AND d.name = ? AND gd.name = ?"
+				args = append(args, divisionName, genderName)
+				countArgs = append(args, divisionName, genderName)
+			} else if len(parts) == 1 {
+				// Only division filter
+				whereClause += " AND d.name = ?"
+				args = append(args, parts[0])
+				countArgs = append(args, parts[0])
+			}
+		}
+
+		// Filter by search query
+		if searchQuery != "" {
+			searchTerm := "%" + searchQuery + "%"
+			whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ?)"
+			args = append(args, searchTerm, searchTerm)
+			countArgs = append(args, searchTerm, searchTerm)
+		}
+
+		// Get total count with filters
+		countQuery := "SELECT COUNT(*) FROM event_participants tp JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid LEFT JOIN event_categories te ON tp.category_id = te.uuid LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid " + whereClause
 		var total int
-		err = db.Get(&total, "SELECT COUNT(*) FROM event_participants WHERE event_id = ?", actualEventID)
+		err = db.Get(&total, countQuery, countArgs...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count participants"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count participants", "details": err.Error()})
 			return
 		}
 
@@ -538,7 +571,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var participants []Participant
-		err = db.Select(&participants, `
+		query := `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
@@ -554,10 +587,12 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
-			WHERE tp.event_id = ?
+			` + whereClause + `
 			ORDER BY d.name, c.name, a.full_name
 			LIMIT ? OFFSET ?
-		`, actualEventID, limit, offset)
+		`
+		args = append(args, limit, offset)
+		err = db.Select(&participants, query, args...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
@@ -683,6 +718,83 @@ func GetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"schedules": schedules,
 			"count":     len(schedules),
+		})
+	}
+}
+
+// UpdateEventSchedule updates event schedules (replaces all)
+func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		// Resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		var req struct {
+			Schedules []struct {
+				ID          *string `json:"id"`
+				Title       string  `json:"title" binding:"required"`
+				Description *string `json:"description"`
+				StartTime   string  `json:"start_time" binding:"required"`
+				EndTime     *string `json:"end_time"`
+				DayOrder    *int    `json:"day_order"`
+				SortOrder   *int    `json:"sort_order"`
+				Location    *string `json:"location"`
+			} `json:"schedules" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			return
+		}
+
+		// Delete existing schedules
+		_, err = db.Exec("DELETE FROM event_schedule WHERE event_id = ?", actualEventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete existing schedules", "details": err.Error()})
+			return
+		}
+
+		// Insert new schedules
+		for _, s := range req.Schedules {
+			scheduleID := uuid.New().String()
+			if s.ID != nil && *s.ID != "" {
+				scheduleID = *s.ID
+			}
+
+			var endTime interface{}
+			if s.EndTime != nil && *s.EndTime != "" {
+				endTime = *s.EndTime
+			}
+
+			dayOrder := 1
+			if s.DayOrder != nil {
+				dayOrder = *s.DayOrder
+			}
+
+			sortOrder := 1
+			if s.SortOrder != nil {
+				sortOrder = *s.SortOrder
+			}
+
+			_, err = db.Exec(`
+				INSERT INTO event_schedule (uuid, event_id, title, description, start_time, end_time, day_order, sort_order, location)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, scheduleID, actualEventID, s.Title, s.Description, s.StartTime, endTime, dayOrder, sortOrder, s.Location)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save schedule", "details": err.Error()})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Event schedules updated successfully",
+			"count":   len(req.Schedules),
 		})
 	}
 }
