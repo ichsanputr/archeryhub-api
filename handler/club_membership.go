@@ -69,22 +69,24 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 
 		// Fetch data
 		query := `
-			SELECT c.uuid, c.name, c.slug, c.avatar_url, c.banner_url, c.logo_url, c.city, c.province, 
+			SELECT c.uuid, c.name, c.slug, c.avatar_url, c.banner_url, c.logo_url, c.city, c.province, c.phone, c.social_instagram,
 				   (SELECT COUNT(*) FROM club_members WHERE club_id = c.uuid AND status = 'active') as member_count
 		` + baseQuery + ` ORDER BY c.name ASC LIMIT ? OFFSET ?`
 
 		fetchArgs := append(args, limit, offset)
 
 		var clubs []struct {
-			UUID        string  `json:"uuid" db:"uuid"`
-			Name        string  `json:"name" db:"name"`
-			Slug        string  `json:"slug" db:"slug"`
-			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL   *string `json:"banner_url" db:"banner_url"`
-			LogoURL     *string `json:"logo_url" db:"logo_url"`
-			City        *string `json:"city" db:"city"`
-			Province    *string `json:"province" db:"province"`
-			MemberCount int     `json:"member_count" db:"member_count"`
+			UUID            string  `json:"uuid" db:"uuid"`
+			Name            string  `json:"name" db:"name"`
+			Slug            string  `json:"slug" db:"slug"`
+			AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL       *string `json:"banner_url" db:"banner_url"`
+			LogoURL         *string `json:"logo_url" db:"logo_url"`
+			City            *string `json:"city" db:"city"`
+			Province        *string `json:"province" db:"province"`
+			Phone           *string `json:"phone" db:"phone"`
+			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
+			MemberCount     int     `json:"member_count" db:"member_count"`
 		}
 
 		err = db.Select(&clubs, query, fetchArgs...)
@@ -95,15 +97,17 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 
 		if clubs == nil {
 			clubs = []struct {
-				UUID        string  `json:"uuid" db:"uuid"`
-				Name        string  `json:"name" db:"name"`
-				Slug        string  `json:"slug" db:"slug"`
-				AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-				BannerURL   *string `json:"banner_url" db:"banner_url"`
-				LogoURL     *string `json:"logo_url" db:"logo_url"`
-				City        *string `json:"city" db:"city"`
-				Province    *string `json:"province" db:"province"`
-				MemberCount int     `json:"member_count" db:"member_count"`
+				UUID            string  `json:"uuid" db:"uuid"`
+				Name            string  `json:"name" db:"name"`
+				Slug            string  `json:"slug" db:"slug"`
+				AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
+				BannerURL       *string `json:"banner_url" db:"banner_url"`
+				LogoURL         *string `json:"logo_url" db:"logo_url"`
+				City            *string `json:"city" db:"city"`
+				Province        *string `json:"province" db:"province"`
+				Phone           *string `json:"phone" db:"phone"`
+				SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
+				MemberCount     int     `json:"member_count" db:"member_count"`
 			}{}
 		}
 

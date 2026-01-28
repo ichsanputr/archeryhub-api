@@ -229,3 +229,74 @@ func UpdateMyClubProfile(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Club sections updated successfully"})
 	}
 }
+
+// GetClubDashboardStats returns real-time statistics for the club dashboard
+func GetClubDashboardStats(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		// Get club UUID
+		var clubID string
+		err := db.Get(&clubID, "SELECT uuid FROM clubs WHERE user_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			return
+		}
+
+		var stats struct {
+			TotalMembers   int `json:"totalMembers"`
+			ActiveArchers  int `json:"activeArchers"`
+			UpcomingEvents int `json:"upcomingEvents"`
+			TotalAwards    int `json:"totalAwards"`
+		}
+
+		// Total Members
+		db.Get(&stats.TotalMembers, "SELECT COUNT(*) FROM club_members WHERE club_id = ?", clubID)
+
+		// Active Archers
+		db.Get(&stats.ActiveArchers, "SELECT COUNT(*) FROM club_members WHERE club_id = ? AND status = 'active'", clubID)
+
+		// Upcoming Events (General upcoming events as a fallback)
+		db.Get(&stats.UpcomingEvents, "SELECT COUNT(*) FROM events WHERE status IN ('published', 'ongoing') AND start_date >= NOW()")
+
+		// Total Awards (Generic count for now)
+		stats.TotalAwards = 0
+
+		// Recent Members
+		var recentMembers []struct {
+			Name     string `json:"name" db:"name"`
+			JoinDate string `json:"joinDate" db:"joinDate"`
+			Status   string `json:"status" db:"status"`
+		}
+		db.Select(&recentMembers, `
+			SELECT u.full_name as name, DATE_FORMAT(cm.created_at, '%d %b %Y') as joinDate, cm.status
+			FROM club_members cm
+			JOIN archers u ON cm.archer_id = u.uuid
+			WHERE cm.club_id = ?
+			ORDER BY cm.created_at DESC
+			LIMIT 5
+		`, clubID)
+
+		// Upcoming Tournaments
+		var upcomingTournaments []struct {
+			ID     string `json:"id" db:"id"`
+			Name   string `json:"name" db:"name"`
+			Date   string `json:"date" db:"date"`
+			Status string `json:"status" db:"status"`
+		}
+		db.Select(&upcomingTournaments, `
+			SELECT uuid as id, name, DATE_FORMAT(start_date, '%d %b %Y') as date, status
+			FROM events
+			WHERE status IN ('published', 'ongoing') AND start_date >= NOW()
+			ORDER BY start_date ASC
+			LIMIT 3
+		`)
+
+		c.JSON(http.StatusOK, gin.H{
+			"stats":               stats,
+			"recentMembers":       recentMembers,
+			"upcomingTournaments": upcomingTournaments,
+		})
+	}
+}
+
