@@ -69,7 +69,6 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp2.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
-				tp.accreditation_status,
 				tp.payment_status,
 				tp.uuid as participant_uuid
 			FROM events t
@@ -98,7 +97,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			}
 			
 			query += `
-			GROUP BY t.uuid, tp.accreditation_status, tp.payment_status, tp.uuid, u.full_name, u.email, d.name, t.type
+			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, d.name, t.type
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
@@ -566,7 +565,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			TargetNumber        *string `db:"target_number" json:"target_number"`
 			Session             *int    `db:"session" json:"session"`
 			Status              string  `db:"status" json:"status"`
-			AccreditationStatus string  `db:"accreditation_status" json:"accreditation_status"`
+			AvatarURL           *string `db:"avatar_url" json:"avatar_url"`
 			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
 		}
 
@@ -574,8 +573,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
-				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
-				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id,
+				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
+				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id, a.avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
@@ -599,11 +598,18 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Get verified and pending counts
+		var verifiedCount, pendingCount int
+		db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND status = 'Terdaftar'", actualEventID)
+		db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND status = 'Menunggu Acc'", actualEventID)
+
 		c.JSON(http.StatusOK, gin.H{
-			"participants": participants,
-			"total":        total,
-			"limit":        limit,
-			"offset":       offset,
+			"participants":   participants,
+			"total":          total,
+			"verified_count": verifiedCount,
+			"pending_count":  pendingCount,
+			"limit":          limit,
+			"offset":         offset,
 		})
 	}
 }
@@ -643,7 +649,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			TargetNumber        *string `db:"target_number" json:"target_number"`
 			Session             *int    `db:"session" json:"session"`
 			Status              string  `db:"status" json:"status"`
-			AccreditationStatus string  `db:"accreditation_status" json:"accreditation_status"`
+			AvatarURL           *string `db:"avatar_url" json:"avatar_url"`
 			PaymentAmount       float64 `db:"payment_amount" json:"payment_amount"`
 			PaymentProofURLs    *string `db:"payment_proof_urls" json:"payment_proof_urls"`
 			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
@@ -654,8 +660,8 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				tp.payment_amount, tp.payment_proof_urls,
-				COALESCE(tp.status, 'Menunggu Acc') as status, tp.accreditation_status, tp.registration_date,
-				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id,
+				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
+				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id, a.avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name

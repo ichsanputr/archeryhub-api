@@ -312,11 +312,11 @@ func main() {
 
 		// Media Upload & Management
 		media := api.Group("/media")
+		media.Use(middleware.AuthMiddleware())
 		{
-			media.GET("", handler.ListMedia())
-			media.GET("/:filename", handler.GetMedia())
-			media.POST("/upload", handler.UploadMedia())
-			media.DELETE("/:filename", middleware.AuthMiddleware(), handler.DeleteMedia())
+			media.GET("", handler.ListMedia(db))
+			media.POST("/upload", handler.UploadMedia(db))
+			media.DELETE("/:id", handler.DeleteMedia(db))
 		}
 
 		// Marketplace (Products)
