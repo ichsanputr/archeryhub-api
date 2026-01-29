@@ -85,6 +85,14 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 			news = []News{}
 		}
 
+		// Mask URLs
+		for i := range news {
+			if news[i].ImageURL != nil {
+				masked := utils.MaskMediaURL(*news[i].ImageURL)
+				news[i].ImageURL = &masked
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{"data": news})
 	}
 }
@@ -110,6 +118,14 @@ func GetNewsPublic(db *sqlx.DB) gin.HandlerFunc {
 
 		if news == nil {
 			news = []News{}
+		}
+
+		// Mask URLs
+		for i := range news {
+			if news[i].ImageURL != nil {
+				masked := utils.MaskMediaURL(*news[i].ImageURL)
+				news[i].ImageURL = &masked
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": news})

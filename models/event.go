@@ -71,6 +71,8 @@ type EventWithDetails struct {
 	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status"`
 	PaymentStatus      *string `json:"payment_status" db:"payment_status"`
 	ParticipantUUID    *string `json:"participant_uuid" db:"participant_uuid"`
+	WhatsAppNumber     *string `json:"whatsapp_number" db:"whatsapp_number"`
+	VenueType          *string `json:"venue_type" db:"venue_type"`
 }
 
 // CreateEventRequest represents the request payload for creating a Event

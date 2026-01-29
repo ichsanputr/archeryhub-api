@@ -661,6 +661,14 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND status = 'Terdaftar'", actualEventID)
 		db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND status = 'Menunggu Acc'", actualEventID)
 
+		// Mask avatar URLs
+		for i := range participants {
+			if participants[i].AvatarURL != nil {
+				masked := utils.MaskMediaURL(*participants[i].AvatarURL)
+				participants[i].AvatarURL = &masked
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"participants":   participants,
 			"total":          total,
@@ -744,6 +752,12 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				"event_id": actualEventID,
 			})
 			return
+		}
+
+		// Mask avatar URL
+		if participant.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*participant.AvatarURL)
+			participant.AvatarURL = &masked
 		}
 
 		c.JSON(http.StatusOK, participant)
