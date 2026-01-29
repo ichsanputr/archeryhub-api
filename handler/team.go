@@ -102,14 +102,26 @@ func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 
+		userType, _ := c.Get("user_type")
+
 		query := `
 			SELECT t.*, e.name as event_name, c.name as category_name, COUNT(tm.id) as member_count 
 			FROM teams t
 			JOIN events e ON t.tournament_id = e.uuid
 			JOIN event_categories c ON t.event_id = c.uuid
 			LEFT JOIN team_members tm ON t.uuid = tm.team_id
-			WHERE e.organization_id = (SELECT organization_id FROM users WHERE uuid = ?)
-			   OR e.club_id = (SELECT club_id FROM users WHERE uuid = ?)
+			WHERE `
+		
+		if userType == "organization" {
+			query += "e.organization_id = ?"
+		} else if userType == "club" {
+			query += "e.club_id = ?"
+		} else {
+			c.JSON(http.StatusOK, gin.H{"data": []interface{}{}, "total": 0})
+			return
+		}
+
+		query += `
 			GROUP BY t.uuid
 			ORDER BY t.created_at DESC
 		`
@@ -121,7 +133,7 @@ func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 			MemberCount  int    `json:"member_count" db:"member_count"`
 		}
 		
-		err := db.Select(&teams, query, userID, userID)
+		err := db.Select(&teams, query, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your teams"})
 			return

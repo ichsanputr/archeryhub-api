@@ -331,13 +331,14 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if Event exists
-		var exists bool
-		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ?)`, id)
-		if err != nil || !exists {
+		// Resolve slug to UUID if needed
+		var actualID string
+		err := db.Get(&actualID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, id, id)
+		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
+		id = actualID
 
 		// Build dynamic update query
 		query := "UPDATE events SET updated_at = NOW()"
@@ -454,7 +455,15 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		result, err := db.Exec("DELETE FROM events WHERE uuid = ?", id)
+		// Resolve slug to UUID if needed
+		var actualID string
+		err := db.Get(&actualID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		result, err := db.Exec("DELETE FROM events WHERE uuid = ?", actualID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete Event", "details": err.Error()})
 			return

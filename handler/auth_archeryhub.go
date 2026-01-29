@@ -63,19 +63,34 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if user already exists in any table
-		var exists bool
-		query := "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ? OR username = ?) " +
-			"OR EXISTS(SELECT 1 FROM organizations WHERE email = ? OR username = ?) " +
-			"OR EXISTS(SELECT 1 FROM clubs WHERE email = ? OR username = ?) " +
-			"OR EXISTS(SELECT 1 FROM sellers WHERE email = ? OR username = ?)"
-		err := db.Get(&exists, query, req.Email, req.Username, req.Email, req.Username, req.Email, req.Username, req.Email, req.Username)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
-			return
+		// Check if user already exists in any table and identify where
+		type Existence struct {
+			Source string
 		}
-		if exists {
-			c.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
+		var exist Existence
+		
+		// Use a COALESCE-based approach to find where it exists
+		checkQuery := `
+			SELECT 'archer' as Source FROM archers WHERE email = ? OR username = ?
+			UNION ALL
+			SELECT 'organization' as Source FROM organizations WHERE email = ? OR username = ?
+			UNION ALL
+			SELECT 'club' as Source FROM clubs WHERE email = ? OR username = ?
+			UNION ALL
+			SELECT 'seller' as Source FROM sellers WHERE email = ? OR username = ?
+			LIMIT 1
+		`
+		err := db.Get(&exist, checkQuery, 
+			req.Email, req.Username, 
+			req.Email, req.Username, 
+			req.Email, req.Username, 
+			req.Email, req.Username)
+			
+		if err == nil && exist.Source != "" {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "User with this email or username already exists",
+				"type": exist.Source,
+			})
 			return
 		}
 
@@ -91,10 +106,10 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		insertQuery := `
-			INSERT INTO ` + table + ` (uuid, username, email, password, ` + nameField + `, phone, role, status)
-			VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+			INSERT INTO ` + table + ` (uuid, username, email, password, ` + nameField + `, phone, status)
+			VALUES (?, ?, ?, ?, ?, ?, 'active')
 		`
-		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone, role)
+		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
@@ -197,7 +212,8 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		found := false
 
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, username, email, password, full_name, avatar_url, role, status FROM archers WHERE email = ?", req.Email)
+		// Check archers
+		err := db.Get(&user, "SELECT uuid, username, email, password, full_name, avatar_url, 'archer' as role, status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -205,7 +221,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check organizations
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, role, status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, 'organization' as role, status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -214,7 +230,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, role, status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, 'club' as role, status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -223,7 +239,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check sellers
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, store_name as full_name, avatar_url, role, status FROM sellers WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, username, email, password, store_name as full_name, avatar_url, 'seller' as role, status FROM sellers WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "seller"
 				found = true
@@ -350,7 +366,9 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt string  `db:"created_at" json:"created_at"`
 		}
 
-		query := `SELECT uuid, username, email, slug, ` + nameField + ` as full_name, role, avatar_url, phone, status, created_at`
+		roleSelect := "'" + userType.(string) + "' as role"
+
+		query := `SELECT uuid, username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
 		if table == "archers" {
 			query += ", bio, achievements"
 		} else if table == "sellers" {

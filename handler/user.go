@@ -122,8 +122,10 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			logoField = "avatar_url as logo_url"
 		}
 
+		roleField := "'" + userType.(string) + "'"
+
 		query := `
-			SELECT uuid, email, ` + nameField + ` as full_name, role as user_type, avatar_url, ` + logoField + `,
+			SELECT uuid, email, ` + nameField + ` as full_name, ` + roleField + ` as user_type, avatar_url, ` + logoField + `,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password
 			FROM ` + table + ` WHERE uuid = ?
 		`

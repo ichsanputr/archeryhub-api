@@ -237,8 +237,8 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO archers (
 				uuid, username, email, password, full_name, nickname,
 				date_of_birth, gender, bow_type, country, city, club_id,
-				phone, address, photo_url, role, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'archer', 'active', ?, ?)
+				phone, address, photo_url, status, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
 		`
 
 		_, err := db.Exec(query,

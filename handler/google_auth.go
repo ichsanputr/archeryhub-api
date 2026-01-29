@@ -186,49 +186,38 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		found := false
 		isNewUser := false
 
-		// Check archers
-		var existingID string
-		err = db.Get(&existingID, "SELECT uuid FROM archers WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
-		if err == nil && existingID != "" {
-			userType = "archer"
-			userID = existingID
-			found = true
+		// Find existing user across all tables
+		type UserRecord struct {
+			UUID string `db:"uuid"`
+			Type string
+			Role string `db:"role"`
 		}
+		var record UserRecord
+		
+		// Priority search
+		tables := []string{"archers", "organizations", "clubs", "sellers"}
+		for _, t := range tables {
+			typeToRole := t
+			if typeToRole == "archers" { typeToRole = "archer" }
+			if typeToRole == "organizations" { typeToRole = "organization" }
+			if typeToRole == "clubs" { typeToRole = "club" }
+			if typeToRole == "sellers" { typeToRole = "seller" }
 
-		// Check organizations
-		if !found {
-			err = db.Get(&existingID, "SELECT uuid FROM organizations WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
-			if err == nil && existingID != "" {
-				userType = "organization"
-				userID = existingID
+			query := "SELECT uuid, '"+typeToRole+"' as role FROM "+t+" WHERE email = ? OR google_id = ?"
+			err = db.Get(&record, query, userInfo.Email, userInfo.ID)
+			if err == nil && record.UUID != "" {
+				userType = typeToRole
+				userID = record.UUID
+				role = record.Role
 				found = true
-			}
-		}
-
-		// Check clubs
-		if !found {
-			err = db.Get(&existingID, "SELECT uuid FROM clubs WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
-			if err == nil && existingID != "" {
-				userType = "club"
-				userID = existingID
-				found = true
-			}
-		}
-
-		// Check sellers
-		if !found {
-			err = db.Get(&existingID, "SELECT uuid FROM sellers WHERE email = ? OR google_id = ?", userInfo.Email, userInfo.ID)
-			if err == nil && existingID != "" {
-				userType = "seller"
-				userID = existingID
-				found = true
+				break
 			}
 		}
 
 		if found {
 			// Update existing user
-			table := "archers"
-			nameField := "full_name"
+			table := ""
+			nameField := ""
 			switch userType {
 			case "organization":
 				table = "organizations"
@@ -239,9 +228,10 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			case "seller":
 				table = "sellers"
 				nameField = "store_name"
+			default: // archer
+				table = "archers"
+				nameField = "full_name"
 			}
-
-			err = db.Get(&role, "SELECT role FROM "+table+" WHERE uuid = ?", userID)
 
 			// Update Google-specific fields
 			_, err = db.Exec(`
@@ -270,25 +260,25 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			switch userType {
 			case "organization":
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, username, email, google_id, name, avatar_url, role, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'organization', 'active', NOW(), NOW())
+					INSERT INTO organizations (uuid, username, email, google_id, name, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "club":
 				_, insertErr = db.Exec(`
-					INSERT INTO clubs (uuid, username, email, google_id, name, avatar_url, role, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'club', 'active', NOW(), NOW())
+					INSERT INTO clubs (uuid, username, email, google_id, name, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "seller":
 				_, insertErr = db.Exec(`
-					INSERT INTO sellers (uuid, username, email, google_id, store_name, avatar_url, role, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'seller', 'active', NOW(), NOW())
+					INSERT INTO sellers (uuid, username, email, google_id, store_name, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			default: // archer
 				userType = "archer"
 				role = "archer"
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, role, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'archer', 'active', NOW(), NOW())
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			}
 

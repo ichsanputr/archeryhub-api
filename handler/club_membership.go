@@ -489,7 +489,7 @@ func GetClubMembers(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&members, `
 			SELECT cm.*, u.full_name as archer_name
 			FROM club_members cm
-			JOIN users u ON cm.archer_id = u.uuid
+			JOIN archers u ON cm.archer_id = u.uuid
 			WHERE cm.club_id = ?
 			ORDER BY cm.status ASC, cm.created_at DESC
 		`, clubID)
@@ -542,7 +542,7 @@ func InviteToClub(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if archer exists
 		var archerExists bool
-		err = db.Get(&archerExists, "SELECT EXISTS(SELECT 1 FROM users WHERE uuid = ? AND user_type = 'archer')")
+		err = db.Get(&archerExists, "SELECT EXISTS(SELECT 1 FROM archers WHERE uuid = ?)", req.ArcherID)
 		if err != nil || !archerExists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
