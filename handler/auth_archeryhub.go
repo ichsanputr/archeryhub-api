@@ -1,13 +1,15 @@
 package handler
 
 import (
+	"archeryhub-api/utils"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	"archeryhub-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"

@@ -2,7 +2,9 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"archeryhub-api/utils"
