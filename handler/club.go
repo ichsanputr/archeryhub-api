@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"archeryhub-api/utils"
+
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -29,7 +29,7 @@ func CheckSlugAvailability(db *sqlx.DB) gin.HandlerFunc {
 		var count int
 		query := "SELECT COUNT(*) FROM clubs WHERE slug = ?"
 		args := []interface{}{slug}
-		
+
 		if currentClubUUID != "" {
 			query += " AND uuid != ?"
 			args = append(args, currentClubUUID)
@@ -98,7 +98,30 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			club.LogoURL = &masked
 		}
 
-		c.JSON(http.StatusOK, club)
+		c.JSON(http.StatusOK, gin.H{
+			"uuid":          club.UUID,
+			"name":          club.Name,
+			"slug":          club.Slug,
+			"slug_changed":  club.SlugChanged,
+			"description":   club.Description,
+			"avatar_url":    club.AvatarURL,
+			"banner_url":    club.BannerURL,
+			"logo_url":      club.LogoURL,
+			"address":       club.Address,
+			"city":          club.City,
+			"province":      club.Province,
+			"phone":         club.Phone,
+			"email":         club.Email,
+			"website":       club.Website,
+			"facebook":      club.Facebook,
+			"instagram":     club.Instagram,
+			"whatsapp":      club.WhatsApp,
+			"established":   club.EstablishedDate,
+			"facilities":    club.Facilities,
+			"schedules":     club.TrainingSchedule,
+			"social_media":  club.SocialMedia,
+			"page_settings": club.PageSettings,
+		})
 	}
 }
 
@@ -212,21 +235,28 @@ func GetClubProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
 
-		var sections string
-		err := db.Get(&sections, `
-			SELECT sections FROM club_profile cp
-			JOIN clubs c ON cp.club_uuid = c.uuid
-			WHERE c.slug = ? OR c.uuid = ?`, slug, slug)
-		
-		if err != nil {
+		var pageSettings *string
+		err := db.Get(&pageSettings, `
+			SELECT page_settings FROM clubs
+			WHERE slug = ? OR uuid = ?`, slug, slug)
+
+		if err != nil || pageSettings == nil || *pageSettings == "" {
 			// Return default empty sections if not found
 			c.JSON(http.StatusOK, gin.H{"sections": []interface{}{}})
 			return
 		}
 
-		var parsedSections interface{}
-		json.Unmarshal([]byte(sections), &parsedSections)
-		c.JSON(http.StatusOK, gin.H{"sections": parsedSections})
+		var pageSettingsMap map[string]interface{}
+		json.Unmarshal([]byte(*pageSettings), &pageSettingsMap)
+
+		var sections interface{}
+		if sectionsVal, ok := pageSettingsMap["sections"]; ok {
+			sections = sectionsVal
+		} else {
+			sections = []interface{}{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"sections": sections})
 	}
 }
 
@@ -244,21 +274,31 @@ func UpdateMyClubProfile(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		sectionsJSON, _ := json.Marshal(req.Sections)
-
-		// Get club UUID first
-		var clubUUID string
-		err := db.Get(&clubUUID, "SELECT uuid FROM clubs WHERE uuid = ?", userID)
+		// Get current page_settings
+		var currentPageSettings *string
+		err := db.Get(&currentPageSettings, "SELECT page_settings FROM clubs WHERE uuid = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
 		}
 
+		// Parse and update page_settings
+		var pageSettingsMap map[string]interface{}
+		if currentPageSettings != nil && *currentPageSettings != "" {
+			json.Unmarshal([]byte(*currentPageSettings), &pageSettingsMap)
+		}
+		if pageSettingsMap == nil {
+			pageSettingsMap = make(map[string]interface{})
+		}
+		pageSettingsMap["sections"] = req.Sections
+
+		pageSettingsJSON, _ := json.Marshal(pageSettingsMap)
+
+		// Update page_settings in clubs table
 		_, err = db.Exec(`
-			INSERT INTO club_profile (uuid, club_uuid, sections)
-			VALUES (?, ?, ?)
-			ON DUPLICATE KEY UPDATE sections = ?, updated_at = NOW()`,
-			uuid.New().String(), clubUUID, string(sectionsJSON), string(sectionsJSON))
+			UPDATE clubs SET page_settings = ?, updated_at = NOW()
+			WHERE uuid = ?`,
+			string(pageSettingsJSON), userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update sections: " + err.Error()})
@@ -338,4 +378,3 @@ func GetClubDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
-

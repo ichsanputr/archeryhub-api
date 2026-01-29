@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
 	"archeryhub-api/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -20,7 +22,6 @@ type Organization struct {
 	Email              string  `db:"email" json:"email"`
 	Phone              *string `db:"phone" json:"phone"`
 	AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
-	BannerURL          *string `db:"banner_url" json:"banner_url"`
 	Address            *string `db:"address" json:"address"`
 	City               *string `db:"city" json:"city"`
 	Country            *string `db:"country" json:"country"`
@@ -46,7 +47,7 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT uuid, username, name, acronym, description, website, email, phone,
-				   avatar_url, banner_url, address, city, country,
+				   avatar_url, address, city, country,
 				   verification_status, status, created_at
 			FROM organizations
 			WHERE status = ?
@@ -73,10 +74,6 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 				masked := utils.MaskMediaURL(*orgs[i].AvatarURL)
 				orgs[i].AvatarURL = &masked
 			}
-			if orgs[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*orgs[i].BannerURL)
-				orgs[i].BannerURL = &masked
-			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -91,31 +88,34 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
 
-		var org Organization
-		err := db.Get(&org, `
+		// Struct with page_settings
+		var orgData struct {
+			Organization
+			PageSettings *string `db:"page_settings" json:"page_settings"`
+		}
+
+		err := db.Get(&orgData, `
 			SELECT uuid, username, name, acronym, description, website, email, phone,
-				   avatar_url, banner_url, address, city, country,
+				   avatar_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter,
-				   verification_status, status, created_at, updated_at
+				   verification_status, status, created_at, updated_at, page_settings
 			FROM organizations
 			WHERE (username = ? OR uuid = ?) AND status = 'active'
 		`, slug, slug)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found", "details": err.Error()})
 			return
 		}
+
+		org := orgData.Organization
 
 		// Mask URLs
 		if org.AvatarURL != nil {
 			masked := utils.MaskMediaURL(*org.AvatarURL)
 			org.AvatarURL = &masked
-		}
-		if org.BannerURL != nil {
-			masked := utils.MaskMediaURL(*org.BannerURL)
-			org.BannerURL = &masked
 		}
 
 		// Get events organized by this organization
@@ -144,10 +144,46 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"organization": org,
-			"events":       events,
-		})
+		// Build response with page_settings
+		response := gin.H{
+			"organization": gin.H{
+				"id":                   org.UUID,
+				"username":             org.Username,
+				"name":                 org.Name,
+				"acronym":              org.Acronym,
+				"description":          org.Description,
+				"website":              org.Website,
+				"email":                org.Email,
+				"phone":                org.Phone,
+				"avatar_url":           org.AvatarURL,
+				"address":              org.Address,
+				"city":                 org.City,
+				"country":              org.Country,
+				"registration_number":  org.RegistrationNumber,
+				"established_date":     org.EstablishedDate,
+				"contact_person_name":  org.ContactPersonName,
+				"contact_person_email": org.ContactPersonEmail,
+				"contact_person_phone": org.ContactPersonPhone,
+				"social_facebook":      org.SocialFacebook,
+				"social_instagram":     org.SocialInstagram,
+				"social_twitter":       org.SocialTwitter,
+				"verification_status":  org.VerificationStatus,
+				"status":               org.Status,
+				"created_at":           org.CreatedAt,
+				"updated_at":           org.UpdatedAt,
+			},
+			"events": events,
+		}
+
+		// Add page_settings if exists
+		if orgData.PageSettings != nil && *orgData.PageSettings != "" {
+			var pageSettings map[string]interface{}
+			if err := json.Unmarshal([]byte(*orgData.PageSettings), &pageSettings); err == nil {
+				response["organization"].(gin.H)["page_settings"] = pageSettings
+			}
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
 
@@ -161,9 +197,10 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var org Organization
+		var pageSettings *string
 		err := db.Get(&org, `
 			SELECT uuid, username, name, acronym, description, website, email, phone,
-				   avatar_url, banner_url, address, city, country,
+				   avatar_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter,
@@ -171,6 +208,10 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			FROM organizations
 			WHERE uuid = ?
 		`, userID)
+
+		if err == nil {
+			db.Get(&pageSettings, "SELECT page_settings FROM organizations WHERE uuid = ?", userID)
+		}
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found"})
@@ -182,12 +223,12 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			masked := utils.MaskMediaURL(*org.AvatarURL)
 			org.AvatarURL = &masked
 		}
-		if org.BannerURL != nil {
-			masked := utils.MaskMediaURL(*org.BannerURL)
-			org.BannerURL = &masked
-		}
 
-		c.JSON(http.StatusOK, gin.H{"organization": org})
+		response := gin.H{"organization": org}
+		if pageSettings != nil {
+			response["page_settings"] = pageSettings
+		}
+		c.JSON(http.StatusOK, response)
 	}
 }
 
@@ -201,25 +242,27 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var req struct {
-			Username           *string `json:"username"`
-			Name               *string `json:"name"`
-			Acronym            *string `json:"acronym"`
-			Description        *string `json:"description"`
-			Website            *string `json:"website"`
-			Phone              *string `json:"phone"`
-			AvatarURL          *string `json:"avatar_url"`
-			BannerURL          *string `json:"banner_url"`
-			Address            *string `json:"address"`
-			City               *string `json:"city"`
-			Country            *string `json:"country"`
-			RegistrationNumber *string `json:"registration_number"`
-			EstablishedDate    *string `json:"established_date"`
-			ContactPersonName  *string `json:"contact_person_name"`
-			ContactPersonEmail *string `json:"contact_person_email"`
-			ContactPersonPhone *string `json:"contact_person_phone"`
-			SocialFacebook     *string `json:"social_facebook"`
-			SocialInstagram    *string `json:"social_instagram"`
-			SocialTwitter      *string `json:"social_twitter"`
+			Username           *string     `json:"username"`
+			Name               *string     `json:"name"`
+			Acronym            *string     `json:"acronym"`
+			Description        *string     `json:"description"`
+			Website            *string     `json:"website"`
+			Phone              *string     `json:"phone"`
+			AvatarURL          *string     `json:"avatar_url"`
+			BannerURL          *string     `json:"banner_url"`
+			Address            *string     `json:"address"`
+			City               *string     `json:"city"`
+			Country            *string     `json:"country"`
+			RegistrationNumber *string     `json:"registration_number"`
+			EstablishedDate    *string     `json:"established_date"`
+			ContactPersonName  *string     `json:"contact_person_name"`
+			ContactPersonEmail *string     `json:"contact_person_email"`
+			ContactPersonPhone *string     `json:"contact_person_phone"`
+			SocialFacebook     *string     `json:"social_facebook"`
+			SocialInstagram    *string     `json:"social_instagram"`
+			SocialTwitter      *string     `json:"social_twitter"`
+			SocialMedia        interface{} `json:"social_media"`
+			PageSettings       interface{} `json:"page_settings"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -266,10 +309,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", avatar_url = ?"
 			args = append(args, utils.ExtractFilename(*req.AvatarURL))
 		}
-		if req.BannerURL != nil {
-			query += ", banner_url = ?"
-			args = append(args, utils.ExtractFilename(*req.BannerURL))
-		}
 		if req.Address != nil {
 			query += ", address = ?"
 			args = append(args, *req.Address)
@@ -313,6 +352,27 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.SocialTwitter != nil {
 			query += ", social_twitter = ?"
 			args = append(args, *req.SocialTwitter)
+		}
+
+		// Handle social_media JSON
+		if req.SocialMedia != nil {
+			socialMediaJSON, _ := json.Marshal(req.SocialMedia)
+			query += ", social_media = ?"
+			args = append(args, string(socialMediaJSON))
+		}
+
+		// Handle page_settings JSON
+		if req.PageSettings != nil {
+			var pageSettingsMap map[string]interface{}
+			if pageSettingsStr, ok := req.PageSettings.(string); ok {
+				json.Unmarshal([]byte(pageSettingsStr), &pageSettingsMap)
+			} else {
+				pageSettingsBytes, _ := json.Marshal(req.PageSettings)
+				json.Unmarshal(pageSettingsBytes, &pageSettingsMap)
+			}
+			pageSettingsJSON, _ := json.Marshal(pageSettingsMap)
+			query += ", page_settings = ?"
+			args = append(args, string(pageSettingsJSON))
 		}
 
 		if len(args) == 0 {

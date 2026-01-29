@@ -29,7 +29,7 @@ func MaskMediaURL(filename string) string {
 	// Clean the filename (extract base if it was a path)
 	cleanName := filepath.Base(filename)
 
-	return fmt.Sprintf("%s/media/%s", baseURL, cleanName)
+	return fmt.Sprintf("%s/api/v1/media/%s", baseURL, cleanName)
 }
 
 // ExtractFilename removes the base URL or path from a string to get only the filename.

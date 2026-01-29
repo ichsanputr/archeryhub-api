@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"archeryhub-api/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -27,7 +28,7 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru harus minimal 6 karakter"})
 			return
 		}
-		
+
 		// Validate password length
 		if len(req.NewPassword) < 6 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru harus minimal 6 karakter"})
@@ -50,7 +51,7 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			Password    *string `db:"password"`
 			HasPassword bool    `db:"has_password"`
 		}
-		
+
 		query := "SELECT password, CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)
 		if err != nil {
@@ -64,7 +65,7 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Password saat ini diperlukan"})
 				return
 			}
-			
+
 			if *user.Password != req.CurrentPassword {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Password saat ini salah"})
 				return
@@ -80,7 +81,7 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Password berhasil diperbarui",
+			"message":      "Password berhasil diperbarui",
 			"has_password": true,
 		})
 	}
@@ -107,18 +108,18 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user struct {
-			UUID         string  `json:"uuid" db:"uuid"`
-			Email        string  `json:"email" db:"email"`
-			FullName     *string `json:"full_name" db:"full_name"`
-			UserType     string  `json:"user_type" db:"user_type"`
-			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
-			LogoURL      *string `json:"logo_url" db:"logo_url"`
-			HasPassword  bool    `json:"has_password" db:"has_password"`
+			UUID        string  `json:"uuid" db:"uuid"`
+			Email       string  `json:"email" db:"email"`
+			FullName    *string `json:"full_name" db:"full_name"`
+			UserType    string  `json:"user_type" db:"user_type"`
+			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+			LogoURL     *string `json:"logo_url" db:"logo_url"`
+			HasPassword bool    `json:"has_password" db:"has_password"`
 		}
 
 		logoField := "NULL as logo_url"
-		if userType == "club" {
-			logoField = "logo_url"
+		if userType == "club" || userType == "organization" {
+			logoField = "avatar_url as logo_url"
 		}
 
 		query := `
@@ -127,7 +128,7 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			FROM ` + table + ` WHERE uuid = ?
 		`
 		err := db.Get(&user, query, userID)
-		
+
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
@@ -146,6 +147,7 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, user)
 	}
 }
+
 // UpdateUserProfile handles profile updates for different user types
 func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

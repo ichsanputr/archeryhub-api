@@ -146,7 +146,7 @@ func main() {
 			auth.POST("/logout", handler.Logout())
 			auth.GET("/check-name", handler.CheckNameExists(db))
 			auth.GET("/me", middleware.AuthMiddleware(), handler.GetCurrentUser(db))
-			
+
 			// Google OAuth
 			auth.GET("/google", handler.InitiateGoogleAuth(db))
 			auth.GET("/google/callback", handler.GoogleCallback(db))
@@ -173,7 +173,7 @@ func main() {
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
 			events.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
-		events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
+			events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
 			events.GET("/:id/images", handler.GetEventImages(db))
@@ -188,17 +188,17 @@ func main() {
 				protected.POST("", handler.CreateEvent(db))
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))
-			protected.POST("/:id/publish", handler.PublishEvent(db))
-			protected.POST("/:id/categories", handler.CreateEventCategory(db))
-			protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
-			protected.PUT("/:id/categories/:categoryId", handler.UpdateEventCategory(db))
-			protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
-			protected.POST("/:id/participants", handler.RegisterParticipant(db))
-			protected.PUT("/:id/images", handler.UpdateEventImages(db))
-			protected.PUT("/:id/schedule", handler.UpdateEventSchedule(db))
-			protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
-			protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
-			protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))
+				protected.POST("/:id/publish", handler.PublishEvent(db))
+				protected.POST("/:id/categories", handler.CreateEventCategory(db))
+				protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
+				protected.PUT("/:id/categories/:categoryId", handler.UpdateEventCategory(db))
+				protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
+				protected.POST("/:id/participants", handler.RegisterParticipant(db))
+				protected.PUT("/:id/images", handler.UpdateEventImages(db))
+				protected.PUT("/:id/schedule", handler.UpdateEventSchedule(db))
+				protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
+				protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
+				protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))
 			}
 		}
 
@@ -206,7 +206,6 @@ func main() {
 		api.GET("/event-categories", handler.ListEventCategoryRefs(db))
 		api.POST("/event-categories", handler.CreateEventCategoryRef(db))
 		api.PUT("/event-categories/:id", handler.UpdateEventCategoryRef(db))
-
 
 		// Archer routes
 		archers := api.Group("/archers")
@@ -251,29 +250,25 @@ func main() {
 			}
 		}
 
-
 		// Back Numbers & Target Assignments
 		api.GET("/events/:id/back-numbers", handler.GetBackNumbers(db))
 		api.PUT("/participants/:participantId/assignment", middleware.AuthMiddleware(), handler.UpdateBackNumber(db))
-
-
 
 		// Team Management
 		teams := api.Group("/teams")
 		{
 			teams.GET("/event/:eventId", handler.GetTeams(db))
 			teams.GET("/:teamId", handler.GetTeam(db))
-			
+
 			protectedTeams := teams.Group("")
 			protectedTeams.Use(middleware.AuthMiddleware())
 			{
 				protectedTeams.GET("/my", handler.GetMyTeams(db))
 				protectedTeams.POST("/event/:eventId", handler.CreateTeam(db))
 			}
-			
+
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
-
 
 		// Payment & Registration routes
 		payment := api.Group("/payment")
@@ -285,10 +280,6 @@ func main() {
 		}
 
 		// Event registration is handled via POST /events/:id/participants
-
-
-
-
 
 		// Print Outputs & Reports
 		printouts := api.Group("/print")
@@ -312,11 +303,18 @@ func main() {
 
 		// Media Upload & Management
 		media := api.Group("/media")
-		media.Use(middleware.AuthMiddleware())
 		{
-			media.GET("", handler.ListMedia(db))
-			media.POST("/upload", handler.UploadMedia(db))
-			media.DELETE("/:id", handler.DeleteMedia(db))
+			// Public route to serve media files
+			media.GET("/:filename", handler.GetMedia())
+
+			// Protected routes for media management
+			protectedMedia := media.Group("")
+			protectedMedia.Use(middleware.AuthMiddleware())
+			{
+				protectedMedia.GET("", handler.ListMedia(db))
+				protectedMedia.POST("/upload", handler.UploadMedia(db))
+				protectedMedia.DELETE("/:id", handler.DeleteMedia(db))
+			}
 		}
 
 		// Notifications
@@ -334,7 +332,7 @@ func main() {
 		{
 			products.GET("", handler.GetProducts(db))
 			products.GET("/:id", handler.GetProductByID(db))
-			
+
 			protectedProducts := products.Group("")
 			protectedProducts.Use(middleware.AuthMiddleware())
 			{
@@ -406,7 +404,7 @@ func main() {
 			clubs.GET("/:slug", handler.GetClubBySlug(db))
 			clubs.GET("/detail/:slug", handler.GetClubBySlug(db)) // Backward compatibility
 			clubs.GET("/members/:clubId", handler.GetClubMembers(db))
-			
+
 			protectedClubs := clubs.Group("")
 			protectedClubs.Use(middleware.AuthMiddleware())
 			{

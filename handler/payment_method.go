@@ -10,16 +10,16 @@ import (
 
 // EventPaymentMethod represents a payment method for an event
 type EventPaymentMethod struct {
-	UUID           string  `json:"uuid" db:"uuid"`
-	EventID        string  `json:"event_id" db:"event_id"`
-	PaymentMethod  string  `json:"payment_method" db:"payment_method"`
-	AccountName    *string `json:"account_name" db:"account_name"`
-	AccountNumber  *string `json:"account_number" db:"account_number"`
-	Instructions   *string `json:"instructions" db:"instructions"`
-	IsActive       bool    `json:"is_active" db:"is_active"`
-	DisplayOrder   int     `json:"display_order" db:"display_order"`
-	CreatedAt      string  `json:"created_at" db:"created_at"`
-	UpdatedAt      string  `json:"updated_at" db:"updated_at"`
+	UUID          string  `json:"uuid" db:"uuid"`
+	EventID       string  `json:"event_id" db:"event_id"`
+	PaymentMethod string  `json:"payment_method" db:"payment_method"`
+	AccountName   *string `json:"account_name" db:"account_name"`
+	AccountNumber *string `json:"account_number" db:"account_number"`
+	Instructions  *string `json:"instructions" db:"instructions"`
+	IsActive      bool    `json:"is_active" db:"is_active"`
+	DisplayOrder  int     `json:"display_order" db:"display_order"`
+	CreatedAt     string  `json:"created_at" db:"created_at"`
+	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
 }
 
 // GetEventPaymentMethods returns all payment methods for an event
@@ -159,28 +159,29 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var archer struct {
-			UUID                  string  `json:"uuid" db:"uuid"`
-			Username              *string `json:"username" db:"username"`
-			Slug                  *string `json:"slug" db:"slug"`
-			Email                 *string `json:"email" db:"email"`
-			AvatarURL             *string `json:"avatar_url" db:"avatar_url"`
-			FullName              string  `json:"full_name" db:"full_name"`
-			Nickname              *string `json:"nickname" db:"nickname"`
-			DateOfBirth           *string `json:"date_of_birth" db:"date_of_birth"`
-			Gender                string  `json:"gender" db:"gender"`
-			Country               *string `json:"country" db:"country"`
-			Phone                 *string `json:"phone" db:"phone"`
-			Address               *string `json:"address" db:"address"`
-			City                  *string `json:"city" db:"city"`
-			Province              *string `json:"province" db:"province"`
-			BowType               string  `json:"bow_type" db:"bow_type"`
-			ClubID                *string `json:"club_id" db:"club_id"`
-			ClubName              *string `json:"club_name" db:"club_name"`
-			Achievements          *string `json:"achievements" db:"achievements"`
-			Status                string  `json:"status" db:"status"`
+			UUID         string  `json:"uuid" db:"uuid"`
+			Username     *string `json:"username" db:"username"`
+			Slug         *string `json:"slug" db:"slug"`
+			Email        *string `json:"email" db:"email"`
+			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
+			FullName     string  `json:"full_name" db:"full_name"`
+			Nickname     *string `json:"nickname" db:"nickname"`
+			DateOfBirth  *string `json:"date_of_birth" db:"date_of_birth"`
+			Gender       string  `json:"gender" db:"gender"`
+			Country      *string `json:"country" db:"country"`
+			Phone        *string `json:"phone" db:"phone"`
+			Address      *string `json:"address" db:"address"`
+			City         *string `json:"city" db:"city"`
+			Province     *string `json:"province" db:"province"`
+			BowType      string  `json:"bow_type" db:"bow_type"`
+			ClubID       *string `json:"club_id" db:"club_id"`
+			ClubName     *string `json:"club_name" db:"club_name"`
+			Achievements *string `json:"achievements" db:"achievements"`
+			Status       string  `json:"status" db:"status"`
 		}
 
-	err := db.Get(&archer, `
+		var pageSettings *string
+		err := db.Get(&archer, `
 		SELECT a.uuid, a.username, a.slug, a.email, a.avatar_url, 
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
@@ -194,11 +195,41 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		WHERE a.uuid = ? OR a.user_id = ? OR a.email = (SELECT email FROM archers WHERE uuid = ? LIMIT 1)
 	`, userID, userID, userID)
 
+		if err == nil {
+			db.Get(&pageSettings, "SELECT page_settings FROM archers WHERE uuid = ? OR user_id = ?", userID, userID)
+		}
+
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found"})
 			return
 		}
 
-		c.JSON(http.StatusOK, archer)
+		response := gin.H{
+			"uuid":          archer.UUID,
+			"username":      archer.Username,
+			"slug":          archer.Slug,
+			"email":         archer.Email,
+			"avatar_url":    archer.AvatarURL,
+			"full_name":     archer.FullName,
+			"nickname":      archer.Nickname,
+			"date_of_birth": archer.DateOfBirth,
+			"gender":        archer.Gender,
+			"country":       archer.Country,
+			"phone":         archer.Phone,
+			"address":       archer.Address,
+			"city":          archer.City,
+			"province":      archer.Province,
+			"bow_type":      archer.BowType,
+			"club_id":       archer.ClubID,
+			"club_name":     archer.ClubName,
+			"achievements":  archer.Achievements,
+			"status":        archer.Status,
+		}
+
+		if pageSettings != nil {
+			response["page_settings"] = pageSettings
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
