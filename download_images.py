@@ -4,8 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Configuration
 SAVE_DIR = "media"
-MALE_COUNT = 75
-FEMALE_COUNT = 75
+MALE_COUNT = 100
+FEMALE_COUNT = 80
 BASE_URL = "https://randomuser.me/api/portraits"
 
 # Ensure directory exists
