@@ -233,18 +233,38 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+
+		// Generate custom_id (ARC-XXXX)
+		var lastCustomID string
+		_ = db.Get(&lastCustomID, "SELECT custom_id FROM archers WHERE custom_id LIKE 'ARC-%' ORDER BY custom_id DESC LIMIT 1")
+		nextIDNum := 1
+		if lastCustomID != "" {
+			parts := strings.Split(lastCustomID, "-")
+			if len(parts) == 2 {
+				fmt.Sscanf(parts[1], "%d", &nextIDNum)
+				nextIDNum++
+			}
+		}
+		customID := fmt.Sprintf("ARC-%04d", nextIDNum)
+
+		// Set verification status: Unverified if no password
+		isVerified := false
+		if req.Password != nil && *req.Password != "" {
+			isVerified = true
+		}
+
 		query := `
 			INSERT INTO archers (
-				uuid, username, email, password, full_name, nickname,
+				uuid, custom_id, username, email, password, full_name, nickname,
 				date_of_birth, gender, bow_type, country, city, club_id,
-				phone, address, photo_url, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+				phone, address, photo_url, status, is_verified, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			archerID, username, req.Email, req.Password, req.FullName, req.Nickname,
+			archerID, customID, username, req.Email, req.Password, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.Country, req.City, clubID,
-			req.Phone, req.Address, req.PhotoURL, now, now,
+			req.Phone, req.Address, req.PhotoURL, isVerified, now, now,
 		)
 
 		if err != nil {

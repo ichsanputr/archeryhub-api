@@ -217,6 +217,22 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Generate code if not provided
+		if req.Code == "" {
+			var lastCode string
+			_ = db.Get(&lastCode, "SELECT code FROM events WHERE code LIKE 'EVT-%' ORDER BY code DESC LIMIT 1")
+			nextNum := 1
+			if lastCode != "" {
+				// Extract number from EVT-XXXX
+				parts := strings.Split(lastCode, "-")
+				if len(parts) == 2 {
+					fmt.Sscanf(parts[1], "%d", &nextNum)
+					nextNum++
+				}
+			}
+			req.Code = fmt.Sprintf("EVT-%04d", nextNum)
+		}
+
 		eventUUID := uuid.New().String()
 		now := time.Now()
 

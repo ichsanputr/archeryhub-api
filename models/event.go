@@ -77,7 +77,7 @@ type EventWithDetails struct {
 
 // CreateEventRequest represents the request payload for creating a Event
 type CreateEventRequest struct {
-	Code                 string       `json:"code" binding:"required,min=2,max=20"`
+	Code                 string       `json:"code" binding:"omitempty,max=20"`
 	Name                 string       `json:"name"`
 	ShortName            *string      `json:"short_name"`
 	Venue                *string      `json:"venue"`

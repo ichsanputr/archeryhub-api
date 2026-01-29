@@ -63,39 +63,54 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if user already exists in any table and identify where
-		type Existence struct {
-			Source string
+		// Check if user already exists in any table
+		type UserStub struct {
+			UUID       string `db:"uuid"`
+			Source     string `db:"source"`
+			IsVerified bool   `db:"is_verified"`
 		}
-		var exist Existence
+		var existingUser UserStub
 		
-		// Use a COALESCE-based approach to find where it exists
-		checkQuery := `
-			SELECT 'archer' as Source FROM archers WHERE email = ? OR username = ?
-			UNION ALL
-			SELECT 'organization' as Source FROM organizations WHERE email = ? OR username = ?
-			UNION ALL
-			SELECT 'club' as Source FROM clubs WHERE email = ? OR username = ?
-			UNION ALL
-			SELECT 'seller' as Source FROM sellers WHERE email = ? OR username = ?
-			LIMIT 1
-		`
-		err := db.Get(&exist, checkQuery, 
-			req.Email, req.Username, 
-			req.Email, req.Username, 
-			req.Email, req.Username, 
-			req.Email, req.Username)
+		found := false
+		// Check archers first
+		err := db.Get(&existingUser, `SELECT uuid, 'archer' as source, is_verified FROM archers WHERE email = ? OR username = ? LIMIT 1`, req.Email, req.Username)
+		if err == nil {
+			found = true
+		} else {
+			// Check organizations
+			err = db.Get(&existingUser, `SELECT uuid, 'organization' as source, true as is_verified FROM organizations WHERE email = ? OR username = ? LIMIT 1`, req.Email, req.Username)
+			if err == nil {
+				found = true
+			} else {
+				// Check clubs
+				err = db.Get(&existingUser, `SELECT uuid, 'club' as source, true as is_verified FROM clubs WHERE email = ? OR username = ? LIMIT 1`, req.Email, req.Username)
+				if err == nil {
+					found = true
+				}
+			}
+		}
 			
-		if err == nil && exist.Source != "" {
-			c.JSON(http.StatusConflict, gin.H{
-				"error": "User with this email or username already exists",
-				"type": exist.Source,
-			})
-			return
+		userID := ""
+		isUpdate := false
+
+		if found {
+			// If it's an unverified archer and we're registering as an archer, allow verification
+			if existingUser.Source == "archer" && !existingUser.IsVerified && req.UserType == "archer" {
+				userID = existingUser.UUID
+				isUpdate = true
+			} else {
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "User with this email or username already exists",
+					"type": existingUser.Source,
+				})
+				return
+			}
 		}
 
-		// Create entity
-		userID := uuid.New().String()
+		if userID == "" {
+			userID = uuid.New().String()
+		}
+
 		var nameField string
 		if table == "archers" {
 			nameField = "full_name"
@@ -105,11 +120,45 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			nameField = "name"
 		}
 
-		insertQuery := `
-			INSERT INTO ` + table + ` (uuid, username, email, password, ` + nameField + `, phone, status)
-			VALUES (?, ?, ?, ?, ?, ?, 'active')
-		`
-		_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone)
+		if isUpdate {
+			updateQuery := `
+				UPDATE ` + table + ` 
+				SET password = ?, full_name = ?, phone = ?, status = 'active', is_verified = true, updated_at = NOW()
+				WHERE uuid = ?
+			`
+			_, err = db.Exec(updateQuery, req.Password, req.FullName, req.Phone, userID)
+		} else {
+			isVerified := true
+			if table != "archers" {
+				// For non-archers, we don't have is_verified column yet in some tables, 
+				// but the user only specified archer verification logic.
+				insertQuery := `
+					INSERT INTO ` + table + ` (uuid, username, email, password, ` + nameField + `, phone, status)
+					VALUES (?, ?, ?, ?, ?, ?, 'active')
+				`
+				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone)
+			} else {
+				// For archers, include custom_id and is_verified
+				// Generate custom_id (ARC-XXXX)
+				var lastCustomID string
+				_ = db.Get(&lastCustomID, "SELECT custom_id FROM archers WHERE custom_id LIKE 'ARC-%' ORDER BY custom_id DESC LIMIT 1")
+				nextIDNum := 1
+				if lastCustomID != "" {
+					parts := strings.Split(lastCustomID, "-")
+					if len(parts) == 2 {
+						fmt.Sscanf(parts[1], "%d", &nextIDNum)
+						nextIDNum++
+					}
+				}
+				customID := fmt.Sprintf("ARC-%04d", nextIDNum)
+
+				insertQuery := `
+					INSERT INTO archers (uuid, custom_id, username, email, password, full_name, phone, status, is_verified)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
+				`
+				_, err = db.Exec(insertQuery, userID, customID, req.Username, req.Email, req.Password, req.FullName, req.Phone, isVerified)
+			}
+		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})

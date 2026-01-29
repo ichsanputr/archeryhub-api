@@ -21,9 +21,11 @@ type Archer struct {
 	Bio               *string    `json:"bio" db:"bio"`
 	Achievements      *string    `json:"achievements" db:"achievements"`
 	Status            string     `json:"status" db:"status"` // active, inactive, suspended, pending
+	IsVerified        bool       `json:"is_verified" db:"is_verified"`
 	BowType           *string    `json:"bow_type" db:"bow_type"`
 	City              *string    `json:"city" db:"city"`
 	Province          *string    `json:"province" db:"province"`
+	CustomID          string     `json:"custom_id" db:"custom_id"`
 	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
 }
