@@ -152,6 +152,7 @@ func main() {
 			auth.GET("/google/callback", handler.GoogleCallback(db))
 			auth.POST("/google/callback", handler.GoogleCallback(db))
 			auth.GET("/sample-user", handler.GetSampleUser(db))
+			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
 		}
 
 		// User routes

@@ -73,7 +73,11 @@ jobs:
             echo "Environment file contents (first 3 lines):"
             head -3 /root/archeryhub-api/.env || echo ".env file not found"
             
-            # Restart the service
+            # Pull latest changes
+          cd /home/ichsan/archeryhub.id/api
+          git pull
+
+          # Restart the service
             systemctl stop archeryhub-api
             systemctl start archeryhub-api
             systemctl status archeryhub-api --no-pager
