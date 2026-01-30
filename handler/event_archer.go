@@ -82,12 +82,12 @@ func CreateEventArcher(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO event_archers (
 				uuid, event_id, full_name, username, email, phone,
 				date_of_birth, gender, bow_type, city, school,
-				club, club_id, address, avatar_url, notes, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+				club_id, address, avatar_url, notes, status, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
 		`,
 			id, actualEventID, req.FullName, finalUsername, req.Email, req.Phone,
 			req.DateOfBirth, req.Gender, req.BowType, req.City, req.School,
-			req.Club, req.ClubID, req.Address, req.AvatarURL, req.Notes, now, now,
+			req.ClubID, req.Address, req.AvatarURL, req.Notes, now, now,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event archer", "details": err.Error()})
@@ -119,7 +119,7 @@ func GetEventArchers(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				uuid, event_id, full_name, username, email, phone,
 				date_of_birth, gender, bow_type, city, school,
-				club, club_id, address, avatar_url, notes, status, created_at, updated_at
+				club_id, address, avatar_url, notes, status, created_at, updated_at
 			FROM event_archers
 			WHERE event_id = ?
 		`
@@ -179,13 +179,13 @@ func UpdateEventArcher(db *sqlx.DB) gin.HandlerFunc {
 			UPDATE event_archers SET 
 				full_name = ?, username = ?, email = ?, phone = ?,
 				date_of_birth = ?, gender = ?, bow_type = ?, city = ?, school = ?,
-				club = ?, club_id = ?, address = ?, avatar_url = ?, notes = ?, status = ?,
+				club_id = ?, address = ?, avatar_url = ?, notes = ?, status = ?,
 				updated_at = NOW()
 			WHERE uuid = ? AND event_id = ?
 		`,
 			req.FullName, req.Username, req.Email, req.Phone,
 			req.DateOfBirth, req.Gender, req.BowType, req.City, req.School,
-			req.Club, req.ClubID, req.Address, req.AvatarURL, req.Notes, req.Status,
+			req.ClubID, req.Address, req.AvatarURL, req.Notes, req.Status,
 			eventArcherID, actualEventID,
 		)
 

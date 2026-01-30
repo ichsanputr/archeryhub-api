@@ -370,6 +370,22 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", achievements = ?"
 			args = append(args, *req.Achievements)
 		}
+		if req.ClubID != nil {
+			query += ", club_id = ?"
+			args = append(args, *req.ClubID)
+		}
+		if req.City != nil {
+			query += ", city = ?"
+			args = append(args, *req.City)
+		}
+		if req.School != nil {
+			query += ", school = ?"
+			args = append(args, *req.School)
+		}
+		if req.Province != nil {
+			query += ", province = ?"
+			args = append(args, *req.Province)
+		}
 
 		if len(args) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})

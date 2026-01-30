@@ -650,6 +650,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			ID                 string  `db:"id" json:"id"`
 			ArcherID           *string `db:"archer_id" json:"archer_id"`
 			EventArcherID      *string `db:"event_archer_id" json:"event_archer_id"`
+			AthleteCode        *string `db:"athlete_code" json:"athlete_code"`
 			Username           *string `db:"username" json:"username"`
 			FullName           string  `db:"full_name" json:"full_name"`
 			Email              string  `db:"email" json:"email"`
@@ -673,6 +674,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
+				a.id as athlete_code,
 				COALESCE(a.username, ea.username) as username,
 				COALESCE(a.full_name, ea.full_name) as full_name,
 				COALESCE(a.email, ea.email, '') as email,
@@ -775,6 +777,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
+				a.id as athlete_code,
 				COALESCE(a.username, ea.username) as username,
 				COALESCE(a.full_name, ea.full_name) as full_name,
 				COALESCE(a.email, ea.email, '') as email,
@@ -798,11 +801,12 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid = ? OR 
 				a.username = ? OR 
 				ea.username = ? OR 
+				a.id = ? OR
 				LOWER(REPLACE(ea.full_name, ' ', '-')) = LOWER(?)
 			)
 			ORDER BY tp.created_at DESC
 			LIMIT 1
-		`, actualEventID, participantID, participantID, participantID, participantID)
+		`, actualEventID, participantID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
 			fmt.Printf("[DEBUG] Participant not found in DB for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
@@ -1127,11 +1131,19 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if already registered (consider both global and event-only archers)
 		var exists bool
+		resolvedAthleteID := req.AthleteID
 		if req.AthleteID != nil && *req.AthleteID != "" {
+			// Resolve athlete code/uuid to UUID
+			var archerUUID string
+			err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", *req.AthleteID, *req.AthleteID)
+			if err == nil {
+				resolvedAthleteID = &archerUUID
+			}
+
 			err = db.Get(&exists, `
 				SELECT EXISTS(SELECT 1 FROM event_participants 
 				WHERE event_id = ? AND archer_id = ? AND category_id = ?)
-			`, actualEventID, *req.AthleteID, req.EventCategoryID)
+			`, actualEventID, *resolvedAthleteID, req.EventCategoryID)
 		} else if req.EventArcherID != nil && *req.EventArcherID != "" {
 			err = db.Get(&exists, `
 				SELECT EXISTS(SELECT 1 FROM event_participants 
@@ -1156,8 +1168,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		participantID := uuid.New().String()
 		var archerID interface{}
 		var eventArcherID interface{}
-		if req.AthleteID != nil && *req.AthleteID != "" {
-			archerID = *req.AthleteID
+		if resolvedAthleteID != nil && *resolvedAthleteID != "" {
+			archerID = *resolvedAthleteID
 			eventArcherID = nil
 		} else if req.EventArcherID != nil && *req.EventArcherID != "" {
 			archerID = nil

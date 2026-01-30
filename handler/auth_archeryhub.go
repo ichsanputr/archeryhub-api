@@ -145,19 +145,19 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				`
 				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone)
 			} else {
-				// For archers, include custom_id and is_verified
-				// Generate custom_id (ARC-XXXX)
-				var lastCustomID string
-				_ = db.Get(&lastCustomID, "SELECT custom_id FROM archers WHERE custom_id LIKE 'ARC-%' ORDER BY custom_id DESC LIMIT 1")
+				// For archers, include id and is_verified
+				// Generate id (ARC-XXXX)
+				var lastID string
+				_ = db.Get(&lastID, "SELECT id FROM archers WHERE id LIKE 'ARC-%' ORDER BY id DESC LIMIT 1")
 				nextIDNum := 1
-				if lastCustomID != "" {
-					parts := strings.Split(lastCustomID, "-")
+				if lastID != "" {
+					parts := strings.Split(lastID, "-")
 					if len(parts) == 2 {
 						fmt.Sscanf(parts[1], "%d", &nextIDNum)
 						nextIDNum++
 					}
 				}
-				customID := fmt.Sprintf("ARC-%04d", nextIDNum)
+				athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
 				// Generate username from full name
 				username := strings.ToLower(req.FullName)
@@ -175,10 +175,10 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				username = username + "-" + userID[:8]
 
 				insertQuery := `
-					INSERT INTO archers (uuid, custom_id, username, email, password, full_name, phone, status, is_verified)
+					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
 				`
-				_, err = db.Exec(insertQuery, userID, customID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified)
+				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified)
 			}
 		}
 
@@ -273,6 +273,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		type UserResult struct {
 			UUID      string  `db:"uuid"`
+			ID        string  `db:"id"`
 			Username  string  `db:"slug"` // Use slug for frontend username field
 			Email     string  `db:"email"`
 			Password  string  `db:"password"`
@@ -288,7 +289,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// COALESCE(password,'') so NULL (e.g. Google-created org/club/seller) is handled as empty
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, username, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -297,7 +298,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Check organizations (Google sign-up does not set password; only Register does)
 		// Use column alias "slug" so result matches UserResult (db:"slug" for Username)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -308,7 +309,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs (use slug so result matches UserResult)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -317,7 +318,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check sellers
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status FROM sellers WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status FROM sellers WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "seller"
 				found = true
@@ -383,7 +384,8 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
 			User: gin.H{
-				"id":         user.UUID,
+				"uuid":       user.UUID,
+				"id":         user.ID,
 				"username":   user.Username,
 				"full_name":  user.FullName,
 				"email":      user.Email,
@@ -439,7 +441,8 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user struct {
-			ID           string  `db:"uuid" json:"id"`
+			UUID         string  `db:"uuid" json:"uuid"`
+			ID           string  `db:"id" json:"id"`
 			Username     string  `db:"slug" json:"username"` // Use slug for username field
 			Email        string  `db:"email" json:"email"`
 			Slug         string  `db:"slug" json:"slug"`
@@ -459,11 +462,14 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 
 		roleSelect := "'" + userType.(string) + "' as role"
 
-		query := `SELECT uuid, slug as username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
+		query := `SELECT uuid, id, slug as username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
 		if table == "archers" {
 			query += ", bio, achievements"
 		} else if table == "sellers" {
 			query += ", store_name, slug, description, banner_url"
+		} else {
+			// organizations, clubs don't have id column yet, so use uuid as id
+			query = strings.Replace(query, "id,", "uuid as id,", 1)
 		}
 		query += " FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)

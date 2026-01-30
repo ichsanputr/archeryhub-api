@@ -26,8 +26,8 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
-				a.gender, NULL as club, a.email, a.phone, a.avatar_url, a.address,
+				a.uuid, a.id, a.user_id, a.username, a.full_name, a.date_of_birth,
+				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
@@ -116,9 +116,10 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"archers": archers,
-			"count":   len(archers),
-			"total":   total,
+			"archers":  archers,
+			"athletes": archers,
+			"count":    len(archers),
+			"total":    total,
 		})
 	}
 }
@@ -130,8 +131,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
-				a.gender, NULL as club, a.email, a.phone, a.avatar_url, a.address,
+				a.uuid, a.id, a.user_id, a.username, a.full_name, a.date_of_birth,
+				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
@@ -143,12 +144,12 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
-			WHERE a.uuid = ? OR a.username = ?
+			WHERE a.uuid = ? OR a.username = ? OR a.id = ?
 			GROUP BY a.uuid
 		`
 
 		var archer models.ArcherWithStats
-		err := db.Get(&archer, query, id, id)
+		err := db.Get(&archer, query, id, id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
@@ -185,12 +186,12 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			FROM event_participants ep
 			JOIN events e ON ep.event_id = e.uuid
 			JOIN archers a ON ep.archer_id = a.uuid
-			WHERE a.uuid = ? OR a.username = ?
+			WHERE a.uuid = ? OR a.username = ? OR a.id = ?
 			ORDER BY e.start_date DESC
 		`
 
 		var events []ArcherEventHistory
-		err := db.Select(&events, query, id, id)
+		err := db.Select(&events, query, id, id, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archer events", "details": err.Error()})
 			return
@@ -259,18 +260,21 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Generate custom_id (ARC-XXXX)
-		var lastCustomID string
-		_ = db.Get(&lastCustomID, "SELECT custom_id FROM archers WHERE custom_id LIKE 'ARC-%' ORDER BY custom_id DESC LIMIT 1")
+		// Generate id (ARC-XXXX)
+		var lastID string
+		_ = db.Get(&lastID, "SELECT id FROM archers WHERE id LIKE 'ARC-%' ORDER BY id DESC LIMIT 1")
 		nextIDNum := 1
-		if lastCustomID != "" {
-			parts := strings.Split(lastCustomID, "-")
+		if lastID != "" {
+			parts := strings.Split(lastID, "-")
 			if len(parts) == 2 {
 				fmt.Sscanf(parts[1], "%d", &nextIDNum)
 				nextIDNum++
 			}
 		}
-		customID := fmt.Sprintf("ARC-%04d", nextIDNum)
+		athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
+		if req.ID != nil && *req.ID != "" {
+			athleteID = *req.ID
+		}
 
 		// Generate username if not provided
 		var username string
@@ -316,14 +320,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO archers (
-				uuid, custom_id, username, email, password, full_name, nickname,
+				uuid, id, username, email, password, full_name, nickname,
 				date_of_birth, gender, bow_type, city, school, club_id,
 				phone, address, avatar_url, status, is_verified, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			archerID, customID, finalUsername, req.Email, req.Password, req.FullName, req.Nickname,
+			archerID, athleteID, finalUsername, req.Email, req.Password, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.City, req.School, clubID,
 			req.Phone, req.Address, req.AvatarURL, isVerified, now, now,
 		)
@@ -401,9 +405,9 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", school = ?"
 			args = append(args, *req.School)
 		}
-		if req.Club != nil {
-			query += ", club = ?"
-			args = append(args, *req.Club)
+		if req.ClubID != nil {
+			query += ", club_id = ?"
+			args = append(args, *req.ClubID)
 		}
 		if req.Email != nil {
 			query += ", email = ?"

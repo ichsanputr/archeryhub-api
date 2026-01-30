@@ -160,6 +160,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		var archer struct {
 			UUID         string  `json:"uuid" db:"uuid"`
+			ID           string  `json:"id" db:"id"`
 			Username     *string `json:"username" db:"username"`
 			Email        *string `json:"email" db:"email"`
 			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
@@ -181,7 +182,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		var pageSettings *string
 		err := db.Get(&archer, `
-		SELECT a.uuid, a.username, a.email, a.avatar_url, 
+		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, 
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
 		       a.phone, a.address, a.city, a.school, a.province, 
@@ -205,6 +206,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		response := gin.H{
 			"uuid":          archer.UUID,
+			"id":            archer.ID,
 			"username":      archer.Username,
 			"email":         archer.Email,
 			"avatar_url":    archer.AvatarURL,

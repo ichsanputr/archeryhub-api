@@ -6,13 +6,12 @@ import (
 
 // Archer represents an archer
 type Archer struct {
-	UUID         string     `json:"id" db:"uuid"`
+	UUID         string     `json:"uuid" db:"uuid"`
 	UserID       *string    `json:"user_id" db:"user_id"`
 	Username     *string    `json:"username" db:"username"`
 	FullName     string     `json:"full_name" db:"full_name"`
 	DateOfBirth  *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender       *string    `json:"gender" db:"gender"` // M, F, X
-	Club         *string    `json:"club" db:"club"`
 	Email        *string    `json:"email" db:"email"`
 	Phone        *string    `json:"phone" db:"phone"`
 	AvatarURL    *string    `json:"avatar_url" db:"avatar_url"`
@@ -25,7 +24,8 @@ type Archer struct {
 	City         *string    `json:"city" db:"city"`
 	School       *string    `json:"school" db:"school"`
 	Province     *string    `json:"province" db:"province"`
-	CustomID     string     `json:"custom_id" db:"custom_id"`
+	ClubID       *string    `json:"club_id" db:"club_id"`
+	ID           string     `json:"id" db:"id"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -42,17 +42,17 @@ type ArcherWithStats struct {
 
 // CreateArcherRequest represents the request payload for creating an archer
 type CreateArcherRequest struct {
+	ID          *string    `json:"id"`
 	FullName    string     `json:"full_name" binding:"required,min=2,max=100"`
 	Username    *string    `json:"username"`
 	Email       *string    `json:"email" binding:"omitempty,email"`
 	Password    *string    `json:"password"`
-	Nickname    *string       `json:"nickname"`
+	Nickname    *string    `json:"nickname"`
 	DateOfBirth *FlexibleTime `json:"date_of_birth"`
 	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
 	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`
-	Club        *string    `json:"club"`
 	ClubID      *string    `json:"club_id"`
 	Phone       *string    `json:"phone"`
 	AvatarURL   *string    `json:"avatar_url"`
@@ -64,9 +64,9 @@ type UpdateArcherRequest struct {
 	FullName     *string       `json:"full_name"`
 	DateOfBirth  *FlexibleTime `json:"date_of_birth"`
 	Gender       *string       `json:"gender" binding:"omitempty,oneof=M F X"`
-	Club         *string    `json:"club"`
 	City         *string    `json:"city"`
 	School       *string    `json:"school"`
+	ClubID       *string    `json:"club_id"`
 	Email        *string    `json:"email" binding:"omitempty,email"`
 	Phone        *string    `json:"phone"`
 	AvatarURL    *string    `json:"avatar_url"`
@@ -98,7 +98,6 @@ type ParticipantWithDetails struct {
 	EventParticipant
 	FullName     string  `json:"full_name" db:"full_name"`
 	City         *string `json:"city" db:"city"`
-	Club         *string `json:"club" db:"club"`
 	AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
 	DivisionName string  `json:"division_name" db:"division_name"`
 	DivisionCode string  `json:"division_code" db:"division_code"`
@@ -127,7 +126,6 @@ type BulkImportArcher struct {
 	DateOfBirth string `json:"date_of_birth"`
 	Gender      string `json:"gender"`
 	City        string `json:"city"`
-	Club        string `json:"club"`
 	Email       string `json:"email"`
 	Phone       string `json:"phone"`
 	Division    string `json:"division"`
@@ -147,7 +145,6 @@ type EventArcher struct {
 	BowType     *string    `json:"bow_type" db:"bow_type"`
 	City        *string    `json:"city" db:"city"`
 	School      *string    `json:"school" db:"school"`
-	Club        *string    `json:"club" db:"club"`
 	ClubID      *string    `json:"club_id" db:"club_id"`
 	Address     *string    `json:"address" db:"address"`
 	AvatarURL   *string    `json:"avatar_url" db:"avatar_url"`
@@ -168,7 +165,6 @@ type CreateEventArcherRequest struct {
 	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`
-	Club        *string    `json:"club"`
 	ClubID      *string    `json:"club_id"`
 	Address     *string    `json:"address"`
 	AvatarURL   *string    `json:"avatar_url"`
