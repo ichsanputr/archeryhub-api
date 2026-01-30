@@ -99,7 +99,7 @@ type ParticipantWithDetails struct {
 	FullName     string  `json:"full_name" db:"full_name"`
 	City         *string `json:"city" db:"city"`
 	Club         *string `json:"club" db:"club"`
-	PhotoURL     *string `json:"photo_url" db:"photo_url"`
+	AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
 	DivisionName string  `json:"division_name" db:"division_name"`
 	DivisionCode string  `json:"division_code" db:"division_code"`
 	CategoryName string  `json:"category_name" db:"category_name"`

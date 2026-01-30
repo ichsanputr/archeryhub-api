@@ -780,7 +780,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.email, ea.email, '') as email,
 				COALESCE(a.city, ea.city) as city,
 				COALESCE(a.club_id, ea.club_id) as club_id,
-				COALESCE(a.avatar_url, ea.photo_url) as avatar_url,
+				COALESCE(a.avatar_url, ea.avatar_url) as avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
