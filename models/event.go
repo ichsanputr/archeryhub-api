@@ -44,7 +44,8 @@ type Event struct {
 	Description           *string    `json:"description" db:"description"`
 	BannerURL             *string    `json:"banner_url" db:"banner_url"`
 	LogoURL               *string    `json:"logo_url" db:"logo_url"`
-	Type                  *string    `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D
+	Type                  *string    `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
+	LocationType          *string    `json:"location_type" db:"location_type"` // Location type: Indoor, Outdoor, Field, 3D, etc.
 	NumDistances          *int       `json:"num_distances" db:"num_distances"`
 	NumSessions           *int       `json:"num_sessions" db:"num_sessions"`
 	EntryFee              float64    `json:"entry_fee" db:"entry_fee"`
@@ -52,7 +53,6 @@ type Event struct {
 	OrganizerID           *string    `json:"organizer_id" db:"organizer_id"`
 	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at"`
-	DisciplineName        string     `json:"discipline_name" db:"discipline_name"`
 	TotalPrize            float64    `json:"total_prize" db:"total_prize"`
 	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url"`
 	PageSettings          *string    `json:"page_settings" db:"page_settings"`
@@ -89,7 +89,8 @@ type CreateEventRequest struct {
 	Description           *string                   `json:"description"`
 	BannerURL             *string                   `json:"banner_url"`
 	LogoURL               *string                   `json:"logo_url"`
-	Type                  *string                   `json:"type"`
+	Type                  *string                   `json:"type"` // Deprecated, use location_type
+	LocationType          *string                   `json:"location_type"`
 	NumDistances          *int                      `json:"num_distances"`
 	NumSessions           *int                      `json:"num_sessions"`
 	EntryFee              float64                   `json:"entry_fee"`
@@ -118,7 +119,8 @@ type UpdateEventRequest struct {
 	Description           *string       `json:"description"`
 	BannerURL             *string       `json:"banner_url"`
 	LogoURL               *string       `json:"logo_url"`
-	Type                  *string       `json:"type"`
+	Type                  *string       `json:"type"` // Deprecated, use location_type
+	LocationType          *string       `json:"location_type"`
 	NumDistances          *int          `json:"num_distances"`
 	NumSessions           *int          `json:"num_sessions"`
 	Status                *string       `json:"status"`

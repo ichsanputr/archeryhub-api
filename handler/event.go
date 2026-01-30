@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -29,7 +30,6 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.full_name as organizer_name,
 				u.email as organizer_email,
 				u.slug as organizer_slug,
-				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
@@ -40,7 +40,6 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			LEFT JOIN ref_disciplines d ON t.type = d.uuid OR t.type = d.code
 			WHERE 1=1
 		`
 		args := []interface{}{}
@@ -68,7 +67,6 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.full_name as organizer_name,
 				u.email as organizer_email,
 				u.slug as organizer_slug,
-				COALESCE(d.name, t.type, '') as discipline_name,
 				COUNT(DISTINCT tp2.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
 				tp.payment_status,
@@ -82,7 +80,6 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			LEFT JOIN ref_disciplines d ON t.type = d.uuid OR t.type = d.code
 			WHERE t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)
 			`
 			args = []interface{}{userID, userID}
@@ -156,26 +153,38 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				u.email as organizer_email,
 				u.avatar_url as organizer_avatar_url,
 				u.slug as organizer_slug,
-				COALESCE(d.name, t.type, '') as discipline_name,
-				COUNT(DISTINCT tp.uuid) as participant_count,
-				COUNT(DISTINCT te.uuid) as event_count
+				COALESCE(participant_stats.participant_count, 0) as participant_count,
+				COALESCE(category_stats.event_count, 0) as event_count
 			FROM events t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM organizations
 				UNION ALL
 				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
-			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			LEFT JOIN ref_disciplines d ON t.type = d.uuid OR t.type = d.code
+			LEFT JOIN (
+				SELECT event_id, COUNT(DISTINCT uuid) as participant_count
+				FROM event_participants
+				GROUP BY event_id
+			) participant_stats ON t.uuid = participant_stats.event_id
+			LEFT JOIN (
+				SELECT event_id, COUNT(DISTINCT uuid) as event_count
+				FROM event_categories
+				GROUP BY event_id
+			) category_stats ON t.uuid = category_stats.event_id
 			WHERE t.uuid = ? OR t.slug = ?
-			GROUP BY t.uuid
+			LIMIT 1
 		`
 
 		var Event models.EventWithDetails
 		err := db.Get(&Event, query, id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			// Log the error for debugging
+			fmt.Printf("[GetEventByID] Error fetching event with id/slug '%s': %v\n", id, err)
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found", "id": id})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event", "details": err.Error()})
+			}
 			return
 		}
 
@@ -263,7 +272,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO events (
 				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
 				start_date, end_date, registration_deadline,
-				description, banner_url, logo_url, type, num_distances, num_sessions, 
+				description, banner_url, logo_url, location_type, num_distances, num_sessions, 
 				entry_fee, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url, page_settings, faq
 			) VALUES (
@@ -276,11 +285,17 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			status = "draft"
 		}
 
+		// Use location_type if provided, otherwise fallback to type for backward compatibility
+		locationType := req.LocationType
+		if locationType == nil && req.Type != nil {
+			locationType = req.Type
+		}
+
 		_, err := db.Exec(query,
 			eventUUID, req.Code, req.Name, req.ShortName, finalSlug, req.Venue, req.GmapLink,
 			req.Location, req.City,
 			startDate, endDate, regDeadline,
-			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), req.Type, req.NumDistances, req.NumSessions,
+			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), locationType, req.NumDistances, req.NumSessions,
 			req.EntryFee,
 			status, userID, now, now,
 			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
@@ -448,6 +463,14 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if req.FAQ != nil {
 			query += ", faq = ?"
 			args = append(args, models.ToJSON(req.FAQ))
+		}
+		if req.LocationType != nil {
+			query += ", location_type = ?"
+			args = append(args, *req.LocationType)
+		} else if req.Type != nil {
+			// Backward compatibility: if location_type not provided but type is, use type
+			query += ", location_type = ?"
+			args = append(args, *req.Type)
 		}
 
 		query += " WHERE uuid = ?"
