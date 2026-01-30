@@ -663,7 +663,6 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeName      *string `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName *string `db:"gender_division_name" json:"gender_division_name"`
 			TargetNumber       *string `db:"target_number" json:"target_number"`
-			Session            *int    `db:"session" json:"session"`
 			Status             string  `db:"status" json:"status"`
 			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
 			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
@@ -672,7 +671,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		query := `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
 				COALESCE(a.username, ea.username) as username,
 				COALESCE(a.full_name, ea.full_name) as full_name,
@@ -910,9 +909,23 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 				scheduleID = *s.ID
 			}
 
-			var endTime interface{}
+			// Parse StartTime RFC3339
+			parsedStartTime, err := time.Parse(time.RFC3339, s.StartTime)
+			if err != nil {
+				// Try parsing without timezone if RFC3339 fails, or just use as is if compatible
+				// For now, logging error but attempting to use string might still fail if format is wrong
+				fmt.Printf("Error parsing start_time: %v\n", err)
+			}
+			formattedStartTime := parsedStartTime.Format("2006-01-02 15:04:05")
+
+			var formattedEndTime interface{}
 			if s.EndTime != nil && *s.EndTime != "" {
-				endTime = *s.EndTime
+				parsedEndTime, err := time.Parse(time.RFC3339, *s.EndTime)
+				if err == nil {
+					formattedEndTime = parsedEndTime.Format("2006-01-02 15:04:05")
+				} else {
+					formattedEndTime = *s.EndTime // Fallback
+				}
 			}
 
 			dayOrder := 1
@@ -928,7 +941,7 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 			_, err = db.Exec(`
 				INSERT INTO event_schedule (uuid, event_id, title, description, start_time, end_time, day_order, sort_order, location)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, scheduleID, actualEventID, s.Title, s.Description, s.StartTime, endTime, dayOrder, sortOrder, s.Location)
+			`, scheduleID, actualEventID, s.Title, s.Description, formattedStartTime, formattedEndTime, dayOrder, sortOrder, s.Location)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save schedule", "details": err.Error()})
 				return
