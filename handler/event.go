@@ -674,7 +674,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
-				COALESCE(a.username, NULL) as username,
+				COALESCE(a.username, ea.username) as username,
 				COALESCE(a.full_name, ea.full_name) as full_name,
 				COALESCE(a.email, ea.email, '') as email,
 				COALESCE(a.city, ea.city) as city,
@@ -750,6 +750,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID           *string `db:"archer_id" json:"archer_id"`
 			EventArcherID      *string `db:"event_archer_id" json:"event_archer_id"`
 			FullName           string  `db:"full_name" json:"full_name"`
+			Username           *string `db:"username" json:"username"`
 			Email              string  `db:"email" json:"email"`
 			City               *string `db:"city" json:"city"`
 			ClubID             *string `db:"club_id" json:"club_id"`
@@ -775,6 +776,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
+				COALESCE(a.username, ea.username) as username,
 				COALESCE(a.full_name, ea.full_name) as full_name,
 				COALESCE(a.email, ea.email, '') as email,
 				COALESCE(a.city, ea.city) as city,
@@ -792,9 +794,15 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
-			WHERE tp.event_id = ? AND tp.uuid = ?
+			WHERE tp.event_id = ? AND (
+				tp.uuid = ? OR 
+				a.username = ? OR 
+				ea.username = ? OR 
+				LOWER(REPLACE(ea.full_name, ' ', '-')) = LOWER(?)
+			)
+			ORDER BY tp.created_at DESC
 			LIMIT 1
-		`, actualEventID, participantID)
+		`, actualEventID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
 			fmt.Printf("[DEBUG] Participant not found error: %v\n", err)
@@ -1206,6 +1214,78 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// DeleteEventParticipant allows an admin to remove a participant from an event
+func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		participantID := c.Param("participantId")
+
+		// Resolve event slug to UUID
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		// Resolve participant (support UUID or Username)
+		var actualParticipantID string
+		err = db.Get(&actualParticipantID, `
+			SELECT tp.uuid FROM event_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
+			WHERE tp.event_id = ? AND (tp.uuid = ? OR a.username = ? OR ea.username = ?)
+			LIMIT 1
+		`, actualEventID, participantID, participantID, participantID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})
+			return
+		}
+
+		// Start transaction for cleanup
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Delete scoring records related to this participant's assignments
+		_, _ = tx.Exec(`
+			DELETE FROM qualification_scores 
+			WHERE assignment_uuid IN (SELECT uuid FROM qualification_assignments WHERE participant_uuid = ?)
+		`, actualParticipantID)
+
+		// 2. Delete qualification assignments (target assignments)
+		_, err = tx.Exec("DELETE FROM qualification_assignments WHERE participant_uuid = ?", actualParticipantID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete target assignments", "details": err.Error()})
+			return
+		}
+
+		// 3. Delete from event_participants
+		_, err = tx.Exec("DELETE FROM event_participants WHERE uuid = ? AND event_id = ?", actualParticipantID, actualEventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete participant", "details": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit deletion"})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		if userID != nil {
+			utils.LogActivity(db, userID.(string), actualEventID, "participant_kicked", "event", actualEventID, "Kicked participant: "+actualParticipantID, c.ClientIP(), c.Request.UserAgent())
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Participant removed from event successfully"})
+	}
+}
+
 // UpdateEventParticipant updates an existing event participant
 func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -1235,16 +1315,28 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if participant exists and belongs to the event
+		// Check if participant exists and belongs to the event (support UUID, Username, or Slugified Name)
 		var actualParticipantID string
 		err = db.Get(&actualParticipantID, `
 			SELECT tp.uuid FROM event_participants tp
-			WHERE tp.event_id = ? AND tp.uuid = ?
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
+			WHERE tp.event_id = ? AND (
+				tp.uuid = ? OR 
+				a.username = ? OR 
+				ea.username = ? OR 
+				LOWER(REPLACE(ea.full_name, ' ', '-')) = LOWER(?)
+			)
 			LIMIT 1
-		`, actualEventID, participantID)
+		`, actualEventID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":          "Participant not found",
+				"details":        err.Error(),
+				"participant_id": participantID,
+				"event_id":       actualEventID,
+			})
 			return
 		}
 

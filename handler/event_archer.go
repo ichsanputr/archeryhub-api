@@ -2,7 +2,9 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +35,45 @@ func CreateEventArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Generate username if not provided or handle collision
+		var username string
+		if req.Username != nil && *req.Username != "" {
+			username = *req.Username
+		} else {
+			// Generate username from full name
+			generatedUsername := strings.ToLower(req.FullName)
+			generatedUsername = strings.ReplaceAll(generatedUsername, " ", "-")
+			generatedUsername = strings.ReplaceAll(generatedUsername, "'", "")
+			generatedUsername = strings.ReplaceAll(generatedUsername, ".", "")
+			generatedUsername = strings.ReplaceAll(generatedUsername, ",", "")
+			// Remove special characters, keep only alphanumeric and hyphens
+			var cleaned strings.Builder
+			for _, r := range generatedUsername {
+				if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+					cleaned.WriteRune(r)
+				}
+			}
+			username = cleaned.String()
+			if username == "" {
+				username = "archer"
+			}
+		}
+
+		// Check if username already exists in event_archers or global archers
+		var finalUsername string = username
+		var exists bool
+		// Check global archers first for potential conflict if they ever migrate
+		_ = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE username = ?)", finalUsername)
+		if !exists {
+			// Check other event archers
+			_ = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_archers WHERE username = ?)", finalUsername)
+		}
+
+		if exists {
+			randomSuffix := uuid.New().String()[:8]
+			finalUsername = fmt.Sprintf("%s-%s", username, randomSuffix)
+		}
+
 		id := uuid.New().String()
 		now := time.Now()
 
@@ -44,7 +85,7 @@ func CreateEventArcher(db *sqlx.DB) gin.HandlerFunc {
 				club, club_id, address, photo_url, notes, status, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
 		`,
-			id, actualEventID, req.FullName, req.Username, req.Email, req.Phone,
+			id, actualEventID, req.FullName, finalUsername, req.Email, req.Phone,
 			req.DateOfBirth, req.Gender, req.BowType, req.City, req.School,
 			req.Club, req.ClubID, req.Address, req.PhotoURL, req.Notes, now, now,
 		)
@@ -55,6 +96,7 @@ func CreateEventArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":       id,
+			"username": finalUsername,
 			"event_id": actualEventID,
 		})
 	}

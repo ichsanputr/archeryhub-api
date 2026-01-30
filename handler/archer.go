@@ -235,9 +235,9 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		customID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
 		// Generate username if not provided
-		var username *string
+		var username string
 		if req.Username != nil && *req.Username != "" {
-			username = req.Username
+			username = *req.Username
 		} else {
 			// Generate username from full name
 			generatedUsername := strings.ToLower(req.FullName)
@@ -253,10 +253,21 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 			generatedUsername = cleaned.String()
-			// Add random suffix for uniqueness
+			if generatedUsername == "" {
+				generatedUsername = "archer"
+			}
+			username = generatedUsername
+		}
+
+		// Check if username already exists, if so add a suffix
+		var finalUsername string = username
+		var usernameExists bool
+		_ = db.Get(&usernameExists, "SELECT EXISTS(SELECT 1 FROM archers WHERE username = ?)", finalUsername)
+
+		if usernameExists {
+			// Add random suffix for uniqueness only if conflict
 			randomSuffix := uuid.New().String()[:8]
-			finalUsername := fmt.Sprintf("%s-%s", generatedUsername, randomSuffix)
-			username = &finalUsername
+			finalUsername = fmt.Sprintf("%s-%s", username, randomSuffix)
 		}
 
 		// Set verification status: Unverified if no password
@@ -274,7 +285,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		`
 
 		_, err := db.Exec(query,
-			archerID, customID, username, req.Email, req.Password, req.FullName, req.Nickname,
+			archerID, customID, finalUsername, req.Email, req.Password, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.City, req.School, clubID,
 			req.Phone, req.Address, req.PhotoURL, isVerified, now, now,
 		)

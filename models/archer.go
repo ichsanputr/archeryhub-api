@@ -46,9 +46,9 @@ type CreateArcherRequest struct {
 	Username    *string    `json:"username"`
 	Email       *string    `json:"email" binding:"omitempty,email"`
 	Password    *string    `json:"password"`
-	Nickname    *string    `json:"nickname"`
-	DateOfBirth *time.Time `json:"date_of_birth"`
-	Gender      *string    `json:"gender" binding:"omitempty,oneof=male female M F"`
+	Nickname    *string       `json:"nickname"`
+	DateOfBirth *FlexibleTime `json:"date_of_birth"`
+	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
 	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`
@@ -61,9 +61,9 @@ type CreateArcherRequest struct {
 
 // UpdateArcherRequest represents the request payload for updating an archer
 type UpdateArcherRequest struct {
-	FullName     *string    `json:"full_name"`
-	DateOfBirth  *time.Time `json:"date_of_birth"`
-	Gender       *string    `json:"gender" binding:"omitempty,oneof=M F X"`
+	FullName     *string       `json:"full_name"`
+	DateOfBirth  *FlexibleTime `json:"date_of_birth"`
+	Gender       *string       `json:"gender" binding:"omitempty,oneof=M F X"`
 	Club         *string    `json:"club"`
 	City         *string    `json:"city"`
 	School       *string    `json:"school"`
@@ -161,10 +161,10 @@ type EventArcher struct {
 type CreateEventArcherRequest struct {
 	FullName    string     `json:"full_name" binding:"required,min=2,max=100"`
 	Username    *string    `json:"username"`
-	Email       *string    `json:"email" binding:"omitempty,email"`
-	Phone       *string    `json:"phone"`
-	DateOfBirth *time.Time `json:"date_of_birth"`
-	Gender      *string    `json:"gender" binding:"omitempty,oneof=male female M F"`
+	Email       *string       `json:"email" binding:"omitempty,email"`
+	Phone       *string       `json:"phone"`
+	DateOfBirth *FlexibleTime `json:"date_of_birth"`
+	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
 	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`

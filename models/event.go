@@ -1,6 +1,8 @@
 package models
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -10,6 +12,28 @@ type FlexibleTime struct {
 	time.Time
 }
 
+// Value implements the driver.Valuer interface
+func (ft FlexibleTime) Value() (driver.Value, error) {
+	if ft.IsZero() {
+		return nil, nil
+	}
+	return ft.Time, nil
+}
+
+// Scan implements the sql.Scanner interface
+func (ft *FlexibleTime) Scan(value interface{}) error {
+	if value == nil {
+		ft.Time = time.Time{}
+		return nil
+	}
+	t, ok := value.(time.Time)
+	if !ok {
+		return fmt.Errorf("failed to scan FlexibleTime: expected time.Time, got %T", value)
+	}
+	ft.Time = t
+	return nil
+}
+
 func (ft *FlexibleTime) UnmarshalJSON(data []byte) error {
 	s := strings.Trim(string(data), "\"")
 	if s == "" || s == "null" {
@@ -17,13 +41,21 @@ func (ft *FlexibleTime) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
+	// Try RFC3339 first
 	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		// Try other common formats if needed, or just return err
-		return err
+	if err == nil {
+		ft.Time = t
+		return nil
 	}
-	ft.Time = t
-	return nil
+
+	// Try standard date format
+	t, err = time.Parse("2006-01-02", s)
+	if err == nil {
+		ft.Time = t
+		return nil
+	}
+
+	return err
 }
 
 // Event represents an archery Event/competition
