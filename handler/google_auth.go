@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"archeryhub-api/utils"
@@ -260,26 +261,31 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			switch userType {
 			case "organization":
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, username, email, google_id, name, avatar_url, status, created_at, updated_at)
+					INSERT INTO organizations (uuid, slug, email, google_id, name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "club":
 				_, insertErr = db.Exec(`
-					INSERT INTO clubs (uuid, username, email, google_id, name, avatar_url, status, created_at, updated_at)
+					INSERT INTO clubs (uuid, slug, email, google_id, name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "seller":
 				_, insertErr = db.Exec(`
-					INSERT INTO sellers (uuid, username, email, google_id, store_name, avatar_url, status, created_at, updated_at)
+					INSERT INTO sellers (uuid, slug, email, google_id, store_name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			default: // archer
 				userType = "archer"
 				role = "archer"
+				// Generate slug from name
+				slug := strings.ToLower(displayName)
+				slug = strings.ReplaceAll(slug, " ", "-")
+				slug = slug + "-" + userID[:8]
+				
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, status, created_at, updated_at)
+					INSERT INTO archers (uuid, slug, email, google_id, full_name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+				`, userID, slug, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			}
 
 			if insertErr != nil {

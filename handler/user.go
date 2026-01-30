@@ -272,9 +272,9 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				query += ", store_name = ?"
 				args = append(args, *req.StoreName)
 			}
-			if req.StoreSlug != nil {
-				query += ", store_slug = ?"
-				args = append(args, *req.StoreSlug)
+			if req.Slug != nil {
+				query += ", slug = ?"
+				args = append(args, *req.Slug)
 			}
 			if req.Description != nil {
 				query += ", description = ?"

@@ -43,7 +43,6 @@ type ArcherWithStats struct {
 // CreateArcherRequest represents the request payload for creating an archer
 type CreateArcherRequest struct {
 	FullName         string     `json:"full_name" binding:"required,min=2,max=100"`
-	Username         *string    `json:"username"`
 	Email            *string    `json:"email" binding:"omitempty,email"`
 	Password         *string    `json:"password"`
 	Nickname         *string    `json:"nickname"`

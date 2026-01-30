@@ -8,10 +8,9 @@ import (
 type Seller struct {
 	UUID        string    `json:"id" db:"uuid"`
 	UserID      *string   `json:"user_id" db:"user_id"`
-	Username    string    `json:"username" db:"username"`
+	Slug        string    `json:"slug" db:"slug"`
 	Email       string    `json:"email" db:"email"`
 	StoreName   string    `json:"store_name" db:"store_name"`
-	StoreSlug   string    `json:"store_slug" db:"store_slug"`
 	Description *string   `json:"description" db:"description"`
 	AvatarURL   *string   `json:"avatar_url" db:"avatar_url"`
 	BannerURL   *string   `json:"banner_url" db:"banner_url"`
@@ -31,7 +30,7 @@ type Seller struct {
 // UpdateSellerRequest represents the payload to update a seller's profile
 type UpdateSellerRequest struct {
 	StoreName    *string `json:"store_name"`
-	StoreSlug    *string `json:"store_slug"`
+	Slug         *string `json:"slug"`
 	Description  *string `json:"description"`
 	AvatarURL    *string `json:"avatar_url"`
 	BannerURL    *string `json:"banner_url"`

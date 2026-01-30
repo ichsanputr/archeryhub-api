@@ -179,26 +179,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		// Check if email/username already exists
 		if req.Email != nil {
 			var exists bool
-			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ? OR username = ?)", req.Email, req.Email)
+			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ?)", req.Email)
 			if err == nil && exists {
 				c.JSON(http.StatusConflict, gin.H{"error": "Email or username already exists"})
 				return
 			}
 		}
 
-		// Generate username from email if not provided
-		username := req.Username
-		if username == nil && req.Email != nil {
-			// Extract username from email (part before @)
-			emailStr := *req.Email
-			for i, char := range emailStr {
-				if char == '@' {
-					usernameStr := emailStr[:i]
-					username = &usernameStr
-					break
-				}
-			}
-		}
+
 
 		// Validate password length if provided
 		if req.Password != nil && *req.Password != "" {
@@ -257,14 +245,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO archers (
-				uuid, custom_id, username, email, password, full_name, nickname,
+				uuid, custom_id, email, password, full_name, nickname,
 				date_of_birth, gender, bow_type, country, city, club_id,
 				phone, address, photo_url, status, is_verified, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			archerID, customID, username, req.Email, req.Password, req.FullName, req.Nickname,
+			archerID, customID, req.Email, req.Password, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.Country, req.City, clubID,
 			req.Phone, req.Address, req.PhotoURL, isVerified, now, now,
 		)

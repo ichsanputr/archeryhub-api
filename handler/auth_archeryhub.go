@@ -75,17 +75,17 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		
 		found := false
 		// Check archers first
-		err := db.Get(&existingUser, `SELECT uuid, 'archer' as source, is_verified FROM archers WHERE email = ? OR username = ? LIMIT 1`, req.Email, req.Username)
+		err := db.Get(&existingUser, `SELECT uuid, 'archer' as source, is_verified FROM archers WHERE email = ? LIMIT 1`, req.Email)
 		if err == nil {
 			found = true
 		} else {
 			// Check organizations
-			err = db.Get(&existingUser, `SELECT uuid, 'organization' as source, true as is_verified FROM organizations WHERE email = ? OR slug = ? LIMIT 1`, req.Email, req.Username)
+			err = db.Get(&existingUser, `SELECT uuid, 'organization' as source, true as is_verified FROM organizations WHERE email = ? LIMIT 1`, req.Email)
 			if err == nil {
 				found = true
 			} else {
-				// Check clubs (uses slug or username)
-				err = db.Get(&existingUser, `SELECT uuid, 'club' as source, true as is_verified FROM clubs WHERE email = ? OR slug = ? OR username = ? LIMIT 1`, req.Email, req.Username, req.Username)
+				// Check clubs (uses slug)
+				err = db.Get(&existingUser, `SELECT uuid, 'club' as source, true as is_verified FROM clubs WHERE email = ? LIMIT 1`, req.Email)
 				if err == nil {
 					found = true
 				}
@@ -134,7 +134,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			if table != "archers" {
 				// For non-archers, we don't have is_verified column yet in some tables, 
 				// but the user only specified archer verification logic.
-				columnName := "username"
+				columnName := "slug"
 				if table == "organizations" {
 					columnName = "slug"
 				}
@@ -158,11 +158,16 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 				customID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
+				// Generate slug from full name
+				slug := strings.ToLower(req.FullName)
+				slug = strings.ReplaceAll(slug, " ", "-")
+				slug = slug + "-" + userID[:8]
+
 				insertQuery := `
-					INSERT INTO archers (uuid, custom_id, username, email, password, full_name, phone, status, is_verified)
+					INSERT INTO archers (uuid, custom_id, slug, email, password, full_name, phone, status, is_verified)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
 				`
-				_, err = db.Exec(insertQuery, userID, customID, req.Username, req.Email, req.Password, req.FullName, req.Phone, isVerified)
+				_, err = db.Exec(insertQuery, userID, customID, slug, req.Email, req.Password, req.FullName, req.Phone, isVerified)
 			}
 		}
 
@@ -187,7 +192,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			Token: token,
 			User: gin.H{
 				"id":         userID,
-				"username":   req.Username,
+				"username":   req.FullName, // Use FullName as identifier in response if username is gone
 				"full_name":  req.FullName,
 				"email":      req.Email,
 				"avatar_url": avatar,
@@ -253,7 +258,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		type UserResult struct {
 			UUID      string  `db:"uuid"`
-			Username  string  `db:"username"`
+			Username  string  `db:"slug"` // Use slug for frontend username field
 			Email     string  `db:"email"`
 			Password  string  `db:"password"`
 			FullName  string  `db:"full_name"`
@@ -268,7 +273,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check archers
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, username, email, password, full_name, avatar_url, 'archer' as role, status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, slug, email, password, full_name, avatar_url, 'archer' as role, status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -285,7 +290,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&user, "SELECT uuid, COALESCE(slug, username) as username, email, password, name as full_name, avatar_url, 'club' as role, status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug as username, email, password, name as full_name, avatar_url, 'club' as role, status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -294,7 +299,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check sellers
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, store_name as full_name, avatar_url, 'seller' as role, status FROM sellers WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug, email, password, store_name as full_name, avatar_url, 'seller' as role, status FROM sellers WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "seller"
 				found = true
@@ -403,7 +408,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 
 		var user struct {
 			ID        string  `db:"uuid" json:"id"`
-			Username  string  `db:"username" json:"username"`
+			Username  string  `db:"slug" json:"username"` // Use slug for username field
 			Email     string  `db:"email" json:"email"`
 			Slug      string  `db:"slug" json:"slug"`
 			FullName  string  `db:"full_name" json:"full_name"`
@@ -415,7 +420,6 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			Achievements *string `db:"achievements" json:"achievements"`
 			Description *string `db:"description" json:"description"`
 			StoreName   *string `db:"store_name" json:"store_name"`
-			StoreSlug   *string `db:"store_slug" json:"store_slug"`
 			BannerURL   *string `db:"banner_url" json:"banner_url"`
 			Status    string  `db:"status" json:"status"`
 			CreatedAt string  `db:"created_at" json:"created_at"`
@@ -423,11 +427,11 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 
 		roleSelect := "'" + userType.(string) + "' as role"
 
-		query := `SELECT uuid, username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
+		query := `SELECT uuid, slug as username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
 		if table == "archers" {
 			query += ", bio, achievements"
 		} else if table == "sellers" {
-			query += ", store_name, store_slug, description, banner_url"
+			query += ", store_name, slug, description, banner_url"
 		}
 		query += " FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)

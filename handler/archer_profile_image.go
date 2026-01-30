@@ -21,14 +21,14 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 		found := false
 
 		// Try to find in archers first
-		err := db.Get(&avatarURL, "SELECT avatar_url FROM archers WHERE email = ? OR username = ?", identifier, identifier)
+		err := db.Get(&avatarURL, "SELECT avatar_url FROM archers WHERE email = ? OR slug = ?", identifier, identifier)
 		if err == nil {
 			found = true
 		}
 
 		// If not found, try organizations
 		if !found {
-			err = db.Get(&avatarURL, "SELECT avatar_url FROM organizations WHERE email = ? OR username = ?", identifier, identifier)
+			err = db.Get(&avatarURL, "SELECT avatar_url FROM organizations WHERE email = ? OR slug = ?", identifier, identifier)
 			if err == nil {
 				found = true
 			}
@@ -36,7 +36,7 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 
 		// If still not found, try clubs
 		if !found {
-			err = db.Get(&avatarURL, "SELECT avatar_url FROM clubs WHERE email = ? OR username = ?", identifier, identifier)
+			err = db.Get(&avatarURL, "SELECT avatar_url FROM clubs WHERE email = ? OR slug = ?", identifier, identifier)
 			if err == nil {
 				found = true
 			}

@@ -15,7 +15,7 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		var seller struct {
 			UUID         string  `json:"uuid" db:"uuid"`
 			StoreName    string  `json:"store_name" db:"store_name"`
-			StoreSlug    *string `json:"store_slug" db:"store_slug"`
+			Slug         *string `json:"slug" db:"slug"`
 			Description  *string `json:"description" db:"description"`
 			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
 			BannerURL    *string `json:"banner_url" db:"banner_url"`
@@ -28,7 +28,7 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		err := db.Get(&seller, `
-			SELECT uuid, store_name, store_slug, description, avatar_url, banner_url, 
+			SELECT uuid, store_name, slug, description, avatar_url, banner_url, 
 			       phone, email, address, city, province, page_settings
 			FROM sellers
 			WHERE user_id = ?`, userID)
@@ -49,7 +49,8 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		// Add seller basic info
 		response["uuid"] = seller.UUID
 		response["store_name"] = seller.StoreName
-		response["store_slug"] = seller.StoreSlug
+		response["slug"] = seller.Slug
+		response["store_slug"] = seller.Slug // Keep this for backward compatibility if frontend expects it
 		response["description"] = seller.Description
 		response["avatar_url"] = seller.AvatarURL
 		response["banner_url"] = seller.BannerURL
