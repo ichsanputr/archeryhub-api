@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"archeryhub-api/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
-
 
 // GetEvents returns a list of events
 func GetEvents(db *sqlx.DB) gin.HandlerFunc {
@@ -86,18 +86,18 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			WHERE t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)
 			`
 			args = []interface{}{userID, userID}
-			
+
 			if status != "" {
 				query += ` AND t.status = ?`
 				args = append(args, status)
 			}
-			
+
 			if search != "" {
 				query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
 				searchTerm := "%" + search + "%"
 				args = append(args, searchTerm, searchTerm, searchTerm)
 			}
-			
+
 			query += `
 			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, d.name, t.type
 			ORDER BY t.start_date DESC
@@ -264,10 +264,10 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
 				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
-				entry_fee, max_participants, status, organizer_id, created_at, updated_at,
+				entry_fee, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url, page_settings, faq
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -281,7 +281,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			req.Location, req.City,
 			startDate, endDate, regDeadline,
 			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), req.Type, req.NumDistances, req.NumSessions,
-			req.EntryFee, req.MaxParticipants,
+			req.EntryFee,
 			status, userID, now, now,
 			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
 			models.ToJSON(req.FAQ),
@@ -302,8 +302,8 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 						INSERT INTO event_categories (
 							uuid, event_id, division_uuid, category_uuid, 
 							max_participants
-						) VALUES (?, ?, ?, ?, ?)
-					`, catEventID, eventUUID, divUUID, catUUID, req.MaxParticipants)
+						) VALUES (?, ?, ?, ?, NULL)
+					`, catEventID, eventUUID, divUUID, catUUID)
 					if err != nil {
 						// fmt.Printf("Error: Failed to save event category: %v\n", err) // Removed fmt import
 					}
@@ -421,10 +421,6 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			query += ", entry_fee = ?"
 			args = append(args, *req.EntryFee)
 		}
-		if req.MaxParticipants != nil {
-			query += ", max_participants = ?"
-			args = append(args, *req.MaxParticipants)
-		}
 		if req.RegistrationDeadline != nil {
 			query += ", registration_deadline = ?"
 			if (*req.RegistrationDeadline).IsZero() {
@@ -516,26 +512,26 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&actualEventID, `
 			SELECT uuid FROM events WHERE uuid = ? OR slug = ?
 		`, eventID, eventID)
-		
+
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
 		type EventEvent struct {
-			ID                  string `db:"id" json:"id"`
-			EventID             string `db:"event_id" json:"event_id"`
-			DivisionName        string `db:"division_name" json:"division_name"`
-			DivisionID           string `db:"division_id" json:"division_id"`
-			CategoryName         string `db:"category_name" json:"category_name"`
-			CategoryID           string `db:"category_id" json:"category_id"`
-			EventTypeName        string `db:"event_type_name" json:"event_type_name"`
-			EventTypeID          string `db:"event_type_id" json:"event_type_id"`
-			GenderDivisionName   string `db:"gender_division_name" json:"gender_division_name"`
-			GenderDivisionID     string `db:"gender_division_id" json:"gender_division_id"`
-			MaxParticipants      *int   `db:"max_participants" json:"max_participants"`
-			Status               string `db:"status" json:"status"`
-			CreatedAt            string `db:"created_at" json:"created_at"`
+			ID                 string `db:"id" json:"id"`
+			EventID            string `db:"event_id" json:"event_id"`
+			DivisionName       string `db:"division_name" json:"division_name"`
+			DivisionID         string `db:"division_id" json:"division_id"`
+			CategoryName       string `db:"category_name" json:"category_name"`
+			CategoryID         string `db:"category_id" json:"category_id"`
+			EventTypeName      string `db:"event_type_name" json:"event_type_name"`
+			EventTypeID        string `db:"event_type_id" json:"event_type_id"`
+			GenderDivisionName string `db:"gender_division_name" json:"gender_division_name"`
+			GenderDivisionID   string `db:"gender_division_id" json:"gender_division_id"`
+			MaxParticipants    *int   `db:"max_participants" json:"max_participants"`
+			Status             string `db:"status" json:"status"`
+			CreatedAt          string `db:"created_at" json:"created_at"`
 		}
 
 		var events []EventEvent
@@ -628,25 +624,25 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type Participant struct {
-			ID                  string  `db:"id" json:"id"`
-			ArcherID            string  `db:"archer_id" json:"archer_id"`
-			FullName            string  `db:"full_name" json:"full_name"`
-			Slug                string  `db:"slug" json:"slug"`
-			Email               string  `db:"email" json:"email"`
-			Country             *string `db:"country" json:"country"`
-			ClubID              *string `db:"club_id" json:"club_id"`
-			ClubName            *string `db:"club_name" json:"club_name"`
-			EventID             string  `db:"event_id" json:"event_id"`
-			CategoryID          string  `db:"category_id" json:"category_id"`
-			DivisionName        string  `db:"division_name" json:"division_name"`
-			CategoryName        string  `db:"category_name" json:"category_name"`
-			EventTypeName       *string `db:"event_type_name" json:"event_type_name"`
-			GenderDivisionName  *string `db:"gender_division_name" json:"gender_division_name"`
-			TargetNumber        *string `db:"target_number" json:"target_number"`
-			Session             *int    `db:"session" json:"session"`
-			Status              string  `db:"status" json:"status"`
-			AvatarURL           *string `db:"avatar_url" json:"avatar_url"`
-			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
+			ID                 string  `db:"id" json:"id"`
+			ArcherID           string  `db:"archer_id" json:"archer_id"`
+			FullName           string  `db:"full_name" json:"full_name"`
+			Slug               string  `db:"slug" json:"slug"`
+			Email              string  `db:"email" json:"email"`
+			Country            *string `db:"country" json:"country"`
+			ClubID             *string `db:"club_id" json:"club_id"`
+			ClubName           *string `db:"club_name" json:"club_name"`
+			EventID            string  `db:"event_id" json:"event_id"`
+			CategoryID         string  `db:"category_id" json:"category_id"`
+			DivisionName       string  `db:"division_name" json:"division_name"`
+			CategoryName       string  `db:"category_name" json:"category_name"`
+			EventTypeName      *string `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName *string `db:"gender_division_name" json:"gender_division_name"`
+			TargetNumber       *string `db:"target_number" json:"target_number"`
+			Session            *int    `db:"session" json:"session"`
+			Status             string  `db:"status" json:"status"`
+			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
+			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
 		}
 
 		var participants []Participant
@@ -719,28 +715,27 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		fmt.Printf("[DEBUG] Fetching participant for event %s (ID: %s), participant %s\n", eventID, actualEventID, participantID)
 
-
 		type Participant struct {
-			ID                  string  `db:"id" json:"id"`
-			ArcherID            string  `db:"archer_id" json:"archer_id"`
-			FullName            string  `db:"full_name" json:"full_name"`
-			Email               string  `db:"email" json:"email"`
-			Country             *string `db:"country" json:"country"`
-			ClubID              *string `db:"club_id" json:"club_id"`
-			ClubName            *string `db:"club_name" json:"club_name"`
-			EventID             string  `db:"event_id" json:"event_id"`
-			CategoryID          string  `db:"category_id" json:"category_id"`
-			DivisionName        string  `db:"division_name" json:"division_name"`
-			CategoryName        string  `db:"category_name" json:"category_name"`
-			EventTypeName       *string `db:"event_type_name" json:"event_type_name"`
-			GenderDivisionName  *string `db:"gender_division_name" json:"gender_division_name"`
-			TargetNumber        *string `db:"target_number" json:"target_number"`
-			Session             *int    `db:"session" json:"session"`
-			Status              string  `db:"status" json:"status"`
-			AvatarURL           *string `db:"avatar_url" json:"avatar_url"`
-			PaymentAmount       float64 `db:"payment_amount" json:"payment_amount"`
-			PaymentProofURLs    *string `db:"payment_proof_urls" json:"payment_proof_urls"`
-			RegistrationDate    string  `db:"registration_date" json:"registration_date"`
+			ID                 string  `db:"id" json:"id"`
+			ArcherID           string  `db:"archer_id" json:"archer_id"`
+			FullName           string  `db:"full_name" json:"full_name"`
+			Email              string  `db:"email" json:"email"`
+			Country            *string `db:"country" json:"country"`
+			ClubID             *string `db:"club_id" json:"club_id"`
+			ClubName           *string `db:"club_name" json:"club_name"`
+			EventID            string  `db:"event_id" json:"event_id"`
+			CategoryID         string  `db:"category_id" json:"category_id"`
+			DivisionName       string  `db:"division_name" json:"division_name"`
+			CategoryName       string  `db:"category_name" json:"category_name"`
+			EventTypeName      *string `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName *string `db:"gender_division_name" json:"gender_division_name"`
+			TargetNumber       *string `db:"target_number" json:"target_number"`
+			Session            *int    `db:"session" json:"session"`
+			Status             string  `db:"status" json:"status"`
+			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
+			PaymentAmount      float64 `db:"payment_amount" json:"payment_amount"`
+			PaymentProofURLs   *string `db:"payment_proof_urls" json:"payment_proof_urls"`
+			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
 		}
 
 		var participant Participant
@@ -768,10 +763,10 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			fmt.Printf("[DEBUG] Participant not found error: %v\n", err)
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Participant not found", 
-				"details": err.Error(), 
-				"participant_id": participantID, 
-				"event_id": actualEventID,
+				"error":          "Participant not found",
+				"details":        err.Error(),
+				"participant_id": participantID,
+				"event_id":       actualEventID,
 			})
 			return
 		}
@@ -1043,9 +1038,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			AthleteID       string   `json:"athlete_id" binding:"required"`
-			EventCategoryID string   `json:"event_category_id" binding:"required"`
-			PaymentAmount   float64  `json:"payment_amount"`
+			AthleteID        string   `json:"athlete_id" binding:"required"`
+			EventCategoryID  string   `json:"event_category_id" binding:"required"`
+			PaymentAmount    float64  `json:"payment_amount"`
 			PaymentProofURLs []string `json:"payment_proof_urls"`
 		}
 
@@ -1062,29 +1057,29 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-	// Check if already registered
-	var exists bool
-	err = db.Get(&exists, `
+		// Check if already registered
+		var exists bool
+		err = db.Get(&exists, `
 		SELECT EXISTS(SELECT 1 FROM event_participants 
 		WHERE event_id = ? AND archer_id = ? AND category_id = ?)
 	`, actualEventID, req.AthleteID, req.EventCategoryID)
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
-		return
-	}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			return
+		}
 
-	if exists {
-		c.JSON(http.StatusConflict, gin.H{"error": "Participant already registered for this event category"})
-		return
-	}
+		if exists {
+			c.JSON(http.StatusConflict, gin.H{"error": "Participant already registered for this event category"})
+			return
+		}
 
-	// Join proof URLs with comma
-	proofURLs := strings.Join(req.PaymentProofURLs, ",")
+		// Join proof URLs with comma
+		proofURLs := strings.Join(req.PaymentProofURLs, ",")
 
-	// Insert participant
-	participantID := uuid.New().String()
-	_, err = db.Exec(`
+		// Insert participant
+		participantID := uuid.New().String()
+		_, err = db.Exec(`
 		INSERT INTO event_participants 
 		(uuid, event_id, archer_id, category_id, payment_amount, payment_proof_urls, status, accreditation_status)
 		VALUES (?, ?, ?, ?, ?, ?, 'Menunggu Acc', 'pending')
@@ -1237,7 +1232,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.AccreditationStatus)
 		}
 
-
 		if len(args) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
 			return
@@ -1268,9 +1262,9 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			Divisions []string `json:"divisions" binding:"required"`
-			Categories []string `json:"categories" binding:"required"`
-			MaxParticipants int    `json:"max_participants"`
+			Divisions       []string `json:"divisions" binding:"required"`
+			Categories      []string `json:"categories" binding:"required"`
+			MaxParticipants int      `json:"max_participants"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1295,7 +1289,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 					SELECT EXISTS(SELECT 1 FROM event_categories 
 					WHERE event_id = ? AND division_uuid = ? AND category_uuid = ?)
 				`, eventID, divUUID, catUUID)
-				
+
 				if err != nil || catExists {
 					continue
 				}
@@ -1307,7 +1301,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 						max_participants
 					) VALUES (?, ?, ?, ?, ?)
 				`, catEventID, eventID, divUUID, catUUID, req.MaxParticipants)
-				
+
 				if err == nil {
 					count++
 				}
@@ -1331,12 +1325,12 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			DivisionUUID      string `json:"division_uuid" binding:"required"`
-			CategoryUUID      string `json:"category_uuid" binding:"required"`
-			EventTypeUUID     string `json:"event_type_uuid" binding:"required"`
+			DivisionUUID       string `json:"division_uuid" binding:"required"`
+			CategoryUUID       string `json:"category_uuid" binding:"required"`
+			EventTypeUUID      string `json:"event_type_uuid" binding:"required"`
 			GenderDivisionUUID string `json:"gender_division_uuid" binding:"required"`
-			MaxParticipants   *int   `json:"max_participants"`
-			Status            string `json:"status"`
+			MaxParticipants    *int   `json:"max_participants"`
+			Status             string `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1358,12 +1352,12 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			SELECT EXISTS(SELECT 1 FROM event_categories 
 			WHERE event_id = ? AND division_uuid = ? AND category_uuid = ? AND event_type_uuid = ? AND gender_division_uuid = ?)
 		`, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID)
-		
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check category", "details": err.Error()})
 			return
 		}
-		
+
 		if catExists {
 			c.JSON(http.StatusConflict, gin.H{"error": "Category already exists for this event"})
 			return
@@ -1381,7 +1375,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 				max_participants, status
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
-		
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
 			return
@@ -1432,7 +1426,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			SELECT EXISTS(SELECT 1 FROM event_categories 
 			WHERE uuid = ? AND event_id = ?)
 		`, categoryID, actualEventID)
-		
+
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 			return
@@ -1507,7 +1501,7 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			SELECT EXISTS(SELECT 1 FROM event_categories 
 			WHERE uuid = ? AND event_id = ?)
 		`, categoryID, actualEventID)
-		
+
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 			return
@@ -1519,7 +1513,7 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			SELECT EXISTS(SELECT 1 FROM event_participants 
 			WHERE category_id = ?)
 		`, categoryID)
-		
+
 		if err == nil && hasParticipants {
 			c.JSON(http.StatusConflict, gin.H{"error": "Cannot delete category with existing participants"})
 			return
@@ -1545,14 +1539,14 @@ func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		type EventImage struct {
-			UUID         string `db:"uuid" json:"id"`
-			EventID      string `db:"event_id" json:"event_id"`
-			URL          string `db:"url" json:"url"`
+			UUID         string  `db:"uuid" json:"id"`
+			EventID      string  `db:"event_id" json:"event_id"`
+			URL          string  `db:"url" json:"url"`
 			Caption      *string `db:"caption" json:"caption"`
 			AltText      *string `db:"alt_text" json:"alt_text"`
-			DisplayOrder int    `db:"display_order" json:"display_order"`
-			IsPrimary    bool   `db:"is_primary" json:"is_primary"`
-			CreatedAt    string `db:"created_at" json:"created_at"`
+			DisplayOrder int     `db:"display_order" json:"display_order"`
+			IsPrimary    bool    `db:"is_primary" json:"is_primary"`
+			CreatedAt    string  `db:"created_at" json:"created_at"`
 		}
 
 		var images []EventImage
