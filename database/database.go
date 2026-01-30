@@ -23,6 +23,10 @@ func InitDB() (*sqlx.DB, error) {
 	dbname := getEnv("DB_NAME", "archeryhub")
 
 	dsn := user + ":" + password + "@tcp(" + host + ":" + port + ")/" + dbname + "?parseTime=true"
+	if os.Getenv("ENV") == "development" {
+		// Log connection target (no password) so we can confirm which DB the API uses
+		os.Stderr.WriteString("[db] connecting to " + host + ":" + port + "/" + dbname + "\n")
+	}
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		return nil, err

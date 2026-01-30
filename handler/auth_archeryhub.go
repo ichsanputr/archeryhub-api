@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -252,8 +253,12 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
+			log.Printf("[auth] login bind error: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+		if os.Getenv("ENV") == "development" {
+			log.Printf("[auth] login attempt email=%q password_len=%d", req.Email, len(req.Password))
 		}
 
 		type UserResult struct {
@@ -280,17 +285,20 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Check organizations (Google sign-up does not set password; only Register does)
+		// Use column alias "slug" so result matches UserResult (db:"slug" for Username)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
+			} else if os.Getenv("ENV") == "development" {
+				log.Printf("[auth] organizations lookup failed for %q: %v", req.Email, err)
 			}
 		}
 
-		// Check clubs
+		// Check clubs (use slug so result matches UserResult)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -307,6 +315,9 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if !found {
+			if os.Getenv("ENV") == "development" {
+				log.Printf("[auth] login user not found email=%q", req.Email)
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
 			return
 		}
@@ -328,6 +339,9 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Verify password (plain text comparison)
 		if user.Password != req.Password {
+			if os.Getenv("ENV") == "development" {
+				log.Printf("[auth] login password mismatch email=%q (db_len=%d req_len=%d)", req.Email, len(user.Password), len(req.Password))
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
 			return
 		}
