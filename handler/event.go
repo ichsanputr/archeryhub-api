@@ -762,18 +762,18 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeName      *string `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName *string `db:"gender_division_name" json:"gender_division_name"`
 			TargetNumber       *string `db:"target_number" json:"target_number"`
-			Session            *int    `db:"session" json:"session"`
 			Status             string  `db:"status" json:"status"`
 			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
 			PaymentAmount      float64 `db:"payment_amount" json:"payment_amount"`
 			PaymentProofURLs   *string `db:"payment_proof_urls" json:"payment_proof_urls"`
 			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
+			IsVerified         bool    `db:"is_verified" json:"is_verified"`
 		}
 
 		var participant Participant
 		err = db.Get(&participant, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
 				COALESCE(a.username, ea.username) as username,
@@ -784,7 +784,8 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.avatar_url, ea.photo_url) as avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
-				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
+				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
+				COALESCE(a.is_verified, 0) as is_verified
 			FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
@@ -805,15 +806,18 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		`, actualEventID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
-			fmt.Printf("[DEBUG] Participant not found error: %v\n", err)
+			fmt.Printf("[DEBUG] Participant not found in DB for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":          "Participant not found",
 				"details":        err.Error(),
 				"participant_id": participantID,
 				"event_id":       actualEventID,
+				"hint":           "Make sure the participant exists for this event and the ID/Username is correct.",
 			})
 			return
 		}
+
+		fmt.Printf("[DEBUG] Found participant: %s (UUID: %s)\n", participant.FullName, participant.ID)
 
 		// Mask avatar URL
 		if participant.AvatarURL != nil {
@@ -1295,11 +1299,11 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			CategoryID          *string  `json:"category_id"`
 			TargetNumber        *string  `json:"target_number"`
-			Session             *int     `json:"session"`
 			Status              *string  `json:"status"`
 			PaymentAmount       *float64 `json:"payment_amount"`
 			PaymentProofURLs    []string `json:"payment_proof_urls"`
 			AccreditationStatus *string  `json:"accreditation_status"`
+			IsVerified          *bool    `json:"is_verified"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1316,9 +1320,13 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Check if participant exists and belongs to the event (support UUID, Username, or Slugified Name)
-		var actualParticipantID string
-		err = db.Get(&actualParticipantID, `
-			SELECT tp.uuid FROM event_participants tp
+		var pInfo struct {
+			UUID          string  `db:"uuid"`
+			ArcherID      *string `db:"archer_id"`
+			EventArcherID *string `db:"event_archer_id"`
+		}
+		err = db.Get(&pInfo, `
+			SELECT tp.uuid, tp.archer_id, tp.event_archer_id FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
 			WHERE tp.event_id = ? AND (
@@ -1331,14 +1339,19 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		`, actualEventID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
+			fmt.Printf("[DEBUG] Update lookup failed for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":          "Participant not found",
 				"details":        err.Error(),
 				"participant_id": participantID,
 				"event_id":       actualEventID,
+				"hint":           "Make sure the participant exists for this event and the ID/Username is correct.",
 			})
 			return
 		}
+
+		actualParticipantID := pInfo.UUID
+		fmt.Printf("[DEBUG] Updating participant UUID: %s for input: %s\n", actualParticipantID, participantID)
 
 		// Build dynamic update query
 		query := "UPDATE event_participants SET updated_at = NOW()"
@@ -1362,10 +1375,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			query += ", target_number = ?"
 			args = append(args, *req.TargetNumber)
 		}
-		if req.Session != nil {
-			query += ", session = ?"
-			args = append(args, *req.Session)
-		}
 		if req.Status != nil {
 			query += ", status = ?"
 			args = append(args, *req.Status)
@@ -1382,6 +1391,96 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if req.AccreditationStatus != nil {
 			query += ", accreditation_status = ?"
 			args = append(args, *req.AccreditationStatus)
+		}
+
+		// Handle IsVerified
+		if req.IsVerified != nil {
+			if pInfo.ArcherID != nil {
+				// Update existing archer verified status
+				_, err = db.Exec("UPDATE archers SET is_verified = ? WHERE uuid = ?", *req.IsVerified, *pInfo.ArcherID)
+				if err != nil {
+					fmt.Printf("[ERROR] Failed to update archer verification: %v\n", err)
+				}
+			} else if *req.IsVerified && pInfo.EventArcherID != nil {
+				// Promote event archer to global archer
+				newArcherID := uuid.New().String()
+				
+				// Get event archer data
+				var ea struct {
+					FullName    string     `db:"full_name"`
+					Username    *string    `db:"username"`
+					Email       *string    `db:"email"`
+					Phone       *string    `db:"phone"`
+					DateOfBirth *time.Time `db:"date_of_birth"`
+					Gender      *string    `db:"gender"`
+					BowType     *string    `db:"bow_type"`
+					City        *string    `db:"city"`
+					School      *string    `db:"school"`
+					ClubID      *string    `db:"club_id"`
+					Address     *string    `db:"address"`
+					PhotoURL    *string    `db:"photo_url"`
+				}
+				err = db.Get(&ea, "SELECT full_name, username, email, phone, date_of_birth, gender, bow_type, city, school, club_id, address, photo_url FROM event_archers WHERE uuid = ?", *pInfo.EventArcherID)
+				if err == nil {
+					// Check if email already exists in archers to avoid duplicates
+					var existingID string
+					if ea.Email != nil && *ea.Email != "" {
+						_ = db.Get(&existingID, "SELECT uuid FROM archers WHERE email = ? LIMIT 1", *ea.Email)
+					}
+					
+					if existingID != "" {
+						// Link to existing archer
+						query += ", archer_id = ?, event_archer_id = NULL"
+						args = append(args, existingID)
+						// Also update that archer's verified status
+						db.Exec("UPDATE archers SET is_verified = 1 WHERE uuid = ?", existingID)
+					} else {
+						// Create new archer
+						// Generate unique username if needed
+						finalUsername := ea.Username
+						if finalUsername == nil {
+							u := strings.ToLower(strings.ReplaceAll(ea.FullName, " ", "-"))
+							finalUsername = &u
+						}
+
+						// Normalize gender for enum('male','female')
+						gender := "male"
+						if ea.Gender != nil {
+							g := strings.ToLower(*ea.Gender)
+							if g == "female" || g == "f" || g == "p" || g == "perempuan" {
+								gender = "female"
+							}
+						}
+
+						// Normalize bow type for enum('recurve','compound','barebow','traditional')
+						bowType := "recurve"
+						if ea.BowType != nil {
+							bt := strings.ToLower(*ea.BowType)
+							switch bt {
+							case "recurve", "compound", "barebow", "traditional":
+								bowType = bt
+							}
+						}
+						
+						// Insert into archers
+						_, err = db.Exec(`
+							INSERT INTO archers (
+								uuid, username, email, full_name, phone, date_of_birth, 
+								gender, bow_type, city, school, club_id, address, 
+								avatar_url, is_verified, status, created_at, updated_at
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', NOW(), NOW())
+						`, newArcherID, finalUsername, ea.Email, ea.FullName, ea.Phone, ea.DateOfBirth,
+						   gender, bowType, ea.City, ea.School, ea.ClubID, ea.Address, ea.PhotoURL)
+						
+						if err == nil {
+							query += ", archer_id = ?, event_archer_id = NULL"
+							args = append(args, newArcherID)
+						} else {
+							fmt.Printf("[ERROR] Failed to promote archer: %v\n", err)
+						}
+					}
+				}
+			}
 		}
 
 		if len(args) == 0 {
