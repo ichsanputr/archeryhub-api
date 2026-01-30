@@ -72,7 +72,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			IsVerified bool   `db:"is_verified"`
 		}
 		var existingUser UserStub
-		
+
 		found := false
 		// Check archers first
 		err := db.Get(&existingUser, `SELECT uuid, 'archer' as source, is_verified FROM archers WHERE email = ? LIMIT 1`, req.Email)
@@ -91,7 +91,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 		}
-			
+
 		userID := ""
 		isUpdate := false
 
@@ -103,7 +103,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			} else {
 				c.JSON(http.StatusConflict, gin.H{
 					"error": "User with this email or username already exists",
-					"type": existingUser.Source,
+					"type":  existingUser.Source,
 				})
 				return
 			}
@@ -132,7 +132,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			isVerified := true
 			if table != "archers" {
-				// For non-archers, we don't have is_verified column yet in some tables, 
+				// For non-archers, we don't have is_verified column yet in some tables,
 				// but the user only specified archer verification logic.
 				columnName := "slug"
 				if table == "organizations" {
@@ -271,17 +271,17 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		var user UserResult
 		found := false
 
+		// COALESCE(password,'') so NULL (e.g. Google-created org/club/seller) is handled as empty
 		// Check archers
-		// Check archers
-		err := db.Get(&user, "SELECT uuid, slug, email, password, full_name, avatar_url, 'archer' as role, status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
 		}
 
-		// Check organizations
+		// Check organizations (Google sign-up does not set password; only Register does)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug as username, email, password, name as full_name, avatar_url, 'organization' as role, status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -290,7 +290,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug as username, email, password, name as full_name, avatar_url, 'club' as role, status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -299,7 +299,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check sellers
 		if !found {
-			err = db.Get(&user, "SELECT uuid, slug, email, password, store_name as full_name, avatar_url, 'seller' as role, status FROM sellers WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status FROM sellers WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "seller"
 				found = true
@@ -307,19 +307,28 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if !found {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
 			return
 		}
 
-		// Check if account is active
+		// Check if account is active (NULL or empty status treated as inactive)
 		if user.Status != "active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active", "code": "account_inactive"})
+			return
+		}
+
+		// Account created via Google has no password; tell user to use Google sign-in
+		if user.Password == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "This account uses Google sign-in. Please sign in with Google.",
+				"code":  "use_google_signin",
+			})
 			return
 		}
 
 		// Verify password (plain text comparison)
 		if user.Password != req.Password {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
 			return
 		}
 
@@ -380,7 +389,6 @@ func Logout() gin.HandlerFunc {
 	}
 }
 
-
 // GetCurrentUser returns the currently authenticated user
 func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -407,22 +415,22 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user struct {
-			ID        string  `db:"uuid" json:"id"`
-			Username  string  `db:"slug" json:"username"` // Use slug for username field
-			Email     string  `db:"email" json:"email"`
-			Slug      string  `db:"slug" json:"slug"`
-			FullName  string  `db:"full_name" json:"full_name"`
-			Role      string  `db:"role" json:"role"`
-			AvatarURL *string `db:"avatar_url" json:"avatar_url"`
-			UserType  string  `db:"-" json:"user_type"`
-			Phone     *string `db:"phone" json:"phone"`
-			Bio       *string `db:"bio" json:"bio"`
+			ID           string  `db:"uuid" json:"id"`
+			Username     string  `db:"slug" json:"username"` // Use slug for username field
+			Email        string  `db:"email" json:"email"`
+			Slug         string  `db:"slug" json:"slug"`
+			FullName     string  `db:"full_name" json:"full_name"`
+			Role         string  `db:"role" json:"role"`
+			AvatarURL    *string `db:"avatar_url" json:"avatar_url"`
+			UserType     string  `db:"-" json:"user_type"`
+			Phone        *string `db:"phone" json:"phone"`
+			Bio          *string `db:"bio" json:"bio"`
 			Achievements *string `db:"achievements" json:"achievements"`
-			Description *string `db:"description" json:"description"`
-			StoreName   *string `db:"store_name" json:"store_name"`
-			BannerURL   *string `db:"banner_url" json:"banner_url"`
-			Status    string  `db:"status" json:"status"`
-			CreatedAt string  `db:"created_at" json:"created_at"`
+			Description  *string `db:"description" json:"description"`
+			StoreName    *string `db:"store_name" json:"store_name"`
+			BannerURL    *string `db:"banner_url" json:"banner_url"`
+			Status       string  `db:"status" json:"status"`
+			CreatedAt    string  `db:"created_at" json:"created_at"`
 		}
 
 		roleSelect := "'" + userType.(string) + "' as role"
