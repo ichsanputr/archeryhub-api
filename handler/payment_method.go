@@ -160,7 +160,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		var archer struct {
 			UUID         string  `json:"uuid" db:"uuid"`
-			Slug         *string `json:"slug" db:"slug"`
+			Username     *string `json:"username" db:"username"`
 			Email        *string `json:"email" db:"email"`
 			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
 			FullName     string  `json:"full_name" db:"full_name"`
@@ -170,6 +170,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Phone        *string `json:"phone" db:"phone"`
 			Address      *string `json:"address" db:"address"`
 			City         *string `json:"city" db:"city"`
+			School       *string `json:"school" db:"school"`
 			Province     *string `json:"province" db:"province"`
 			BowType      string  `json:"bow_type" db:"bow_type"`
 			ClubID       *string `json:"club_id" db:"club_id"`
@@ -183,7 +184,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		SELECT a.uuid, a.username, a.email, a.avatar_url, 
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.phone, a.address, a.city, a.province, 
+		       a.phone, a.address, a.city, a.school, a.province, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
 		       a.achievements,
@@ -214,6 +215,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"phone":         archer.Phone,
 			"address":       archer.Address,
 			"city":          archer.City,
+			"school":        archer.School,
 			"province":      archer.Province,
 			"bow_type":      archer.BowType,
 			"club_id":       archer.ClubID,

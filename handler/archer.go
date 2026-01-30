@@ -29,7 +29,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, a.user_id, a.slug, a.full_name, a.date_of_birth,
 				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city, a.province,
+				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -133,7 +133,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
 				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city, a.province,
+				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -268,14 +268,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			INSERT INTO archers (
 				uuid, custom_id, username, email, password, full_name, nickname,
-				date_of_birth, gender, bow_type, city, club_id,
+				date_of_birth, gender, bow_type, city, school, club_id,
 				phone, address, photo_url, status, is_verified, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
 			archerID, customID, username, req.Email, req.Password, req.FullName, req.Nickname,
-			req.DateOfBirth, gender, req.BowType, req.City, clubID,
+			req.DateOfBirth, gender, req.BowType, req.City, req.School, clubID,
 			req.Phone, req.Address, req.PhotoURL, isVerified, now, now,
 		)
 
@@ -347,6 +347,10 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 		if req.City != nil {
 			query += ", city = ?"
 			args = append(args, *req.City)
+		}
+		if req.School != nil {
+			query += ", school = ?"
+			args = append(args, *req.School)
 		}
 		if req.Club != nil {
 			query += ", club = ?"

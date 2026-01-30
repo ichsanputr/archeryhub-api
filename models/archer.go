@@ -23,6 +23,7 @@ type Archer struct {
 	IsVerified   bool       `json:"is_verified" db:"is_verified"`
 	BowType      *string    `json:"bow_type" db:"bow_type"`
 	City         *string    `json:"city" db:"city"`
+	School       *string    `json:"school" db:"school"`
 	Province     *string    `json:"province" db:"province"`
 	CustomID     string     `json:"custom_id" db:"custom_id"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
@@ -50,6 +51,7 @@ type CreateArcherRequest struct {
 	Gender      *string    `json:"gender" binding:"omitempty,oneof=male female M F"`
 	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
 	City        *string    `json:"city"`
+	School      *string    `json:"school"`
 	Club        *string    `json:"club"`
 	ClubID      *string    `json:"club_id"`
 	Phone       *string    `json:"phone"`
@@ -64,6 +66,7 @@ type UpdateArcherRequest struct {
 	Gender       *string    `json:"gender" binding:"omitempty,oneof=M F X"`
 	Club         *string    `json:"club"`
 	City         *string    `json:"city"`
+	School       *string    `json:"school"`
 	Email        *string    `json:"email" binding:"omitempty,email"`
 	Phone        *string    `json:"phone"`
 	PhotoURL     *string    `json:"photo_url"`
