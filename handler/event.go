@@ -20,8 +20,8 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		status := c.Query("status")
 		search := c.Query("search")
-		limit := c.DefaultQuery("limit", "50")
-		offset := c.DefaultQuery("offset", "0")
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
 		query := `
 			SELECT 
@@ -34,7 +34,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, username as slug FROM organizations
+				SELECT uuid as id, name as full_name, email, slug FROM organizations
 				UNION ALL
 				SELECT uuid as id, name as full_name, email, slug FROM clubs
 			) u ON t.organizer_id = u.id
@@ -75,7 +75,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as participant_uuid
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, username as slug FROM organizations
+				SELECT uuid as id, name as full_name, email, slug FROM organizations
 				UNION ALL
 				SELECT uuid as id, name as full_name, email, slug FROM clubs
 			) u ON t.organizer_id = u.id
@@ -601,12 +601,12 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				genderName := parts[1]
 				whereClause += " AND d.name = ? AND gd.name = ?"
 				args = append(args, divisionName, genderName)
-				countArgs = append(args, divisionName, genderName)
+				countArgs = append(countArgs, divisionName, genderName)
 			} else if len(parts) == 1 {
 				// Only division filter
 				whereClause += " AND d.name = ?"
 				args = append(args, parts[0])
-				countArgs = append(args, parts[0])
+				countArgs = append(countArgs, parts[0])
 			}
 		}
 
@@ -615,7 +615,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			searchTerm := "%" + searchQuery + "%"
 			whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ?)"
 			args = append(args, searchTerm, searchTerm)
-			countArgs = append(args, searchTerm, searchTerm)
+			countArgs = append(countArgs, searchTerm, searchTerm)
 		}
 
 		// Get total count with filters

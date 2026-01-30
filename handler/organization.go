@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"archeryhub-api/utils"
@@ -124,7 +125,20 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			org.AvatarURL = &masked
 		}
 
-		// Get events organized by this organization
+		// Get events organized by this organization with pagination
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		if page < 1 {
+			page = 1
+		}
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+		if limit < 1 {
+			limit = 5
+		}
+		offset := (page - 1) * limit
+
+		var totalEvents int
+		db.Get(&totalEvents, "SELECT COUNT(*) FROM events WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')", org.UUID)
+
 		var events []struct {
 			UUID      string  `db:"uuid" json:"id"`
 			Name      string  `db:"name" json:"name"`
@@ -140,8 +154,8 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			FROM events
 			WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')
 			ORDER BY start_date DESC
-			LIMIT 10
-		`, org.UUID)
+			LIMIT ? OFFSET ?
+		`, org.UUID, limit, offset)
 
 		for i := range events {
 			if events[i].LogoURL != nil {
@@ -182,7 +196,8 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"created_at":           org.CreatedAt,
 				"updated_at":           org.UpdatedAt,
 			},
-			"events": events,
+			"events":       events,
+			"total_events": totalEvents,
 		}
 
 		// Add FAQ if exists

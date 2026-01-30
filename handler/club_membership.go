@@ -195,7 +195,14 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 		var memberCount int
 		db.Get(&memberCount, "SELECT COUNT(*) FROM club_members WHERE club_id = ? AND status = 'active'", club.UUID)
 
-		// Get member list (Top 8 for profile)
+		// Get member list
+		memberLimit, _ := strconv.Atoi(c.DefaultQuery("member_limit", "8"))
+		memberPage, _ := strconv.Atoi(c.DefaultQuery("member_page", "1"))
+		if memberPage < 1 {
+			memberPage = 1
+		}
+		memberOffset := (memberPage - 1) * memberLimit
+
 		var topMembers []struct {
 			ID       string  `json:"id" db:"uuid"`
 			Name     string  `json:"name" db:"full_name"`
@@ -207,8 +214,8 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			FROM club_members cm
 			JOIN archers a ON cm.archer_id = a.uuid
 			WHERE cm.club_id = ? AND cm.status = 'active'
-			LIMIT 8
-		`, club.UUID)
+			LIMIT ? OFFSET ?
+		`, club.UUID, memberLimit, memberOffset)
 
 		// Get event count
 		var eventCount int

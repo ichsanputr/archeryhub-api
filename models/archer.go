@@ -8,7 +8,7 @@ import (
 type Archer struct {
 	UUID              string     `json:"id" db:"uuid"`
 	UserID            *string    `json:"user_id" db:"user_id"`
-	Slug              string     `json:"slug" db:"slug"`
+	Slug              *string    `json:"slug" db:"slug"`
 	FullName          string     `json:"full_name" db:"full_name"`
 	DateOfBirth       *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender            *string    `json:"gender" db:"gender"` // M, F, X
