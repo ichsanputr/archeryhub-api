@@ -160,7 +160,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		var members []models.TeamMemberWithDetails
 		err = db.Select(&members, `
-			SELECT tm.*, a.full_name, tp.back_number, a.country
+			SELECT tm.*, a.full_name, tp.back_number, a.city
 			FROM team_members tm
 			JOIN event_participants tp ON tm.participant_id = tp.uuid
 			JOIN archers a ON tp.athlete_id = a.uuid

@@ -673,7 +673,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
-				a.full_name, a.slug, COALESCE(a.email, '') as email, a.country, a.club_id, a.avatar_url,
+				a.full_name, a.username, COALESCE(a.email, '') as email, a.city, a.club_id, a.avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
@@ -743,7 +743,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID           string  `db:"archer_id" json:"archer_id"`
 			FullName           string  `db:"full_name" json:"full_name"`
 			Email              string  `db:"email" json:"email"`
-			Country            *string `db:"country" json:"country"`
+			City               *string `db:"city" json:"city"`
 			ClubID             *string `db:"club_id" json:"club_id"`
 			ClubName           *string `db:"club_name" json:"club_name"`
 			EventID            string  `db:"event_id" json:"event_id"`
@@ -767,7 +767,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
-				a.full_name, COALESCE(a.email, '') as email, a.country, a.club_id, a.avatar_url,
+				a.full_name, COALESCE(a.email, '') as email, a.city, a.club_id, a.avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name

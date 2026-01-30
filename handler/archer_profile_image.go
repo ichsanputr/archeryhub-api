@@ -21,7 +21,7 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 		found := false
 
 		// Try to find in archers first
-		err := db.Get(&avatarURL, "SELECT avatar_url FROM archers WHERE email = ? OR slug = ?", identifier, identifier)
+		err := db.Get(&avatarURL, "SELECT avatar_url FROM archers WHERE email = ? OR username = ?", identifier, identifier)
 		if err == nil {
 			found = true
 		}

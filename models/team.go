@@ -34,7 +34,7 @@ type TeamMemberWithDetails struct {
 	TeamMember
 	FullName    string  `json:"full_name" db:"full_name"`
 	BackNumber  *string `json:"back_number" db:"back_number"`
-	Country     *string `json:"country" db:"country"`
+	City        *string `json:"city" db:"city"`
 }
 
 // TeamWithMembers includes team members

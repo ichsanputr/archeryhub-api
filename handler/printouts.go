@@ -62,7 +62,7 @@ func generateStartList(db *sqlx.DB, req PrintRequest) interface{} {
 		BackNumber  string  `db:"back_number" json:"back_number"`
 		Target      string  `db:"target" json:"target"`
 		AthleteName string  `db:"athlete_name" json:"athlete_name"`
-		Country     *string `db:"country" json:"country"`
+		City        *string `db:"city" json:"city"`
 		Club        *string `db:"club" json:"club"`
 		Division    string  `db:"division" json:"division"`
 		Category    string  `db:"category" json:"category"`
@@ -118,7 +118,7 @@ func generateBackNumbers(db *sqlx.DB, req PrintRequest) interface{} {
 		SELECT 
 			COALESCE(tp.back_number, '') as back_number,
 			a.full_name as athlete_name,
-			a.country,
+			a.city,
 			d.name as division,
 			COALESCE(tp.target_number, '') as target,
 			COALESCE(tp.session, 1) as session

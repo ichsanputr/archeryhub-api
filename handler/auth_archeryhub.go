@@ -159,16 +159,26 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 				customID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
-				// Generate slug from full name
-				slug := strings.ToLower(req.FullName)
-				slug = strings.ReplaceAll(slug, " ", "-")
-				slug = slug + "-" + userID[:8]
+				// Generate username from full name
+				username := strings.ToLower(req.FullName)
+				username = strings.ReplaceAll(username, " ", "-")
+				username = strings.ReplaceAll(username, "'", "")
+				username = strings.ReplaceAll(username, ".", "")
+				username = strings.ReplaceAll(username, ",", "")
+				var cleaned strings.Builder
+				for _, r := range username {
+					if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+						cleaned.WriteRune(r)
+					}
+				}
+				username = cleaned.String()
+				username = username + "-" + userID[:8]
 
 				insertQuery := `
-					INSERT INTO archers (uuid, custom_id, slug, email, password, full_name, phone, status, is_verified)
+					INSERT INTO archers (uuid, custom_id, username, email, password, full_name, phone, status, is_verified)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
 				`
-				_, err = db.Exec(insertQuery, userID, customID, slug, req.Email, req.Password, req.FullName, req.Phone, isVerified)
+				_, err = db.Exec(insertQuery, userID, customID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified)
 			}
 		}
 
@@ -278,7 +288,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// COALESCE(password,'') so NULL (e.g. Google-created org/club/seller) is handled as empty
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, username, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true

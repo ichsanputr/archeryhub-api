@@ -167,7 +167,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Nickname     *string `json:"nickname" db:"nickname"`
 			DateOfBirth  *string `json:"date_of_birth" db:"date_of_birth"`
 			Gender       string  `json:"gender" db:"gender"`
-			Country      *string `json:"country" db:"country"`
 			Phone        *string `json:"phone" db:"phone"`
 			Address      *string `json:"address" db:"address"`
 			City         *string `json:"city" db:"city"`
@@ -181,10 +180,10 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		var pageSettings *string
 		err := db.Get(&archer, `
-		SELECT a.uuid, a.slug, a.email, a.avatar_url, 
+		SELECT a.uuid, a.username, a.email, a.avatar_url, 
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.country, a.phone, a.address, a.city, a.province, 
+		       a.phone, a.address, a.city, a.province, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
 		       a.achievements,
@@ -205,15 +204,13 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		response := gin.H{
 			"uuid":          archer.UUID,
-			"username":      archer.Slug,
-			"slug":          archer.Slug,
+			"username":      archer.Username,
 			"email":         archer.Email,
 			"avatar_url":    archer.AvatarURL,
 			"full_name":     archer.FullName,
 			"nickname":      archer.Nickname,
 			"date_of_birth": archer.DateOfBirth,
 			"gender":        archer.Gender,
-			"country":       archer.Country,
 			"phone":         archer.Phone,
 			"address":       archer.Address,
 			"city":          archer.City,

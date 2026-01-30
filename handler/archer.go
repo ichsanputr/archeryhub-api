@@ -19,7 +19,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		status := c.Query("status")
 		search := c.Query("search") // search by name, code, or club
-		country := c.Query("country")
+		city := c.Query("city")
 		bowType := c.Query("bow_type")
 		limit := c.DefaultQuery("limit", "12")
 		offset := c.DefaultQuery("offset", "0")
@@ -27,7 +27,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				a.uuid, a.user_id, a.slug, a.full_name, a.date_of_birth,
-				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
+				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.province,
 				c.name as club_name,
@@ -54,9 +54,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
-		if country != "" {
-			query += " AND a.country = ?"
-			args = append(args, country)
+		if city != "" {
+			query += " AND a.city = ?"
+			args = append(args, city)
 		}
 
 		if bowType != "" && bowType != "all" {
@@ -94,9 +94,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
 		}
 
-		if country != "" {
-			countQuery += " AND country = ?"
-			countArgs = append(countArgs, country)
+		if city != "" {
+			countQuery += " AND city = ?"
+			countArgs = append(countArgs, city)
 		}
 
 		if bowType != "" && bowType != "all" {
@@ -130,8 +130,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.user_id, a.slug, a.full_name, a.date_of_birth,
-				a.gender, a.country, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
+				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
+				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.province,
 				c.name as club_name,
@@ -143,7 +143,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
-			WHERE a.uuid = ? OR a.slug = ?
+			WHERE a.uuid = ? OR a.username = ?
 			GROUP BY a.uuid
 		`
 
@@ -186,8 +186,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-
-
 		// Validate password length if provided
 		if req.Password != nil && *req.Password != "" {
 			if len(*req.Password) < 6 {
@@ -223,7 +221,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-
 		// Generate custom_id (ARC-XXXX)
 		var lastCustomID string
 		_ = db.Get(&lastCustomID, "SELECT custom_id FROM archers WHERE custom_id LIKE 'ARC-%' ORDER BY custom_id DESC LIMIT 1")
@@ -237,6 +234,31 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 		customID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
+		// Generate username if not provided
+		var username *string
+		if req.Username != nil && *req.Username != "" {
+			username = req.Username
+		} else {
+			// Generate username from full name
+			generatedUsername := strings.ToLower(req.FullName)
+			generatedUsername = strings.ReplaceAll(generatedUsername, " ", "-")
+			generatedUsername = strings.ReplaceAll(generatedUsername, "'", "")
+			generatedUsername = strings.ReplaceAll(generatedUsername, ".", "")
+			generatedUsername = strings.ReplaceAll(generatedUsername, ",", "")
+			// Remove special characters, keep only alphanumeric and hyphens
+			var cleaned strings.Builder
+			for _, r := range generatedUsername {
+				if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+					cleaned.WriteRune(r)
+				}
+			}
+			generatedUsername = cleaned.String()
+			// Add random suffix for uniqueness
+			randomSuffix := uuid.New().String()[:8]
+			finalUsername := fmt.Sprintf("%s-%s", generatedUsername, randomSuffix)
+			username = &finalUsername
+		}
+
 		// Set verification status: Unverified if no password
 		isVerified := false
 		if req.Password != nil && *req.Password != "" {
@@ -245,15 +267,15 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO archers (
-				uuid, custom_id, email, password, full_name, nickname,
-				date_of_birth, gender, bow_type, country, city, club_id,
+				uuid, custom_id, username, email, password, full_name, nickname,
+				date_of_birth, gender, bow_type, city, club_id,
 				phone, address, photo_url, status, is_verified, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
-			archerID, customID, req.Email, req.Password, req.FullName, req.Nickname,
-			req.DateOfBirth, gender, req.BowType, req.Country, req.City, clubID,
+			archerID, customID, username, req.Email, req.Password, req.FullName, req.Nickname,
+			req.DateOfBirth, gender, req.BowType, req.City, clubID,
 			req.Phone, req.Address, req.PhotoURL, isVerified, now, now,
 		)
 
@@ -281,8 +303,8 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":     "Archer created successfully",
-			"archer_id":   archerID,
+			"message":   "Archer created successfully",
+			"archer_id": archerID,
 		})
 	}
 }
@@ -322,9 +344,9 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", gender = ?"
 			args = append(args, *req.Gender)
 		}
-		if req.Country != nil {
-			query += ", country = ?"
-			args = append(args, *req.Country)
+		if req.City != nil {
+			query += ", city = ?"
+			args = append(args, *req.City)
 		}
 		if req.Club != nil {
 			query += ", club = ?"
@@ -401,4 +423,3 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Archer deleted successfully"})
 	}
 }
-

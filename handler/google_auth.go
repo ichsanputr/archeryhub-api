@@ -316,15 +316,25 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			default: // archer
 				userType = "archer"
 				role = "archer"
-				// Generate slug from name
-				slug := strings.ToLower(displayName)
-				slug = strings.ReplaceAll(slug, " ", "-")
-				slug = slug + "-" + userID[:8]
+				// Generate username from name
+				username := strings.ToLower(displayName)
+				username = strings.ReplaceAll(username, " ", "-")
+				username = strings.ReplaceAll(username, "'", "")
+				username = strings.ReplaceAll(username, ".", "")
+				username = strings.ReplaceAll(username, ",", "")
+				var cleaned strings.Builder
+				for _, r := range username {
+					if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+						cleaned.WriteRune(r)
+					}
+				}
+				username = cleaned.String()
+				username = username + "-" + userID[:8]
 
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, slug, email, google_id, full_name, avatar_url, status, created_at, updated_at)
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, slug, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			}
 
 			if insertErr != nil {
