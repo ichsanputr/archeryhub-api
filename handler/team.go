@@ -160,10 +160,11 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		var members []models.TeamMemberWithDetails
 		err = db.Select(&members, `
-			SELECT tm.*, a.full_name, tp.back_number, a.city
+			SELECT tm.*, COALESCE(a.full_name, ea.full_name, '') as full_name, tp.target_number as back_number, COALESCE(a.city, ea.city, '') as city
 			FROM team_members tm
 			JOIN event_participants tp ON tm.participant_id = tp.uuid
-			JOIN archers a ON tp.athlete_id = a.uuid
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
 			WHERE tm.team_id = ?
 			ORDER BY tm.member_order
 		`, teamID)

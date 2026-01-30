@@ -26,7 +26,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.user_id, a.slug, a.full_name, a.date_of_birth,
+				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
 				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,

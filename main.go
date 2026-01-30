@@ -200,6 +200,12 @@ func main() {
 				protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
 				protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
 				protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))
+
+				// Event-only archers (cannot be reused across events)
+				protected.POST("/:id/event-archers", handler.CreateEventArcher(db))
+				protected.GET("/:id/event-archers", handler.GetEventArchers(db))
+				protected.PUT("/:id/event-archers/:eventArcherId", handler.UpdateEventArcher(db))
+				protected.DELETE("/:id/event-archers/:eventArcherId", handler.DeleteEventArcher(db))
 			}
 		}
 

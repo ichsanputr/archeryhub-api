@@ -8,7 +8,7 @@ import (
 type Archer struct {
 	UUID         string     `json:"id" db:"uuid"`
 	UserID       *string    `json:"user_id" db:"user_id"`
-	Slug         *string    `json:"slug" db:"slug"`
+	Username     *string    `json:"username" db:"username"`
 	FullName     string     `json:"full_name" db:"full_name"`
 	DateOfBirth  *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender       *string    `json:"gender" db:"gender"` // M, F, X
@@ -81,6 +81,7 @@ type EventParticipant struct {
 	UUID                string    `json:"id" db:"uuid"`
 	EventID             string    `json:"event_id" db:"event_id"`
 	ArcherID            string    `json:"archer_id" db:"archer_id"`
+	EventArcherID       *string   `json:"event_archer_id" db:"event_archer_id"`
 	CategoryID          string    `json:"category_id" db:"category_id"`
 	BackNumber          *string   `json:"back_number" db:"back_number"`
 	TargetNumber        *string   `json:"target_number" db:"target_number"`
@@ -109,7 +110,8 @@ type ParticipantWithDetails struct {
 
 // RegisterParticipantRequest represents the request to register an archer to an event
 type RegisterParticipantRequest struct {
-	ArcherID      string   `json:"archer_id" binding:"required"`
+	ArcherID      *string  `json:"archer_id"`
+	EventArcherID *string  `json:"event_archer_id"`
 	CategoryID    string   `json:"category_id" binding:"required"`
 	BackNumber    *string  `json:"back_number"`
 	TargetNumber  *string  `json:"target_number"`
@@ -130,4 +132,45 @@ type BulkImportArcher struct {
 	Phone       string `json:"phone"`
 	Division    string `json:"division"`
 	Category    string `json:"category"`
+}
+
+// EventArcher represents an archer that only belongs to a single event
+type EventArcher struct {
+	UUID        string     `json:"id" db:"uuid"`
+	EventID     string     `json:"event_id" db:"event_id"`
+	FullName    string     `json:"full_name" db:"full_name"`
+	Username    *string    `json:"username" db:"username"`
+	Email       *string    `json:"email" db:"email"`
+	Phone       *string    `json:"phone" db:"phone"`
+	DateOfBirth *time.Time `json:"date_of_birth" db:"date_of_birth"`
+	Gender      *string    `json:"gender" db:"gender"`
+	BowType     *string    `json:"bow_type" db:"bow_type"`
+	City        *string    `json:"city" db:"city"`
+	School      *string    `json:"school" db:"school"`
+	Club        *string    `json:"club" db:"club"`
+	ClubID      *string    `json:"club_id" db:"club_id"`
+	Address     *string    `json:"address" db:"address"`
+	PhotoURL    *string    `json:"photo_url" db:"photo_url"`
+	Notes       *string    `json:"notes" db:"notes"`
+	Status      string     `json:"status" db:"status"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// CreateEventArcherRequest represents payload for creating event-only archer
+type CreateEventArcherRequest struct {
+	FullName    string     `json:"full_name" binding:"required,min=2,max=100"`
+	Username    *string    `json:"username"`
+	Email       *string    `json:"email" binding:"omitempty,email"`
+	Phone       *string    `json:"phone"`
+	DateOfBirth *time.Time `json:"date_of_birth"`
+	Gender      *string    `json:"gender" binding:"omitempty,oneof=male female M F"`
+	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
+	City        *string    `json:"city"`
+	School      *string    `json:"school"`
+	Club        *string    `json:"club"`
+	ClubID      *string    `json:"club_id"`
+	Address     *string    `json:"address"`
+	PhotoURL    *string    `json:"photo_url"`
+	Notes       *string    `json:"notes"`
 }

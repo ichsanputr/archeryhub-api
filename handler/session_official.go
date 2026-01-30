@@ -180,14 +180,15 @@ func GetBackNumbers(db *sqlx.DB) gin.HandlerFunc {
 		var assignments []ParticipantAssignment
 		err := db.Select(&assignments, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.back_number, tp.target_number, tp.session,
-				a.full_name as archer_name,
+				tp.uuid as id, COALESCE(tp.archer_id, tp.event_archer_id) as archer_id, tp.back_number, tp.target_number, tp.session,
+				COALESCE(a.full_name, ea.full_name, '') as archer_name,
 				CONCAT(d.name, ' - ', c.name) as category_name
 			FROM event_participants tp
-			JOIN archers a ON tp.archer_id = a.uuid
-			JOIN event_categories ec ON tp.category_id = ec.uuid
-			JOIN ref_bow_types d ON ec.division_uuid = d.uuid
-			JOIN ref_age_groups c ON ec.category_uuid = c.uuid
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
+			LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
+			LEFT JOIN ref_bow_types d ON ec.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups c ON ec.category_uuid = c.uuid
 			WHERE tp.event_id = ?
 			ORDER BY tp.back_number ASC
 		`, eventID)

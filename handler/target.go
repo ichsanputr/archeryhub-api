@@ -154,12 +154,13 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 					qa.target_number,
 					qa.uuid as assignment_uuid,
 					qa.participant_uuid,
-					COALESCE(a.full_name, '') as archer_name,
+					COALESCE(a.full_name, ea.full_name, '') as archer_name,
 					COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name,
 					qa.target_position
 				FROM qualification_assignments qa
 				LEFT JOIN event_participants ep ON qa.participant_uuid = ep.uuid
 				LEFT JOIN archers a ON ep.archer_id = a.uuid
+				LEFT JOIN event_archers ea ON ep.event_archer_id = ea.uuid
 				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 				LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 				LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid

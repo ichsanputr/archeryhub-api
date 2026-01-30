@@ -638,7 +638,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get total count with filters
-		countQuery := "SELECT COUNT(*) FROM event_participants tp JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid LEFT JOIN event_categories te ON tp.category_id = te.uuid LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid " + whereClause
+		countQuery := "SELECT COUNT(*) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid LEFT JOIN clubs cl ON COALESCE(a.club_id, ea.club_id) = cl.uuid LEFT JOIN event_categories te ON tp.category_id = te.uuid LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid " + whereClause
 		var total int
 		err = db.Get(&total, countQuery, countArgs...)
 		if err != nil {
@@ -648,11 +648,12 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		type Participant struct {
 			ID                 string  `db:"id" json:"id"`
-			ArcherID           string  `db:"archer_id" json:"archer_id"`
+			ArcherID           *string `db:"archer_id" json:"archer_id"`
+			EventArcherID      *string `db:"event_archer_id" json:"event_archer_id"`
+			Username           *string `db:"username" json:"username"`
 			FullName           string  `db:"full_name" json:"full_name"`
-			Slug               string  `db:"slug" json:"slug"`
 			Email              string  `db:"email" json:"email"`
-			Country            *string `db:"country" json:"country"`
+			City               *string `db:"city" json:"city"`
 			ClubID             *string `db:"club_id" json:"club_id"`
 			ClubName           *string `db:"club_name" json:"club_name"`
 			EventID            string  `db:"event_id" json:"event_id"`
@@ -671,15 +672,21 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		query := `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
-				a.full_name, a.username, COALESCE(a.email, '') as email, a.city, a.club_id, a.avatar_url,
+				COALESCE(a.username, NULL) as username,
+				COALESCE(a.full_name, ea.full_name) as full_name,
+				COALESCE(a.email, ea.email, '') as email,
+				COALESCE(a.city, ea.city) as city,
+				COALESCE(a.club_id, ea.club_id) as club_id,
+				COALESCE(a.avatar_url, ea.photo_url) as avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
 			FROM event_participants tp
-			JOIN archers a ON tp.archer_id = a.uuid
-			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
+			LEFT JOIN clubs cl ON COALESCE(a.club_id, ea.club_id) = cl.uuid
 			LEFT JOIN event_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
@@ -740,7 +747,8 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		type Participant struct {
 			ID                 string  `db:"id" json:"id"`
-			ArcherID           string  `db:"archer_id" json:"archer_id"`
+			ArcherID           *string `db:"archer_id" json:"archer_id"`
+			EventArcherID      *string `db:"event_archer_id" json:"event_archer_id"`
 			FullName           string  `db:"full_name" json:"full_name"`
 			Email              string  `db:"email" json:"email"`
 			City               *string `db:"city" json:"city"`
@@ -764,16 +772,21 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var participant Participant
 		err = db.Get(&participant, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
+				tp.uuid as id, tp.archer_id, tp.event_archer_id, tp.event_id, tp.category_id, tp.target_number, tp.session,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
-				a.full_name, COALESCE(a.email, '') as email, a.city, a.club_id, a.avatar_url,
+				COALESCE(a.full_name, ea.full_name) as full_name,
+				COALESCE(a.email, ea.email, '') as email,
+				COALESCE(a.city, ea.city) as city,
+				COALESCE(a.club_id, ea.club_id) as club_id,
+				COALESCE(a.avatar_url, ea.photo_url) as avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
 			FROM event_participants tp
-			JOIN archers a ON tp.archer_id = a.uuid
-			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
+			LEFT JOIN clubs cl ON COALESCE(a.club_id, ea.club_id) = cl.uuid
 			LEFT JOIN event_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
@@ -1061,7 +1074,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			AthleteID        string   `json:"athlete_id" binding:"required"`
+			AthleteID        *string  `json:"athlete_id"`
+			EventArcherID    *string  `json:"event_archer_id"`
 			EventCategoryID  string   `json:"event_category_id" binding:"required"`
 			PaymentAmount    float64  `json:"payment_amount"`
 			PaymentProofURLs []string `json:"payment_proof_urls"`
@@ -1069,6 +1083,12 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Validate that at least one archer reference is provided
+		if (req.AthleteID == nil || *req.AthleteID == "") && (req.EventArcherID == nil || *req.EventArcherID == "") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "athlete_id atau event_archer_id wajib diisi salah satu"})
 			return
 		}
 
@@ -1080,12 +1100,19 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if already registered
+		// Check if already registered (consider both global and event-only archers)
 		var exists bool
-		err = db.Get(&exists, `
-		SELECT EXISTS(SELECT 1 FROM event_participants 
-		WHERE event_id = ? AND archer_id = ? AND category_id = ?)
-	`, actualEventID, req.AthleteID, req.EventCategoryID)
+		if req.AthleteID != nil && *req.AthleteID != "" {
+			err = db.Get(&exists, `
+				SELECT EXISTS(SELECT 1 FROM event_participants 
+				WHERE event_id = ? AND archer_id = ? AND category_id = ?)
+			`, actualEventID, *req.AthleteID, req.EventCategoryID)
+		} else if req.EventArcherID != nil && *req.EventArcherID != "" {
+			err = db.Get(&exists, `
+				SELECT EXISTS(SELECT 1 FROM event_participants 
+				WHERE event_id = ? AND event_archer_id = ? AND category_id = ?)
+			`, actualEventID, *req.EventArcherID, req.EventCategoryID)
+		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
@@ -1102,11 +1129,21 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Insert participant
 		participantID := uuid.New().String()
+		var archerID interface{}
+		var eventArcherID interface{}
+		if req.AthleteID != nil && *req.AthleteID != "" {
+			archerID = *req.AthleteID
+			eventArcherID = nil
+		} else if req.EventArcherID != nil && *req.EventArcherID != "" {
+			archerID = nil
+			eventArcherID = *req.EventArcherID
+		}
+
 		_, err = db.Exec(`
-		INSERT INTO event_participants 
-		(uuid, event_id, archer_id, category_id, payment_amount, payment_proof_urls, status, accreditation_status)
-		VALUES (?, ?, ?, ?, ?, ?, 'Menunggu Acc', 'pending')
-	`, participantID, actualEventID, req.AthleteID, req.EventCategoryID, req.PaymentAmount, proofURLs)
+			INSERT INTO event_participants 
+			(uuid, event_id, archer_id, event_archer_id, category_id, payment_amount, payment_proof_urls, status, accreditation_status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu Acc', 'pending')
+		`, participantID, actualEventID, archerID, eventArcherID, req.EventCategoryID, req.PaymentAmount, proofURLs)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
