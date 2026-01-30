@@ -161,7 +161,7 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, avatar_url, username as slug FROM organizations
+				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM organizations
 				UNION ALL
 				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM clubs
 			) u ON t.organizer_id = u.id
@@ -265,9 +265,9 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, type, num_distances, num_sessions, 
 				entry_fee, max_participants, status, organizer_id, created_at, updated_at,
-				total_prize, technical_guidebook_url, page_settings
+				total_prize, technical_guidebook_url, page_settings, faq
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -284,6 +284,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			req.EntryFee, req.MaxParticipants,
 			status, userID, now, now,
 			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
+			models.ToJSON(req.FAQ),
 		)
 
 		if err != nil {
@@ -447,6 +448,10 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if req.PageSettings != nil {
 			query += ", page_settings = ?"
 			args = append(args, *req.PageSettings)
+		}
+		if req.FAQ != nil {
+			query += ", faq = ?"
+			args = append(args, models.ToJSON(req.FAQ))
 		}
 
 		query += " WHERE uuid = ?"

@@ -80,12 +80,12 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			found = true
 		} else {
 			// Check organizations
-			err = db.Get(&existingUser, `SELECT uuid, 'organization' as source, true as is_verified FROM organizations WHERE email = ? OR username = ? LIMIT 1`, req.Email, req.Username)
+			err = db.Get(&existingUser, `SELECT uuid, 'organization' as source, true as is_verified FROM organizations WHERE email = ? OR slug = ? LIMIT 1`, req.Email, req.Username)
 			if err == nil {
 				found = true
 			} else {
-				// Check clubs
-				err = db.Get(&existingUser, `SELECT uuid, 'club' as source, true as is_verified FROM clubs WHERE email = ? OR username = ? LIMIT 1`, req.Email, req.Username)
+				// Check clubs (uses slug or username)
+				err = db.Get(&existingUser, `SELECT uuid, 'club' as source, true as is_verified FROM clubs WHERE email = ? OR slug = ? OR username = ? LIMIT 1`, req.Email, req.Username, req.Username)
 				if err == nil {
 					found = true
 				}
@@ -134,8 +134,12 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			if table != "archers" {
 				// For non-archers, we don't have is_verified column yet in some tables, 
 				// but the user only specified archer verification logic.
+				columnName := "username"
+				if table == "organizations" {
+					columnName = "slug"
+				}
 				insertQuery := `
-					INSERT INTO ` + table + ` (uuid, username, email, password, ` + nameField + `, phone, status)
+					INSERT INTO ` + table + ` (uuid, ` + columnName + `, email, password, ` + nameField + `, phone, status)
 					VALUES (?, ?, ?, ?, ?, ?, 'active')
 				`
 				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone)
@@ -272,7 +276,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check organizations
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, 'organization' as role, status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, slug as username, email, password, name as full_name, avatar_url, 'organization' as role, status FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -281,7 +285,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs
 		if !found {
-			err = db.Get(&user, "SELECT uuid, username, email, password, name as full_name, avatar_url, 'club' as role, status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, COALESCE(slug, username) as username, email, password, name as full_name, avatar_url, 'club' as role, status FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true

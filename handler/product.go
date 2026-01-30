@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"archeryhub-api/utils"
 )
 
 // GetProducts returns all products (public)
@@ -23,6 +24,23 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 
 		if products == nil {
 			products = []models.Product{}
+		}
+
+		for i := range products {
+			if products[i].ImageURL != nil && *products[i].ImageURL != "" {
+				masked := utils.MaskMediaURL(*products[i].ImageURL)
+				products[i].ImageURL = &masked
+			}
+			if products[i].Images != nil && *products[i].Images != "" {
+				var images []string
+				json.Unmarshal([]byte(*products[i].Images), &images)
+				for j, img := range images {
+					images[j] = utils.MaskMediaURL(img)
+				}
+				maskedJSON, _ := json.Marshal(images)
+				maskedStr := string(maskedJSON)
+				products[i].Images = &maskedStr
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": products})
@@ -52,6 +70,23 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 			products = []models.Product{}
 		}
 
+		for i := range products {
+			if products[i].ImageURL != nil && *products[i].ImageURL != "" {
+				masked := utils.MaskMediaURL(*products[i].ImageURL)
+				products[i].ImageURL = &masked
+			}
+			if products[i].Images != nil && *products[i].Images != "" {
+				var images []string
+				json.Unmarshal([]byte(*products[i].Images), &images)
+				for j, img := range images {
+					images[j] = utils.MaskMediaURL(img)
+				}
+				maskedJSON, _ := json.Marshal(images)
+				maskedStr := string(maskedJSON)
+				products[i].Images = &maskedStr
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{"data": products})
 	}
 }
@@ -69,6 +104,21 @@ func GetProductByID(db *sqlx.DB) gin.HandlerFunc {
 
 		// Increment views
 		db.Exec("UPDATE products SET views = views + 1 WHERE uuid = ?", product.UUID)
+
+		if product.ImageURL != nil && *product.ImageURL != "" {
+			masked := utils.MaskMediaURL(*product.ImageURL)
+			product.ImageURL = &masked
+		}
+		if product.Images != nil && *product.Images != "" {
+			var images []string
+			json.Unmarshal([]byte(*product.Images), &images)
+			for j, img := range images {
+				images[j] = utils.MaskMediaURL(img)
+			}
+			maskedJSON, _ := json.Marshal(images)
+			maskedStr := string(maskedJSON)
+			product.Images = &maskedStr
+		}
 
 		c.JSON(http.StatusOK, gin.H{"data": product})
 	}

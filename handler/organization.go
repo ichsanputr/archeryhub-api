@@ -14,10 +14,13 @@ import (
 // Organization represents an organization entity
 type Organization struct {
 	UUID               string  `db:"uuid" json:"id"`
-	Username           *string `db:"username" json:"username"`
+	Slug               *string `db:"slug" json:"slug"`
 	Name               string  `db:"name" json:"name"`
 	Acronym            *string `db:"acronym" json:"acronym"`
 	Description        *string `db:"description" json:"description"`
+	Vision             *string `db:"vision" json:"vision"`
+	Mission            *string `db:"mission" json:"mission"`
+	History            *string `db:"history" json:"history"`
 	Website            *string `db:"website" json:"website"`
 	Email              string  `db:"email" json:"email"`
 	WhatsAppNo         *string `db:"whatsapp_no" json:"whatsapp_no"`
@@ -33,10 +36,12 @@ type Organization struct {
 	SocialFacebook     *string `db:"social_facebook" json:"social_facebook"`
 	SocialInstagram    *string `db:"social_instagram" json:"social_instagram"`
 	SocialTwitter      *string `db:"social_twitter" json:"social_twitter"`
+	SocialMedia        *string `db:"social_media" json:"social_media"`
 	VerificationStatus *string `db:"verification_status" json:"verification_status"`
 	Status             *string `db:"status" json:"status"`
 	CreatedAt          string  `db:"created_at" json:"created_at"`
 	UpdatedAt          string  `db:"updated_at" json:"updated_at"`
+	FAQ                *string `db:"faq" json:"faq"`
 }
 
 // GetOrganizations returns all organizations (public)
@@ -46,9 +51,9 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 		status := c.DefaultQuery("status", "active")
 
 		query := `
-			SELECT uuid, username, name, acronym, description, website, email, whatsapp_no,
+			SELECT uuid, slug, name, acronym, description, vision, mission, history, website, email, whatsapp_no,
 				   avatar_url, address, city, country,
-				   verification_status, status, created_at
+				   verification_status, status, created_at, social_media
 			FROM organizations
 			WHERE status = ?
 		`
@@ -95,14 +100,15 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		err := db.Get(&orgData, `
-			SELECT uuid, username, name, acronym, description, website, email, whatsapp_no,
+			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
 				   avatar_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
-				   social_facebook, social_instagram, social_twitter,
-				   verification_status, status, created_at, updated_at, page_settings
+				   social_facebook, social_instagram, social_twitter, social_media,
+				   verification_status, status, created_at, updated_at, page_settings,
+				   vision, mission, history, faq
 			FROM organizations
-			WHERE (username = ? OR uuid = ?) AND status = 'active'
+			WHERE (slug = ? OR uuid = ?) AND status = 'active'
 		`, slug, slug)
 
 		if err != nil {
@@ -132,7 +138,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		db.Select(&events, `
 			SELECT uuid, name, slug, start_date, end_date, venue, status, logo_url
 			FROM events
-			WHERE organization_id = ? AND status IN ('published', 'live', 'completed')
+			WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')
 			ORDER BY start_date DESC
 			LIMIT 10
 		`, org.UUID)
@@ -148,7 +154,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		response := gin.H{
 			"organization": gin.H{
 				"id":                   org.UUID,
-				"username":             org.Username,
+				"slug":                 org.Slug,
 				"name":                 org.Name,
 				"acronym":              org.Acronym,
 				"description":          org.Description,
@@ -167,12 +173,24 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"social_facebook":      org.SocialFacebook,
 				"social_instagram":     org.SocialInstagram,
 				"social_twitter":       org.SocialTwitter,
+				"social_media":         org.SocialMedia,
+				"vision":               org.Vision,
+				"mission":              org.Mission,
+				"history":               org.History,
 				"verification_status":  org.VerificationStatus,
 				"status":               org.Status,
 				"created_at":           org.CreatedAt,
 				"updated_at":           org.UpdatedAt,
 			},
 			"events": events,
+		}
+
+		// Add FAQ if exists
+		if orgData.FAQ != nil && *orgData.FAQ != "" {
+			var faq []interface{}
+			if err := json.Unmarshal([]byte(*orgData.FAQ), &faq); err == nil {
+				response["organization"].(gin.H)["faq"] = faq
+			}
 		}
 
 		// Add page_settings if exists
@@ -203,8 +221,9 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 				   avatar_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
-				   social_facebook, social_instagram, social_twitter,
-				   verification_status, status, created_at, updated_at
+				   social_facebook, social_instagram, social_twitter, social_media,
+				   verification_status, status, created_at, updated_at,
+				   vision, mission, history, faq
 			FROM organizations
 			WHERE uuid = ?
 		`, userID)
@@ -242,7 +261,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var req struct {
-			Username           *string     `json:"username"`
+			Slug               *string     `json:"slug"`
 			Name               *string     `json:"name"`
 			Acronym            *string     `json:"acronym"`
 			Description        *string     `json:"description"`
@@ -262,6 +281,10 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			SocialInstagram    *string     `json:"social_instagram"`
 			SocialTwitter      *string     `json:"social_twitter"`
 			SocialMedia        interface{} `json:"social_media"`
+			Vision             *string     `json:"vision"`
+			Mission            *string     `json:"mission"`
+			History            *string     `json:"history"`
+			FAQ                interface{} `json:"faq"`
 			PageSettings       interface{} `json:"page_settings"`
 		}
 
@@ -274,16 +297,16 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		query := "UPDATE organizations SET updated_at = NOW()"
 		args := []interface{}{}
 
-		if req.Username != nil {
-			// Check if username is already taken
+		if req.Slug != nil {
+			// Check if slug is already taken
 			var exists bool
-			db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizations WHERE username = ? AND uuid != ?)", *req.Username, userID)
+			db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)", *req.Slug, userID)
 			if exists {
-				c.JSON(http.StatusConflict, gin.H{"error": "Username already taken"})
+				c.JSON(http.StatusConflict, gin.H{"error": "Slug already taken"})
 				return
 			}
-			query += ", username = ?"
-			args = append(args, strings.ToLower(*req.Username))
+			query += ", slug = ?"
+			args = append(args, strings.ToLower(*req.Slug))
 		}
 		if req.Name != nil {
 			query += ", name = ?"
@@ -353,12 +376,32 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", social_twitter = ?"
 			args = append(args, *req.SocialTwitter)
 		}
+		if req.Vision != nil {
+			query += ", vision = ?"
+			args = append(args, *req.Vision)
+		}
+		mission := req.Mission
+		if mission != nil {
+			query += ", mission = ?"
+			args = append(args, *mission)
+		}
+		if req.History != nil {
+			query += ", history = ?"
+			args = append(args, *req.History)
+		}
 
 		// Handle social_media JSON
 		if req.SocialMedia != nil {
 			socialMediaJSON, _ := json.Marshal(req.SocialMedia)
 			query += ", social_media = ?"
 			args = append(args, string(socialMediaJSON))
+		}
+
+		// Handle faq JSON
+		if req.FAQ != nil {
+			faqJSON, _ := json.Marshal(req.FAQ)
+			query += ", faq = ?"
+			args = append(args, string(faqJSON))
 		}
 
 		// Handle page_settings JSON
