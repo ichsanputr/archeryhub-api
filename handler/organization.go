@@ -26,6 +26,7 @@ type Organization struct {
 	Email              string  `db:"email" json:"email"`
 	WhatsAppNo         *string `db:"whatsapp_no" json:"whatsapp_no"`
 	AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
+	BannerURL          *string `db:"banner_url" json:"banner_url"`
 	Address            *string `db:"address" json:"address"`
 	City               *string `db:"city" json:"city"`
 	Country            *string `db:"country" json:"country"`
@@ -53,7 +54,7 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT uuid, slug, name, acronym, description, vision, mission, history, website, email, whatsapp_no,
-				   avatar_url, address, city, country,
+				   avatar_url, banner_url, address, city, country,
 				   verification_status, status, created_at, social_media
 			FROM organizations
 			WHERE status = ?
@@ -102,7 +103,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&orgData, `
 			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
-				   avatar_url, address, city, country,
+				   avatar_url, banner_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
@@ -176,6 +177,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"email":                org.Email,
 				"whatsapp_no":          org.WhatsAppNo,
 				"avatar_url":           org.AvatarURL,
+				"banner_url":           org.BannerURL,
 				"address":              org.Address,
 				"city":                 org.City,
 				"country":              org.Country,
@@ -232,8 +234,8 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		var org Organization
 		var pageSettings *string
 		err := db.Get(&org, `
-			SELECT uuid, username, name, acronym, description, website, email, whatsapp_no,
-				   avatar_url, address, city, country,
+			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
+				   avatar_url, banner_url, address, city, country,
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
@@ -256,6 +258,10 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		if org.AvatarURL != nil {
 			masked := utils.MaskMediaURL(*org.AvatarURL)
 			org.AvatarURL = &masked
+		}
+		if org.BannerURL != nil {
+			masked := utils.MaskMediaURL(*org.BannerURL)
+			org.BannerURL = &masked
 		}
 
 		response := gin.H{"organization": org}
@@ -346,6 +352,10 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.AvatarURL != nil {
 			query += ", avatar_url = ?"
 			args = append(args, utils.ExtractFilename(*req.AvatarURL))
+		}
+		if req.BannerURL != nil {
+			query += ", banner_url = ?"
+			args = append(args, utils.ExtractFilename(*req.BannerURL))
 		}
 		if req.Address != nil {
 			query += ", address = ?"

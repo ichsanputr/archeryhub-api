@@ -232,6 +232,7 @@ func main() {
 		api.GET("/team-types", handler.GetEventTypes(db))
 		api.GET("/gender-divisions", handler.GetGenderDivisions(db))
 		api.GET("/age-groups", handler.GetAgeGroups(db))
+		api.GET("/cities", handler.GetCities())
 
 		// News routes
 		news := api.Group("/news")
