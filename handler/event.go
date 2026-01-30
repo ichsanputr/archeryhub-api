@@ -678,7 +678,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.email, ea.email, '') as email,
 				COALESCE(a.city, ea.city) as city,
 				COALESCE(a.club_id, ea.club_id) as club_id,
-				COALESCE(a.avatar_url, ea.photo_url) as avatar_url,
+				COALESCE(a.avatar_url, ea.avatar_url) as avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
@@ -1431,9 +1431,9 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					School      *string    `db:"school"`
 					ClubID      *string    `db:"club_id"`
 					Address     *string    `db:"address"`
-					PhotoURL    *string    `db:"photo_url"`
+					AvatarURL   *string    `db:"avatar_url"`
 				}
-				err = db.Get(&ea, "SELECT full_name, username, email, phone, date_of_birth, gender, bow_type, city, school, club_id, address, photo_url FROM event_archers WHERE uuid = ?", *pInfo.EventArcherID)
+				err = db.Get(&ea, "SELECT full_name, username, email, phone, date_of_birth, gender, bow_type, city, school, club_id, address, avatar_url FROM event_archers WHERE uuid = ?", *pInfo.EventArcherID)
 				if err == nil {
 					// Check if email already exists in archers to avoid duplicates
 					var existingID string

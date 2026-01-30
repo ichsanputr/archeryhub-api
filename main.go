@@ -221,6 +221,7 @@ func main() {
 			// Public archer routes
 			archers.GET("", handler.GetArchers(db))
 			archers.GET("/:id", handler.GetArcherByID(db))
+			archers.GET("/:id/events", handler.GetArcherEvents(db))
 
 			// Protected archer routes
 			protected := archers.Group("")

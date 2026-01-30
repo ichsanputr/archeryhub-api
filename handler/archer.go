@@ -27,7 +27,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
-				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
+				a.gender, NULL as club, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
@@ -109,9 +109,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		// Mask URLs
 		for i := range archers {
-			if archers[i].PhotoURL != nil {
-				masked := utils.MaskMediaURL(*archers[i].PhotoURL)
-				archers[i].PhotoURL = &masked
+			if archers[i].AvatarURL != nil {
+				masked := utils.MaskMediaURL(*archers[i].AvatarURL)
+				archers[i].AvatarURL = &masked
 			}
 		}
 
@@ -131,7 +131,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				a.uuid, a.user_id, a.username, a.full_name, a.date_of_birth,
-				a.gender, NULL as club, a.email, a.phone, a.avatar_url as photo_url, a.address,
+				a.gender, NULL as club, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
@@ -155,12 +155,50 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Mask URLs
-		if archer.PhotoURL != nil {
-			masked := utils.MaskMediaURL(*archer.PhotoURL)
-			archer.PhotoURL = &masked
+		if archer.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*archer.AvatarURL)
+			archer.AvatarURL = &masked
 		}
 
 		c.JSON(http.StatusOK, archer)
+	}
+}
+
+type ArcherEventHistory struct {
+	ID        string     `json:"id" db:"id"`
+	Name      string     `json:"name" db:"name"`
+	City      *string    `json:"city" db:"city"`
+	StartDate *time.Time `json:"date" db:"start_date"`
+	Score     *int       `json:"score" db:"qual_score"`
+	Rank      *int       `json:"rank" db:"qual_rank"`
+}
+
+// GetArcherEvents returns the event history for a specific archer
+func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		query := `
+			SELECT 
+				e.uuid as id, e.name as name, e.city, e.start_date, 
+				ep.qual_score, ep.qual_rank
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			JOIN archers a ON ep.archer_id = a.uuid
+			WHERE a.uuid = ? OR a.username = ?
+			ORDER BY e.start_date DESC
+		`
+
+		var events []ArcherEventHistory
+		err := db.Select(&events, query, id, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archer events", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"events": events,
+		})
 	}
 }
 
@@ -280,14 +318,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO archers (
 				uuid, custom_id, username, email, password, full_name, nickname,
 				date_of_birth, gender, bow_type, city, school, club_id,
-				phone, address, photo_url, status, is_verified, created_at, updated_at
+				phone, address, avatar_url, status, is_verified, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
 			archerID, customID, finalUsername, req.Email, req.Password, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, req.City, req.School, clubID,
-			req.Phone, req.Address, req.PhotoURL, isVerified, now, now,
+			req.Phone, req.Address, req.AvatarURL, isVerified, now, now,
 		)
 
 		if err != nil {
@@ -375,9 +413,9 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", phone = ?"
 			args = append(args, *req.Phone)
 		}
-		if req.PhotoURL != nil {
-			query += ", photo_url = ?"
-			args = append(args, *req.PhotoURL)
+		if req.AvatarURL != nil {
+			query += ", avatar_url = ?"
+			args = append(args, *req.AvatarURL)
 		}
 		if req.Status != nil {
 			query += ", status = ?"

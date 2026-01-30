@@ -15,7 +15,7 @@ type Archer struct {
 	Club         *string    `json:"club" db:"club"`
 	Email        *string    `json:"email" db:"email"`
 	Phone        *string    `json:"phone" db:"phone"`
-	PhotoURL     *string    `json:"photo_url" db:"photo_url"`
+	AvatarURL    *string    `json:"avatar_url" db:"avatar_url"`
 	Address      *string    `json:"address" db:"address"`
 	Bio          *string    `json:"bio" db:"bio"`
 	Achievements *string    `json:"achievements" db:"achievements"`
@@ -55,7 +55,7 @@ type CreateArcherRequest struct {
 	Club        *string    `json:"club"`
 	ClubID      *string    `json:"club_id"`
 	Phone       *string    `json:"phone"`
-	PhotoURL    *string    `json:"photo_url"`
+	AvatarURL   *string    `json:"avatar_url"`
 	Address     *string    `json:"address"`
 }
 
@@ -69,7 +69,7 @@ type UpdateArcherRequest struct {
 	School       *string    `json:"school"`
 	Email        *string    `json:"email" binding:"omitempty,email"`
 	Phone        *string    `json:"phone"`
-	PhotoURL     *string    `json:"photo_url"`
+	AvatarURL    *string    `json:"avatar_url"`
 	Address      *string    `json:"address"`
 	Bio          *string    `json:"bio"`
 	Achievements *string    `json:"achievements"`
@@ -150,7 +150,7 @@ type EventArcher struct {
 	Club        *string    `json:"club" db:"club"`
 	ClubID      *string    `json:"club_id" db:"club_id"`
 	Address     *string    `json:"address" db:"address"`
-	PhotoURL    *string    `json:"photo_url" db:"photo_url"`
+	AvatarURL   *string    `json:"avatar_url" db:"avatar_url"`
 	Notes       *string    `json:"notes" db:"notes"`
 	Status      string     `json:"status" db:"status"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
@@ -171,6 +171,6 @@ type CreateEventArcherRequest struct {
 	Club        *string    `json:"club"`
 	ClubID      *string    `json:"club_id"`
 	Address     *string    `json:"address"`
-	PhotoURL    *string    `json:"photo_url"`
+	AvatarURL   *string    `json:"avatar_url"`
 	Notes       *string    `json:"notes"`
 }
