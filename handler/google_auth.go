@@ -194,17 +194,25 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			Role string `db:"role"`
 		}
 		var record UserRecord
-		
+
 		// Priority search
 		tables := []string{"archers", "organizations", "clubs", "sellers"}
 		for _, t := range tables {
 			typeToRole := t
-			if typeToRole == "archers" { typeToRole = "archer" }
-			if typeToRole == "organizations" { typeToRole = "organization" }
-			if typeToRole == "clubs" { typeToRole = "club" }
-			if typeToRole == "sellers" { typeToRole = "seller" }
+			if typeToRole == "archers" {
+				typeToRole = "archer"
+			}
+			if typeToRole == "organizations" {
+				typeToRole = "organization"
+			}
+			if typeToRole == "clubs" {
+				typeToRole = "club"
+			}
+			if typeToRole == "sellers" {
+				typeToRole = "seller"
+			}
 
-			query := "SELECT uuid, '"+typeToRole+"' as role FROM "+t+" WHERE email = ? OR google_id = ?"
+			query := "SELECT uuid, '" + typeToRole + "' as role FROM " + t + " WHERE email = ? OR google_id = ?"
 			err = db.Get(&record, query, userInfo.Email, userInfo.ID)
 			if err == nil && record.UUID != "" {
 				userType = typeToRole
@@ -216,34 +224,64 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if found {
-			// Update existing user
+			// Register flow with existing email: user came from register page (full_name in state) but email already exists
+			if requestedFullName != "" {
+				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" || c.Request.Method == "POST" {
+					c.JSON(http.StatusConflict, gin.H{
+						"already_registered": true,
+						"email":              userInfo.Email,
+						"user_type":          userType,
+					})
+				} else {
+					redirectURL := fmt.Sprintf("%s/auth/already-registered?email=%s&user_type=%s", appURL, url.QueryEscape(userInfo.Email), url.QueryEscape(userType))
+					c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+				}
+				return
+			}
+
+			// Login flow: update only Google-specific fields; do NOT overwrite existing name
 			table := ""
-			nameField := ""
 			switch userType {
 			case "organization":
 				table = "organizations"
-				nameField = "name"
 			case "club":
 				table = "clubs"
-				nameField = "name"
 			case "seller":
 				table = "sellers"
-				nameField = "store_name"
-			default: // archer
+			default:
 				table = "archers"
-				nameField = "full_name"
 			}
-
-			// Update Google-specific fields
 			_, err = db.Exec(`
 				UPDATE `+table+` 
-				SET google_id = ?, avatar_url = ?, `+nameField+` = ?, updated_at = NOW()
+				SET google_id = ?, avatar_url = ?, updated_at = NOW()
 				WHERE uuid = ?
-			`, userInfo.ID, userInfo.Picture, userInfo.Name, userID)
+			`, userInfo.ID, userInfo.Picture, userID)
 			if err != nil {
 				fmt.Printf("Failed to update user in %s: %v\n", table, err)
 			}
-		} else {
+		}
+
+		// Resolve display name for JWT: existing user = from DB; new user = requestedFullName or Google name
+		displayNameForJWT := userInfo.Name
+		if found {
+			var nameCol, tableName string
+			switch userType {
+			case "organization":
+				tableName, nameCol = "organizations", "name"
+			case "club":
+				tableName, nameCol = "clubs", "name"
+			case "seller":
+				tableName, nameCol = "sellers", "store_name"
+			default:
+				tableName, nameCol = "archers", "full_name"
+			}
+			var existingName string
+			if qErr := db.Get(&existingName, "SELECT "+nameCol+" FROM "+tableName+" WHERE uuid = ?", userID); qErr == nil && existingName != "" {
+				displayNameForJWT = existingName
+			}
+		}
+
+		if !found {
 			// Create new user based on requested user type
 			userID = uuid.New().String()
 			userType = requestedUserType
@@ -256,6 +294,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			if requestedFullName != "" {
 				displayName = requestedFullName
 			}
+			displayNameForJWT = displayName
 
 			var insertErr error
 			switch userType {
@@ -281,7 +320,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				slug := strings.ToLower(displayName)
 				slug = strings.ReplaceAll(slug, " ", "-")
 				slug = slug + "-" + userID[:8]
-				
+
 				_, insertErr = db.Exec(`
 					INSERT INTO archers (uuid, slug, email, google_id, full_name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
@@ -301,8 +340,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogActivity(db, userID, "", "user_registered", userType, userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
 		}
 
-		// Generate JWT token
-		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, userInfo.Name, userInfo.Picture)
+		// Generate JWT token (use displayNameForJWT so existing user keeps their name)
+		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture)
 		if err != nil {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "token_generation_failed"})
@@ -333,7 +372,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				"user": gin.H{
 					"id":         userID,
 					"email":      userInfo.Email,
-					"full_name":  userInfo.Name,
+					"full_name":  displayNameForJWT,
 					"avatar_url": userInfo.Picture,
 					"role":       role,
 					"user_type":  userType,
