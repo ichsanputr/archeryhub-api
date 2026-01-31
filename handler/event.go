@@ -1444,8 +1444,9 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					ClubID      *string    `db:"club_id"`
 					Address     *string    `db:"address"`
 					AvatarURL   *string    `db:"avatar_url"`
+					Province    *string    `db:"province"`
 				}
-				err = db.Get(&ea, "SELECT full_name, username, email, phone, date_of_birth, gender, bow_type, city, school, club_id, address, avatar_url FROM event_archers WHERE uuid = ?", *pInfo.EventArcherID)
+				err = db.Get(&ea, "SELECT full_name, username, email, phone, date_of_birth, gender, bow_type, city, school, club_id, address, avatar_url, province FROM event_archers WHERE uuid = ?", *pInfo.EventArcherID)
 				if err == nil {
 					// Check if email already exists in archers to avoid duplicates
 					var existingID string
@@ -1492,10 +1493,10 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 							INSERT INTO archers (
 								uuid, username, email, full_name, phone, date_of_birth, 
 								gender, bow_type, city, school, club_id, address, 
-								avatar_url, is_verified, status, created_at, updated_at
-							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', NOW(), NOW())
+								avatar_url, province, is_verified, status, created_at, updated_at
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', NOW(), NOW())
 						`, newArcherID, finalUsername, ea.Email, ea.FullName, ea.Phone, ea.DateOfBirth,
-						   gender, bowType, ea.City, ea.School, ea.ClubID, ea.Address, ea.PhotoURL)
+						   gender, bowType, ea.City, ea.School, ea.ClubID, ea.Address, ea.AvatarURL, ea.Province)
 						
 						if err == nil {
 							query += ", archer_id = ?, event_archer_id = NULL"

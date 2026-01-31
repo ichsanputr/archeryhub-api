@@ -2,16 +2,17 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
-
-	"archeryhub-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 )
 
 // GetArchers returns a list of archers with optional filtering
@@ -24,6 +25,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		limit := c.DefaultQuery("limit", "12")
 		offset := c.DefaultQuery("offset", "0")
 
+		limitInt, _ := strconv.Atoi(limit)
+		offsetInt, _ := strconv.Atoi(offset)
+
 		query := `
 			SELECT 
 				a.uuid, a.id, a.user_id, a.username, a.full_name, a.date_of_birth,
@@ -35,9 +39,24 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
-			FROM archers a
+			FROM (
+				SELECT 
+					uuid, COALESCE(id, '') as id, user_id, username, full_name, date_of_birth,
+					gender, email, phone, avatar_url, address,
+					bio, achievements, status, created_at, updated_at,
+					bow_type, city, school, province, club_id, is_verified
+				FROM archers
+				UNION ALL
+				SELECT 
+					uuid, '' as id, NULL as user_id, username, full_name, date_of_birth,
+					gender, email, phone, avatar_url, address,
+					notes as bio, NULL as achievements, status, created_at, updated_at,
+					bow_type, city, school, NULL as province, club_id, 0 as is_verified
+				FROM event_archers ea
+				WHERE ea.email IS NULL OR ea.email NOT IN (SELECT email FROM archers WHERE email IS NOT NULL)
+			) a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
+			LEFT JOIN event_participants tp ON (a.uuid = tp.archer_id OR a.uuid = tp.event_archer_id)
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE 1=1
 		`
@@ -69,43 +88,54 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY a.full_name
 			LIMIT ? OFFSET ?
 		`
-		args = append(args, limit, offset)
+		args = append(args, limitInt, offsetInt)
 
 		var archers []models.ArcherWithStats
 		err := db.Select(&archers, query, args...)
 
 		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch archers")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archers", "details": err.Error()})
 			return
 		}
 
 		// Get total count
-		countQuery := "SELECT COUNT(*) FROM archers WHERE 1=1"
+		countQuery := `
+			SELECT COUNT(*) FROM (
+				SELECT email, full_name, status, city, bow_type, club_id FROM archers
+				UNION ALL
+				SELECT email, full_name, status, city, bow_type, club_id FROM event_archers
+				WHERE email IS NULL OR email NOT IN (SELECT email FROM archers WHERE email IS NOT NULL)
+			) a WHERE 1=1
+		`
 		countArgs := []interface{}{}
 
 		if status != "" {
-			countQuery += " AND status = ?"
+			countQuery += " AND a.status = ?"
 			countArgs = append(countArgs, status)
 		}
 
 		if search != "" {
-			countQuery += " AND (full_name LIKE ? OR email LIKE ? OR club_id LIKE ?)"
+			countQuery += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
 			searchTerm := "%" + search + "%"
 			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
 		}
 
 		if city != "" {
-			countQuery += " AND city = ?"
+			countQuery += " AND a.city = ?"
 			countArgs = append(countArgs, city)
 		}
 
 		if bowType != "" && bowType != "all" {
-			countQuery += " AND bow_type = ?"
+			countQuery += " AND a.bow_type = ?"
 			countArgs = append(countArgs, bowType)
 		}
 
 		var total int
-		db.Get(&total, countQuery, countArgs...)
+		err = db.Get(&total, countQuery, countArgs...)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to count archers")
+		}
 
 		// Mask URLs
 		for i := range archers {
@@ -140,17 +170,33 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
-			FROM archers a
+			FROM (
+				SELECT 
+					uuid, COALESCE(id, '') as id, user_id, username, full_name, date_of_birth,
+					gender, email, phone, avatar_url, address,
+					bio, achievements, status, created_at, updated_at,
+					bow_type, city, school, province, club_id, is_verified
+				FROM archers
+				UNION ALL
+				SELECT 
+					uuid, '' as id, NULL as user_id, username, full_name, date_of_birth,
+					gender, email, phone, avatar_url, address,
+					notes as bio, NULL as achievements, status, created_at, updated_at,
+					bow_type, city, school, NULL as province, club_id, 0 as is_verified
+				FROM event_archers
+			) a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
+			LEFT JOIN event_participants tp ON (a.uuid = tp.archer_id OR a.uuid = tp.event_archer_id)
 			LEFT JOIN events t ON tp.event_id = t.uuid
-			WHERE a.uuid = ? OR a.username = ? OR a.id = ?
+			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
 			GROUP BY a.uuid
+			LIMIT 1
 		`
 
 		var archer models.ArcherWithStats
 		err := db.Get(&archer, query, id, id, id)
 		if err != nil {
+			logrus.WithError(err).Warnf("Archer not found: %s", id)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
 			return
 		}
@@ -181,18 +227,23 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				e.uuid as id, e.name as name, e.city, e.start_date, 
-				ep.qual_score, ep.qual_rank
+				e.uuid as id, e.name as name, e.city, e.start_date as start_date, 
+				0 as qual_score, 0 as qual_rank
 			FROM event_participants ep
 			JOIN events e ON ep.event_id = e.uuid
-			JOIN archers a ON ep.archer_id = a.uuid
-			WHERE a.uuid = ? OR a.username = ? OR a.id = ?
+			JOIN (
+				SELECT uuid, username, COALESCE(id, '') as athlete_id FROM archers
+				UNION ALL
+				SELECT uuid, username, '' as athlete_id FROM event_archers
+			) a ON (ep.archer_id = a.uuid OR ep.event_archer_id = a.uuid)
+			WHERE a.uuid = ? OR a.username = ? OR (a.athlete_id != '' AND a.athlete_id = ?)
 			ORDER BY e.start_date DESC
 		`
 
 		var events []ArcherEventHistory
 		err := db.Select(&events, query, id, id, id)
 		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch archer events")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archer events", "details": err.Error()})
 			return
 		}

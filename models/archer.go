@@ -57,6 +57,7 @@ type CreateArcherRequest struct {
 	Phone       *string    `json:"phone"`
 	AvatarURL   *string    `json:"avatar_url"`
 	Address     *string    `json:"address"`
+	Province    *string    `json:"province"`
 }
 
 // UpdateArcherRequest represents the request payload for updating an archer
@@ -73,6 +74,7 @@ type UpdateArcherRequest struct {
 	Address      *string    `json:"address"`
 	Bio          *string    `json:"bio"`
 	Achievements *string    `json:"achievements"`
+	Province     *string    `json:"province"`
 	Status       *string    `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 
@@ -168,5 +170,6 @@ type CreateEventArcherRequest struct {
 	ClubID      *string    `json:"club_id"`
 	Address     *string    `json:"address"`
 	AvatarURL   *string    `json:"avatar_url"`
+	Province    *string    `json:"province"`
 	Notes       *string    `json:"notes"`
 }

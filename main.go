@@ -43,6 +43,7 @@ func initLogger() {
 
 	logger.SetOutput(io.MultiWriter(os.Stdout, logFile))
 	logrus.SetOutput(io.MultiWriter(os.Stdout, logFile))
+	gin.DefaultWriter = io.MultiWriter(os.Stdout, logFile)
 	logrus.SetFormatter(&logrus.JSONFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
 		FieldMap: logrus.FieldMap{
