@@ -553,6 +553,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			GenderDivisionName string `db:"gender_division_name" json:"gender_division_name"`
 			GenderDivisionID   string `db:"gender_division_id" json:"gender_division_id"`
 			MaxParticipants    *int   `db:"max_participants" json:"max_participants"`
+			ParticipantCount   int    `db:"participant_count" json:"participant_count"`
 			Status             string `db:"status" json:"status"`
 			CreatedAt          string `db:"created_at" json:"created_at"`
 		}
@@ -565,12 +566,18 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 				d.name as division_name, d.uuid as division_id,
 				c.name as category_name, c.uuid as category_id,
 				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
-				COALESCE(gd.name, '') as gender_division_name, COALESCE(te.gender_division_uuid, '') as gender_division_id
+				COALESCE(gd.name, '') as gender_division_name, COALESCE(te.gender_division_uuid, '') as gender_division_id,
+				COALESCE(p.p_count, 0) as participant_count
 			FROM event_categories te
 			JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+			LEFT JOIN (
+				SELECT category_id, COUNT(*) as p_count 
+				FROM event_participants 
+				GROUP BY category_id
+			) p ON te.uuid = p.category_id
 			WHERE te.event_id = ?
 			ORDER BY d.name, c.name
 		`, actualEventID)
