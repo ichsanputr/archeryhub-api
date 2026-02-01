@@ -50,7 +50,7 @@ type CreateArcherRequest struct {
 	Nickname    *string    `json:"nickname"`
 	DateOfBirth *FlexibleTime `json:"date_of_birth"`
 	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
-	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
+	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`
 	ClubID      *string    `json:"club_id"`
@@ -164,7 +164,7 @@ type CreateEventArcherRequest struct {
 	Phone       *string       `json:"phone"`
 	DateOfBirth *FlexibleTime `json:"date_of_birth"`
 	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
-	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional"`
+	BowType     *string    `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`
 	ClubID      *string    `json:"club_id"`
