@@ -204,22 +204,18 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 
+
 		// Check visibility
 		if Event.Status == "draft" {
             // Check if user is organizer
             userID, exists := c.Get("user_id")
-            // If explicit organizer check is needed, we need to ensure the requester is the owner
-            // For now, simpler approach: if it's draft, only allow if authenticated and maybe match organizer?
-            // User requested: "it only shown on dashboard". Dashboard uses auth.
-            // Let's rely on simple auth check for now, or match ID.
             isAuthorized := false
             if exists {
                  // Check if userID matches organizerID
-                 // EventWithDetails has OrganizerID *string
                  if Event.OrganizerID != nil && *Event.OrganizerID == userID.(string) {
                      isAuthorized = true
                  }
-                 // Allow admins too?
+                 // Allow admins too
                  role, _ := c.Get("role")
                  if role == "admin" {
                      isAuthorized = true
@@ -784,19 +780,47 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		participantID := c.Param("participantId")
 
-		// Resolve event slug to UUID
-		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+
+		// Resolve event slug to UUID and get details for visibility check
+		var event struct {
+			UUID        string  `db:"uuid"`
+			Status      string  `db:"status"`
+			OrganizerID *string `db:"organizer_id"`
+		}
+		err := db.Get(&event, `SELECT uuid, status, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			fmt.Printf("[DEBUG] Event not found: %s\n", eventID)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found", "event_id": eventID})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
+		}
+		actualEventID := event.UUID
+
+		// Check visibility
+		if event.Status == "draft" {
+			// Check if user is organizer
+			userID, exists := c.Get("user_id")
+			isAuthorized := false
+			if exists {
+				if event.OrganizerID != nil && *event.OrganizerID == userID.(string) {
+					isAuthorized = true
+				}
+				role, _ := c.Get("role")
+				if role == "admin" {
+					isAuthorized = true
+				}
+			}
+
+			if !isAuthorized {
+				fmt.Printf("[DEBUG] Unauthorized draft access. EventID: %s, UserID: %v, OrganizerID: %v, Exists: %v\n", event.UUID, userID, event.OrganizerID, exists)
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+				return
+			}
 		}
 
 		fmt.Printf("[DEBUG] Fetching participant for event %s (ID: %s), participant %s\n", eventID, actualEventID, participantID)
 
 		type Participant struct {
 			ID                 string  `db:"id" json:"id"`
+			AthleteCode        *string `db:"athlete_code" json:"athlete_code"`
 			ArcherID           *string `db:"archer_id" json:"archer_id"`
 			FullName           string  `db:"full_name" json:"full_name"`
 			Username           *string `db:"username" json:"username"`
@@ -1908,6 +1932,78 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"teams": teams,
 			"total": len(teams),
+		})
+	}
+}
+
+// GetMyEvents returns events managed by the authenticated user
+func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		status := c.Query("status")
+		search := c.Query("search")
+		
+		// Base query: get events where organizer_id is the current user
+		query := `
+			SELECT 
+				t.*,
+				u.full_name as organizer_name,
+				u.email as organizer_email,
+				u.slug as organizer_slug,
+				u.avatar_url as organizer_avatar_url,
+				COUNT(DISTINCT tp.uuid) as participant_count,
+				COUNT(DISTINCT te.uuid) as event_count
+			FROM events t
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
+			) u ON t.organizer_id = u.id
+			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
+			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			WHERE t.organizer_id = ?
+		`
+		args := []interface{}{userID}
+
+		if status != "" {
+			query += ` AND t.status = ?`
+			args = append(args, status)
+		}
+
+		if search != "" {
+			query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm, searchTerm)
+		}
+
+		query += ` GROUP BY t.uuid ORDER BY t.created_at DESC`
+
+		var events []models.EventWithDetails
+		err := db.Select(&events, query, args...)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusOK, gin.H{
+					"events": []interface{}{},
+					"total":  0,
+				})
+				return
+			}
+			
+			c.JSON(http.StatusOK, gin.H{
+				"events": []interface{}{},
+				"total":  0,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"events": events,
+			"total":  len(events),
 		})
 	}
 }

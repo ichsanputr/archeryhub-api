@@ -366,10 +366,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", bio = ?"
 			args = append(args, *req.Bio)
 		}
-		if req.Achievements != nil {
-			query += ", achievements = ?"
-			args = append(args, *req.Achievements)
-		}
 		if req.ClubID != nil {
 			query += ", club_id = ?"
 			args = append(args, *req.ClubID)

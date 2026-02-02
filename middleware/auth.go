@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -90,6 +91,69 @@ func RequireRole(requiredRole string) gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+// OptionalAuthMiddleware attempts to validate JWT tokens but proceeds even if missing or invalid
+func OptionalAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var tokenString string
+
+		// First, try to get token from Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
+		}
+
+
+		// If no token in header, try to get from cookie
+		if tokenString == "" {
+			cookie, err := c.Cookie("auth_token")
+			if err == nil && cookie != "" {
+				tokenString = cookie
+			} else {
+                fmt.Println("[DEBUG OptionalAuth] No auth_token cookie found or error:", err)
+            }
+		}
+
+		// If no token, just proceed
+		if tokenString == "" {
+            fmt.Println("[DEBUG OptionalAuth] No token found in header or cookie")
+			c.Next()
+			return
+		}
+
+        fmt.Println("[DEBUG OptionalAuth] Token found, length:", len(tokenString))
+
+		secret := []byte(os.Getenv("JWT_SECRET"))
+		if len(secret) == 0 {
+			secret = []byte("archeryhub-secret-key-change-in-production")
+		}
+
+		// Parse and validate token (ignore errors, just don't set user_id)
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return secret, nil
+		})
+
+		if err == nil && token.Valid {
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+                fmt.Printf("[DEBUG OptionalAuth] Claims found. UserID: %v\n", claims["user_id"])
+				c.Set("user_id", claims["user_id"])
+				c.Set("email", claims["email"])
+				c.Set("role", claims["role"])
+				c.Set("user_type", claims["user_type"])
+			}
+		} else {
+            fmt.Println("[DEBUG OptionalAuth] Token invalid or parse error:", err)
+        }
+		
 		c.Next()
 	}
 }

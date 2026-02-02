@@ -168,6 +168,7 @@ func main() {
 
 		// Event routes
 		events := api.Group("/events")
+		events.Use(middleware.OptionalAuthMiddleware())
 		{
 			// Public Event routes
 			events.GET("", handler.GetEvents(db))
@@ -188,6 +189,7 @@ func main() {
 			protected := events.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
+				protected.GET("/my", handler.GetMyEvents(db))
 				protected.POST("", handler.CreateEvent(db))
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))

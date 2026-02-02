@@ -7,7 +7,6 @@ import (
 // Archer represents an archer
 type Archer struct {
 	UUID         string     `json:"uuid" db:"uuid"`
-	UserID       *string    `json:"user_id" db:"user_id"`
 	Username     *string    `json:"username" db:"username"`
 	FullName     string     `json:"full_name" db:"full_name"`
 	DateOfBirth  *time.Time `json:"date_of_birth" db:"date_of_birth"`
@@ -17,7 +16,6 @@ type Archer struct {
 	AvatarURL    *string    `json:"avatar_url" db:"avatar_url"`
 	Address      *string    `json:"address" db:"address"`
 	Bio          *string    `json:"bio" db:"bio"`
-	Achievements *string    `json:"achievements" db:"achievements"`
 	Status       string     `json:"status" db:"status"` // active, inactive, suspended, pending
 	BowType      *string    `json:"bow_type" db:"bow_type"`
 	City         *string    `json:"city" db:"city"`
@@ -72,7 +70,6 @@ type UpdateArcherRequest struct {
 	AvatarURL    *string    `json:"avatar_url"`
 	Address      *string    `json:"address"`
 	Bio          *string    `json:"bio"`
-	Achievements *string    `json:"achievements"`
 	Province     *string    `json:"province"`
 	Status       *string    `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }

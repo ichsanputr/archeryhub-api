@@ -452,7 +452,6 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			UserType     string  `db:"-" json:"user_type"`
 			Phone        *string `db:"phone" json:"phone"`
 			Bio          *string `db:"bio" json:"bio"`
-			Achievements *string `db:"achievements" json:"achievements"`
 			Description  *string `db:"description" json:"description"`
 			StoreName    *string `db:"store_name" json:"store_name"`
 			BannerURL    *string `db:"banner_url" json:"banner_url"`
@@ -464,7 +463,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `SELECT uuid, id, slug as username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
 		if table == "archers" {
-			query += ", bio, achievements"
+			query += ", bio"
 		} else if table == "sellers" {
 			query += ", store_name, slug, description, banner_url"
 		} else {

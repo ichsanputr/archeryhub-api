@@ -30,9 +30,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.id, a.user_id, a.username, a.full_name, a.date_of_birth,
+				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
-				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
+				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
 				c.slug as club_slug,
@@ -139,9 +139,9 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.id, a.user_id, a.username, a.full_name, a.date_of_birth,
+				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
-				a.bio, a.achievements, a.status, a.created_at, a.updated_at,
+				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school, a.province,
 				c.name as club_name,
 				c.slug as club_slug,
