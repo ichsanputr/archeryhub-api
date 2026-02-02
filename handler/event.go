@@ -30,13 +30,14 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.full_name as organizer_name,
 				u.email as organizer_email,
 				u.slug as organizer_slug,
+				u.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT tp.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug FROM clubs
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
@@ -67,15 +68,16 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.full_name as organizer_name,
 				u.email as organizer_email,
 				u.slug as organizer_slug,
+				u.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT tp2.uuid) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
 				tp.payment_status,
 				tp.uuid as participant_uuid
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug FROM clubs
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
@@ -96,7 +98,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			query += `
-			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, d.name, t.type
+			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, d.name, t.type
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
