@@ -306,7 +306,9 @@ func main() {
 		// Media routes
 		media := api.Group("/media")
 		{
-			// Public media access is handled via r.Static("/media", "./media") at line 127
+			// Public media access
+			media.GET("/:filename", handler.GetMedia())
+			
 			// Protected media routes
 			protectedMedia := media.Group("")
 			protectedMedia.Use(middleware.AuthMiddleware())
