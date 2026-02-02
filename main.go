@@ -287,6 +287,22 @@ func main() {
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
 		}
 
+		// Organization routes
+		orgs := api.Group("/organizations")
+		{
+			// Public organization routes
+			orgs.GET("", handler.GetOrganizations(db))
+			orgs.GET("/:slug", handler.GetOrganizationBySlug(db))
+
+			// Protected organization routes
+			protectedOrgs := orgs.Group("")
+			protectedOrgs.Use(middleware.AuthMiddleware())
+			{
+				protectedOrgs.GET("/me", handler.GetOrganizationProfile(db))
+				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
+			}
+		}
+
 		// Event registration is handled via POST /events/:id/participants
 
 	// Get port from environment

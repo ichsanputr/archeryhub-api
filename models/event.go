@@ -81,7 +81,7 @@ type Event struct {
 	NumDistances          *int       `json:"num_distances" db:"num_distances"`
 	NumSessions           *int       `json:"num_sessions" db:"num_sessions"`
 	EntryFee              float64    `json:"entry_fee" db:"entry_fee"`
-	Status                string     `json:"status" db:"status"` // draft, published, ongoing, completed, archived
+	Status                string     `json:"status" db:"status"` // draft, active
 	OrganizerID           *string    `json:"organizer_id" db:"organizer_id"`
 	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at"`
