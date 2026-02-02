@@ -20,7 +20,6 @@ type Archer struct {
 	BowType      *string    `json:"bow_type" db:"bow_type"`
 	City         *string    `json:"city" db:"city"`
 	School       *string    `json:"school" db:"school"`
-	Province     *string    `json:"province" db:"province"`
 	ClubID       *string    `json:"club_id" db:"club_id"`
 	ID           string     `json:"id" db:"id"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
@@ -51,10 +50,10 @@ type CreateArcherRequest struct {
 	City        *string    `json:"city"`
 	School      *string    `json:"school"`
 	ClubID      *string    `json:"club_id"`
-	Phone       *string    `json:"phone"`
+
 	AvatarURL   *string    `json:"avatar_url"`
 	Address     *string    `json:"address"`
-	Province    *string    `json:"province"`
+	Phone       *string    `json:"phone"`
 }
 
 // UpdateArcherRequest represents the request payload for updating an archer
@@ -71,7 +70,6 @@ type UpdateArcherRequest struct {
 	AvatarURL    *string    `json:"avatar_url"`
 	Address      *string    `json:"address"`
 	Bio          *string    `json:"bio"`
-	Province     *string    `json:"province"`
 	Status       *string    `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 

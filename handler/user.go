@@ -378,10 +378,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", school = ?"
 			args = append(args, *req.School)
 		}
-		if req.Province != nil {
-			query += ", province = ?"
-			args = append(args, *req.Province)
-		}
 
 		if len(args) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
