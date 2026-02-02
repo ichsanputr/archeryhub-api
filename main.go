@@ -344,6 +344,7 @@ func main() {
 		media := api.Group("/media")
 		{
 			// Public media access
+			media.GET("/download/:filename", handler.DownloadMedia())
 			media.GET("/:filename", handler.GetMedia())
 
 			// Protected media routes
