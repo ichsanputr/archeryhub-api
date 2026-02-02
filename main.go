@@ -312,6 +312,7 @@ func main() {
 		{
 			// Public route to serve media files
 			media.GET("/:filename", handler.GetMedia())
+			media.GET("/download/:filename", handler.DownloadMedia())
 
 			// Protected routes for media management
 			protectedMedia := media.Group("")

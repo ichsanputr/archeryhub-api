@@ -188,6 +188,33 @@ func GetMedia() gin.HandlerFunc {
 	}
 }
 
+// DownloadMedia serves a media file as an attachment for download
+// GET /media/download/:filename
+func DownloadMedia() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		filename := c.Param("filename")
+
+		// Sanitize filename to prevent directory traversal
+		filename = filepath.Base(filename)
+
+		filePath := filepath.Join("./media", filename)
+
+		// Check if file exists
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			return
+		}
+
+		// Set header for forced download
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Transfer-Encoding", "binary")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.Header("Content-Type", "application/octet-stream")
+
+		c.File(filePath)
+	}
+}
+
 // ListMedia returns a list of all media files
 // GET /api/v1/media
 func ListMedia(db *sqlx.DB) gin.HandlerFunc {
