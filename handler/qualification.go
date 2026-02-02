@@ -184,8 +184,8 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 		var leaderboard []Entry
 		err := db.Select(&leaderboard, `
 			SELECT 
-				COALESCE(a.full_name, ea.full_name) as archer_name,
-				COALESCE(cl.name, ea.club) as club_name,
+				a.full_name as archer_name,
+				cl.name as club_name,
 				CONCAT(bt.name, ' ', ag.name) as category_name,
 				COALESCE(SUM(s.end_total), 0) as total_score,
 				COALESCE(SUM(s.end_10_count), 0) as total_10x,
@@ -193,7 +193,6 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(s.uuid) as ends_completed
 			FROM event_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_archers ea ON ep.event_archer_id = ea.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
@@ -201,7 +200,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN qualification_assignments qa ON qa.participant_uuid = ep.uuid
 			LEFT JOIN qualification_end_scores s ON s.assignment_uuid = qa.uuid
 			WHERE ep.category_id = ?
-			GROUP BY ep.uuid, a.full_name, ea.full_name, cl.name, ea.club, bt.name, ag.name
+			GROUP BY ep.uuid, a.full_name, cl.name, bt.name, ag.name
 			ORDER BY total_score DESC, total_10x DESC, total_x DESC`,
 			categoryID)
 

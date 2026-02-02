@@ -73,12 +73,11 @@ func generateStartList(db *sqlx.DB, req PrintRequest) interface{} {
 		SELECT 
 			COALESCE(tp.back_number, '') as back_number,
 			COALESCE(tp.target_number, '') as target,
-			COALESCE(a.full_name, ea.full_name, '') as athlete_name,
-			COALESCE(a.club_id, ea.club_id, '') as club,
+			COALESCE(a.full_name, '') as athlete_name,
+			COALESCE(a.club_id, '') as club,
 			COALESCE(bt.name, '') as division, COALESCE(ag.name, '') as category
 		FROM event_participants tp
 		LEFT JOIN archers a ON tp.archer_id = a.uuid
-		LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
 		LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
 		LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 		LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
@@ -118,14 +117,13 @@ func generateBackNumbers(db *sqlx.DB, req PrintRequest) interface{} {
 	err := db.Select(&cards, `
 		SELECT 
 			COALESCE(tp.back_number, '') as back_number,
-			COALESCE(a.full_name, ea.full_name, '') as athlete_name,
-			COALESCE(a.city, ea.city, '') as city,
+			COALESCE(a.full_name, '') as athlete_name,
+			COALESCE(a.city, '') as city,
 			COALESCE(bt.name, '') as division,
 			COALESCE(tp.target_number, '') as target,
 			COALESCE(tp.session, 1) as session
 		FROM event_participants tp
 		LEFT JOIN archers a ON tp.archer_id = a.uuid
-		LEFT JOIN event_archers ea ON tp.event_archer_id = ea.uuid
 		LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
 		LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 		WHERE tp.event_id = ?

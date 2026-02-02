@@ -40,11 +40,10 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 					CONCAT(qs.uuid, '-', tn.target_number) as id,
 					CONCAT(qs.session_name, ' - ', COALESCE(tc.card_name, CONCAT('Target ', tn.target_number)), 
 						COALESCE(CONCAT(' [', (
-							SELECT GROUP_CONCAT(COALESCE(a2.full_name, ea2.full_name, '-') ORDER BY qa2.target_position SEPARATOR ', ')
+							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') ORDER BY qa2.target_position SEPARATOR ', ')
 							FROM qualification_assignments qa2
 							JOIN event_participants ep2 ON qa2.participant_uuid = ep2.uuid
 							LEFT JOIN archers a2 ON ep2.archer_id = a2.uuid
-							LEFT JOIN event_archers ea2 ON ep2.event_archer_id = ea2.uuid
 							WHERE qa2.session_uuid = qs.uuid AND qa2.target_number = tn.target_number
 						), ']'), ' (Kosong)')) as label,
 					'qualification' as phase,
@@ -150,20 +149,19 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 				qa.uuid as assignment_id,
 				qa.participant_uuid as participant_id,
 				qa.target_position as position,
-				COALESCE(a.full_name, ea.full_name, '') as name,
+				COALESCE(a.full_name, '') as name,
 				COALESCE(bt.name, ' ', ag.name, '') as division,
 				COALESCE(SUM(qes.end_total), 0) as current_score,
 				COUNT(qes.uuid) as ends_completed
 			FROM qualification_assignments qa
 			LEFT JOIN event_participants ep ON qa.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_archers ea ON ep.event_archer_id = ea.uuid
 			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.assignment_uuid = qa.uuid
 			WHERE qa.session_uuid = ? AND qa.target_number = ?
-			GROUP BY qa.uuid, qa.participant_uuid, qa.target_position, a.full_name, ea.full_name, bt.name, ag.name
+			GROUP BY qa.uuid, qa.participant_uuid, qa.target_position, a.full_name, bt.name, ag.name
 			ORDER BY qa.target_position ASC
 		`, sessionID, targetNumber)
 		if err != nil {

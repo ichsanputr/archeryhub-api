@@ -39,24 +39,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
-			FROM (
-				SELECT 
-					uuid, COALESCE(id, '') as id, user_id, username, full_name, date_of_birth,
-					gender, email, phone, avatar_url, address,
-					bio, achievements, status, created_at, updated_at,
-					bow_type, city, school, province, club_id, is_verified
-				FROM archers
-				UNION ALL
-				SELECT 
-					uuid, '' as id, NULL as user_id, username, full_name, date_of_birth,
-					gender, email, phone, avatar_url, address,
-					notes as bio, NULL as achievements, status, created_at, updated_at,
-					bow_type, city, school, NULL as province, club_id, 0 as is_verified
-				FROM event_archers ea
-				WHERE ea.email IS NULL OR ea.email NOT IN (SELECT email FROM archers WHERE email IS NOT NULL)
-			) a
+			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_participants tp ON (a.uuid = tp.archer_id OR a.uuid = tp.event_archer_id)
+			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE 1=1
 		`
@@ -100,34 +85,27 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get total count
-		countQuery := `
-			SELECT COUNT(*) FROM (
-				SELECT email, full_name, status, city, bow_type, club_id FROM archers
-				UNION ALL
-				SELECT email, full_name, status, city, bow_type, club_id FROM event_archers
-				WHERE email IS NULL OR email NOT IN (SELECT email FROM archers WHERE email IS NOT NULL)
-			) a WHERE 1=1
-		`
+		countQuery := `SELECT COUNT(*) FROM archers WHERE 1=1`
 		countArgs := []interface{}{}
 
 		if status != "" {
-			countQuery += " AND a.status = ?"
+			countQuery += " AND status = ?"
 			countArgs = append(countArgs, status)
 		}
 
 		if search != "" {
-			countQuery += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
+			countQuery += " AND (full_name LIKE ? OR email LIKE ? OR club_id LIKE ?)"
 			searchTerm := "%" + search + "%"
 			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
 		}
 
 		if city != "" {
-			countQuery += " AND a.city = ?"
+			countQuery += " AND city = ?"
 			countArgs = append(countArgs, city)
 		}
 
 		if bowType != "" && bowType != "all" {
-			countQuery += " AND a.bow_type = ?"
+			countQuery += " AND bow_type = ?"
 			countArgs = append(countArgs, bowType)
 		}
 
@@ -170,23 +148,9 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
-			FROM (
-				SELECT 
-					uuid, COALESCE(id, '') as id, user_id, username, full_name, date_of_birth,
-					gender, email, phone, avatar_url, address,
-					bio, achievements, status, created_at, updated_at,
-					bow_type, city, school, province, club_id, is_verified
-				FROM archers
-				UNION ALL
-				SELECT 
-					uuid, '' as id, NULL as user_id, username, full_name, date_of_birth,
-					gender, email, phone, avatar_url, address,
-					notes as bio, NULL as achievements, status, created_at, updated_at,
-					bow_type, city, school, NULL as province, club_id, 0 as is_verified
-				FROM event_archers
-			) a
+			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_participants tp ON (a.uuid = tp.archer_id OR a.uuid = tp.event_archer_id)
+			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
 			GROUP BY a.uuid
@@ -231,12 +195,8 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				0 as qual_score, 0 as qual_rank
 			FROM event_participants ep
 			JOIN events e ON ep.event_id = e.uuid
-			JOIN (
-				SELECT uuid, username, COALESCE(id, '') as athlete_id FROM archers
-				UNION ALL
-				SELECT uuid, username, '' as athlete_id FROM event_archers
-			) a ON (ep.archer_id = a.uuid OR ep.event_archer_id = a.uuid)
-			WHERE a.uuid = ? OR a.username = ? OR (a.athlete_id != '' AND a.athlete_id = ?)
+			JOIN archers a ON ep.archer_id = a.uuid
+			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
 			ORDER BY e.start_date DESC
 		`
 
