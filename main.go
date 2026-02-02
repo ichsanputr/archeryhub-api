@@ -303,6 +303,20 @@ func main() {
 			}
 		}
 
+		// Media routes
+		media := api.Group("/media")
+		{
+			// Public media access is handled via r.Static("/media", "./media") at line 127
+			// Protected media routes
+			protectedMedia := media.Group("")
+			protectedMedia.Use(middleware.AuthMiddleware())
+			{
+				protectedMedia.POST("/upload", handler.UploadMedia(db))
+				protectedMedia.GET("", handler.ListMedia(db))
+				protectedMedia.DELETE("/:id", handler.DeleteMedia(db))
+			}
+		}
+
 		// Event registration is handled via POST /events/:id/participants
 
 	// Get port from environment
