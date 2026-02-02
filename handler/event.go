@@ -134,6 +134,10 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
 				events[i].TechnicalGuidebookURL = &masked
 			}
+			if events[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
+				events[i].OrganizerAvatarURL = &masked
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
