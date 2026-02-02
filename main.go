@@ -308,7 +308,7 @@ func main() {
 		{
 			// Public media access
 			media.GET("/:filename", handler.GetMedia())
-			
+
 			// Protected media routes
 			protectedMedia := media.Group("")
 			protectedMedia.Use(middleware.AuthMiddleware())
@@ -321,13 +321,13 @@ func main() {
 
 		// Event registration is handled via POST /events/:id/participants
 
-	// Get port from environment
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8001"
-	}
+		// Get port from environment
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8001"
+		}
 
-	logger.WithField("port", port).Info("Archery Hub API starting")
-	logger.Fatal(r.Run(":" + port))
-}
+		logger.WithField("port", port).Info("Archery Hub API starting")
+		logger.Fatal(r.Run(":" + port))
+	}
 }
