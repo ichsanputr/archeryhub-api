@@ -264,11 +264,47 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			org.BannerURL = &masked
 		}
 
-		response := gin.H{"organization": org}
-		if pageSettings != nil {
-			response["page_settings"] = pageSettings
+		// Prepare response
+		data := gin.H{
+			"id":                  org.UUID,
+			"uuid":                org.UUID,
+			"slug":                org.Slug,
+			"name":                org.Name,
+			"acronym":             org.Acronym,
+			"description":         org.Description,
+			"website":             org.Website,
+			"email":               org.Email,
+			"whatsapp_no":         org.WhatsAppNo,
+			"avatar_url":          org.AvatarURL,
+			"banner_url":          org.BannerURL,
+			"address":             org.Address,
+			"city":                org.City,
+			"country":             org.Country,
+			"registration_number": org.RegistrationNumber,
+			"established_date":    org.EstablishedDate,
+			"contact_person_name": org.ContactPersonName,
+			"contact_person_email": org.ContactPersonEmail,
+			"contact_person_phone": org.ContactPersonPhone,
+			"social_facebook":     org.SocialFacebook,
+			"social_instagram":    org.SocialInstagram,
+			"social_twitter":      org.SocialTwitter,
+			"social_media":        org.SocialMedia,
+			"vision":              org.Vision,
+			"mission":             org.Mission,
+			"history":             org.History,
+			"faq":                 org.FAQ,
+			"verification_status": org.VerificationStatus,
+			"status":              org.Status,
+			"created_at":          org.CreatedAt,
+			"updated_at":          org.UpdatedAt,
+			"user_type":           "organization",
 		}
-		c.JSON(http.StatusOK, response)
+
+		if pageSettings != nil {
+			data["page_settings"] = pageSettings
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }
 

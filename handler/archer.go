@@ -412,6 +412,10 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", city = ?"
 			args = append(args, *req.City)
 		}
+		if req.BowType != nil {
+			query += ", bow_type = ?"
+			args = append(args, *req.BowType)
+		}
 		if req.School != nil {
 			query += ", school = ?"
 			args = append(args, *req.School)
@@ -489,5 +493,88 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Archer deleted successfully"})
+	}
+}
+
+// GetArcherProfile returns the authenticated archer's profile
+func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var archer struct {
+			UUID         string  `json:"uuid" db:"uuid"`
+			ID           string  `json:"id" db:"id"`
+			Username     *string `json:"username" db:"username"`
+			Email        *string `json:"email" db:"email"`
+			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
+			FullName     string  `json:"full_name" db:"full_name"`
+			Nickname     *string `json:"nickname" db:"nickname"`
+			DateOfBirth  *string `json:"date_of_birth" db:"date_of_birth"`
+			Gender       string  `json:"gender" db:"gender"`
+			Phone        *string `json:"phone" db:"phone"`
+			Address      *string `json:"address" db:"address"`
+			City         *string `json:"city" db:"city"`
+			School       *string `json:"school" db:"school"`
+			Province     *string `json:"province" db:"province"`
+			BowType      string  `json:"bow_type" db:"bow_type"`
+			ClubID       *string `json:"club_id" db:"club_id"`
+			ClubName     *string `json:"club_name" db:"club_name"`
+			Status       string  `json:"status" db:"status"`
+		}
+
+		var pageSettings *string
+		err := db.Get(&archer, `
+		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, 
+		       a.full_name, a.nickname, a.date_of_birth, 
+		       COALESCE(a.gender, 'male') as gender,
+		       a.phone, a.address, a.city, a.school, a.province, 
+		       COALESCE(a.bow_type, 'recurve') as bow_type,
+		       a.club_id, c.name as club_name,
+		       COALESCE(a.status, 'active') as status
+		FROM archers a
+		LEFT JOIN clubs c ON a.club_id = c.uuid
+		WHERE a.uuid = ? OR a.email = (SELECT email FROM archers WHERE uuid = ? LIMIT 1)
+	`, userID, userID)
+
+		if err == nil {
+			db.Get(&pageSettings, "SELECT page_settings FROM archers WHERE uuid = ?", userID)
+		}
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found"})
+			return
+		}
+
+		data := gin.H{
+			"uuid":          archer.UUID,
+			"id":            archer.ID,
+			"username":      archer.Username,
+			"email":         archer.Email,
+			"avatar_url":    archer.AvatarURL,
+			"full_name":     archer.FullName,
+			"nickname":      archer.Nickname,
+			"date_of_birth": archer.DateOfBirth,
+			"gender":        archer.Gender,
+			"phone":         archer.Phone,
+			"address":       archer.Address,
+			"city":          archer.City,
+			"school":        archer.School,
+			"province":      archer.Province,
+			"bow_type":      archer.BowType,
+			"club_id":       archer.ClubID,
+			"club_name":     archer.ClubName,
+			"status":        archer.Status,
+			"user_type":     "archer",
+		}
+
+		if pageSettings != nil {
+			data["page_settings"] = pageSettings
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }

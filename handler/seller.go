@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"archeryhub-api/utils"
 	"encoding/json"
 	"net/http"
 
@@ -31,36 +32,46 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, store_name, slug, description, avatar_url, banner_url, 
 			       phone, email, address, city, province, page_settings
 			FROM sellers
-			WHERE user_id = ?`, userID)
+			WHERE uuid = ? OR user_id = ?`, userID, userID)
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Seller not found"})
 			return
 		}
 
-		// Parse page_settings to extract sections, catalog_config, etc.
-		var response map[string]interface{}
+		// Prepare data
+		data := make(map[string]interface{})
 		if seller.PageSettings != nil && *seller.PageSettings != "" {
-			json.Unmarshal([]byte(*seller.PageSettings), &response)
-		} else {
-			response = make(map[string]interface{})
+			json.Unmarshal([]byte(*seller.PageSettings), &data)
+		}
+
+		// Mask URLs
+		if seller.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*seller.AvatarURL)
+			seller.AvatarURL = &masked
+		}
+		if seller.BannerURL != nil {
+			masked := utils.MaskMediaURL(*seller.BannerURL)
+			seller.BannerURL = &masked
 		}
 
 		// Add seller basic info
-		response["uuid"] = seller.UUID
-		response["store_name"] = seller.StoreName
-		response["slug"] = seller.Slug
-		response["store_slug"] = seller.Slug // Keep this for backward compatibility if frontend expects it
-		response["description"] = seller.Description
-		response["avatar_url"] = seller.AvatarURL
-		response["banner_url"] = seller.BannerURL
-		response["phone"] = seller.Phone
-		response["email"] = seller.Email
-		response["address"] = seller.Address
-		response["city"] = seller.City
-		response["province"] = seller.Province
+		data["id"] = seller.UUID
+		data["uuid"] = seller.UUID
+		data["store_name"] = seller.StoreName
+		data["slug"] = seller.Slug
+		data["store_slug"] = seller.Slug
+		data["description"] = seller.Description
+		data["avatar_url"] = seller.AvatarURL
+		data["banner_url"] = seller.BannerURL
+		data["phone"] = seller.Phone
+		data["email"] = seller.Email
+		data["address"] = seller.Address
+		data["city"] = seller.City
+		data["province"] = seller.Province
+		data["user_type"] = "seller"
 
-		c.JSON(http.StatusOK, gin.H{"data": response})
+		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }
 

@@ -61,7 +61,8 @@ type CreateArcherRequest struct {
 type UpdateArcherRequest struct {
 	FullName     *string       `json:"full_name"`
 	DateOfBirth  *FlexibleTime `json:"date_of_birth"`
-	Gender       *string       `json:"gender" binding:"omitempty,oneof=M F X"`
+	Gender       *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
+	BowType      *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	City         *string    `json:"city"`
 	School       *string    `json:"school"`
 	ClubID       *string    `json:"club_id"`

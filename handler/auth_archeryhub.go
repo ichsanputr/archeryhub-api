@@ -452,6 +452,12 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			UserType     string  `db:"-" json:"user_type"`
 			Phone        *string `db:"phone" json:"phone"`
 			Bio          *string `db:"bio" json:"bio"`
+			Gender       *string `db:"gender" json:"gender"`
+			DateOfBirth  *string `db:"date_of_birth" json:"date_of_birth"`
+			BowType      *string `db:"bow_type" json:"bow_type"`
+			City         *string `db:"city" json:"city"`
+			Province     *string `db:"province" json:"province"`
+			ClubID       *string `db:"club_id" json:"club_id"`
 			Description  *string `db:"description" json:"description"`
 			StoreName    *string `db:"store_name" json:"store_name"`
 			BannerURL    *string `db:"banner_url" json:"banner_url"`
@@ -463,7 +469,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `SELECT uuid, id, slug as username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
 		if table == "archers" {
-			query += ", bio"
+			query += ", bio, gender, date_of_birth, bow_type, city, province, club_id"
 		} else if table == "sellers" {
 			query += ", store_name, slug, description, banner_url"
 		} else {

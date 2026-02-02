@@ -138,6 +138,13 @@ func main() {
 			})
 		})
 
+		// Session endpoint (Global)
+
+		api.GET("/archer/me", middleware.AuthMiddleware(), handler.GetArcherProfile(db))
+		api.GET("/organization/me", middleware.AuthMiddleware(), handler.GetOrganizationProfile(db))
+		api.GET("/club/me", middleware.AuthMiddleware(), handler.GetClubMe(db))
+		api.GET("/seller/me", middleware.AuthMiddleware(), handler.GetSellerProfile(db))
+
 		// Authentication routes (public)
 		auth := api.Group("/auth")
 		{
@@ -152,7 +159,7 @@ func main() {
 			auth.GET("/google", handler.InitiateGoogleAuth(db))
 			auth.GET("/google/callback", handler.GoogleCallback(db))
 			auth.POST("/google/callback", handler.GoogleCallback(db))
-			auth.GET("/sample-user", handler.GetSampleUser(db))
+
 			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
 		}
 
@@ -160,7 +167,7 @@ func main() {
 		user := api.Group("/user")
 		user.Use(middleware.AuthMiddleware())
 		{
-			user.GET("", handler.GetCurrentUser(db))
+			user.GET("/", handler.GetCurrentUser(db))
 			user.GET("/profile", handler.GetUserProfile(db))
 			user.PUT("/profile", handler.UpdateUserProfile(db)) // Generic profile update handler
 			user.PUT("/password", handler.UpdatePassword(db))
@@ -225,7 +232,7 @@ func main() {
 			protected := archers.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
-				protected.GET("/me", handler.GetArcherProfile(db))
+
 				protected.POST("", handler.CreateArcher(db))
 				protected.PUT("/:id", handler.UpdateArcher(db))
 				protected.DELETE("/:id", handler.DeleteArcher(db))
@@ -298,8 +305,37 @@ func main() {
 			protectedOrgs := orgs.Group("")
 			protectedOrgs.Use(middleware.AuthMiddleware())
 			{
-				protectedOrgs.GET("/me", handler.GetOrganizationProfile(db))
+
 				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
+			}
+		}
+
+		// Club routes
+		clubs := api.Group("/clubs")
+		{
+			// Public club routes
+			clubs.GET("/availability", handler.CheckSlugAvailability(db))
+			clubs.GET("/profile/:slug", handler.GetClubProfile(db))
+
+			// Protected club routes
+			protectedClubs := clubs.Group("")
+			protectedClubs.Use(middleware.AuthMiddleware())
+			{
+
+				protectedClubs.PUT("/me", handler.UpdateClubMe(db))
+				protectedClubs.GET("/dashboard/stats", handler.GetClubDashboardStats(db))
+				protectedClubs.PUT("/profile", handler.UpdateMyClubProfile(db))
+			}
+		}
+
+		// Seller routes
+		sellers := api.Group("/sellers")
+		{
+			protectedSellers := sellers.Group("")
+			protectedSellers.Use(middleware.AuthMiddleware())
+			{
+
+				protectedSellers.PUT("/me", handler.UpdateSellerProfile(db))
 			}
 		}
 

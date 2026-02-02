@@ -80,7 +80,7 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			FROM clubs 
 			WHERE uuid = ?`, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error or club not found: " + err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
 		}
 
@@ -98,7 +98,8 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			club.LogoURL = &masked
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		data := gin.H{
+			"id":            club.UUID,
 			"uuid":          club.UUID,
 			"name":          club.Name,
 			"slug":          club.Slug,
@@ -121,7 +122,10 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			"schedules":     club.TrainingSchedule,
 			"social_media":  club.SocialMedia,
 			"page_settings": club.PageSettings,
-		})
+			"user_type":     "club",
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }
 
