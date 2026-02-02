@@ -167,7 +167,7 @@ func main() {
 		user := api.Group("/user")
 		user.Use(middleware.AuthMiddleware())
 		{
-			user.GET("/", handler.GetCurrentUser(db))
+
 			user.GET("/profile", handler.GetUserProfile(db))
 			user.PUT("/profile", handler.UpdateUserProfile(db)) // Generic profile update handler
 			user.PUT("/password", handler.UpdatePassword(db))
