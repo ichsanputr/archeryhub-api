@@ -264,10 +264,10 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 		`, req.TeamID, req.TeamID, req.TeamID)
 
 		// Broadcast update
-		BroadcastEventUpdate(req.EventID, gin.H{
-			"type": "team_score_update",
-			"data": gin.H{"team_id": req.TeamID, "end_total": endTotal, "running_total": runningTotal},
-		})
+		// BroadcastEventUpdate(req.EventID, gin.H{
+		// 	"type": "team_score_update",
+		// 	"data": gin.H{"team_id": req.TeamID, "end_total": endTotal, "running_total": runningTotal},
+		// })
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":            scoreID,

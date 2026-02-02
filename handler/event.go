@@ -45,10 +45,19 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		`
 		args := []interface{}{}
 
+		organizerID := c.Query("organizer_id")
+		if organizerID != "" {
+			query += ` AND t.organizer_id = ?`
+			args = append(args, organizerID)
+		}
+
 		if status != "" {
 			query += ` AND t.status = ?`
 			args = append(args, status)
-		}
+		} else if organizerID == "" {
+             // Default behaviour: don't show draft events unless explicitly requested OR filtering by organizer
+             query += ` AND t.status != 'draft'`
+        }
 
 		if search != "" {
 			query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
@@ -192,6 +201,35 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event", "details": err.Error()})
 			}
 			return
+		}
+
+
+		// Check visibility
+		if Event.Status == "draft" {
+            // Check if user is organizer
+            userID, exists := c.Get("user_id")
+            // If explicit organizer check is needed, we need to ensure the requester is the owner
+            // For now, simpler approach: if it's draft, only allow if authenticated and maybe match organizer?
+            // User requested: "it only shown on dashboard". Dashboard uses auth.
+            // Let's rely on simple auth check for now, or match ID.
+            isAuthorized := false
+            if exists {
+                 // Check if userID matches organizerID
+                 // EventWithDetails has OrganizerID *string
+                 if Event.OrganizerID != nil && *Event.OrganizerID == userID.(string) {
+                     isAuthorized = true
+                 }
+                 // Allow admins too?
+                 role, _ := c.Get("role")
+                 if role == "admin" {
+                     isAuthorized = true
+                 }
+            }
+
+            if !isAuthorized {
+                 c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+                 return
+            }
 		}
 
 		// Mask URLs
