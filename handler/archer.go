@@ -578,3 +578,54 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }
+
+// GetArcherRegistrationProfile returns a simplified profile for event registration
+// It is a public endpoint that requires a valid UUID
+// GetArcherRegistrationProfile returns a simplified profile for event registration
+// It is a public endpoint that requires a valid UUID
+func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uuid := c.Param("uuid")
+
+		if uuid == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "UUID is required"})
+			return
+		}
+
+		var archer struct {
+			UUID        string  `json:"uuid" db:"uuid"`
+			ID          string  `json:"id" db:"id"`
+			FullName    string  `json:"full_name" db:"full_name"`
+			Email       *string `json:"email" db:"email"`
+			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+			Gender      *string `json:"gender" db:"gender"`
+			DateOfBirth *string `json:"date_of_birth" db:"date_of_birth"`
+			Phone       *string `json:"phone" db:"phone"`
+			City        *string `json:"city" db:"city"`
+			Province    *string `json:"province" db:"province"`
+			BowType     *string `json:"bow_type" db:"bow_type"`
+			ClubID      *string `json:"club_id" db:"club_id"`
+			ClubName    *string `json:"club_name" db:"club_name"`
+		}
+
+		query := `
+			SELECT 
+				a.uuid, a.id, a.full_name, a.email, a.avatar_url,
+				a.gender, a.date_of_birth, a.phone,
+				a.city, a.province, a.bow_type,
+				a.club_id, c.name as club_name
+			FROM archers a
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			WHERE a.uuid = ?
+		`
+
+		err := db.Get(&archer, query, uuid)
+		if err != nil {
+			logrus.WithError(err).Warnf("Archer registration profile not found: %s", uuid)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": archer})
+	}
+}
