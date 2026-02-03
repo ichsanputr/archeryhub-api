@@ -1,116 +1,22 @@
 package handler
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
-// CreateTarget creates a target for qualification or elimination phase
-func CreateTarget(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req struct {
-			Phase        string `json:"phase" binding:"required"` // "qualification" or "elimination"
-			CategoryID   string `json:"category_id" binding:"required"`
-			SessionID    string `json:"session_id"`               // Required for qualification
-			RoundName    string `json:"round_name"`               // Required for elimination
-			TargetNumber *int   `json:"target_number"`            // Optional - can be assigned later
-		}
-
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Validate phase-specific requirements
-		if req.Phase == "qualification" && req.SessionID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required for qualification phase"})
-			return
-		}
-
-		if req.Phase == "elimination" && req.RoundName == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "round_name is required for elimination phase"})
-			return
-		}
-
-		if req.Phase == "qualification" {
-			// For qualification: Ensure session exists, target is ready for assignments
-			var sessionExists bool
-			err := db.Get(&sessionExists, `
-				SELECT COUNT(*) > 0 
-				FROM qualification_sessions 
-				WHERE uuid = ? AND event_category_uuid = ?`,
-				req.SessionID, req.CategoryID)
-			
-			if err != nil || !sessionExists {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session or category mismatch"})
-				return
-			}
-
-			// Target context is ready (session exists)
-			// Return success with target context info
-			c.JSON(http.StatusCreated, gin.H{
-				"message": "Target context created successfully",
-				"target": gin.H{
-					"phase":       req.Phase,
-					"session_id":  req.SessionID,
-					"category_id": req.CategoryID,
-				},
-			})
-			return
-		}
-
-		// For elimination: Ensure match exists or create it
-		if req.Phase == "elimination" {
-			// Check if match exists for this round and category
-			var matchUUID string
-			err := db.Get(&matchUUID, `
-				SELECT uuid 
-				FROM matches 
-				WHERE event_category_uuid = ? AND round_name = ? 
-				LIMIT 1`,
-				req.CategoryID, req.RoundName)
-
-			if err != nil {
-				// Match doesn't exist, create one
-				matchUUID = uuid.New().String()
-				_, err = db.Exec(`
-					INSERT INTO matches (uuid, event_category_uuid, round_name, match_order, status)
-					VALUES (?, ?, ?, 1, 'scheduled')`,
-					matchUUID, req.CategoryID, req.RoundName)
-
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create match"})
-					return
-				}
-			}
-
-			// Target context is ready (match exists or created)
-			c.JSON(http.StatusCreated, gin.H{
-				"message": "Target context created successfully",
-				"target": gin.H{
-					"phase":       req.Phase,
-					"match_id":    matchUUID,
-					"round_name":  req.RoundName,
-					"category_id": req.CategoryID,
-				},
-			})
-			return
-		}
-
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phase"})
-	}
-}
-
-// GetTargets returns all targets for a given context (qualification session or elimination round)
+// GetTargets returns all targets for a given context (qualification session)
 func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		phase := c.Query("phase") // "qualification" or "elimination"
+		phase := c.Query("phase") // "qualification" only
 		sessionID := c.Query("session_id")
-		roundName := c.Query("round_name")
-		categoryID := c.Query("category_id")
 
 		if phase == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "phase is required"})
@@ -125,46 +31,48 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 
 			// Get all unique target numbers with their assignments and full archer details
 			type ArcherInfo struct {
-				ID           string `json:"id" db:"assignment_uuid"`
+				ID            string `json:"id" db:"assignment_uuid"`
 				ParticipantID string `json:"participant_id" db:"participant_uuid"`
-				Name         string `json:"name" db:"archer_name"`
-				Division     string `json:"division" db:"division_name"`
-				Position     string `json:"position" db:"target_position"`
+				Name          string `json:"name" db:"archer_name"`
+				Division      string `json:"division" db:"division_name"`
+				Position      string `json:"position" db:"target_position"`
 			}
 
 			type TargetInfo struct {
-				TargetNumber int         `json:"target_number" db:"target_number"`
-				CardName     string      `json:"card_name,omitempty"`
+				TargetNumber string       `json:"target_number" db:"target_number"`
+				CardName     string       `json:"card_name,omitempty"`
 				Archers      []ArcherInfo `json:"archers"`
 			}
 
 			// First, get all assignments with archer details
 			type AssignmentRow struct {
-				TargetNumber   int    `db:"target_number"`
-				AssignmentUUID string `db:"assignment_uuid"`
+				TargetNumber    string `db:"target_number"`
+				AssignmentUUID  string `db:"assignment_uuid"`
 				ParticipantUUID string `db:"participant_uuid"`
-				ArcherName     string `db:"archer_name"`
-				DivisionName   string `db:"division_name"`
-				TargetPosition string `db:"target_position"`
+				ArcherName      string `db:"archer_name"`
+				DivisionName    string `db:"division_name"`
+				TargetPosition  string `db:"target_position"`
 			}
 
 			var assignments []AssignmentRow
 			err := db.Select(&assignments, `
 				SELECT 
-					qa.target_number,
-					qa.uuid as assignment_uuid,
-					qa.participant_uuid,
-					COALESCE(a.full_name, '') as archer_name,
-					COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name,
-					qa.target_position
-				FROM qualification_assignments qa
-				LEFT JOIN event_participants ep ON qa.participant_uuid = ep.uuid
-				LEFT JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
-				LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
-				LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-				WHERE qa.session_uuid = ?
-				ORDER BY qa.target_number ASC, qa.target_position ASC`,
+				et.target_number,
+				qta.uuid as assignment_uuid,
+				qta.archer_uuid as participant_uuid,
+				COALESCE(a.full_name, '') as archer_name,
+				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name,
+				qta.target_position
+			FROM qualification_target_assignments qta
+			JOIN event_targets et ON qta.target_uuid = et.uuid
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
+			LEFT JOIN event_participants ep ON ep.archer_id = a.uuid AND ep.event_id = qs.event_uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
+			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			WHERE qta.session_uuid = ?
+			ORDER BY et.target_number ASC, qta.target_position ASC`,
 				sessionID)
 
 			if err != nil {
@@ -173,96 +81,68 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			// Group by target number
-			targetMap := make(map[int][]ArcherInfo)
+			targetMap := make(map[string][]ArcherInfo)
 			for _, a := range assignments {
 				archer := ArcherInfo{
-					ID:           a.AssignmentUUID,
+					ID:            a.AssignmentUUID,
 					ParticipantID: a.ParticipantUUID,
-					Name:         a.ArcherName,
-					Division:     a.DivisionName,
-					Position:     a.TargetPosition,
+					Name:          a.ArcherName,
+					Division:      a.DivisionName,
+					Position:      a.TargetPosition,
 				}
 				targetMap[a.TargetNumber] = append(targetMap[a.TargetNumber], archer)
 			}
 
-			// Get target card names
-			type TargetCardRow struct {
-				TargetNumber int    `db:"target_number"`
-				CardName     string `db:"card_name"`
+			// Get target names from event_targets
+			type TargetRow struct {
+				TargetNumber string `db:"target_number"`
+				TargetName   string `db:"target_name"`
 			}
-			var targetCards []TargetCardRow
-			db.Select(&targetCards, `
-				SELECT target_number, card_name
-				FROM target_cards
-				WHERE session_uuid = ? AND phase = 'qualification'
+			var eventTargets []TargetRow
+			// Get event_uuid from session
+			var eventUUID string
+			db.Get(&eventUUID, `
+				SELECT event_uuid 
+				FROM qualification_sessions
+				WHERE uuid = ?
 			`, sessionID)
 
-			cardNameMap := make(map[int]string)
-			for _, card := range targetCards {
-				cardNameMap[card.TargetNumber] = card.CardName
+			if eventUUID != "" {
+				db.Select(&eventTargets, `
+					SELECT target_number, target_name
+					FROM event_targets
+					WHERE event_uuid = ? AND status = 'active'
+				`, eventUUID)
+			}
+
+			targetNameMap := make(map[string]string)
+			for _, target := range eventTargets {
+				targetNameMap[target.TargetNumber] = target.TargetName
 			}
 
 			// Convert to array - include targets with assignments
 			var targets []TargetInfo
 			for targetNum, archers := range targetMap {
-				cardName := cardNameMap[targetNum]
-				if cardName == "" {
-					cardName = fmt.Sprintf("Target %d", targetNum)
+				targetName := targetNameMap[targetNum]
+				if targetName == "" {
+					targetName = fmt.Sprintf("Target %s", targetNum)
 				}
 				targets = append(targets, TargetInfo{
 					TargetNumber: targetNum,
-					CardName:     cardName,
+					CardName:     targetName,
 					Archers:      archers,
 				})
 			}
 
-			// Also include target cards that don't have any assignments yet
-			for _, card := range targetCards {
-				if _, exists := targetMap[card.TargetNumber]; !exists {
+			// Also include event targets that don't have any assignments yet
+			for _, target := range eventTargets {
+				if _, exists := targetMap[target.TargetNumber]; !exists {
 					targets = append(targets, TargetInfo{
-						TargetNumber: card.TargetNumber,
-						CardName:     card.CardName,
+						TargetNumber: target.TargetNumber,
+						CardName:     target.TargetName,
 						Archers:      []ArcherInfo{},
 					})
 				}
-			}
-
-			c.JSON(http.StatusOK, gin.H{"targets": targets})
-			return
-		}
-
-		if phase == "elimination" {
-			if roundName == "" || categoryID == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "round_name and category_id are required for elimination phase"})
-				return
-			}
-
-			// Get matches for this round and their target assignments
-			type EliminationTarget struct {
-				MatchUUID      string `json:"match_id" db:"match_uuid"`
-				MatchOrder     int    `json:"match_order" db:"match_order"`
-				TargetNumber   int    `json:"target_number" db:"target_number"`
-				TargetPosition string `json:"target_position,omitempty" db:"target_position"`
-				Status         string `json:"status" db:"status"`
-			}
-
-			var targets []EliminationTarget
-			err := db.Select(&targets, `
-				SELECT 
-					m.uuid as match_uuid,
-					m.match_order,
-					mta.target_number,
-					mta.target_position,
-					m.status
-				FROM matches m
-				LEFT JOIN match_target_assignments mta ON m.uuid = mta.match_uuid
-				WHERE m.event_category_uuid = ? AND m.round_name = ?
-				ORDER BY m.match_order ASC, mta.target_number ASC`,
-				categoryID, roundName)
-
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets"})
-				return
 			}
 
 			c.JSON(http.StatusOK, gin.H{"targets": targets})
@@ -298,63 +178,23 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 
 		var targetNames []TargetName
 
-		// Get qualification target names (from sessions)
+		// Get qualification target names (event-level sessions)
 		qualificationNames := []TargetName{}
 		err = db.Select(&qualificationNames, `
 			SELECT 
-				CONCAT('qualification-', ec.uuid, '-sesi-', qs.session_order) as id,
-				CONCAT(bt.name, ' - ', ag.name, ' - ', et.name, ' - ', gd.name, ' (', qs.session_name, ')') as name,
+				CONCAT('qualification-', qs.event_uuid, '-sesi-', qs.uuid) as id,
+				CONCAT('Kualifikasi (', qs.name, ')') as name,
 				'qualification' as phase,
-				ec.uuid as category_id,
+				'' as category_id,
 				qs.uuid as session_id,
-				qs.session_order
+				0 as session_order
 			FROM qualification_sessions qs
-			JOIN event_categories ec ON qs.event_category_uuid = ec.uuid
-			JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
-			JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-			JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
-			JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
-			WHERE ec.event_id = ? OR ec.event_id = (SELECT uuid FROM events WHERE slug = ?)
-			ORDER BY qs.session_order ASC, bt.name ASC, ag.name ASC
+			WHERE qs.event_uuid = ? OR qs.event_uuid = (SELECT uuid FROM events WHERE slug = ?)
+			ORDER BY qs.created_at ASC
 		`, eventID, eventID)
 
 		if err == nil {
 			targetNames = append(targetNames, qualificationNames...)
-		}
-
-		// Get elimination target names (from matches/rounds)
-		eliminationNames := []TargetName{}
-		err = db.Select(&eliminationNames, `
-			SELECT DISTINCT
-				CONCAT('elimination-', ec.uuid, '-', m.round_name) as id,
-				CONCAT(bt.name, ' - ', ag.name, ' - ', et.name, ' - ', gd.name, ' (', m.round_name, ')') as name,
-				'elimination' as phase,
-				ec.uuid as category_id,
-				'' as session_id,
-				0 as session_order,
-				m.round_name
-			FROM matches m
-			JOIN event_categories ec ON m.event_category_uuid = ec.uuid
-			JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
-			JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-			JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
-			JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
-			WHERE ec.event_id = ? OR ec.event_id = (SELECT uuid FROM events WHERE slug = ?)
-			ORDER BY 
-				CASE m.round_name
-					WHEN '1/32' THEN 1
-					WHEN '1/16' THEN 2
-					WHEN '1/8' THEN 3
-					WHEN '1/4' THEN 4
-					WHEN 'Semi-Final' THEN 5
-					WHEN 'Final' THEN 6
-					ELSE 7
-				END,
-				bt.name ASC, ag.name ASC
-		`, eventID, eventID)
-
-		if err == nil {
-			targetNames = append(targetNames, eliminationNames...)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -368,11 +208,11 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			SessionUUID    string `json:"session_id" binding:"required"`
-			ParticipantUUID string `json:"participant_id" binding:"required"`
-			TargetNumber   int    `json:"target_number" binding:"required"`
-			TargetPosition string `json:"target_position" binding:"required"` // A, B, C, D
-			AssignmentUUID *string `json:"assignment_id,omitempty"` // If provided, update existing; otherwise create new
+			SessionUUID     string  `json:"session_id" binding:"required"`
+			ParticipantUUID string  `json:"participant_id" binding:"required"`
+			TargetNumber    string  `json:"target_number" binding:"required"`
+			TargetPosition  string  `json:"target_position" binding:"required"` // A, B, C, D
+			AssignmentUUID  *string `json:"assignment_id,omitempty"`            // If provided, update existing; otherwise create new
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -386,41 +226,59 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if position is already taken by another participant
+		// Get target UUID from target number
+		var targetUUID string
+		err := db.Get(&targetUUID, `
+			SELECT et.uuid FROM event_targets et
+			JOIN qualification_sessions qs ON qs.event_uuid = et.event_uuid
+			WHERE qs.uuid = ? AND et.target_number = ?
+		`, req.SessionUUID, req.TargetNumber)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target number for this session"})
+			return
+		}
+
+		// Check if position is already taken by another archer
 		var existingAssignment string
-		err := db.Get(&existingAssignment, `
-			SELECT uuid FROM qualification_assignments 
-			WHERE session_uuid = ? AND target_number = ? AND target_position = ? 
-			AND (uuid != COALESCE(?, '') OR participant_uuid != ?)
-		`, req.SessionUUID, req.TargetNumber, req.TargetPosition, req.AssignmentUUID, req.ParticipantUUID)
+		err = db.Get(&existingAssignment, `
+			SELECT uuid FROM qualification_target_assignments 
+			WHERE session_uuid = ? AND target_uuid = ? AND target_position = ? 
+			AND uuid != COALESCE(?, '')
+		`, req.SessionUUID, targetUUID, req.TargetPosition, req.AssignmentUUID)
 
 		if err == nil && existingAssignment != "" {
 			c.JSON(http.StatusConflict, gin.H{"error": "Target position already assigned to another archer"})
 			return
 		}
 
-		// Check if participant already has an assignment in this session
+		// Check if archer already has an assignment in this session
+		var archerUUID string
+		err = db.Get(&archerUUID, `SELECT archer_id FROM event_participants WHERE uuid = ?`, req.ParticipantUUID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Participant not found"})
+			return
+		}
+
 		var existingParticipantAssignment string
 		err = db.Get(&existingParticipantAssignment, `
-			SELECT uuid FROM qualification_assignments 
-			WHERE session_uuid = ? AND participant_uuid = ? AND uuid != COALESCE(?, '')
-		`, req.SessionUUID, req.ParticipantUUID, req.AssignmentUUID)
+			SELECT uuid FROM qualification_target_assignments 
+			WHERE session_uuid = ? AND archer_uuid = ? AND uuid != COALESCE(?, '')
+		`, req.SessionUUID, archerUUID, req.AssignmentUUID)
 
 		if err == nil && existingParticipantAssignment != "" {
-			// Update existing assignment for this participant
+			// Update existing assignment for this archer
 			_, err = db.Exec(`
-				UPDATE qualification_assignments 
-				SET target_number = ?, target_position = ?, updated_at = NOW()
-				WHERE uuid = ? AND session_uuid = ?
-			`, req.TargetNumber, req.TargetPosition, existingParticipantAssignment, req.SessionUUID)
-
+					UPDATE qualification_target_assignments 
+					SET target_uuid = ?, target_position = ?, updated_at = NOW()
+					WHERE uuid = ? AND session_uuid = ?
+				`, targetUUID, req.TargetPosition, existingParticipantAssignment, req.SessionUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
 				return
 			}
 
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Assignment updated successfully",
+				"message":       "Assignment updated successfully",
 				"assignment_id": existingParticipantAssignment,
 			})
 			return
@@ -429,10 +287,10 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		if req.AssignmentUUID != nil && *req.AssignmentUUID != "" {
 			// Update existing assignment
 			_, err = db.Exec(`
-				UPDATE qualification_assignments 
-				SET target_number = ?, target_position = ?, updated_at = NOW()
+				UPDATE qualification_target_assignments 
+				SET target_uuid = ?, target_position = ?, updated_at = NOW()
 				WHERE uuid = ? AND session_uuid = ?
-			`, req.TargetNumber, req.TargetPosition, *req.AssignmentUUID, req.SessionUUID)
+			`, targetUUID, req.TargetPosition, *req.AssignmentUUID, req.SessionUUID)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
@@ -440,16 +298,16 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Assignment updated successfully",
+				"message":       "Assignment updated successfully",
 				"assignment_id": *req.AssignmentUUID,
 			})
 		} else {
 			// Create new assignment
 			newUUID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO qualification_assignments (uuid, session_uuid, participant_uuid, target_number, target_position)
+				INSERT INTO qualification_target_assignments (uuid, session_uuid, archer_uuid, target_uuid, target_position)
 				VALUES (?, ?, ?, ?, ?)
-			`, newUUID, req.SessionUUID, req.ParticipantUUID, req.TargetNumber, req.TargetPosition)
+			`, newUUID, req.SessionUUID, archerUUID, targetUUID, req.TargetPosition)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment"})
@@ -457,37 +315,85 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusCreated, gin.H{
-				"message": "Assignment created successfully",
+				"message":       "Assignment created successfully",
 				"assignment_id": newUUID,
 			})
 		}
 	}
 }
 
-// DeleteQualificationAssignment removes an assignment
-func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
+// GetEventTargets returns all targets for an event - Data Master
+func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		assignmentID := c.Param("id")
+		eventID := c.Param("id")
 
-		_, err := db.Exec(`DELETE FROM qualification_assignments WHERE uuid = ?`, assignmentID)
+		// Verify event exists
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete assignment"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Assignment deleted successfully"})
+		type Target struct {
+			UUID         string    `json:"id" db:"uuid"`
+			TargetNumber string    `json:"target_number" db:"target_number"`
+			TargetName   string    `json:"target_name" db:"target_name"`
+			Description  string    `json:"description" db:"description"`
+			VenueArea    string    `json:"venue_area" db:"venue_area"`
+			Status       string    `json:"status" db:"status"`
+			Assigned     int       `json:"assigned" db:"assigned"`
+			CreatedAt    time.Time `json:"created_at" db:"created_at"`
+			UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+		}
+
+		var targets []Target
+		err = db.Select(&targets, `
+			SELECT 
+				t.uuid,
+				t.target_number,
+				t.target_name,
+				COALESCE(t.description, '') as description,
+				COALESCE(t.venue_area, '') as venue_area,
+				t.status,
+				COALESCE(
+					(SELECT COUNT(DISTINCT qta.archer_uuid) 
+					 FROM qualification_target_assignments qta
+					 WHERE qta.target_uuid = t.uuid), 0) as assigned,
+				t.created_at,
+				t.updated_at
+			FROM event_targets t
+			WHERE t.event_uuid = ?
+			ORDER BY t.target_number ASC
+		`, eventUUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
+			return
+		}
+
+		if targets == nil {
+			targets = []Target{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"targets": targets,
+			"count":   len(targets),
+		})
 	}
 }
 
-// CreateTargetCard creates a new target card
-func CreateTargetCard(db *sqlx.DB) gin.HandlerFunc {
+// CreateEventTarget creates a new target for an event
+func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
 		var req struct {
-			SessionUUID  *string `json:"session_id"`   // For qualification
-			MatchUUID    *string `json:"match_id"`     // For elimination
-			TargetNumber int     `json:"target_number" binding:"required"`
-			CardName     string  `json:"card_name" binding:"required"`
-			Phase        string  `json:"phase" binding:"required"` // "qualification" or "elimination"
+			TargetNumbers []string `json:"target_numbers"`
+			TargetNumber  string   `json:"target_number"`
+			TargetName    string   `json:"target_name" binding:"required"`
+			Description   string   `json:"description"`
+			VenueArea     string   `json:"venue_area"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -495,111 +401,324 @@ func CreateTargetCard(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate phase-specific requirements
-		if req.Phase == "qualification" && (req.SessionUUID == nil || *req.SessionUUID == "") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required for qualification phase"})
+		// Verify event exists
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
-		if req.Phase == "elimination" && (req.MatchUUID == nil || *req.MatchUUID == "") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "match_id is required for elimination phase"})
+		// Normalize target numbers
+		numbers := req.TargetNumbers
+		if len(numbers) == 0 && req.TargetNumber != "" {
+			numbers = []string{req.TargetNumber}
+		}
+		clean := []string{}
+		seen := map[string]bool{}
+		for _, n := range numbers {
+			val := strings.TrimSpace(n)
+			if val == "" || seen[val] {
+				continue
+			}
+			seen[val] = true
+			clean = append(clean, val)
+		}
+		if len(clean) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "target_numbers is required"})
 			return
 		}
 
-		// Check if target card already exists
-		var existingCard string
-		var checkErr error
-		if req.Phase == "qualification" {
-			checkErr = db.Get(&existingCard, `
-				SELECT uuid FROM target_cards 
-				WHERE session_uuid = ? AND target_number = ?
-			`, *req.SessionUUID, req.TargetNumber)
-		} else {
-			checkErr = db.Get(&existingCard, `
-				SELECT uuid FROM target_cards 
-				WHERE match_uuid = ? AND target_number = ?
-			`, *req.MatchUUID, req.TargetNumber)
+		// Check duplicates in DB
+		dup := []string{}
+		for _, num := range clean {
+			var existingTarget string
+			err = db.Get(&existingTarget, `
+				SELECT uuid FROM event_targets 
+				WHERE event_uuid = ? AND target_number = ?
+			`, eventUUID, num)
+			if err == nil && existingTarget != "" {
+				dup = append(dup, num)
+			}
 		}
-
-		if checkErr == nil && existingCard != "" {
-			c.JSON(http.StatusConflict, gin.H{"error": "Target card already exists for this target number"})
+		if len(dup) > 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "Target number already exists", "duplicates": dup})
 			return
 		}
 
-		// Create new target card
-		newUUID := uuid.New().String()
-		var execErr error
-		if req.Phase == "qualification" {
-			_, execErr = db.Exec(`
-				INSERT INTO target_cards (uuid, session_uuid, target_number, card_name, phase, status)
-				VALUES (?, ?, ?, ?, ?, 'active')
-			`, newUUID, *req.SessionUUID, req.TargetNumber, req.CardName, req.Phase)
-		} else {
-			_, execErr = db.Exec(`
-				INSERT INTO target_cards (uuid, match_uuid, target_number, card_name, phase, status)
-				VALUES (?, ?, ?, ?, ?, 'active')
-			`, newUUID, *req.MatchUUID, req.TargetNumber, req.CardName, req.Phase)
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
 		}
+		defer tx.Rollback()
 
-		if execErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create target card"})
+		createdIDs := []string{}
+		for _, num := range clean {
+			newUUID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO event_targets (
+					uuid, event_uuid, target_number, target_name, 
+					description, venue_area, status, 
+					created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+			`, newUUID, eventUUID, num, req.TargetName,
+				req.Description, req.VenueArea)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create target", "details": err.Error()})
+				return
+			}
+			createdIDs = append(createdIDs, newUUID)
+		}
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Target card created successfully",
-			"card": gin.H{
-				"id":           newUUID,
-				"target_number": req.TargetNumber,
-				"card_name":    req.CardName,
-				"phase":        req.Phase,
-			},
+			"message":        "Targets created successfully",
+			"created_count":  len(createdIDs),
+			"target_numbers": clean,
 		})
 	}
 }
 
-// GetTargetCards returns all target cards for a given context
-func GetTargetCards(db *sqlx.DB) gin.HandlerFunc {
+// UpdateEventTarget updates an existing target
+func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		phase := c.Query("phase")
-		sessionID := c.Query("session_id")
-		matchID := c.Query("match_id")
+		targetID := c.Param("target_id")
 
-		type TargetCard struct {
-			UUID         string `json:"id" db:"uuid"`
-			TargetNumber int    `json:"target_number" db:"target_number"`
-			CardName     string `json:"card_name" db:"card_name"`
-			Phase        string `json:"phase" db:"phase"`
-			Status       string `json:"status" db:"status"`
+		var req struct {
+			TargetNumber *string `json:"target_number"`
+			TargetName   *string `json:"target_name"`
+			Description  *string `json:"description"`
+			VenueArea    *string `json:"venue_area"`
+			Status       *string `json:"status"`
 		}
 
-		var cards []TargetCard
-		var err error
-
-		if phase == "qualification" && sessionID != "" {
-			err = db.Select(&cards, `
-				SELECT uuid, target_number, card_name, phase, status
-				FROM target_cards
-				WHERE session_uuid = ? AND phase = 'qualification'
-				ORDER BY target_number ASC
-			`, sessionID)
-		} else if phase == "elimination" && matchID != "" {
-			err = db.Select(&cards, `
-				SELECT uuid, target_number, card_name, phase, status
-				FROM target_cards
-				WHERE match_uuid = ? AND phase = 'elimination'
-				ORDER BY target_number ASC
-			`, matchID)
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid parameters"})
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
+		// Verify target exists
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT event_uuid FROM event_targets WHERE uuid = ?`, targetID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target not found"})
+			return
+		}
+
+		// Check if new target number conflicts
+		if req.TargetNumber != nil {
+			var existingTarget string
+			err = db.Get(&existingTarget, `
+				SELECT uuid FROM event_targets 
+				WHERE event_uuid = ? AND target_number = ? AND uuid != ?
+			`, eventUUID, *req.TargetNumber, targetID)
+
+			if err == nil && existingTarget != "" {
+				c.JSON(http.StatusConflict, gin.H{"error": "Target number already exists"})
+				return
+			}
+		}
+
+		// Build update query dynamically
+		updateFields := []string{}
+		updateValues := []interface{}{}
+
+		if req.TargetNumber != nil {
+			updateFields = append(updateFields, "target_number = ?")
+			updateValues = append(updateValues, *req.TargetNumber)
+		}
+		if req.TargetName != nil {
+			updateFields = append(updateFields, "target_name = ?")
+			updateValues = append(updateValues, *req.TargetName)
+		}
+		if req.Description != nil {
+			updateFields = append(updateFields, "description = ?")
+			updateValues = append(updateValues, *req.Description)
+		}
+		if req.VenueArea != nil {
+			updateFields = append(updateFields, "venue_area = ?")
+			updateValues = append(updateValues, *req.VenueArea)
+		}
+		if req.Status != nil {
+			updateFields = append(updateFields, "status = ?")
+			updateValues = append(updateValues, *req.Status)
+		}
+
+		if len(updateFields) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+			return
+		}
+
+		updateFields = append(updateFields, "updated_at = NOW()")
+		updateValues = append(updateValues, targetID)
+
+		query := fmt.Sprintf("UPDATE event_targets SET %s WHERE uuid = ?",
+			joinStrings(updateFields, ", "))
+
+		_, err = db.Exec(query, updateValues...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Target updated successfully"})
+	}
+}
+
+// DeleteEventTarget deletes a target
+func DeleteEventTarget(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		targetID := c.Param("target_id")
+
+		// Check if target has any assignments
+		var assignmentCount int
+		err := db.Get(&assignmentCount, `
+			SELECT COUNT(*) FROM qualification_target_assignments
+			WHERE target_uuid = ?
+		`, targetID)
+
+		if err == nil && assignmentCount > 0 {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":          "Cannot delete target with existing archer assignments",
+				"assigned_count": assignmentCount,
+			})
+			return
+		}
+
+		_, err = db.Exec(`DELETE FROM event_targets WHERE uuid = ?`, targetID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete target"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Target deleted successfully"})
+	}
+}
+
+// GetTargetDetails returns detailed information about a specific target
+func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		targetID := c.Param("target_id")
+
+		type TargetDetail struct {
+			UUID         string    `json:"id" db:"uuid"`
+			TargetNumber string    `json:"target_number" db:"target_number"`
+			TargetName   string    `json:"target_name" db:"target_name"`
+			Description  string    `json:"description" db:"description"`
+			VenueArea    string    `json:"venue_area" db:"venue_area"`
+			Status       string    `json:"status" db:"status"`
+			CreatedAt    time.Time `json:"created_at" db:"created_at"`
+			UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+		}
+
+		var target TargetDetail
+		err := db.Get(&target, `
+			SELECT 
+				uuid,
+				target_number,
+				target_name,
+				COALESCE(description, '') as description,
+				COALESCE(venue_area, '') as venue_area,
+				status,
+				created_at,
+				updated_at
+			FROM event_targets
+			WHERE uuid = ?
+		`, targetID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch target cards"})
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Target not found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch target details"})
+			}
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"cards": cards})
+		// Get assigned archers
+		type AssignedArcher struct {
+			Name     string `json:"name" db:"name"`
+			Position string `json:"position" db:"position"`
+			Session  string `json:"session" db:"session"`
+		}
+
+		var archers []AssignedArcher
+		db.Select(&archers, `
+			SELECT 
+				COALESCE(a.full_name, '') as name,
+				qta.target_position as position,
+				qs.name as session
+			FROM qualification_target_assignments qta
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
+			WHERE qta.target_uuid = ?
+			ORDER BY qs.name, qta.target_position
+		`, targetID)
+
+		if archers == nil {
+			archers = []AssignedArcher{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"target":  target,
+			"archers": archers,
+		})
 	}
+}
+
+// GetTargetOptions returns target options combined from target_name + target_number
+func GetTargetOptions(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		type TargetOption struct {
+			ID     string `json:"id" db:"uuid"`
+			Value  string `json:"value" db:"combined"`
+			Name   string `json:"name" db:"target_name"`
+			Number string `json:"number" db:"target_number"`
+		}
+
+		var options []TargetOption
+		err := db.Select(&options, `
+			SELECT 
+				uuid,
+				CONCAT(target_name, ' - ', target_number) as combined,
+				target_name,
+				target_number
+			FROM event_targets
+			WHERE event_uuid = ? OR event_uuid = (SELECT uuid FROM events WHERE slug = ?)
+			AND status = 'active'
+			ORDER BY target_name ASC, target_number ASC
+		`, eventID, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch target options"})
+			return
+		}
+
+		if options == nil {
+			options = []TargetOption{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"options": options,
+			"count":   len(options),
+		})
+	}
+}
+
+// Helper function to join strings
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
 }

@@ -212,8 +212,49 @@ func main() {
 				protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
 				protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))
 
+				// Qualification target assignments - nested under events/:id/qualification/sessions/:sessionId
+				protected.POST("/:id/qualification/sessions/:sessionId/assignments", handler.CreateBulkTargetAssignments(db))
+
 			}
 		}
+
+		// Qualification routes (event-level sessions)
+		qualification := api.Group("/events/:id/qualification")
+		qualification.Use(middleware.AuthMiddleware())
+		{
+			qualification.GET("/sessions", handler.GetQualificationSessions(db))
+			qualification.POST("/sessions", handler.CreateQualificationSession(db))
+			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
+		}
+
+		qualSessions := api.Group("/qualification/sessions/:sessionId")
+		qualSessions.Use(middleware.AuthMiddleware())
+		{
+			qualSessions.GET("/assignments", handler.GetSessionAssignments(db))
+			qualSessions.POST("/auto-assign", handler.AutoAssignParticipants(db))
+		}
+
+		qualAssignments := api.Group("/qualification/assignments/:assignmentId")
+		qualAssignments.Use(middleware.AuthMiddleware())
+		{
+			qualAssignments.GET("/scores", handler.GetQualificationAssignmentScores(db))
+			qualAssignments.POST("/scores", handler.UpdateQualificationScore(db))
+			qualAssignments.DELETE("", handler.DeleteQualificationAssignment(db))
+		}
+
+		// Target routes
+		targets := api.Group("/targets")
+		{
+			targets.GET("", handler.GetTargets(db)) // ?phase=qualification&session_id=...
+		}
+
+		// Event Targets Data Master routes
+		events.GET("/:id/targets", handler.GetEventTargets(db))
+		events.GET("/:id/targets/options", handler.GetTargetOptions(db))
+		events.POST("/:id/targets", middleware.AuthMiddleware(), handler.CreateEventTarget(db))
+		events.PUT("/:id/targets/:target_id", middleware.AuthMiddleware(), handler.UpdateEventTarget(db))
+		events.DELETE("/:id/targets/:target_id", middleware.AuthMiddleware(), handler.DeleteEventTarget(db))
+		events.GET("/:id/targets/:target_id", handler.GetTargetDetails(db))
 
 		// Event category reference routes
 		api.GET("/event-categories", handler.ListEventCategoryRefs(db))
@@ -265,10 +306,6 @@ func main() {
 				protectedNews.DELETE("/:id", handler.DeleteNews(db))
 			}
 		}
-
-		// Back Numbers & Target Assignments
-		api.GET("/events/:id/back-numbers", handler.GetBackNumbers(db))
-		api.PUT("/participants/:participantId/assignment", middleware.AuthMiddleware(), handler.UpdateBackNumber(db))
 
 		// Team Management
 		teams := api.Group("/teams")

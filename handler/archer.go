@@ -721,3 +721,53 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": archer})
 	}
 }
+
+// GetArcherProfileImage returns the avatar URL for a given email or username
+func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		identifier := c.Param("identifier")
+		if identifier == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Identifier is required"})
+			return
+		}
+
+		var avatarURL *string
+		found := false
+
+		// Try to find in archers first
+		err := db.Get(&avatarURL, "SELECT avatar_url FROM archers WHERE email = ? OR username = ?", identifier, identifier)
+		if err == nil {
+			found = true
+		}
+
+		// If not found, try organizations
+		if !found {
+			err = db.Get(&avatarURL, "SELECT avatar_url FROM organizations WHERE email = ? OR slug = ?", identifier, identifier)
+			if err == nil {
+				found = true
+			}
+		}
+
+		// If still not found, try clubs
+		if !found {
+			err = db.Get(&avatarURL, "SELECT avatar_url FROM clubs WHERE email = ? OR slug = ?", identifier, identifier)
+			if err == nil {
+				found = true
+			}
+		}
+
+		if !found {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		avatar := ""
+		if avatarURL != nil {
+			avatar = utils.MaskMediaURL(*avatarURL)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"avatar_url": avatar,
+		})
+	}
+}

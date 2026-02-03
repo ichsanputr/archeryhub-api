@@ -1327,14 +1327,24 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 1. Delete scoring records related to this participant's assignments
-		_, _ = tx.Exec(`
-			DELETE FROM qualification_scores 
-			WHERE assignment_uuid IN (SELECT uuid FROM qualification_assignments WHERE participant_uuid = ?)
-		`, actualParticipantID)
+		// 1. Get archer UUID from participant
+		var archerUUID string
+		err = tx.Get(&archerUUID, "SELECT archer_id FROM event_participants WHERE uuid = ?", actualParticipantID)
+		if err == nil {
+			// Delete arrow scores first
+			_, _ = tx.Exec(`
+				DELETE FROM qualification_arrow_scores 
+				WHERE end_score_uuid IN (
+					SELECT uuid FROM qualification_end_scores WHERE archer_uuid = ?
+				)
+			`, archerUUID)
 
-		// 2. Delete qualification assignments (target assignments)
-		_, err = tx.Exec("DELETE FROM qualification_assignments WHERE participant_uuid = ?", actualParticipantID)
+			// Delete end scores
+			_, _ = tx.Exec("DELETE FROM qualification_end_scores WHERE archer_uuid = ?", archerUUID)
+		}
+
+		// 2. Delete qualification target assignments
+		_, err = tx.Exec("DELETE FROM qualification_target_assignments WHERE archer_uuid = ?", archerUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete target assignments", "details": err.Error()})
 			return

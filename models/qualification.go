@@ -2,16 +2,18 @@ package models
 
 import "time"
 
-// QualificationSession represents a scoring session for a specific category
+// QualificationSession represents a scoring session for an event
 type QualificationSession struct {
-	UUID              string    `json:"id" db:"uuid"`
-	EventCategoryUUID string    `json:"event_category_id" db:"event_category_uuid"`
-	SessionName       string    `json:"session_name" db:"session_name"`
-	SessionOrder      int       `json:"session_order" db:"session_order"`
-	StartTime         *time.Time `json:"start_time" db:"start_time"`
-	Status            string    `json:"status" db:"status"` // draft, ongoing, completed
-	CreatedAt         time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
+	UUID         string     `json:"id" db:"uuid"`
+	EventUUID    string     `json:"event_id" db:"event_uuid"`
+	SessionCode  string     `json:"session_code" db:"session_code"`
+	Name         string     `json:"name" db:"name"`
+	StartTime    *time.Time `json:"start_time" db:"start_time"`
+	EndTime      *time.Time `json:"end_time" db:"end_time"`
+	TotalEnds    int        `json:"total_ends" db:"total_ends"`
+	ArrowsPerEnd int        `json:"arrows_per_end" db:"arrows_per_end"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // QualificationAssignment maps a participant to a target in a session

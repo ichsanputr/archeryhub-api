@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -20,25 +19,25 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Qualification: list all target_numbers for all sessions in this category (from assignments or target_cards),
-		// and attach card_name if any.
+		// Qualification: list all target_numbers for all sessions in this event (derived from category_id),
+		// and attach target_name if any.
 		if phase == "qualification" {
 			type Row struct {
-				ID          string `db:"id" json:"id"`
-				Label       string `db:"label" json:"label"`
-				Phase       string `db:"phase" json:"phase"`
-				SessionID   string `db:"session_id" json:"session_id"`
-				SessionName string `db:"session_name" json:"session_name"`
-				SessionOrder int   `db:"session_order" json:"session_order"`
-				TargetNumber int   `db:"target_number" json:"target_number"`
-				CardName    string `db:"card_name" json:"card_name"`
+				ID           string `db:"id" json:"id"`
+				Label        string `db:"label" json:"label"`
+				Phase        string `db:"phase" json:"phase"`
+				SessionID    string `db:"session_id" json:"session_id"`
+				SessionName  string `db:"session_name" json:"session_name"`
+				SessionOrder int    `db:"session_order" json:"session_order"`
+				TargetNumber string `db:"target_number" json:"target_number"`
+				CardName     string `db:"card_name" json:"card_name"`
 			}
 
 			var rows []Row
 			err := db.Select(&rows, `
 				SELECT
 					CONCAT(qs.uuid, '-', tn.target_number) as id,
-					CONCAT(qs.session_name, ' - ', COALESCE(tc.card_name, CONCAT('Target ', tn.target_number)), 
+					CONCAT(qs.name, ' - ', COALESCE(et.target_name, CONCAT('Target ', tn.target_number)), 
 						COALESCE(CONCAT(' [', (
 							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') ORDER BY qa2.target_position SEPARATOR ', ')
 							FROM qualification_assignments qa2
@@ -48,25 +47,20 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 						), ']'), ' (Kosong)')) as label,
 					'qualification' as phase,
 					qs.uuid as session_id,
-					qs.session_name,
-					qs.session_order,
+					qs.name as session_name,
+					0 as session_order,
 					tn.target_number,
-					COALESCE(tc.card_name, CONCAT('Target ', tn.target_number)) as card_name
+					COALESCE(et.target_name, CONCAT('Target ', tn.target_number)) as card_name
 				FROM qualification_sessions qs
 				JOIN (
 					SELECT session_uuid, target_number
 					FROM qualification_assignments
-					UNION
-					SELECT session_uuid, target_number
-					FROM target_cards
-					WHERE phase = 'qualification' AND session_uuid IS NOT NULL
 				) tn ON tn.session_uuid = qs.uuid
-				LEFT JOIN target_cards tc
-					ON tc.session_uuid = qs.uuid
-					AND tc.target_number = tn.target_number
-					AND tc.phase = 'qualification'
-				WHERE qs.event_category_uuid = ?
-				ORDER BY qs.session_order ASC, tn.target_number ASC
+				LEFT JOIN event_targets et
+					ON et.event_uuid = qs.event_uuid
+					AND et.target_number = tn.target_number
+				WHERE qs.event_uuid = (SELECT event_id FROM event_categories WHERE uuid = ?)
+				ORDER BY qs.created_at ASC, tn.target_number ASC
 			`, categoryID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring cards"})
@@ -94,27 +88,24 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		targetNumber, err := strconv.Atoi(targetNumberStr)
-		if err != nil || targetNumber < 1 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target_number"})
-			return
-		}
+		targetNumber := targetNumberStr
 
 		if phase != "qualification" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported phase"})
 			return
 		}
 
-		// Resolve card name
+		// Resolve target name from event_targets
 		cardName := ""
 		_ = db.Get(&cardName, `
-			SELECT card_name
-			FROM target_cards
-			WHERE session_uuid = ? AND target_number = ? AND phase = 'qualification'
+			SELECT et.target_name
+			FROM event_targets et
+			JOIN qualification_sessions qs ON qs.event_uuid = et.event_uuid
+			WHERE qs.uuid = ? AND et.target_number = ?
 			LIMIT 1
 		`, sessionID, targetNumber)
 		if cardName == "" {
-			cardName = "Target " + strconv.Itoa(targetNumber)
+			cardName = "Target " + targetNumber
 		}
 
 		// Compute total ends for the event (fallback 12)
@@ -123,8 +114,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&qualificationArrows, `
 			SELECT e.qualification_arrows
 			FROM qualification_sessions qs
-			JOIN event_categories ec ON qs.event_category_uuid = ec.uuid
-			JOIN events e ON ec.event_id = e.uuid
+			JOIN events e ON qs.event_uuid = e.uuid
 			WHERE qs.uuid = ?
 			LIMIT 1
 		`, sessionID)
@@ -144,7 +134,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var archers []ArcherRow
-		err = db.Select(&archers, `
+		err := db.Select(&archers, `
 			SELECT
 				qa.uuid as assignment_id,
 				qa.participant_uuid as participant_id,
@@ -186,7 +176,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"targets": []gin.H{
 				{
-					"id":             sessionID + "-" + strconv.Itoa(targetNumber),
+					"id":             sessionID + "-" + targetNumber,
 					"target_number":  targetNumber,
 					"target_name":    cardName,
 					"status":         status,
@@ -198,4 +188,3 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
-
