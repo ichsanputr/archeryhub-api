@@ -154,7 +154,6 @@ func main() {
 			auth.POST("/logout", handler.Logout())
 			auth.GET("/check-name", handler.CheckNameExists(db))
 
-
 			// Google OAuth
 			auth.GET("/google", handler.InitiateGoogleAuth(db))
 			auth.GET("/google/callback", handler.GoogleCallback(db))
@@ -191,6 +190,7 @@ func main() {
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))
 			events.GET("/:id/target-names", handler.GetTargetNames(db))
 			events.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
+			events.POST("/participants/reregister", handler.ReregisterParticipant(db))
 
 			// Protected Event routes (require authentication)
 			protected := events.Group("")
@@ -233,7 +233,7 @@ func main() {
 			protected := archers.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
-
+				protected.GET("/my/events", handler.GetMyArcherEvents(db))
 				protected.POST("", handler.CreateArcher(db))
 				protected.PUT("/:id", handler.UpdateArcher(db))
 				protected.DELETE("/:id", handler.DeleteArcher(db))

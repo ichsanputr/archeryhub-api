@@ -214,6 +214,98 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetMyArcherEvents returns events that the authenticated archer is registered for
+func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		status := c.Query("status")
+		search := c.Query("search")
+
+		query := `
+			SELECT 
+				e.*,
+				o.full_name as organizer_name,
+				o.email as organizer_email,
+				o.slug as organizer_slug,
+				o.avatar_url as organizer_avatar_url,
+				COUNT(DISTINCT ep2.uuid) as participant_count,
+				COUNT(DISTINCT ec.uuid) as event_count,
+				ep.payment_status,
+				ep.uuid as participant_uuid,
+				ep.status as participant_status,
+				ep.qr_raw
+			FROM events e
+			INNER JOIN event_participants ep ON e.uuid = ep.event_id
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
+			) o ON e.organizer_id = o.id
+			LEFT JOIN event_participants ep2 ON e.uuid = ep2.event_id
+			LEFT JOIN event_categories ec ON e.uuid = ec.event_id
+			WHERE ep.archer_id = ?
+		`
+		args := []interface{}{userID}
+
+		if status != "" {
+			query += ` AND e.status = ?`
+			args = append(args, status)
+		}
+
+		if search != "" {
+			query += ` AND (e.name LIKE ? OR e.code LIKE ? OR e.location LIKE ?)`
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm, searchTerm)
+		}
+
+		query += `
+			GROUP BY e.uuid, ep.payment_status, ep.uuid, ep.status, ep.qr_raw, o.full_name, o.email, o.slug, o.avatar_url
+			ORDER BY e.start_date DESC
+		`
+
+		var events []models.EventWithDetails
+		err := db.Select(&events, query, args...)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch archer events")
+			c.JSON(http.StatusOK, gin.H{
+				"events": []interface{}{},
+				"total":  0,
+			})
+			return
+		}
+
+		// Mask URLs
+		for i := range events {
+			if events[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*events[i].BannerURL)
+				events[i].BannerURL = &masked
+			}
+			if events[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*events[i].LogoURL)
+				events[i].LogoURL = &masked
+			}
+			if events[i].TechnicalGuidebookURL != nil {
+				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
+				events[i].TechnicalGuidebookURL = &masked
+			}
+			if events[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
+				events[i].OrganizerAvatarURL = &masked
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"events": events,
+			"total":  len(events),
+		})
+	}
+}
+
 // CreateArcher creates a new archer
 func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -506,24 +598,24 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var archer struct {
-			UUID         string  `json:"uuid" db:"uuid"`
-			ID           string  `json:"id" db:"id"`
-			Username     *string `json:"username" db:"username"`
-			Email        *string `json:"email" db:"email"`
-			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
-			FullName     string  `json:"full_name" db:"full_name"`
-			Nickname     *string `json:"nickname" db:"nickname"`
-			DateOfBirth  *string `json:"date_of_birth" db:"date_of_birth"`
-			Gender       string  `json:"gender" db:"gender"`
-			Phone        *string `json:"phone" db:"phone"`
-			Address      *string `json:"address" db:"address"`
-			City         *string `json:"city" db:"city"`
-			School       *string `json:"school" db:"school"`
-			Province     *string `json:"province" db:"province"`
-			BowType      string  `json:"bow_type" db:"bow_type"`
-			ClubID       *string `json:"club_id" db:"club_id"`
-			ClubName     *string `json:"club_name" db:"club_name"`
-			Status       string  `json:"status" db:"status"`
+			UUID        string  `json:"uuid" db:"uuid"`
+			ID          string  `json:"id" db:"id"`
+			Username    *string `json:"username" db:"username"`
+			Email       *string `json:"email" db:"email"`
+			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+			FullName    string  `json:"full_name" db:"full_name"`
+			Nickname    *string `json:"nickname" db:"nickname"`
+			DateOfBirth *string `json:"date_of_birth" db:"date_of_birth"`
+			Gender      string  `json:"gender" db:"gender"`
+			Phone       *string `json:"phone" db:"phone"`
+			Address     *string `json:"address" db:"address"`
+			City        *string `json:"city" db:"city"`
+			School      *string `json:"school" db:"school"`
+			Province    *string `json:"province" db:"province"`
+			BowType     string  `json:"bow_type" db:"bow_type"`
+			ClubID      *string `json:"club_id" db:"club_id"`
+			ClubName    *string `json:"club_name" db:"club_name"`
+			Status      string  `json:"status" db:"status"`
 		}
 
 		var pageSettings *string

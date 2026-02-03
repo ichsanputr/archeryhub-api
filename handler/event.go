@@ -55,9 +55,9 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			query += ` AND t.status = ?`
 			args = append(args, status)
 		} else if organizerID == "" {
-             // Default behaviour: don't show draft events unless explicitly requested OR filtering by organizer
-             query += ` AND t.status != 'draft'`
-        }
+			// Default behaviour: don't show draft events unless explicitly requested OR filtering by organizer
+			query += ` AND t.status != 'draft'`
+		}
 
 		if search != "" {
 			query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
@@ -203,29 +203,27 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-
-
 		// Check visibility
 		if Event.Status == "draft" {
-            // Check if user is organizer
-            userID, exists := c.Get("user_id")
-            isAuthorized := false
-            if exists {
-                 // Check if userID matches organizerID
-                 if Event.OrganizerID != nil && *Event.OrganizerID == userID.(string) {
-                     isAuthorized = true
-                 }
-                 // Allow admins too
-                 role, _ := c.Get("role")
-                 if role == "admin" {
-                     isAuthorized = true
-                 }
-            }
+			// Check if user is organizer
+			userID, exists := c.Get("user_id")
+			isAuthorized := false
+			if exists {
+				// Check if userID matches organizerID
+				if Event.OrganizerID != nil && *Event.OrganizerID == userID.(string) {
+					isAuthorized = true
+				}
+				// Allow admins too
+				role, _ := c.Get("role")
+				if role == "admin" {
+					isAuthorized = true
+				}
+			}
 
-            if !isAuthorized {
-                 c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
-                 return
-            }
+			if !isAuthorized {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+				return
+			}
 		}
 
 		// Mask URLs
@@ -710,6 +708,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeName      *string `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName *string `db:"gender_division_name" json:"gender_division_name"`
 			TargetNumber       *string `db:"target_number" json:"target_number"`
+			QRRaw              *string `db:"qr_raw" json:"qr_raw"`
 			Status             string  `db:"status" json:"status"`
 			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
 			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
@@ -718,7 +717,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		query := `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number,
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.qr_raw,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
 				a.id as athlete_code,
 				a.username as username,
@@ -780,7 +779,6 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		participantID := c.Param("participantId")
 
-
 		// Resolve event slug to UUID and get details for visibility check
 		var event struct {
 			UUID        string  `db:"uuid"`
@@ -835,6 +833,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeName      *string `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName *string `db:"gender_division_name" json:"gender_division_name"`
 			TargetNumber       *string `db:"target_number" json:"target_number"`
+			QRRaw              *string `db:"qr_raw" json:"qr_raw"`
 			Status             string  `db:"status" json:"status"`
 			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
 			PaymentAmount      float64 `db:"payment_amount" json:"payment_amount"`
@@ -846,7 +845,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var participant Participant
 		err = db.Get(&participant, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number,
+				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_number, tp.qr_raw,
 				tp.payment_amount, tp.payment_proof_urls,
 				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
 				a.id as athlete_code,
@@ -1203,8 +1202,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		err = db.Get(&exists, `
 			SELECT EXISTS(SELECT 1 FROM event_participants 
-			WHERE event_id = ? AND archer_id = ? AND category_id = ?)
-		`, actualEventID, archerUUID, req.EventCategoryID)
+			WHERE event_id = ? AND archer_id = ?)
+		`, actualEventID, archerUUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status", "details": err.Error()})
@@ -1212,7 +1211,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if exists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Pemanah sudah terdaftar di kategori ini"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Pemanah sudah terdaftar di event ini"})
 			return
 		}
 
@@ -1452,14 +1451,37 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			query += ", back_number = ?"
 			args = append(args, *req.BackNumber)
 		}
-		if req.Status != nil {
-			query += ", status = ?"
-			args = append(args, *req.Status)
-		}
+
+		// Payment status drives the participant status
 		if req.PaymentStatus != nil {
 			query += ", payment_status = ?"
 			args = append(args, *req.PaymentStatus)
+
+			// Auto-update status based on payment_status
+			var newStatus string
+			switch *req.PaymentStatus {
+			case "lunas":
+				newStatus = "Terdaftar"
+				// Generate QR raw string when payment is lunas (paid)
+				var currentQR sql.NullString
+				err = db.Get(&currentQR, "SELECT qr_raw FROM event_participants WHERE uuid = ?", actualParticipantID)
+				if err == nil && !currentQR.Valid {
+					// Generate random QR string using uuid
+					qrRaw := uuid.New().String()
+					query += ", qr_raw = ?"
+					args = append(args, qrRaw)
+				}
+			case "belum_lunas", "menunggu_acc":
+				newStatus = "Menunggu Acc"
+			default:
+				newStatus = "Menunggu Acc"
+			}
+			query += ", status = ?"
+			args = append(args, newStatus)
 		}
+
+		// Remove status from direct updates - it's now managed by payment_status
+		// if req.Status != nil { ... } - REMOVED
 		if req.PaymentAmount != nil {
 			query += ", payment_amount = ?"
 			args = append(args, *req.PaymentAmount)
@@ -1947,7 +1969,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		status := c.Query("status")
 		search := c.Query("search")
-		
+
 		// Base query: get events where organizer_id is the current user
 		query := `
 			SELECT 
@@ -1993,7 +2015,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				})
 				return
 			}
-			
+
 			c.JSON(http.StatusOK, gin.H{
 				"events": []interface{}{},
 				"total":  0,
@@ -2004,6 +2026,97 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"events": events,
 			"total":  len(events),
+		})
+	}
+}
+
+// ReregisterParticipant handles QR code scanning for participant re-registration
+func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			QRRaw string `json:"qr_raw" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "QR code is required"})
+			return
+		}
+
+		// Find participant by qr_raw
+		type ParticipantInfo struct {
+			UUID         string  `db:"uuid"`
+			FullName     string  `db:"full_name"`
+			Email        string  `db:"email"`
+			ClubName     *string `db:"club_name"`
+			DivisionName string  `db:"division_name"`
+			CategoryName string  `db:"category_name"`
+			EventName    string  `db:"event_name"`
+			Status       string  `db:"status"`
+		}
+
+		var participant ParticipantInfo
+		err := db.Get(&participant, `
+			SELECT 
+				ep.uuid,
+				a.full_name,
+				a.email,
+				c.name as club_name,
+				COALESCE(d.name, '') as division_name,
+				COALESCE(ag.name, '') as category_name,
+				e.name as event_name,
+				COALESCE(ep.status, 'Menunggu Acc') as status
+			FROM event_participants ep
+			INNER JOIN archers a ON ep.archer_id = a.uuid
+			INNER JOIN events e ON ep.event_id = e.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types d ON ec.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			WHERE ep.qr_raw = ?
+			LIMIT 1
+		`, req.QRRaw)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Peserta tidak ditemukan. QR Code tidak valid."})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			return
+		}
+
+		// Check if participant is registered (status = "Terdaftar")
+		if participant.Status != "Terdaftar" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Peserta belum disetujui. Status: " + participant.Status,
+			})
+			return
+		}
+
+		// Update last_reregistration_at
+		_, err = db.Exec(`
+			UPDATE event_participants 
+			SET last_reregistration_at = NOW()
+			WHERE uuid = ?
+		`, participant.UUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update registration", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Registrasi ulang berhasil",
+			"participant": gin.H{
+				"uuid":          participant.UUID,
+				"full_name":     participant.FullName,
+				"email":         participant.Email,
+				"club_name":     participant.ClubName,
+				"division_name": participant.DivisionName,
+				"category_name": participant.CategoryName,
+				"event_name":    participant.EventName,
+			},
 		})
 	}
 }

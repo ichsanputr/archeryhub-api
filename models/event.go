@@ -76,7 +76,7 @@ type Event struct {
 	Description           *string    `json:"description" db:"description"`
 	BannerURL             *string    `json:"banner_url" db:"banner_url"`
 	LogoURL               *string    `json:"logo_url" db:"logo_url"`
-	Type                  *string    `json:"type" db:"type"` // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
+	Type                  *string    `json:"type" db:"type"`                   // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
 	LocationType          *string    `json:"location_type" db:"location_type"` // Location type: Indoor, Outdoor, Field, 3D, etc.
 	NumDistances          *int       `json:"num_distances" db:"num_distances"`
 	NumSessions           *int       `json:"num_sessions" db:"num_sessions"`
@@ -103,6 +103,8 @@ type EventWithDetails struct {
 	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status"`
 	PaymentStatus       *string `json:"payment_status" db:"payment_status"`
 	ParticipantUUID     *string `json:"participant_uuid" db:"participant_uuid"`
+	ParticipantStatus   *string `json:"participant_status" db:"participant_status"`
+	QRRaw               *string `json:"qr_raw" db:"qr_raw"`
 	WhatsAppNumber      *string `json:"whatsapp_number" db:"whatsapp_number"`
 	VenueType           *string `json:"venue_type" db:"venue_type"`
 }

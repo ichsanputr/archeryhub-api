@@ -75,18 +75,20 @@ type UpdateArcherRequest struct {
 
 // EventParticipant represents an archer registered for an event
 type EventParticipant struct {
-	UUID                string    `json:"id" db:"uuid"`
-	EventID             string    `json:"event_id" db:"event_id"`
-	ArcherID            string    `json:"archer_id" db:"archer_id"`
-	CategoryID          string    `json:"category_id" db:"category_id"`
-	BackNumber          *string   `json:"back_number" db:"back_number"`
-	TargetNumber        *string   `json:"target_number" db:"target_number"`
-	Session             *int      `json:"session" db:"session"`
-	RegistrationDate    time.Time `json:"registration_date" db:"registration_date"`
-	PaymentStatus       string    `json:"payment_status" db:"payment_status"` // menunggu_acc, belum_lunas, lunas
-	PaymentAmount       float64   `json:"payment_amount" db:"payment_amount"`
-	AccreditationStatus string    `json:"accreditation_status" db:"accreditation_status"` // pending, printed, collected
-	Notes               *string   `json:"notes" db:"notes"`
+	UUID                 string     `json:"id" db:"uuid"`
+	EventID              string     `json:"event_id" db:"event_id"`
+	ArcherID             string     `json:"archer_id" db:"archer_id"`
+	CategoryID           string     `json:"category_id" db:"category_id"`
+	BackNumber           *string    `json:"back_number" db:"back_number"`
+	TargetNumber         *string    `json:"target_number" db:"target_number"`
+	QRRaw                *string    `json:"qr_raw" db:"qr_raw"`
+	LastReregistrationAt *time.Time `json:"last_reregistration_at" db:"last_reregistration_at"`
+	Session              *int       `json:"session" db:"session"`
+	RegistrationDate     time.Time  `json:"registration_date" db:"registration_date"`
+	PaymentStatus        string     `json:"payment_status" db:"payment_status"` // menunggu_acc, belum_lunas, lunas
+	PaymentAmount        float64    `json:"payment_amount" db:"payment_amount"`
+	AccreditationStatus  string     `json:"accreditation_status" db:"accreditation_status"` // pending, printed, collected
+	Notes                *string    `json:"notes" db:"notes"`
 }
 
 // ParticipantWithDetails includes archer and event information
