@@ -69,38 +69,100 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetTeams returns all teams for an event
+// GetTeams returns all teams for an event with their members and scores
 func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("eventId")
 		categoryID := c.Query("category_id")
 
-		query := `
-			SELECT t.*, COUNT(tm.id) as member_count 
-			FROM teams t
-			LEFT JOIN team_members tm ON t.id = tm.team_id
-			WHERE t.event_id = ?
-		`
-		args := []interface{}{eventID}
-
-		if categoryID != "" {
-			query += " AND t.category_id = ?"
-			args = append(args, categoryID)
-		}
-
-		query += " GROUP BY t.id ORDER BY t.total_score DESC, t.total_x_count DESC"
-
-		var teams []models.Team
-		err := db.Select(&teams, query, args...)
-
+		// Resolve event UUID (allow slug)
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch teams"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
+		query := `
+			SELECT t.*, COUNT(tm.uuid) as member_count 
+			FROM teams t
+			LEFT JOIN team_members tm ON t.uuid = tm.team_id
+			WHERE t.tournament_id = ?
+		`
+		args := []interface{}{eventUUID}
+
+		if categoryID != "" {
+			query += " AND t.event_id = ?"
+			args = append(args, categoryID)
+		}
+
+		query += " GROUP BY t.uuid ORDER BY t.team_rank ASC, t.total_score DESC, t.total_x_count DESC"
+
+		var teams []models.Team
+		err = db.Select(&teams, query, args...)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to fetch teams",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		// Build response with members for each team
+		type MemberInfo struct {
+			UUID        string `json:"id" db:"uuid"`
+			FullName    string `json:"full_name" db:"full_name"`
+			ClubName    string `json:"club_name" db:"club_name"`
+			TotalScore  int    `json:"total_score" db:"total_score"`
+			TotalX      int    `json:"total_x" db:"total_x"`
+			MemberOrder int    `json:"member_order" db:"member_order"`
+			IsSubstitute bool  `json:"is_substitute" db:"is_substitute"`
+		}
+
+		type TeamWithMembers struct {
+			models.Team
+			Members []MemberInfo `json:"members"`
+		}
+
+		var result []TeamWithMembers
+		for _, team := range teams {
+			var members []MemberInfo
+			db.Select(&members, `
+				SELECT 
+					tm.uuid,
+					COALESCE(a.full_name, '') as full_name,
+					COALESCE(c.name, 'Independen') as club_name,
+					COALESCE(SUM(qes.total_score_end), 0) as total_score,
+					COALESCE(SUM(qes.x_count_end), 0) as total_x,
+					tm.member_order,
+					tm.is_substitute
+				FROM team_members tm
+				LEFT JOIN archers a ON tm.participant_id = a.uuid
+				LEFT JOIN clubs c ON a.club_id = c.uuid
+				LEFT JOIN qualification_end_scores qes ON qes.archer_uuid = a.uuid
+				WHERE tm.team_id = ?
+				GROUP BY tm.uuid, a.full_name, c.name, tm.member_order, tm.is_substitute
+				ORDER BY tm.member_order ASC
+			`, team.UUID)
+
+			if members == nil {
+				members = []MemberInfo{}
+			}
+
+			result = append(result, TeamWithMembers{
+				Team:    team,
+				Members: members,
+			})
+		}
+
+		if result == nil {
+			result = []TeamWithMembers{}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"teams": teams,
-			"total": len(teams),
+			"teams": result,
+			"total": len(result),
 		})
 	}
 }
@@ -610,8 +672,16 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 // SyncTeams calculates rankings and creates team records in one step on the server
 func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		eventUUID := c.Param("eventId")
+		eventID := c.Param("eventId")
 		userID, _ := c.Get("user_id")
+
+		// Resolve event UUID (allow slug)
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
 
 		var req struct {
 			CategoryID string `json:"category_id" binding:"required"`
@@ -630,16 +700,19 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			DivisionName string `db:"division_name"`
 			TeamSize     int    `db:"team_size"`
 		}
-		err := db.Get(&catInfo, `
-			SELECT ec.event_type_uuid, ret.code as type_code, ec.division_uuid, ec.category_uuid, rd.name as division_name, ec.team_size
+		err = db.Get(&catInfo, `
+			SELECT ec.event_type_uuid, ret.code as type_code, ec.division_uuid, ec.category_uuid, rbt.name as division_name, ec.team_size
 			FROM event_categories ec
 			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
-			JOIN ref_divisions rd ON ec.division_uuid = rd.uuid
+			JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			WHERE ec.uuid = ?
 		`, req.CategoryID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "Category not found",
+				"details": err.Error(),
+			})
 			return
 		}
 

@@ -14,6 +14,7 @@ type Team struct {
 	TotalScore   int       `json:"total_score" db:"total_score"`
 	TotalXCount  int       `json:"total_x_count" db:"total_x_count"`
 	Status       string    `json:"status" db:"status"` // active, eliminated, qualified
+	MemberCount  int       `json:"member_count" db:"member_count"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }

@@ -536,7 +536,7 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE qta.session_uuid = ?
-			ORDER BY et.target_number, qta.target_position
+			ORDER BY CAST(et.target_number AS UNSIGNED) ASC, et.target_name ASC, qta.target_position ASC
 		`, sessionID)
 
 		if err != nil {
@@ -586,7 +586,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, target_number
 			FROM event_targets
 			WHERE event_uuid = ?
-			ORDER BY target_number ASC
+			ORDER BY CAST(target_number AS UNSIGNED) ASC, target_name ASC
 		`, eventUUID)
 
 		if err != nil || len(targets) == 0 {

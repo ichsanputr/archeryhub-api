@@ -80,7 +80,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Group by target number
+			// Group by target identifier (Number + Name/Letter)
 			targetMap := make(map[string][]ArcherInfo)
 			for _, a := range assignments {
 				archer := ArcherInfo{
@@ -90,7 +90,9 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 					Division:      a.DivisionName,
 					Position:      a.TargetPosition,
 				}
-				targetMap[a.TargetNumber] = append(targetMap[a.TargetNumber], archer)
+				// The join query in line 67 already gives us target_number (e.g. "1") 
+				// and target_position (e.g. "A").
+				targetMap[a.TargetNumber + a.TargetPosition] = append(targetMap[a.TargetNumber + a.TargetPosition], archer)
 			}
 
 			// Get target names from event_targets
@@ -120,29 +122,20 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				targetNameMap[target.TargetNumber] = target.TargetName
 			}
 
-			// Convert to array - include targets with assignments
+			// Convert to array
 			var targets []TargetInfo
-			for targetNum, archers := range targetMap {
-				targetName := targetNameMap[targetNum]
-				if targetName == "" {
-					targetName = fmt.Sprintf("Target %s", targetNum)
+			// We group by target_number (the board)
+			for _, et := range eventTargets {
+				archers := targetMap[et.TargetNumber + et.TargetName]
+				if archers == nil {
+					archers = []ArcherInfo{}
 				}
+				
 				targets = append(targets, TargetInfo{
-					TargetNumber: targetNum,
-					CardName:     targetName,
+					TargetNumber: et.TargetNumber,
+					CardName:     et.TargetNumber + et.TargetName,
 					Archers:      archers,
 				})
-			}
-
-			// Also include event targets that don't have any assignments yet
-			for _, target := range eventTargets {
-				if _, exists := targetMap[target.TargetNumber]; !exists {
-					targets = append(targets, TargetInfo{
-						TargetNumber: target.TargetNumber,
-						CardName:     target.TargetName,
-						Archers:      []ArcherInfo{},
-					})
-				}
 			}
 
 			c.JSON(http.StatusOK, gin.H{"targets": targets})
@@ -226,15 +219,15 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get target UUID from target number
+		// Get target UUID from target number and name (position)
 		var targetUUID string
 		err := db.Get(&targetUUID, `
 			SELECT et.uuid FROM event_targets et
 			JOIN qualification_sessions qs ON qs.event_uuid = et.event_uuid
-			WHERE qs.uuid = ? AND et.target_number = ?
-		`, req.SessionUUID, req.TargetNumber)
+			WHERE qs.uuid = ? AND et.target_number = ? AND et.target_name = ?
+		`, req.SessionUUID, req.TargetNumber, req.TargetPosition)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target number for this session"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target number or position for this session"})
 			return
 		}
 
@@ -686,13 +679,13 @@ func GetTargetOptions(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&options, `
 			SELECT 
 				uuid,
-				CONCAT(target_name, ' - ', target_number) as combined,
+				CONCAT(target_number, target_name) as combined,
 				target_name,
 				target_number
 			FROM event_targets
-			WHERE event_uuid = ? OR event_uuid = (SELECT uuid FROM events WHERE slug = ?)
+			WHERE (event_uuid = ? OR event_uuid = (SELECT uuid FROM events WHERE slug = ?))
 			AND status = 'active'
-			ORDER BY target_name ASC, target_number ASC
+			ORDER BY CAST(target_number AS UNSIGNED) ASC, target_name ASC
 		`, eventID, eventID)
 
 		if err != nil {
