@@ -591,6 +591,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			GenderDivisionName string `db:"gender_division_name" json:"gender_division_name"`
 			GenderDivisionID   string `db:"gender_division_id" json:"gender_division_id"`
 			MaxParticipants    *int   `db:"max_participants" json:"max_participants"`
+			TeamSize           int    `db:"team_size" json:"team_size"`
 			ParticipantCount   int    `db:"participant_count" json:"participant_count"`
 			Status             string `db:"status" json:"status"`
 			CreatedAt          string `db:"created_at" json:"created_at"`
@@ -600,7 +601,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&events, `
 			SELECT 
 				te.uuid as id, te.event_id, 
-				te.max_participants, te.status, te.created_at,
+				te.max_participants, te.team_size, te.status, te.created_at,
 				d.name as division_name, d.uuid as division_id,
 				c.name as category_name, c.uuid as category_id,
 				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
@@ -1550,6 +1551,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 			Divisions       []string `json:"divisions" binding:"required"`
 			Categories      []string `json:"categories" binding:"required"`
 			MaxParticipants int      `json:"max_participants"`
+			TeamSize        int      `json:"team_size"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1583,9 +1585,9 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 				_, err = db.Exec(`
 					INSERT INTO event_categories (
 						uuid, event_id, division_uuid, category_uuid, 
-						max_participants
-					) VALUES (?, ?, ?, ?, ?)
-				`, catEventID, eventID, divUUID, catUUID, req.MaxParticipants)
+						max_participants, team_size
+					) VALUES (?, ?, ?, ?, ?, ?)
+				`, catEventID, eventID, divUUID, catUUID, req.MaxParticipants, req.TeamSize)
 
 				if err == nil {
 					count++
@@ -1615,6 +1617,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeUUID      string `json:"event_type_uuid" binding:"required"`
 			GenderDivisionUUID string `json:"gender_division_uuid" binding:"required"`
 			MaxParticipants    *int   `json:"max_participants"`
+			TeamSize           int    `json:"team_size"`
 			Status             string `json:"status"`
 		}
 
@@ -1657,9 +1660,9 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		_, err = db.Exec(`
 			INSERT INTO event_categories (
 				uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid,
-				max_participants, status
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
+				max_participants, team_size, status
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, req.TeamSize, status)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
@@ -1689,6 +1692,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeUUID      *string `json:"event_type_uuid"`
 			GenderDivisionUUID *string `json:"gender_division_uuid"`
 			MaxParticipants    *int    `json:"max_participants"`
+			TeamSize           *int    `json:"team_size"`
 			Status             *string `json:"status"`
 		}
 
@@ -1740,9 +1744,10 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		if req.MaxParticipants != nil {
 			query += ", max_participants = ?"
 			args = append(args, *req.MaxParticipants)
-		} else if req.MaxParticipants == nil {
-			// Allow setting to NULL
-			query += ", max_participants = NULL"
+		}
+		if req.TeamSize != nil {
+			query += ", team_size = ?"
+			args = append(args, *req.TeamSize)
 		}
 		if req.Status != nil {
 			query += ", status = ?"
@@ -1927,9 +1932,13 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT t.uuid, t.team_name, t.country_code, t.country_name, t.status, 
 			       t.total_score, t.total_x_count, t.created_at,
-			       COUNT(tm.uuid) as member_count 
+			       COUNT(tm.uuid) as member_count,
+				   GROUP_CONCAT(COALESCE(a.full_name, 'Unknown') ORDER BY tm.member_order SEPARATOR ', ') as member_names,
+				   GROUP_CONCAT(COALESCE(tm.total_score, 0) ORDER BY tm.member_order SEPARATOR ', ') as member_scores
 			FROM teams t
 			LEFT JOIN team_members tm ON t.uuid = tm.team_id
+			LEFT JOIN event_participants ep ON tm.participant_id = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			WHERE t.event_id = ?
 		`
 		args := []interface{}{eventUUID}
@@ -1939,18 +1948,20 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, categoryID)
 		}
 
-		query += " GROUP BY t.uuid ORDER BY t.total_score DESC, t.total_x_count DESC"
+		query += " GROUP BY t.uuid, t.team_name, t.country_code, t.country_name, t.status, t.total_score, t.total_x_count, t.created_at ORDER BY t.total_score DESC, t.total_x_count DESC"
 
 		type Team struct {
-			ID          string  `db:"uuid" json:"id"`
-			TeamName    string  `db:"team_name" json:"team_name"`
-			CountryCode *string `db:"country_code" json:"country_code"`
-			CountryName *string `db:"country_name" json:"country_name"`
-			Status      string  `db:"status" json:"status"`
-			TotalScore  *int    `db:"total_score" json:"total_score"`
-			TotalXCount *int    `db:"total_x_count" json:"total_x_count"`
-			MemberCount int     `db:"member_count" json:"member_count"`
-			CreatedAt   string  `db:"created_at" json:"created_at"`
+			ID           string  `db:"uuid" json:"id"`
+			TeamName     string  `db:"team_name" json:"team_name"`
+			CountryCode  *string `db:"country_code" json:"country_code"`
+			CountryName  *string `db:"country_name" json:"country_name"`
+			Status       string  `db:"status" json:"status"`
+			TotalScore   *int    `db:"total_score" json:"total_score"`
+			TotalXCount  *int    `db:"total_x_count" json:"total_x_count"`
+			MemberCount  int     `db:"member_count" json:"member_count"`
+			MemberNames  *string `db:"member_names" json:"member_names"`
+			MemberScores *string `db:"member_scores" json:"member_scores"`
+			CreatedAt    string  `db:"created_at" json:"created_at"`
 		}
 
 		var teams []Team

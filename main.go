@@ -323,6 +323,10 @@ func main() {
 			}
 
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
+			teams.GET("/event/:eventId/qualification-rankings", handler.GetTeamQualificationRankings(db))
+			teams.GET("/event/:eventId/mixed-rankings", handler.GetMixedTeamQualificationRankings(db))
+			protectedTeams.POST("/event/:eventId/auto-generate", handler.AutoCreateTeams(db))
+			protectedTeams.POST("/event/:eventId/sync", handler.SyncTeams(db))
 		}
 
 		// Payment & Registration routes

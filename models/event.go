@@ -173,6 +173,7 @@ type EventEvent struct {
 	DivisionUUID        string    `json:"division_id" db:"division_uuid"`
 	CategoryUUID        string    `json:"category_id" db:"category_uuid"`
 	MaxParticipants     int       `json:"max_participants" db:"max_participants"`
+	TeamSize            int       `json:"team_size" db:"team_size"`
 	QualificationArrows int       `json:"qualification_arrows" db:"qualification_arrows"`
 	EliminationFormat   string    `json:"elimination_format" db:"elimination_format"`
 	TeamEvent           bool      `json:"team_event" db:"team_event"`
