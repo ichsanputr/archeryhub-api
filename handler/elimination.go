@@ -29,24 +29,26 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		type BracketInfo struct {
-			UUID           string  `json:"id" db:"uuid"`
-			EventUUID      string  `json:"event_id" db:"event_uuid"`
-			CategoryUUID   string  `json:"category_id" db:"category_uuid"`
-			CategoryName   string  `json:"category_name" db:"category_name"`
-			BracketType    string  `json:"bracket_type" db:"bracket_type"`
-			Format         string  `json:"format" db:"format"`
-			BracketSize    int     `json:"bracket_size" db:"bracket_size"`
-			Status         string  `json:"status" db:"status"`
-			GeneratedAt    *string `json:"generated_at" db:"generated_at"`
-			CreatedAt      string  `json:"created_at" db:"created_at"`
-			MatchCount     int     `json:"match_count" db:"match_count"`
+			BracketID     string  `json:"id" db:"bracket_id"`
+			UUID          string  `json:"uuid" db:"uuid"`
+			EventUUID     string  `json:"event_id" db:"event_uuid"`
+			CategoryUUID  string  `json:"category_id" db:"category_uuid"`
+			CategoryName  string  `json:"category_name" db:"category_name"`
+			BracketType   string  `json:"bracket_type" db:"bracket_type"`
+			Format        string  `json:"format" db:"format"`
+			BracketSize   int     `json:"bracket_size" db:"bracket_size"`
+			EndsPerMatch  int     `json:"ends_per_match" db:"ends_per_match"`
+			ArrowsPerEnd  int     `json:"arrows_per_end" db:"arrows_per_end"`
+			GeneratedAt   *string `json:"generated_at" db:"generated_at"`
+			CreatedAt     string  `json:"created_at" db:"created_at"`
+			MatchCount    int     `json:"match_count" db:"match_count"`
 		}
 
 		query := `
-			SELECT eb.uuid, eb.event_uuid, eb.category_uuid, 
+			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, 
 				COALESCE(CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, '')), 'Unknown Category') as category_name,
-				eb.bracket_type, eb.format, eb.bracket_size, 
-				eb.status, eb.generated_at, eb.created_at,
+				eb.bracket_type, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end,
+				eb.generated_at, eb.created_at,
 				(SELECT COUNT(*) FROM elimination_matches em WHERE em.bracket_uuid = eb.uuid) as match_count
 			FROM elimination_brackets eb
 			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
@@ -85,34 +87,42 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 		bracketID := c.Param("bracketId")
 
 		type Bracket struct {
-			UUID           string  `json:"id" db:"uuid"`
-			EventUUID      string  `json:"event_id" db:"event_uuid"`
-			CategoryUUID   string  `json:"category_id" db:"category_uuid"`
-			BracketType    string  `json:"bracket_type" db:"bracket_type"`
-			Format         string  `json:"format" db:"format"`
-			BracketSize    int     `json:"bracket_size" db:"bracket_size"`
-			Status         string  `json:"status" db:"status"`
-			GeneratedAt    *string `json:"generated_at" db:"generated_at"`
-			CreatedAt      string  `json:"created_at" db:"created_at"`
+			BracketID     string  `json:"id" db:"bracket_id"`
+			UUID          string  `json:"uuid" db:"uuid"`
+			EventUUID     string  `json:"event_id" db:"event_uuid"`
+			CategoryUUID  string  `json:"category_id" db:"category_uuid"`
+			BracketType   string  `json:"bracket_type" db:"bracket_type"`
+			Format        string  `json:"format" db:"format"`
+			BracketSize   int     `json:"bracket_size" db:"bracket_size"`
+			EndsPerMatch  int     `json:"ends_per_match" db:"ends_per_match"`
+			ArrowsPerEnd  int     `json:"arrows_per_end" db:"arrows_per_end"`
+			GeneratedAt   *string `json:"generated_at" db:"generated_at"`
+			CreatedAt     string  `json:"created_at" db:"created_at"`
 		}
 
 		var bracket Bracket
-		err := db.Get(&bracket, `SELECT * FROM elimination_brackets WHERE uuid = ?`, bracketID)
+		err := db.Get(&bracket, `
+			SELECT bracket_id, uuid, event_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end, generated_at, created_at 
+			FROM elimination_brackets 
+			WHERE bracket_id = ? OR uuid = ?
+		`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
+		bracketUUID := bracket.UUID
+
 		// Get entries
 		type Entry struct {
-			UUID            string  `json:"id" db:"uuid"`
-			ParticipantType string  `json:"participant_type" db:"participant_type"`
-			ParticipantUUID string  `json:"participant_id" db:"participant_uuid"`
-			ParticipantName string  `json:"participant_name" db:"participant_name"`
-			Seed            int     `json:"seed" db:"seed"`
-			QualTotalScore  *int    `json:"qual_total_score" db:"qual_total_score"`
-			QualTotalX      *int    `json:"qual_total_x" db:"qual_total_x"`
-			QualTotal10     *int    `json:"qual_total_10" db:"qual_total_10"`
+			UUID            string `json:"id" db:"uuid"`
+			ParticipantType string `json:"participant_type" db:"participant_type"`
+			ParticipantUUID string `json:"participant_id" db:"participant_uuid"`
+			ParticipantName string `json:"participant_name" db:"participant_name"`
+			Seed            int    `json:"seed" db:"seed"`
+			QualTotalScore  *int   `json:"qual_total_score" db:"qual_total_score"`
+			QualTotalX      *int   `json:"qual_total_x" db:"qual_total_x"`
+			QualTotal10     *int   `json:"qual_total_10" db:"qual_total_10"`
 		}
 
 		var entries []Entry
@@ -128,7 +138,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN teams t ON ee.participant_type = 'team' AND ee.participant_uuid = t.uuid
 			WHERE ee.bracket_uuid = ?
 			ORDER BY ee.seed ASC
-		`, bracketID)
+		`, bracketUUID)
 
 		if entries == nil {
 			entries = []Entry{}
@@ -148,6 +158,9 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			WinnerEntryUUID *string `json:"winner_entry_id" db:"winner_entry_uuid"`
 			IsBye           bool    `json:"is_bye" db:"is_bye"`
 			ScheduledAt     *string `json:"scheduled_at" db:"scheduled_at"`
+			TargetUUID      *string `json:"target_id" db:"target_uuid"`
+			TargetNumber    *string `json:"target_number" db:"target_number"`
+			TargetName      *string `json:"target_name" db:"target_name"`
 			Status          string  `json:"status" db:"status"`
 		}
 
@@ -165,7 +178,9 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				END as entry_b_name,
 				eeA.seed as entry_a_seed,
 				eeB.seed as entry_b_seed,
-				em.winner_entry_uuid, em.is_bye, em.scheduled_at, em.status
+				em.winner_entry_uuid, em.is_bye, em.scheduled_at,
+				em.target_uuid, et.target_number, et.target_name,
+				em.status
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
@@ -173,9 +188,10 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers aB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = aB.uuid
 			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
 			LEFT JOIN teams tB ON eeB.participant_type = 'team' AND eeB.participant_uuid = tB.uuid
+			LEFT JOIN event_targets et ON em.target_uuid = et.uuid
 			WHERE em.bracket_uuid = ?
 			ORDER BY em.round_no ASC, em.match_no ASC
-		`, bracketID)
+		`, bracketUUID)
 
 		if matches == nil {
 			matches = []Match{}
@@ -210,10 +226,12 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var req struct {
-			CategoryID     string `json:"category_id" binding:"required"`
-			BracketType    string `json:"bracket_type" binding:"required"` // individual, team3, mixed2
-			Format         string `json:"format" binding:"required"`       // recurve_set, compound_total
-			BracketSize    int    `json:"bracket_size" binding:"required"` // 8, 16, 32, 64
+			CategoryID   string `json:"category_id" binding:"required"`
+			BracketType  string `json:"bracket_type" binding:"required"`          // individual, team3, mixed2
+			Format       string `json:"format" binding:"required"`                // recurve_set, compound_total
+			BracketSize  int    `json:"bracket_size" binding:"required"`          // 8, 16, 32, 64
+			EndsPerMatch int    `json:"ends_per_match" binding:"required,min=1"`  // default 5
+			ArrowsPerEnd int    `json:"arrows_per_end" binding:"required,min=1"`  // default 3
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -240,9 +258,9 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		if participantCount < req.BracketSize {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": fmt.Sprintf("Jumlah peserta tidak mencukupi. Diperlukan minimal %d peserta, tersedia %d peserta.", req.BracketSize, participantCount),
+				"error":             fmt.Sprintf("Jumlah peserta tidak mencukupi. Diperlukan minimal %d peserta, tersedia %d peserta.", req.BracketSize, participantCount),
 				"participant_count": participantCount,
-				"required": req.BracketSize,
+				"required":          req.BracketSize,
 			})
 			return
 		}
@@ -256,10 +274,11 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		bracketUUID := uuid.New().String()
+		bracketID := fmt.Sprintf("BR-%s-%s", time.Now().Format("20060102"), bracketUUID[:8])
 		_, err = db.Exec(`
-			INSERT INTO elimination_brackets (uuid, event_uuid, category_uuid, bracket_type, format, bracket_size, status)
-			VALUES (?, ?, ?, ?, ?, ?, 'draft')
-		`, bracketUUID, eventUUID, req.CategoryID, req.BracketType, req.Format, req.BracketSize)
+			INSERT INTO elimination_brackets (uuid, bracket_id, event_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, bracketUUID, bracketID, eventUUID, req.CategoryID, req.BracketType, req.Format, req.BracketSize, req.EndsPerMatch, req.ArrowsPerEnd)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bracket", "details": err.Error()})
@@ -268,7 +287,10 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Bracket created successfully",
-			"id":      bracketUUID,
+			"bracket": gin.H{
+				"id":   bracketID,
+				"uuid": bracketUUID,
+			},
 		})
 	}
 }
@@ -280,20 +302,26 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get bracket info
 		type Bracket struct {
-			UUID           string `db:"uuid"`
-			EventUUID      string `db:"event_uuid"`
-			CategoryUUID   string `db:"category_uuid"`
-			BracketType    string `db:"bracket_type"`
-			BracketSize    int    `db:"bracket_size"`
-			Status         string `db:"status"`
+			UUID         string `db:"uuid"`
+			EventUUID    string `db:"event_uuid"`
+			CategoryUUID string `db:"category_uuid"`
+			BracketType  string `db:"bracket_type"`
+			BracketSize  int    `db:"bracket_size"`
+			Status       string `db:"status"`
 		}
 
 		var bracket Bracket
-		err := db.Get(&bracket, `SELECT uuid, event_uuid, category_uuid, bracket_type, bracket_size, status FROM elimination_brackets WHERE uuid = ?`, bracketID)
+		err := db.Get(&bracket, `
+			SELECT uuid, event_uuid, category_uuid, bracket_type, bracket_size, status
+			FROM elimination_brackets
+			WHERE bracket_id = ? OR uuid = ?
+		`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
+
+		bracketUUID := bracket.UUID
 
 		if bracket.Status != "draft" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket has already been generated or is running"})
@@ -308,8 +336,8 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		// Clear existing entries and matches
-		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracketID)
-		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracketID)
+		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracketUUID)
+		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracketUUID)
 
 		// Get qualified participants based on bracket type
 		var entries []struct {
@@ -373,51 +401,51 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 				_, err = tx.Exec(`
 					INSERT INTO elimination_entries (uuid, bracket_uuid, participant_type, participant_uuid, seed, qual_total_score, qual_total_x, qual_total_10)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				`, entryUUID, bracketID, participantType, entries[i].ParticipantUUID, i+1, entries[i].TotalScore, entries[i].TotalX, entries[i].Total10)
+				`, entryUUID, bracketUUID, participantType, entries[i].ParticipantUUID, i+1, entries[i].TotalScore, entries[i].TotalX, entries[i].Total10)
 			}
 		}
 
 		// Generate bracket matches using standard seeding
 		// For bracket size N, we have log2(N) rounds
 		numRounds := int(math.Log2(float64(bracket.BracketSize)))
-		
+
 		// Generate first round matches using proper bracket seeding
 		firstRoundMatchups := generateBracketSeeding(bracket.BracketSize)
-		
+
 		for roundNo := 1; roundNo <= numRounds; roundNo++ {
 			matchesInRound := bracket.BracketSize / int(math.Pow(2, float64(roundNo)))
-			
+
 			for matchNo := 1; matchNo <= matchesInRound; matchNo++ {
 				matchUUID := uuid.New().String()
-				
+
 				var entryAUUID, entryBUUID *string
 				isBye := false
-				
+
 				if roundNo == 1 {
 					// First round: use seeding
 					matchIdx := matchNo - 1
 					seedA := firstRoundMatchups[matchIdx*2]
 					seedB := firstRoundMatchups[matchIdx*2+1]
-					
+
 					if seedA <= len(entries) {
 						entryAUUID = &entryUUIDs[seedA-1]
 					}
 					if seedB <= len(entries) {
 						entryBUUID = &entryUUIDs[seedB-1]
 					}
-					
+
 					// If one side has no participant, it's a BYE
 					if (entryAUUID == nil || entryBUUID == nil) && !(entryAUUID == nil && entryBUUID == nil) {
 						isBye = true
 					}
 				}
 				// Later rounds will be filled as matches complete
-				
+
 				_, err = tx.Exec(`
 					INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled')
-				`, matchUUID, bracketID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
-				
+				`, matchUUID, bracketUUID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
+
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create matches", "details": err.Error()})
 					return
@@ -427,7 +455,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		// Update bracket status
 		now := time.Now().Format("2006-01-02 15:04:05")
-		_, err = tx.Exec(`UPDATE elimination_brackets SET status = 'generated', generated_at = ? WHERE uuid = ?`, now, bracketID)
+		_, err = tx.Exec(`UPDATE elimination_brackets SET status = 'generated', generated_at = ? WHERE uuid = ?`, now, bracketUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bracket status"})
 			return
@@ -452,16 +480,94 @@ func generateBracketSeeding(size int) []int {
 	if size == 2 {
 		return []int{1, 2}
 	}
-	
+
 	prev := generateBracketSeeding(size / 2)
 	result := make([]int, size)
-	
+
 	for i, seed := range prev {
 		result[i*2] = seed
 		result[i*2+1] = size + 1 - seed
 	}
-	
+
 	return result
+}
+
+// UpdateMatchTargets assigns targets to matches in a bracket
+func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bracketID := c.Param("bracketId")
+
+		var req struct {
+			Assignments []struct {
+				MatchID  string `json:"match_id" binding:"required"`
+				TargetID string `json:"target_id"`
+			} `json:"assignments" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Resolve bracket UUID and event UUID
+		var bracket struct {
+			UUID      string `db:"uuid"`
+			EventUUID string `db:"event_uuid"`
+		}
+		err := db.Get(&bracket, `SELECT uuid, event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		updated := 0
+		for _, assignment := range req.Assignments {
+			var targetUUID *string
+			if assignment.TargetID != "" {
+				// Validate target belongs to the event
+				var exists int
+				err = tx.Get(&exists, `SELECT COUNT(*) FROM event_targets WHERE uuid = ? AND event_uuid = ?`, assignment.TargetID, bracket.EventUUID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate target"})
+					return
+				}
+				if exists == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target for this event"})
+					return
+				}
+				targetUUID = &assignment.TargetID
+			}
+
+			result, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ? WHERE uuid = ? AND bracket_uuid = ?`, targetUUID, assignment.MatchID, bracket.UUID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target assignment"})
+				return
+			}
+			affected, _ := result.RowsAffected()
+			if affected == 0 {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Match not found for this bracket"})
+				return
+			}
+			updated += int(affected)
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Targets updated successfully",
+			"updated": updated,
+		})
+	}
 }
 
 // DeleteBracket deletes a bracket and all related data
@@ -470,14 +576,17 @@ func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
 		bracketID := c.Param("bracketId")
 
 		// Get bracket to check status
-		var status string
-		err := db.Get(&status, `SELECT status FROM elimination_brackets WHERE uuid = ?`, bracketID)
+		var bracket struct {
+			UUID   string `db:"uuid"`
+			Status string `db:"status"`
+		}
+		err := db.Get(&bracket, `SELECT uuid, status FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
-		if status == "running" {
+		if bracket.Status == "running" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete a running bracket"})
 			return
 		}
@@ -493,13 +602,13 @@ func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
 		tx.Exec(`DELETE emas FROM elimination_match_arrow_scores emas 
 			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
 			JOIN elimination_matches em ON eme.match_uuid = em.uuid
-			WHERE em.bracket_uuid = ?`, bracketID)
+			WHERE em.bracket_uuid = ?`, bracket.UUID)
 		tx.Exec(`DELETE eme FROM elimination_match_ends eme 
 			JOIN elimination_matches em ON eme.match_uuid = em.uuid
-			WHERE em.bracket_uuid = ?`, bracketID)
-		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracketID)
-		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracketID)
-		tx.Exec(`DELETE FROM elimination_brackets WHERE uuid = ?`, bracketID)
+			WHERE em.bracket_uuid = ?`, bracket.UUID)
+		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracket.UUID)
+		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracket.UUID)
+		tx.Exec(`DELETE FROM elimination_brackets WHERE uuid = ?`, bracket.UUID)
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete bracket"})
@@ -545,9 +654,9 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get participant names
 		type Participant struct {
-			EntryUUID  string  `json:"entry_id" db:"entry_uuid"`
-			Name       string  `json:"name" db:"name"`
-			Seed       int     `json:"seed" db:"seed"`
+			EntryUUID string `json:"entry_id" db:"entry_uuid"`
+			Name      string `json:"name" db:"name"`
+			Seed      int    `json:"seed" db:"seed"`
 		}
 
 		var participantA, participantB *Participant
@@ -586,12 +695,13 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get scoring ends
 		type EndScore struct {
-			UUID     string `json:"id" db:"uuid"`
-			EndNo    int    `json:"end_no" db:"end_no"`
-			Side     string `json:"side" db:"side"`
-			EndTotal int    `json:"end_total" db:"end_total"`
-			XCount   int    `json:"x_count" db:"x_count"`
-			TenCount int    `json:"ten_count" db:"ten_count"`
+			UUID     string   `json:"id" db:"uuid"`
+			EndNo    int      `json:"end_no" db:"end_no"`
+			Side     string   `json:"side" db:"side"`
+			EndTotal int      `json:"end_total" db:"end_total"`
+			XCount   int      `json:"x_count" db:"x_count"`
+			TenCount int      `json:"ten_count" db:"ten_count"`
+			Arrows   []string `json:"arrows"`
 		}
 
 		var ends []EndScore
@@ -606,11 +716,31 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			ends = []EndScore{}
 		}
 
+		// Fetch arrows for each end
+		for i := range ends {
+			var arrowScores []struct {
+				Score int  `db:"score"`
+				IsX   bool `db:"is_x"`
+			}
+			db.Select(&arrowScores, `SELECT score, is_x FROM elimination_match_arrow_scores WHERE match_end_uuid = ? ORDER BY arrow_no ASC`, ends[i].UUID)
+			
+			ends[i].Arrows = make([]string, len(arrowScores))
+			for j, as := range arrowScores {
+				if as.IsX {
+					ends[i].Arrows[j] = "X"
+				} else if as.Score == 0 {
+					ends[i].Arrows[j] = "M"
+				} else {
+					ends[i].Arrows[j] = fmt.Sprintf("%d", as.Score)
+				}
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"match":        match,
+			"match":         match,
 			"participant_a": participantA,
 			"participant_b": participantB,
-			"ends":         ends,
+			"ends":          ends,
 		})
 	}
 }
@@ -621,13 +751,11 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 		matchID := c.Param("matchId")
 
 		var req struct {
-			EndNo    int `json:"end_no" binding:"required"`
-			ScoreA   int `json:"score_a"`
-			ScoreB   int `json:"score_b"`
-			XCountA  int `json:"x_count_a"`
-			XCountB  int `json:"x_count_b"`
-			TenCountA int `json:"ten_count_a"`
-			TenCountB int `json:"ten_count_b"`
+			EndNo   int      `json:"end_no" binding:"required"`
+			ScoreA  int      `json:"score_a"`
+			ScoreB  int      `json:"score_b"`
+			ArrowsA []string `json:"arrows_a"`
+			ArrowsB []string `json:"arrows_b"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -635,39 +763,96 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check match exists
-		var matchStatus string
-		err := db.Get(&matchStatus, `SELECT status FROM elimination_matches WHERE uuid = ?`, matchID)
+		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Helper to process side
+		processSide := func(side string, total int, arrows []string) error {
+			xCount := 0
+			tenCount := 0
+			if len(arrows) > 0 {
+				total = 0
+				for _, a := range arrows {
+					if a == "X" {
+						xCount++
+						tenCount++
+						total += 10
+					} else if a == "10" {
+						tenCount++
+						total += 10
+					} else if a == "M" {
+						total += 0
+					} else {
+						val := 0
+						fmt.Sscanf(a, "%d", &val)
+						total += val
+					}
+				}
+			}
+
+			// Upsert end
+			_, err := tx.Exec(`
+				INSERT INTO elimination_match_ends (uuid, match_uuid, end_no, side, end_total, x_count, ten_count)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+				ON DUPLICATE KEY UPDATE end_total = VALUES(end_total), x_count = VALUES(x_count), ten_count = VALUES(ten_count)
+			`, uuid.New().String(), matchID, req.EndNo, side, total, xCount, tenCount)
+			if err != nil {
+				return err
+			}
+
+			// Get UUID of the end (new or existing)
+			var endUUID string
+			err = tx.Get(&endUUID, `SELECT uuid FROM elimination_match_ends WHERE match_uuid = ? AND end_no = ? AND side = ?`, matchID, req.EndNo, side)
+			if err != nil {
+				return err
+			}
+
+			// Upsert arrows if provided
+			if len(arrows) > 0 {
+				tx.Exec(`DELETE FROM elimination_match_arrow_scores WHERE match_end_uuid = ?`, endUUID)
+				for i, a := range arrows {
+					scoreVal := 0
+					isX := false
+					if a == "X" {
+						scoreVal = 10
+						isX = true
+					} else if a == "M" {
+						scoreVal = 0
+					} else {
+						fmt.Sscanf(a, "%d", &scoreVal)
+					}
+					_, err = tx.Exec(`
+						INSERT INTO elimination_match_arrow_scores (uuid, match_end_uuid, arrow_no, score, is_x)
+						VALUES (?, ?, ?, ?, ?)
+					`, uuid.New().String(), endUUID, i+1, scoreVal, isX)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}
+
+		if err := processSide("A", req.ScoreA, req.ArrowsA); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update side A", "details": err.Error()})
 			return
 		}
 
-		// Upsert scores for side A
-		_, err = db.Exec(`
-			INSERT INTO elimination_match_ends (uuid, match_uuid, end_no, side, end_total, x_count, ten_count)
-			VALUES (?, ?, ?, 'A', ?, ?, ?)
-			ON DUPLICATE KEY UPDATE end_total = VALUES(end_total), x_count = VALUES(x_count), ten_count = VALUES(ten_count)
-		`, uuid.New().String(), matchID, req.EndNo, req.ScoreA, req.XCountA, req.TenCountA)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update score A", "details": err.Error()})
-			return
-		}
-
-		// Upsert scores for side B
-		_, err = db.Exec(`
-			INSERT INTO elimination_match_ends (uuid, match_uuid, end_no, side, end_total, x_count, ten_count)
-			VALUES (?, ?, ?, 'B', ?, ?, ?)
-			ON DUPLICATE KEY UPDATE end_total = VALUES(end_total), x_count = VALUES(x_count), ten_count = VALUES(ten_count)
-		`, uuid.New().String(), matchID, req.EndNo, req.ScoreB, req.XCountB, req.TenCountB)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update score B", "details": err.Error()})
+		if err := processSide("B", req.ScoreB, req.ArrowsB); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update side B", "details": err.Error()})
 			return
 		}
 
 		// Update match status to running if scheduled
-		if matchStatus == "scheduled" {
-			db.Exec(`UPDATE elimination_matches SET status = 'running' WHERE uuid = ?`, matchID)
+		tx.Exec(`UPDATE elimination_matches SET status = 'running' WHERE uuid = ? AND status = 'scheduled'`, matchID)
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Score updated successfully"})
@@ -690,10 +875,10 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get match info
 		type MatchInfo struct {
-			UUID        string `db:"uuid"`
-			BracketUUID string `db:"bracket_uuid"`
-			RoundNo     int    `db:"round_no"`
-			MatchNo     int    `db:"match_no"`
+			UUID        string  `db:"uuid"`
+			BracketUUID string  `db:"bracket_uuid"`
+			RoundNo     int     `db:"round_no"`
+			MatchNo     int     `db:"match_no"`
 			EntryAUUID  *string `db:"entry_a_uuid"`
 			EntryBUUID  *string `db:"entry_b_uuid"`
 		}
@@ -706,8 +891,8 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Validate winner is one of the participants
-		if (match.EntryAUUID == nil || *match.EntryAUUID != req.WinnerEntryID) && 
-		   (match.EntryBUUID == nil || *match.EntryBUUID != req.WinnerEntryID) {
+		if (match.EntryAUUID == nil || *match.EntryAUUID != req.WinnerEntryID) &&
+			(match.EntryBUUID == nil || *match.EntryBUUID != req.WinnerEntryID) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Winner must be one of the match participants"})
 			return
 		}
@@ -730,19 +915,19 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 		// Find next round match
 		var bracketSize int
 		tx.Get(&bracketSize, `SELECT bracket_size FROM elimination_brackets WHERE uuid = ?`, match.BracketUUID)
-		
+
 		numRounds := int(math.Log2(float64(bracketSize)))
 		if match.RoundNo < numRounds {
 			// Calculate next match position
 			nextMatchNo := (match.MatchNo + 1) / 2
 			nextRound := match.RoundNo + 1
-			
+
 			// Determine if winner goes to slot A or B (odd match = A, even match = B)
 			slot := "entry_a_uuid"
 			if match.MatchNo%2 == 0 {
 				slot = "entry_b_uuid"
 			}
-			
+
 			_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
 				req.WinnerEntryID, match.BracketUUID, nextRound, nextMatchNo)
 			if err != nil {
@@ -765,7 +950,11 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
 
-		result, err := db.Exec(`UPDATE elimination_brackets SET status = 'running' WHERE uuid = ? AND status = 'generated'`, bracketID)
+		result, err := db.Exec(`
+			UPDATE elimination_brackets
+			SET status = 'running'
+			WHERE (bracket_id = ? OR uuid = ?) AND status = 'generated'
+		`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start bracket"})
 			return
@@ -786,7 +975,11 @@ func CloseBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
 
-		result, err := db.Exec(`UPDATE elimination_brackets SET status = 'closed' WHERE uuid = ? AND status = 'running'`, bracketID)
+		result, err := db.Exec(`
+			UPDATE elimination_brackets
+			SET status = 'closed'
+			WHERE (bracket_id = ? OR uuid = ?) AND status = 'running'
+		`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close bracket"})
 			return
