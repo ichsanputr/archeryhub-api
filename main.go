@@ -224,6 +224,8 @@ func main() {
 		{
 			qualification.GET("/sessions", handler.GetQualificationSessions(db))
 			qualification.POST("/sessions", handler.CreateQualificationSession(db))
+			qualification.PATCH("/sessions/:sessionId", handler.UpdateQualificationSession(db))
+			qualification.DELETE("/sessions/:sessionId", handler.DeleteQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
 		}
 

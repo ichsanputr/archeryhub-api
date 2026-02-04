@@ -7,6 +7,7 @@ type QualificationSession struct {
 	UUID         string     `json:"id" db:"uuid"`
 	EventUUID    string     `json:"event_id" db:"event_uuid"`
 	SessionCode  string     `json:"session_code" db:"session_code"`
+	SessionDate  *string    `json:"session_date" db:"session_date"`
 	Name         string     `json:"name" db:"name"`
 	StartTime    *time.Time `json:"start_time" db:"start_time"`
 	EndTime      *time.Time `json:"end_time" db:"end_time"`

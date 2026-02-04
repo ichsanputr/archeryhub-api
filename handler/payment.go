@@ -335,7 +335,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = tx.Exec("UPDATE payment_transactions SET status = ?, callback_data = ?, paid_at = ? WHERE id = ?", status, body, time.Now(), transactionID)
+		_, err = tx.Exec("UPDATE payment_transactions SET status = ?, callback_data = ?, paid_at = ? WHERE uuid = ?", status, body, time.Now(), transactionID)
 		if err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
@@ -354,7 +354,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Update event status if platform fee is paid
 		if status == "paid" && registrationID == nil && eventID != nil {
-			_, err = tx.Exec("UPDATE events SET status = 'published' WHERE id = ?", *eventID)
+			_, err = tx.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", *eventID)
 			if err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event status"})
@@ -398,5 +398,146 @@ func GetPaymentChannels(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, channels)
+	}
+}
+
+// EventPaymentMethod represents a payment method for an event
+type EventPaymentMethod struct {
+	UUID          string  `json:"uuid" db:"uuid"`
+	EventID       string  `json:"event_id" db:"event_id"`
+	PaymentMethod string  `json:"payment_method" db:"payment_method"`
+	AccountName   *string `json:"account_name" db:"account_name"`
+	AccountNumber *string `json:"account_number" db:"account_number"`
+	Instructions  *string `json:"instructions" db:"instructions"`
+	IsActive      bool    `json:"is_active" db:"is_active"`
+	DisplayOrder  int     `json:"display_order" db:"display_order"`
+	CreatedAt     string  `json:"created_at" db:"created_at"`
+	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
+}
+
+// GetEventPaymentMethods returns all payment methods for an event
+func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		// Check if it's a slug or UUID, get event UUID if it's a slug
+		var actualEventID string
+		err := db.Get(&actualEventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		var methods []EventPaymentMethod
+		err = db.Select(&methods, `
+			SELECT uuid, event_id, payment_method, account_name, account_number, 
+			       instructions, is_active, display_order, created_at, updated_at
+			FROM event_payment_methods
+			WHERE event_id = ? AND is_active = TRUE
+			ORDER BY display_order ASC, created_at ASC
+		`, actualEventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment methods"})
+			return
+		}
+
+		if methods == nil {
+			methods = []EventPaymentMethod{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": methods})
+	}
+}
+
+// CreateEventPaymentMethod creates a new payment method for an event
+func CreateEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var req struct {
+			PaymentMethod string  `json:"payment_method" binding:"required"`
+			AccountName   *string `json:"account_name"`
+			AccountNumber *string `json:"account_number"`
+			Instructions  *string `json:"instructions"`
+			DisplayOrder  int     `json:"display_order"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		methodID := uuid.New().String()
+		_, err := db.Exec(`
+			INSERT INTO event_payment_methods 
+			(uuid, event_id, payment_method, account_name, account_number, instructions, display_order)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, methodID, eventID, req.PaymentMethod, req.AccountName, req.AccountNumber, req.Instructions, req.DisplayOrder)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment method"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"uuid":    methodID,
+			"message": "Payment method created successfully",
+		})
+	}
+}
+
+// UpdateEventPaymentMethod updates a payment method
+func UpdateEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		methodID := c.Param("methodId")
+
+		var req struct {
+			PaymentMethod string  `json:"payment_method"`
+			AccountName   *string `json:"account_name"`
+			AccountNumber *string `json:"account_number"`
+			Instructions  *string `json:"instructions"`
+			IsActive      *bool   `json:"is_active"`
+			DisplayOrder  *int    `json:"display_order"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		_, err := db.Exec(`
+			UPDATE event_payment_methods 
+			SET payment_method = COALESCE(?, payment_method),
+			    account_name = ?,
+			    account_number = ?,
+			    instructions = ?,
+			    is_active = COALESCE(?, is_active),
+			    display_order = COALESCE(?, display_order),
+			    updated_at = NOW()
+			WHERE uuid = ?
+		`, req.PaymentMethod, req.AccountName, req.AccountNumber, req.Instructions, req.IsActive, req.DisplayOrder, methodID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment method"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Payment method updated successfully"})
+	}
+}
+
+// DeleteEventPaymentMethod deletes a payment method
+func DeleteEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		methodID := c.Param("methodId")
+
+		_, err := db.Exec("DELETE FROM event_payment_methods WHERE uuid = ?", methodID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete payment method"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Payment method deleted successfully"})
 	}
 }
