@@ -244,6 +244,28 @@ func main() {
 			qualAssignments.DELETE("", handler.DeleteQualificationAssignment(db))
 		}
 
+		// Elimination bracket routes
+		elimination := api.Group("/events/:id/elimination")
+		elimination.Use(middleware.AuthMiddleware())
+		{
+			elimination.GET("/brackets", handler.GetBrackets(db))
+			elimination.POST("/brackets", handler.CreateBracket(db))
+			elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
+			elimination.DELETE("/brackets/:bracketId", handler.DeleteBracket(db))
+			elimination.POST("/brackets/:bracketId/generate", handler.GenerateBracket(db))
+			elimination.POST("/brackets/:bracketId/start", handler.StartBracket(db))
+			elimination.POST("/brackets/:bracketId/close", handler.CloseBracket(db))
+		}
+
+		// Elimination match routes
+		elimMatches := api.Group("/elimination/matches/:matchId")
+		elimMatches.Use(middleware.AuthMiddleware())
+		{
+			elimMatches.GET("", handler.GetMatch(db))
+			elimMatches.POST("/score", handler.UpdateMatchScore(db))
+			elimMatches.POST("/finish", handler.FinishMatch(db))
+		}
+
 		// Target routes
 		targets := api.Group("/targets")
 		{
