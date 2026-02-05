@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -315,10 +316,12 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetEventTargets returns all targets for an event - Data Master
+// GetEventTargets returns all targets for an event - Data Master with pagination
 func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
+		page := c.DefaultQuery("page", "1")
+		limit := c.DefaultQuery("limit", "10")
 
 		// Verify event exists
 		var eventUUID string
@@ -340,8 +343,25 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 			UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 		}
 
+		// Calculate pagination
+		var total int
+		err = db.Get(&total, `SELECT COUNT(*) FROM event_targets WHERE event_uuid = ?`, eventUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count targets"})
+			return
+		}
+
+		offset := 0
+		limitInt := 10
+		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
+			limitInt = l
+		}
+		if p, err := strconv.Atoi(page); err == nil && p > 0 {
+			offset = (p - 1) * limitInt
+		}
+
 		var targets []Target
-		err = db.Select(&targets, `
+		err = db.Select(&targets, fmt.Sprintf(`
 			SELECT 
 				t.uuid,
 				t.target_number,
@@ -357,8 +377,9 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 				t.updated_at
 			FROM event_targets t
 			WHERE t.event_uuid = ?
-			ORDER BY t.target_number ASC
-		`, eventUUID)
+			ORDER BY CAST(t.target_number AS UNSIGNED) ASC
+			LIMIT %d OFFSET %d
+		`, limitInt, offset), eventUUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
@@ -371,7 +392,9 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"targets": targets,
-			"count":   len(targets),
+			"total":   total,
+			"page":    page,
+			"limit":   limit,
 		})
 	}
 }
