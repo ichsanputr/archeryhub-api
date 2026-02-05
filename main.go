@@ -234,6 +234,7 @@ func main() {
 			elimination.GET("/brackets", handler.GetBrackets(db))
 			elimination.POST("/brackets", middleware.AuthMiddleware(), handler.CreateBracket(db))
 			elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
+			elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), handler.UpdateBracket(db))
 			elimination.DELETE("/brackets/:bracketId", middleware.AuthMiddleware(), handler.DeleteBracket(db))
 			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), handler.GenerateBracket(db))
 			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), handler.UpdateMatchTargets(db))
