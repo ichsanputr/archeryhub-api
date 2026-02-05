@@ -192,6 +192,10 @@ func main() {
 			events.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
 			events.POST("/participants/reregister", handler.ReregisterParticipant(db))
 
+			// Public Results endpoints
+			events.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
+			events.GET("/:id/results/elimination", handler.GetPublicEliminationResults(db))
+
 			// Protected Event routes (require authentication)
 			protected := events.Group("")
 			protected.Use(middleware.AuthMiddleware())
