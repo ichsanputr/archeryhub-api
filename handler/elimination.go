@@ -154,21 +154,24 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get matches grouped by round
 		type Match struct {
-			UUID            string  `json:"id" db:"uuid"`
-			RoundNo         int     `json:"round_no" db:"round_no"`
-			MatchNo         int     `json:"match_no" db:"match_no"`
-			EntryAUUID      *string `json:"entry_a_id" db:"entry_a_uuid"`
-			EntryBUUID      *string `json:"entry_b_id" db:"entry_b_uuid"`
-			EntryAName      *string `json:"entry_a_name" db:"entry_a_name"`
-			EntryBName      *string `json:"entry_b_name" db:"entry_b_name"`
-			EntryASeed      *int    `json:"entry_a_seed" db:"entry_a_seed"`
-			EntryBSeed      *int    `json:"entry_b_seed" db:"entry_b_seed"`
-			WinnerEntryUUID *string `json:"winner_entry_id" db:"winner_entry_uuid"`
-			IsBye           bool    `json:"is_bye" db:"is_bye"`
-			ScheduledAt     *string `json:"scheduled_at" db:"scheduled_at"`
-			TargetUUID      *string `json:"target_id" db:"target_uuid"`
-			TargetNumber    *string `json:"target_number" db:"target_number"`
-			TargetName      *string `json:"target_name" db:"target_name"`
+			UUID            string     `json:"id" db:"uuid"`
+			RoundNo         int        `json:"round_no" db:"round_no"`
+			MatchNo         int        `json:"match_no" db:"match_no"`
+			EntryAUUID      *string    `json:"entry_a_id" db:"entry_a_uuid"`
+			EntryBUUID      *string    `json:"entry_b_id" db:"entry_b_uuid"`
+			EntryAName      *string    `json:"entry_a_name" db:"entry_a_name"`
+			EntryBName      *string    `json:"entry_b_name" db:"entry_b_name"`
+			EntryASeed      *int       `json:"entry_a_seed" db:"entry_a_seed"`
+			EntryBSeed      *int       `json:"entry_b_seed" db:"entry_b_seed"`
+			WinnerEntryUUID *string    `json:"winner_entry_id" db:"winner_entry_uuid"`
+			Status          string     `json:"status" db:"status"`
+			IsBye           bool       `json:"is_bye" db:"is_bye"`
+			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
+			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
+			TargetNumber    *string    `json:"target_number" db:"target_number"`
+			TargetName      *string    `json:"target_name" db:"target_name"`
+			ScoreA          int        `json:"score_a"`
+			ScoreB          int        `json:"score_b"`
 		}
 
 		var matches []Match
@@ -185,7 +188,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				END as entry_b_name,
 				eeA.seed as entry_a_seed,
 				eeB.seed as entry_b_seed,
-				em.winner_entry_uuid, em.is_bye, em.scheduled_at,
+				em.winner_entry_uuid, em.status, em.is_bye, em.scheduled_at,
 				em.target_uuid, et.target_number, et.target_name
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
@@ -201,6 +204,37 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		if matches == nil {
 			matches = []Match{}
+		}
+
+		// Fetch scores for all matches
+		type MatchScore struct {
+			MatchUUID string `db:"match_uuid"`
+			Side      string `db:"side"`
+			Total     int    `db:"total"`
+		}
+		var scores []MatchScore
+		db.Select(&scores, `
+			SELECT match_uuid, side, SUM(end_total) as total
+			FROM elimination_match_ends
+			WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
+			GROUP BY match_uuid, side
+		`, bracketUUID)
+
+		// Create a map for quick lookup
+		scoreMap := make(map[string]map[string]int)
+		for _, s := range scores {
+			if scoreMap[s.MatchUUID] == nil {
+				scoreMap[s.MatchUUID] = make(map[string]int)
+			}
+			scoreMap[s.MatchUUID][s.Side] = s.Total
+		}
+
+		// Assign scores to matches
+		for i := range matches {
+			if scoreMap[matches[i].UUID] != nil {
+				matches[i].ScoreA = scoreMap[matches[i].UUID]["A"]
+				matches[i].ScoreB = scoreMap[matches[i].UUID]["B"]
+			}
 		}
 
 		// Group matches by round
@@ -682,26 +716,29 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 		matchID := c.Param("matchId")
 
 		type Match struct {
-			UUID            string  `json:"id" db:"uuid"`
-			BracketUUID     string  `json:"bracket_id" db:"bracket_uuid"`
-			RoundNo         int     `json:"round_no" db:"round_no"`
-			MatchNo         int     `json:"match_no" db:"match_no"`
-			EntryAUUID      *string `json:"entry_a_id" db:"entry_a_uuid"`
-			EntryBUUID      *string `json:"entry_b_id" db:"entry_b_uuid"`
-			WinnerEntryUUID *string `json:"winner_entry_id" db:"winner_entry_uuid"`
-			IsBye           bool    `json:"is_bye" db:"is_bye"`
-			ScheduledAt     *string `json:"scheduled_at" db:"scheduled_at"`
-			Format          string  `json:"format" db:"format"`
+			UUID            string     `json:"id" db:"uuid"`
+			BracketUUID     string     `json:"bracket_id" db:"bracket_uuid"`
+			RoundNo         int        `json:"round_no" db:"round_no"`
+			MatchNo         int        `json:"match_no" db:"match_no"`
+			EntryAUUID      *string    `json:"entry_a_id" db:"entry_a_uuid"`
+			EntryBUUID      *string    `json:"entry_b_id" db:"entry_b_uuid"`
+			WinnerEntryUUID *string    `json:"winner_entry_id" db:"winner_entry_uuid"`
+			Status          string     `json:"status" db:"status"`
+			IsBye           bool       `json:"is_bye" db:"is_bye"`
+			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
+			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
+			Format          string     `json:"format" db:"format"`
 		}
 
 		var match Match
-		err := db.Get(&match, `
+		err := db.Unsafe().Get(&match, `
 			SELECT em.*, eb.format 
 			FROM elimination_matches em
 			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
 			WHERE em.uuid = ?
 		`, matchID)
-		if err != nil {
+			if err != nil {
+			logrus.WithError(err).WithField("match_id", matchID).Error("Failed to fetch match details")
 			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
 			return
 		}
@@ -912,7 +949,7 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// FinishMatch marks a match as finished and advances winner
+// FinishMatch marks a match as finished and advances winner to next round
 func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -934,12 +971,19 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 			MatchNo     int     `db:"match_no"`
 			EntryAUUID  *string `db:"entry_a_uuid"`
 			EntryBUUID  *string `db:"entry_b_uuid"`
+			Status      string  `db:"status"`
 		}
 
 		var match MatchInfo
-		err := db.Get(&match, `SELECT uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid FROM elimination_matches WHERE uuid = ?`, matchID)
+		err := db.Get(&match, `SELECT uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status FROM elimination_matches WHERE uuid = ?`, matchID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+
+		// Check if match is already finished
+		if match.Status == "finished" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Match is already finished"})
 			return
 		}
 
@@ -957,19 +1001,20 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Update match
-		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ? WHERE uuid = ?`, req.WinnerEntryID, matchID)
+		// Update match with winner and status
+		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished' WHERE uuid = ?`, req.WinnerEntryID, matchID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match"})
 			return
 		}
 
-		// Advance winner to next round
-		// Find next round match
+		// Get bracket info for round calculation
 		var bracketSize int
 		tx.Get(&bracketSize, `SELECT bracket_size FROM elimination_brackets WHERE uuid = ?`, match.BracketUUID)
 
 		numRounds := int(math.Log2(float64(bracketSize)))
+		
+		// Only advance if not the final round
 		if match.RoundNo < numRounds {
 			// Calculate next match position
 			nextMatchNo := (match.MatchNo + 1) / 2
@@ -981,11 +1026,69 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 				slot = "entry_b_uuid"
 			}
 
-			_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
-				req.WinnerEntryID, match.BracketUUID, nextRound, nextMatchNo)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to advance winner"})
-				return
+			// Check if the next round match exists
+			var nextMatchExists int
+			tx.Get(&nextMatchExists, `SELECT COUNT(*) FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, 
+				match.BracketUUID, nextRound, nextMatchNo)
+
+			if nextMatchExists > 0 {
+				// Update existing next round match
+				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
+					req.WinnerEntryID, match.BracketUUID, nextRound, nextMatchNo)
+				if err != nil {
+					logrus.WithError(err).Error("Failed to advance winner to existing match")
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to advance winner"})
+					return
+				}
+			} else {
+				// Find the pair match (if match_no is odd, pair is match_no+1; if even, pair is match_no-1)
+				var pairMatchNo int
+				if match.MatchNo%2 == 1 {
+					pairMatchNo = match.MatchNo + 1
+				} else {
+					pairMatchNo = match.MatchNo - 1
+				}
+
+				// Check if pair match is finished
+				var pairMatch struct {
+					Status          string  `db:"status"`
+					WinnerEntryUUID *string `db:"winner_entry_uuid"`
+				}
+				pairErr := tx.Get(&pairMatch, `SELECT status, winner_entry_uuid FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
+					match.BracketUUID, match.RoundNo, pairMatchNo)
+
+				// If pair match exists and is finished, create the next round match
+				if pairErr == nil && pairMatch.Status == "finished" && pairMatch.WinnerEntryUUID != nil {
+					// Determine entry positions for next match
+					var entryA, entryB string
+					if match.MatchNo%2 == 1 {
+						// Current match is odd, so current winner goes to A, pair winner to B
+						entryA = req.WinnerEntryID
+						entryB = *pairMatch.WinnerEntryUUID
+					} else {
+						// Current match is even, so pair winner goes to A, current winner to B
+						entryA = *pairMatch.WinnerEntryUUID
+						entryB = req.WinnerEntryID
+					}
+
+					// Create the next round match
+					nextMatchUUID := uuid.New().String()
+					_, err = tx.Exec(`INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+						nextMatchUUID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
+					if err != nil {
+						logrus.WithError(err).Error("Failed to create next round match")
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create next round match"})
+						return
+					}
+
+					logrus.WithFields(logrus.Fields{
+						"next_match_uuid": nextMatchUUID,
+						"round":           nextRound,
+						"match_no":        nextMatchNo,
+						"entry_a":         entryA,
+						"entry_b":         entryB,
+					}).Info("Created next round match")
+				}
 			}
 		}
 
@@ -994,7 +1097,234 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Match finished and winner advanced"})
+		c.JSON(http.StatusOK, gin.H{
+			"message":          "Match finished and winner advanced",
+			"winner_entry_id":  req.WinnerEntryID,
+			"match_status":     "finished",
+		})
+	}
+}
+
+// EndMatch calculates winner from scores and finishes the match
+func EndMatch(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		matchID := c.Param("matchId")
+
+		// Get match info including bracket format
+		type MatchInfo struct {
+			UUID        string  `db:"uuid"`
+			BracketUUID string  `db:"bracket_uuid"`
+			RoundNo     int     `db:"round_no"`
+			MatchNo     int     `db:"match_no"`
+			EntryAUUID  *string `db:"entry_a_uuid"`
+			EntryBUUID  *string `db:"entry_b_uuid"`
+			Status      string  `db:"status"`
+			Format      string  `db:"format"`
+		}
+
+		var match MatchInfo
+		err := db.Get(&match, `
+			SELECT em.uuid, em.bracket_uuid, em.round_no, em.match_no, 
+					em.entry_a_uuid, em.entry_b_uuid, em.status, eb.format 
+			FROM elimination_matches em
+			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
+			WHERE em.uuid = ?`, matchID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+
+		if match.Status == "finished" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Match is already finished"})
+			return
+		}
+
+		// Calculate scores from ends
+		type EndScore struct {
+			Side     string `db:"side"`
+			TotalEnd int    `db:"total_end"`
+		}
+		var ends []EndScore
+		err = db.Select(&ends, `
+			SELECT side, SUM(end_total) as total_end 
+			FROM elimination_match_ends 
+			WHERE match_uuid = ? 
+			GROUP BY side`, matchID)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch end scores")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate scores"})
+			return
+		}
+
+		var totalA, totalB int
+		for _, e := range ends {
+			if e.Side == "A" {
+				totalA = e.TotalEnd
+			} else if e.Side == "B" {
+				totalB = e.TotalEnd
+			}
+		}
+
+		// For set system (recurve), calculate set points
+		if match.Format == "recurve_set" {
+			type SetEnd struct {
+				EndNo  int `db:"end_no"`
+				Side   string `db:"side"`
+				Total  int    `db:"end_total"`
+			}
+			var setEnds []SetEnd
+			db.Select(&setEnds, `
+				SELECT end_no, side, end_total 
+				FROM elimination_match_ends 
+				WHERE match_uuid = ? 
+				ORDER BY end_no, side`, matchID)
+
+			// Group by end_no
+			endTotals := make(map[int]map[string]int)
+			for _, se := range setEnds {
+				if endTotals[se.EndNo] == nil {
+					endTotals[se.EndNo] = make(map[string]int)
+				}
+				endTotals[se.EndNo][se.Side] = se.Total
+			}
+
+			// Calculate set points
+			totalA, totalB = 0, 0
+			for _, sides := range endTotals {
+				scoreA := sides["A"]
+				scoreB := sides["B"]
+				if scoreA > scoreB {
+					totalA += 2
+				} else if scoreB > scoreA {
+					totalB += 2
+				} else {
+					totalA += 1
+					totalB += 1
+				}
+			}
+		}
+
+		// Determine winner
+		var winnerID string
+		if totalA > totalB {
+			if match.EntryAUUID != nil {
+				winnerID = *match.EntryAUUID
+			}
+		} else if totalB > totalA {
+			if match.EntryBUUID != nil {
+				winnerID = *match.EntryBUUID
+			}
+		} else {
+			// Tie - for now, we'll require higher score to win
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Match is tied. Cannot determine winner."})
+			return
+		}
+
+		if winnerID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot determine winner"})
+			return
+		}
+
+		// Start transaction
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Update match with winner and status
+		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished' WHERE uuid = ?`, winnerID, matchID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match"})
+			return
+		}
+
+		// Advance winner to next round (reuse logic from FinishMatch)
+		var bracketSize int
+		tx.Get(&bracketSize, `SELECT bracket_size FROM elimination_brackets WHERE uuid = ?`, match.BracketUUID)
+
+		numRounds := int(math.Log2(float64(bracketSize)))
+		if match.RoundNo < numRounds {
+			nextMatchNo := (match.MatchNo + 1) / 2
+			nextRound := match.RoundNo + 1
+
+			slot := "entry_a_uuid"
+			if match.MatchNo%2 == 0 {
+				slot = "entry_b_uuid"
+			}
+
+			var nextMatchExists int
+			tx.Get(&nextMatchExists, `SELECT COUNT(*) FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
+				match.BracketUUID, nextRound, nextMatchNo)
+
+			if nextMatchExists > 0 {
+				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
+					winnerID, match.BracketUUID, nextRound, nextMatchNo)
+				if err != nil {
+					logrus.WithError(err).Error("Failed to advance winner")
+				}
+			} else {
+				// Check pair match
+				var pairMatchNo int
+				if match.MatchNo%2 == 1 {
+					pairMatchNo = match.MatchNo + 1
+				} else {
+					pairMatchNo = match.MatchNo - 1
+				}
+
+				var pairMatch struct {
+					Status          string  `db:"status"`
+					WinnerEntryUUID *string `db:"winner_entry_uuid"`
+				}
+				pairErr := tx.Get(&pairMatch, `SELECT status, winner_entry_uuid FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
+					match.BracketUUID, match.RoundNo, pairMatchNo)
+
+				if pairErr == nil && pairMatch.Status == "finished" && pairMatch.WinnerEntryUUID != nil {
+					var entryA, entryB string
+					if match.MatchNo%2 == 1 {
+						entryA = winnerID
+						entryB = *pairMatch.WinnerEntryUUID
+					} else {
+						entryA = *pairMatch.WinnerEntryUUID
+						entryB = winnerID
+					}
+
+					nextMatchUUID := uuid.New().String()
+					tx.Exec(`INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+						nextMatchUUID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
+
+					logrus.WithFields(logrus.Fields{
+						"next_match_uuid": nextMatchUUID,
+						"round":           nextRound,
+						"match_no":        nextMatchNo,
+					}).Info("Created next round match from EndMatch")
+				}
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit"})
+			return
+		}
+
+		// Get winner name for response
+		var winnerName string
+		db.Get(&winnerName, `
+			SELECT COALESCE(a.full_name, t.team_name, 'Unknown') 
+			FROM elimination_entries ee
+			LEFT JOIN archers a ON ee.archer_uuid = a.uuid
+			LEFT JOIN teams t ON ee.team_uuid = t.uuid
+			WHERE ee.uuid = ?`, winnerID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":         "Match ended",
+			"winner_entry_id": winnerID,
+			"winner_name":     winnerName,
+			"score_a":         totalA,
+			"score_b":         totalB,
+			"match_status":    "finished",
+		})
 	}
 }
 

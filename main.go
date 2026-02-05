@@ -241,6 +241,7 @@ func main() {
 			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
 			elimination.POST("/brackets/:bracketId/matches/:matchId/score", middleware.AuthMiddleware(), handler.UpdateMatchScore(db))
 			elimination.POST("/brackets/:bracketId/matches/:matchId/finish", middleware.AuthMiddleware(), handler.FinishMatch(db))
+			elimination.POST("/brackets/:bracketId/matches/:matchId/end", middleware.AuthMiddleware(), handler.EndMatch(db))
 		}
 
 		qualSessions := api.Group("/qualification/sessions/:sessionId")
