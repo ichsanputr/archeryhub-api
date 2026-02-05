@@ -320,16 +320,11 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if bracket exists and its status
-		var status string
-		err := db.Get(&status, `SELECT status FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		// Check if bracket exists
+		var exists int
+		err := db.Get(&exists, `SELECT 1 FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
-			return
-		}
-
-		if status != "draft" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot update bracket that is already generated or running. Please delete and recreate if needed."})
 			return
 		}
 
