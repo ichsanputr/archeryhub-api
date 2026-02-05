@@ -339,6 +339,7 @@ func main() {
 			{
 				protectedTeams.GET("/my", handler.GetMyTeams(db))
 				protectedTeams.POST("/event/:eventId", handler.CreateTeam(db))
+				protectedTeams.POST("/event/:eventId/sync", handler.SyncTeams(db))
 			}
 
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
