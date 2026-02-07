@@ -602,6 +602,11 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				te.uuid as id, te.event_id, 
 				te.max_participants, te.status, te.created_at,
+				CASE 
+					WHEN et.code = 'mixed_team' THEN 2 
+					WHEN et.code = 'team' THEN 3 
+					ELSE 1 
+				END as team_size,
 				d.name as division_name, d.uuid as division_id,
 				c.name as category_name, c.uuid as category_id,
 				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
@@ -711,15 +716,16 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			TargetName         *string `db:"target_name" json:"target_name"`
 			QRRaw              *string `db:"qr_raw" json:"qr_raw"`
 			Status             string  `db:"status" json:"status"`
-			AvatarURL          *string `db:"avatar_url" json:"avatar_url"`
-			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
+			AvatarURL            *string `db:"avatar_url" json:"avatar_url"`
+			RegistrationDate     string  `db:"registration_date" json:"registration_date"`
+			LastReregistrationAt *string `db:"last_reregistration_at" json:"last_reregistration_at"`
 		}
 
 		var participants []Participant
 		query := `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_name, tp.qr_raw,
-				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date,
+				COALESCE(tp.status, 'Menunggu Acc') as status, tp.registration_date, tp.last_reregistration_at,
 				a.id as athlete_code,
 				a.username as username,
 				a.full_name as full_name,
@@ -1568,17 +1574,12 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Enforce requirements
-		teamSize := 1
 		if eventTypeCode == "mixed_team" {
-			teamSize = 2
 			if req.GenderDivisionUUID == "" {
 				var mixedUUID string
 				db.Get(&mixedUUID, "SELECT uuid FROM ref_gender_divisions WHERE code = 'mixed'")
 				req.GenderDivisionUUID = mixedUUID
 			}
-		} else if eventTypeCode == "team" {
-			teamSize = 3
 		}
 
 		// Check if event exists
@@ -1657,7 +1658,6 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// Enforce requirements
 		if eventTypeCode == "mixed_team" {
-			req.TeamSize = 2
 			// For mixed team, force mixed gender
 			var mixedUUID string
 			err = db.Get(&mixedUUID, "SELECT uuid FROM ref_gender_divisions WHERE code = 'mixed'")
@@ -1668,11 +1668,6 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 		} else {
-			if eventTypeCode == "team" {
-				req.TeamSize = 3
-			} else {
-				req.TeamSize = 1
-			}
 
 			// Individual or Team must have a specific gender (Men/Women)
 			if req.GenderDivisionUUID == "" {
@@ -1768,9 +1763,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			var eventTypeCode string
 			err := db.Get(&eventTypeCode, "SELECT code FROM ref_event_types WHERE uuid = ?", *req.EventTypeUUID)
 			if err == nil {
-				teamSize := 1
 				if eventTypeCode == "mixed_team" {
-					teamSize = 2
 					if req.GenderDivisionUUID == nil || *req.GenderDivisionUUID == "" {
 						var mixedUUID string
 						db.Get(&mixedUUID, "SELECT uuid FROM ref_gender_divisions WHERE code = 'mixed'")
@@ -1778,10 +1771,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 							req.GenderDivisionUUID = &mixedUUID
 						}
 					}
-				} else if eventTypeCode == "team" {
-					teamSize = 3
 				}
-				req.TeamSize = &teamSize
 			}
 		}
 

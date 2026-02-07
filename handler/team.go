@@ -709,7 +709,17 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			TeamSize     int    `db:"team_size"`
 		}
 		err = db.Get(&catInfo, `
-			SELECT ec.event_type_uuid, ret.code as type_code, ec.division_uuid, ec.category_uuid, rbt.name as division_name, ec.team_size
+			SELECT 
+				ec.event_type_uuid, 
+				ret.code as type_code, 
+				ec.division_uuid, 
+				ec.category_uuid, 
+				rbt.name as division_name, 
+				CASE 
+					WHEN ret.code = 'mixed_team' THEN 2 
+					WHEN ret.code = 'team' THEN 3 
+					ELSE 1 
+				END as team_size
 			FROM event_categories ec
 			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
 			JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
