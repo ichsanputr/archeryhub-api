@@ -38,10 +38,18 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 1. Get team_size from category
+		// 1. Get team_size based on event type
 		var teamSize int
-		err = db.Get(&teamSize, "SELECT team_size FROM event_categories WHERE uuid = ?", req.CategoryID)
-		if err != nil || teamSize <= 0 {
+		err = db.Get(&teamSize, `
+			SELECT CASE 
+				WHEN ret.code = 'mixed_team' THEN 2 
+				WHEN ret.code = 'team' THEN 3 
+				ELSE 1 
+			END as team_size
+			FROM event_categories ec
+			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			WHERE ec.uuid = ?`, req.CategoryID)
+		if err != nil {
 			teamSize = 3 // Fallback
 		}
 
@@ -230,7 +238,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		var members []models.TeamMemberWithDetails
 		err = db.Select(&members, `
-			SELECT tm.*, COALESCE(a.full_name, '') as full_name, tp.target_number as back_number, COALESCE(a.city, '') as city
+			SELECT tm.*, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, COALESCE(a.city, '') as city
 			FROM team_members tm
 			JOIN event_participants tp ON tm.participant_id = tp.uuid
 			LEFT JOIN archers a ON tp.archer_id = a.uuid

@@ -513,7 +513,6 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			UUID           string  `json:"uuid" db:"uuid"`
 			ArcherUUID     string  `json:"archer_uuid" db:"archer_uuid"`
 			TargetUUID     string  `json:"target_uuid" db:"target_uuid"`
-			TargetNumber   string  `json:"target_number" db:"target_number"`
 			TargetName     string  `json:"target_name" db:"target_name"`
 			TargetPosition string  `json:"target_position" db:"target_position"`
 			ArcherName     string  `json:"archer_name" db:"archer_name"`
@@ -526,7 +525,6 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 				qta.uuid,
 				qta.archer_uuid,
 				qta.target_uuid,
-				et.target_number,
 				et.target_name,
 				qta.target_position,
 				a.full_name as archer_name,
@@ -536,7 +534,7 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE qta.session_uuid = ?
-			ORDER BY CAST(et.target_number AS UNSIGNED) ASC, et.target_name ASC, qta.target_position ASC
+			ORDER BY et.target_name ASC, qta.target_position ASC
 		`, sessionID)
 
 		if err != nil {
@@ -555,7 +553,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			CategoryID       string `json:"category_id" binding:"required"`
-			StartTargetUUID  string `json:"start_target_uuid" binding:"required"`
+			StartTargetName  string `json:"start_target"`
 			ArchersPerTarget int    `json:"archers_per_target"`
 		}
 
@@ -578,15 +576,15 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get available targets for this event starting from the specified target
 		type Target struct {
-			UUID         string `db:"uuid"`
-			TargetNumber string `db:"target_number"`
+			UUID       string `db:"uuid"`
+			TargetName string `db:"target_name"`
 		}
 		var targets []Target
 		err = db.Select(&targets, `
-			SELECT uuid, target_number
+			SELECT uuid, target_name
 			FROM event_targets
 			WHERE event_uuid = ?
-			ORDER BY CAST(target_number AS UNSIGNED) ASC, target_name ASC
+			ORDER BY target_name ASC
 		`, eventUUID)
 
 		if err != nil || len(targets) == 0 {
@@ -620,6 +618,14 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		// Assign participants to targets
 		positions := []string{"A", "B", "C", "D"}
 		targetIndex := 0
+		if req.StartTargetName != "" {
+			for i, t := range targets {
+				if t.TargetName == req.StartTargetName || t.TargetName == "Target "+req.StartTargetName {
+					targetIndex = i
+					break
+				}
+			}
+		}
 		positionIndex := 0
 
 		for _, participant := range participants {

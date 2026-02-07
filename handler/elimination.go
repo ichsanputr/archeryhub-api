@@ -168,7 +168,6 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			IsBye           bool       `json:"is_bye" db:"is_bye"`
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
-			TargetNumber    *string    `json:"target_number" db:"target_number"`
 			TargetName      *string    `json:"target_name" db:"target_name"`
 			ScoreA          int        `json:"score_a"`
 			ScoreB          int        `json:"score_b"`
@@ -189,7 +188,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				eeA.seed as entry_a_seed,
 				eeB.seed as entry_b_seed,
 				em.winner_entry_uuid, em.status, em.is_bye, em.scheduled_at,
-				em.target_uuid, et.target_number, et.target_name
+				em.target_uuid, et.target_name
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid

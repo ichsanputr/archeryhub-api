@@ -29,7 +29,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 				SessionID    string `db:"session_id" json:"session_id"`
 				SessionName  string `db:"session_name" json:"session_name"`
 				SessionOrder int    `db:"session_order" json:"session_order"`
-				TargetNumber string `db:"target_number" json:"target_number"`
+				TargetName   string `db:"target_name" json:"target_name"`
 				CardName     string `db:"card_name" json:"card_name"`
 			}
 
@@ -37,7 +37,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 			err := db.Select(&rows, `
 				SELECT
 					CONCAT(qs.uuid, '-', et.uuid) as id,
-					CONCAT(qs.name, ' - ', et.target_number, et.target_name, 
+					CONCAT(qs.name, ' - ', et.target_name, 
 						COALESCE(CONCAT(' [', (
 							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') ORDER BY qta2.target_position SEPARATOR ', ')
 							FROM qualification_target_assignments qta2
@@ -48,12 +48,13 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 					qs.uuid as session_id,
 					qs.name as session_name,
 					0 as session_order,
-					et.target_number,
-					CONCAT(et.target_number, et.target_name) as card_name
+					0 as session_order,
+					et.target_name,
+					et.target_name as card_name
 				FROM qualification_sessions qs
 				JOIN event_targets et ON et.event_uuid = qs.event_uuid
 				WHERE qs.event_uuid = (SELECT event_id FROM event_categories WHERE uuid = ?)
-				ORDER BY qs.created_at ASC, CAST(et.target_number AS UNSIGNED) ASC, et.target_name ASC
+				ORDER BY qs.created_at ASC, et.target_name ASC
 			`, categoryID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring cards"})
@@ -68,20 +69,20 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetScoringTargets returns scoring progress for a selected card (target_number) in a session.
+// GetScoringTargets returns scoring progress for a selected target name in a session.
 // Qualification-only for now.
 func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")
 		sessionID := c.Query("session_id")
-		targetNumberStr := c.Query("target_number")
+		targetNameStr := c.Query("target_name")
 
-		if phase == "" || sessionID == "" || targetNumberStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "phase, session_id, and target_number are required"})
+		if phase == "" || sessionID == "" || targetNameStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phase, session_id, and target_name are required"})
 			return
 		}
 
-		targetNumber := targetNumberStr
+		targetName := targetNameStr
 
 		if phase != "qualification" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported phase"})
@@ -91,14 +92,14 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		// Resolve target name from event_targets
 		cardName := ""
 		_ = db.Get(&cardName, `
-			SELECT CONCAT(et.target_number, et.target_name)
+			SELECT et.target_name
 			FROM event_targets et
 			JOIN qualification_sessions qs ON qs.event_uuid = et.event_uuid
-			WHERE qs.uuid = ? AND et.target_number = ?
+			WHERE qs.uuid = ? AND et.target_name = ?
 			LIMIT 1
-		`, sessionID, targetNumber)
+		`, sessionID, targetName)
 		if cardName == "" {
-			cardName = "Target " + targetNumber
+			cardName = "Target " + targetName
 		}
 
 		// Compute total ends for the event (fallback 12)
@@ -144,10 +145,10 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.archer_uuid = a.uuid AND qes.session_uuid = qta.session_uuid
-			WHERE qta.session_uuid = ? AND et.target_number = ?
+			WHERE qta.session_uuid = ? AND et.target_name = ?
 			GROUP BY qta.uuid, qta.archer_uuid, qta.target_position, a.full_name, bt.name, ag.name
 			ORDER BY qta.target_position ASC
-		`, sessionID, sessionID, targetNumber)
+		`, sessionID, sessionID, targetName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring targets"})
 			return
@@ -170,9 +171,9 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"targets": []gin.H{
 				{
-					"id":             sessionID + "-" + targetNumber,
-					"target_number":  targetNumber,
-					"target_name":    cardName,
+					"id":             sessionID + "-" + targetName,
+					"target_name":    targetName,
+					"display_name":   cardName,
 					"status":         status,
 					"completed_ends": completed,
 					"total_ends":     totalEnds,
