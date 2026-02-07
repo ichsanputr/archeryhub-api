@@ -29,9 +29,9 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 		teamID := uuid.New().String()
 
 		_, err := db.Exec(`
-			INSERT INTO teams (uuid, tournament_id, event_id, team_name, country_code, country_name, status)
-			VALUES (?, ?, ?, ?, ?, ?, 'active')
-		`, teamID, eventID, req.CategoryID, req.TeamName, req.CountryCode, req.CountryName)
+			INSERT INTO teams (uuid, tournament_id, event_id, team_name, status)
+			VALUES (?, ?, ?, ?, 'active')
+		`, teamID, eventID, req.CategoryID, req.TeamName)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create team"})
@@ -57,9 +57,9 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 		for i, participantID := range req.MemberIDs {
 			memberID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO team_members (uuid, team_id, participant_id, member_order, is_substitute)
-				VALUES (?, ?, ?, ?, ?)
-			`, memberID, teamID, participantID, i+1, i >= teamSize) 
+				INSERT INTO team_members (uuid, team_id, participant_id, member_order)
+				VALUES (?, ?, ?, ?)
+			`, memberID, teamID, participantID, i+1) 
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add team member"})
@@ -119,13 +119,13 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		// Build response with members for each team
 		type MemberInfo struct {
-			UUID        string `json:"id" db:"uuid"`
-			FullName    string `json:"full_name" db:"full_name"`
-			ClubName    string `json:"club_name" db:"club_name"`
-			TotalScore  int    `json:"total_score" db:"total_score"`
-			TotalX      int    `json:"total_x" db:"total_x"`
-			MemberOrder int    `json:"member_order" db:"member_order"`
-			IsSubstitute bool  `json:"is_substitute" db:"is_substitute"`
+			UUID          string `json:"id" db:"uuid"`
+			ParticipantID string `json:"participant_id" db:"participant_id"`
+			FullName      string `json:"full_name" db:"full_name"`
+			ClubName      string `json:"club_name" db:"club_name"`
+			TotalScore    int    `json:"total_score" db:"total_score"`
+			TotalX        int    `json:"total_x" db:"total_x"`
+			MemberOrder   int    `json:"member_order" db:"member_order"`
 		}
 
 		type TeamWithMembers struct {
@@ -139,18 +139,19 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 			db.Select(&members, `
 				SELECT 
 					tm.uuid,
+					ep.uuid as participant_id,
 					COALESCE(a.full_name, '') as full_name,
-					COALESCE(c.name, 'Independen') as club_name,
+					COALESCE(cl.name, 'Independen') as club_name,
 					COALESCE(SUM(qes.total_score_end), 0) as total_score,
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
-					tm.member_order,
-					tm.is_substitute
+					tm.member_order
 				FROM team_members tm
-				LEFT JOIN archers a ON tm.participant_id = a.uuid
-				LEFT JOIN clubs c ON a.club_id = c.uuid
+				JOIN event_participants ep ON tm.participant_id = ep.uuid
+				LEFT JOIN archers a ON ep.archer_id = a.uuid
+				LEFT JOIN clubs cl ON a.club_id = cl.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.archer_uuid = a.uuid
 				WHERE tm.team_id = ?
-				GROUP BY tm.uuid, a.full_name, c.name, tm.member_order, tm.is_substitute
+				GROUP BY tm.uuid, ep.uuid, a.full_name, cl.name, tm.member_order
 				ORDER BY tm.member_order ASC
 			`, team.UUID)
 
@@ -238,7 +239,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		var members []models.TeamMemberWithDetails
 		err = db.Select(&members, `
-			SELECT tm.*, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, COALESCE(a.city, '') as city
+			SELECT tm.uuid, tm.team_id, tm.participant_id, tm.member_order, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, COALESCE(a.city, '') as city
 			FROM team_members tm
 			JOIN event_participants tp ON tm.participant_id = tp.uuid
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
@@ -367,7 +368,6 @@ func GetTeamRankings(db *sqlx.DB) gin.HandlerFunc {
 				ROW_NUMBER() OVER (ORDER BY t.total_score DESC, t.total_x_count DESC) as rank,
 				t.uuid as team_id,
 				t.team_name,
-				t.country_code,
 				t.total_score,
 				t.total_x_count
 			FROM teams t
@@ -898,3 +898,121 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Sync completed", "count": syncCount})
 	}
 }
+
+// UpdateTeam updates a team's details and members
+func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		teamID := c.Param("teamId")
+		userID, _ := c.Get("user_id")
+
+		var req models.CreateTeamRequest // Reuse CreateTeamRequest for update
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Update team basic info
+		_, err = tx.Exec(`
+			UPDATE teams SET team_name = ?, event_id = ?
+			WHERE uuid = ?
+		`, req.TeamName, req.CategoryID, teamID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update team info"})
+			return
+		}
+
+		// 2. Delete existing members
+		_, err = tx.Exec("DELETE FROM team_members WHERE team_id = ?", teamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset team members"})
+			return
+		}
+
+		// 3. Get team_size based on event type
+		var teamSize int
+		err = tx.Get(&teamSize, `
+			SELECT CASE 
+				WHEN ret.code = 'mixed_team' THEN 2 
+				WHEN ret.code = 'team' THEN 3 
+				ELSE 1 
+			END as team_size
+			FROM event_categories ec
+			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			WHERE ec.uuid = ?`, req.CategoryID)
+		if err != nil {
+			teamSize = 3 // Fallback
+		}
+
+		// 4. Add new members
+		for i, participantID := range req.MemberIDs {
+			memberID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO team_members (uuid, team_id, participant_id, member_order)
+				VALUES (?, ?, ?, ?)
+			`, memberID, teamID, participantID, i+1)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add team member"})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit changes"})
+			return
+		}
+
+		utils.LogActivity(db, userID.(string), "", "team_updated", "team", teamID, 
+			fmt.Sprintf("Updated team: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Team updated successfully"})
+	}
+}
+
+// DeleteTeam deletes a team and its members
+func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		teamID := c.Param("teamId")
+		userID, _ := c.Get("user_id")
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Delete members
+		_, err = tx.Exec("DELETE FROM team_members WHERE team_id = ?", teamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete team members"})
+			return
+		}
+
+		// 2. Delete team
+		_, err = tx.Exec("DELETE FROM teams WHERE uuid = ?", teamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete team"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit deletion"})
+			return
+		}
+
+		utils.LogActivity(db, userID.(string), "", "team_deleted", "team", teamID, 
+			"Deleted a team", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Team deleted successfully"})
+	}
+}
+

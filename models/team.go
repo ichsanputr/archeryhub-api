@@ -8,8 +8,6 @@ type Team struct {
 	EventID      string    `json:"event_id" db:"tournament_id"`
 	CategoryID   string    `json:"category_id" db:"event_id"`
 	TeamName     string    `json:"team_name" db:"team_name"`
-	CountryCode  string    `json:"country_code" db:"country_code"`
-	CountryName  *string   `json:"country_name" db:"country_name"`
 	TeamRank     *int      `json:"team_rank" db:"team_rank"`
 	TotalScore   int       `json:"total_score" db:"total_score"`
 	TotalXCount  int       `json:"total_x_count" db:"total_x_count"`
@@ -25,7 +23,6 @@ type TeamMember struct {
 	TeamID        string  `json:"team_id" db:"team_id"`
 	ParticipantID string  `json:"participant_id" db:"participant_id"`
 	MemberOrder   int     `json:"member_order" db:"member_order"` // 1, 2, 3 for first, second, third
-	IsSubstitute  bool    `json:"is_substitute" db:"is_substitute"`
 	TotalScore    int     `json:"total_score" db:"total_score"`
 	TotalXCount   int     `json:"total_x_count" db:"total_x_count"`
 }
@@ -65,8 +62,6 @@ type TeamScore struct {
 type CreateTeamRequest struct {
 	CategoryID  string   `json:"category_id" binding:"required"`
 	TeamName    string   `json:"team_name" binding:"required"`
-	CountryCode string   `json:"country_code" binding:"required"`
-	CountryName *string  `json:"country_name"`
 	MemberIDs   []string `json:"member_ids" binding:"required,min=2,max=4"` // Participant IDs
 }
 
@@ -76,7 +71,6 @@ type TeamRanking struct {
 	Rank        int    `json:"rank" db:"rank"`
 	TeamID      string `json:"team_id" db:"team_id"`
 	TeamName    string `json:"team_name" db:"team_name"`
-	CountryCode string `json:"country_code" db:"country_code"`
 	TotalScore  int    `json:"total_score" db:"total_score"`
 	TotalXCount int    `json:"total_x_count" db:"total_x_count"`
 }

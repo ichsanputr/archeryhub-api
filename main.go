@@ -339,6 +339,8 @@ func main() {
 			{
 				protectedTeams.GET("/my", handler.GetMyTeams(db))
 				protectedTeams.POST("/event/:eventId", handler.CreateTeam(db))
+				protectedTeams.PUT("/:teamId", handler.UpdateTeam(db))
+				protectedTeams.DELETE("/:teamId", handler.DeleteTeam(db))
 				protectedTeams.POST("/event/:eventId/sync", handler.SyncTeams(db))
 			}
 
@@ -374,6 +376,7 @@ func main() {
 		clubs := api.Group("/clubs")
 		{
 			// Public club routes
+			clubs.GET("", handler.GetClubs(db))
 			clubs.GET("/availability", handler.CheckSlugAvailability(db))
 			clubs.GET("/profile/:slug", handler.GetClubProfile(db))
 

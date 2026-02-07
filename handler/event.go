@@ -567,6 +567,12 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
+		limitStr := c.DefaultQuery("limit", "10")
+		offsetStr := c.DefaultQuery("offset", "0")
+		bowTypeFilter := c.Query("bow_type")
+
+		limit, _ := strconv.Atoi(limitStr)
+		offset, _ := strconv.Atoi(offsetStr)
 
 		// First, resolve slug to UUID if needed
 		var actualEventID string
@@ -597,8 +603,29 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt          string `db:"created_at" json:"created_at"`
 		}
 
+		whereClause := "WHERE te.event_id = ?"
+		args := []interface{}{actualEventID}
+
+		if bowTypeFilter != "" && bowTypeFilter != "all" {
+			whereClause += " AND d.code = ?"
+			args = append(args, bowTypeFilter)
+		}
+
+		// Get total count
+		var total int
+		err = db.Get(&total, `
+			SELECT COUNT(*) 
+			FROM event_categories te
+			JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			`+whereClause, args...)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count event categories", "details": err.Error()})
+			return
+		}
+
 		var events []EventEvent
-		err = db.Select(&events, `
+		query := `
 			SELECT 
 				te.uuid as id, te.event_id, 
 				te.max_participants, te.status, te.created_at,
@@ -622,9 +649,12 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 				FROM event_participants 
 				GROUP BY category_id
 			) p ON te.uuid = p.category_id
-			WHERE te.event_id = ?
-			ORDER BY d.name, c.name
-		`, actualEventID)
+			` + whereClause + `
+			ORDER BY d.name, c.name, et.name, gd.name
+			LIMIT ? OFFSET ?
+		`
+		args = append(args, limit, offset)
+		err = db.Select(&events, query, args...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event categories", "details": err.Error()})
@@ -633,7 +663,9 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"events": events,
-			"total":  len(events),
+			"total":  total,
+			"limit":  limit,
+			"offset": offset,
 		})
 	}
 }
@@ -645,6 +677,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		limitStr := c.DefaultQuery("limit", "10")
 		offsetStr := c.DefaultQuery("offset", "0")
 		categoryFilter := c.Query("category")
+		categoryIDFilter := c.Query("category_id")
 		searchQuery := c.Query("search")
 
 		limit, _ := strconv.Atoi(limitStr)
@@ -663,8 +696,13 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{actualEventID}
 		countArgs := []interface{}{actualEventID}
 
-		// Filter by category (format: "Division Gender" e.g., "Recurve Men", "Compound Women")
-		if categoryFilter != "" && categoryFilter != "Semua" {
+		// Filter by category_id
+		if categoryIDFilter != "" {
+			whereClause += " AND tp.category_id = ?"
+			args = append(args, categoryIDFilter)
+			countArgs = append(countArgs, categoryIDFilter)
+		} else if categoryFilter != "" && categoryFilter != "Semua" {
+			// Filter by category name (Compatibility)
 			parts := strings.Fields(categoryFilter)
 			if len(parts) >= 2 {
 				divisionName := parts[0]
@@ -719,6 +757,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			AvatarURL            *string `db:"avatar_url" json:"avatar_url"`
 			RegistrationDate     string  `db:"registration_date" json:"registration_date"`
 			LastReregistrationAt *string `db:"last_reregistration_at" json:"last_reregistration_at"`
+			TotalScore           int     `db:"total_score" json:"total_score"`
+			TotalX               int     `db:"total_x" json:"total_x"`
 		}
 
 		var participants []Participant
@@ -735,7 +775,9 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				a.avatar_url as avatar_url,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
-				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
+				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
+				COALESCE(scores.total_score, 0) as total_score,
+				COALESCE(scores.total_x, 0) as total_x
 			FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -744,8 +786,14 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+			LEFT JOIN (
+				SELECT archer_uuid, SUM(total_score_end) as total_score, SUM(x_count_end) as total_x
+				FROM qualification_end_scores
+				GROUP BY archer_uuid
+			) scores ON a.uuid = scores.archer_uuid
 			` + whereClause + `
-			ORDER BY d.name, c.name, a.full_name
+			GROUP BY tp.uuid, a.uuid, cl.uuid, te.uuid, d.uuid, c.uuid, et.uuid, gd.uuid, a.id, a.username, a.full_name, a.email, a.city, a.club_id, a.avatar_url, cl.name, d.name, c.name, et.name, gd.name, scores.total_score, scores.total_x
+			ORDER BY total_score DESC, total_x DESC, a.full_name ASC
 			LIMIT ? OFFSET ?
 		`
 		args = append(args, limit, offset)
