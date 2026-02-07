@@ -23,54 +23,51 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		search := c.Query("search")
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-
-		query := `
-			SELECT 
-				t.*,
-				u.full_name as organizer_name,
-				u.email as organizer_email,
-				u.slug as organizer_slug,
-				u.avatar_url as organizer_avatar_url,
-				COUNT(DISTINCT tp.uuid) as participant_count,
-				COUNT(DISTINCT te.uuid) as event_count
-			FROM events t
-			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
-				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
-			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
-			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			WHERE 1=1
-		`
-		args := []interface{}{}
-
 		organizerID := c.Query("organizer_id")
-		if organizerID != "" {
-			query += ` AND t.organizer_id = ?`
-			args = append(args, organizerID)
-		}
-
-		if status != "" {
-			query += ` AND t.status = ?`
-			args = append(args, status)
-		} else if organizerID == "" {
-			// Default behaviour: don't show draft events unless explicitly requested OR filtering by organizer
-			query += ` AND t.status != 'draft'`
-		}
-
-		if search != "" {
-			query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
-			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm)
-		}
 
 		// Check if user is archer to filter events and include participant status
 		userID, userExists := c.Get("user_id")
 		userRole, roleExists := c.Get("role")
 
-		if userExists && roleExists && userRole == "archer" {
-			// Build archer-specific query with participant status
+		whereClause := "WHERE 1=1"
+		args := []interface{}{}
+
+		if userExists && roleExists && userRole == "archer" && organizerID == "" {
+			// Special case for archers viewing THEIR events is handled by another endpoint 
+			// usually /archers/my/events, but if they hit /events, we filter by their participation
+			whereClause += " AND t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)"
+			args = append(args, userID)
+		}
+
+		if organizerID != "" {
+			whereClause += ` AND t.organizer_id = ?`
+			args = append(args, organizerID)
+		}
+
+		if status != "" {
+			whereClause += ` AND t.status = ?`
+			args = append(args, status)
+		} else if organizerID == "" {
+			whereClause += ` AND t.status != 'draft'`
+		}
+
+		if search != "" {
+			whereClause += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm, searchTerm)
+		}
+
+		// Get total count
+		var total int
+		countQuery := `SELECT COUNT(*) FROM events t ` + whereClause
+		err := db.Get(&total, countQuery, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count events", "details": err.Error()})
+			return
+		}
+
+		var query string
+		if userExists && roleExists && userRole == "archer" && organizerID == "" {
 			query = `
 			SELECT 
 				t.*,
@@ -91,30 +88,36 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			WHERE t.uuid IN (SELECT event_id FROM event_participants WHERE archer_id = ?)
-			`
-			args = []interface{}{userID, userID}
-
-			if status != "" {
-				query += ` AND t.status = ?`
-				args = append(args, status)
-			}
-
-			if search != "" {
-				query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
-				searchTerm := "%" + search + "%"
-				args = append(args, searchTerm, searchTerm, searchTerm)
-			}
-
-			query += `
-			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, d.name, t.type
+			` + whereClause + `
+			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
-			args = append(args, limit, offset)
+			// Prepend userID for the LEFT JOIN tp
+			newArgs := []interface{}{userID}
+			newArgs = append(newArgs, args...)
+			newArgs = append(newArgs, limit, offset)
+			args = newArgs
 		} else {
-			query += `
-			GROUP BY t.uuid
+			query = `
+			SELECT 
+				t.*,
+				u.full_name as organizer_name,
+				u.email as organizer_email,
+				u.slug as organizer_slug,
+				u.avatar_url as organizer_avatar_url,
+				COUNT(DISTINCT tp.uuid) as participant_count,
+				COUNT(DISTINCT te.uuid) as event_count
+			FROM events t
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
+			) u ON t.organizer_id = u.id
+			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
+			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			` + whereClause + `
+			GROUP BY t.uuid, u.full_name, u.email, u.slug, u.avatar_url
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
@@ -122,8 +125,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var events []models.EventWithDetails
-		err := db.Select(&events, query, args...)
-
+		err = db.Select(&events, query, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events", "details": err.Error()})
 			return
@@ -151,7 +153,9 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"events": events,
-			"count":  len(events),
+			"total":  total,
+			"limit":  limit,
+			"offset": offset,
 		})
 	}
 }
@@ -2108,8 +2112,32 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		status := c.Query("status")
 		search := c.Query("search")
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
 		// Base query: get events where organizer_id is the current user
+		whereClause := "WHERE t.organizer_id = ?"
+		args := []interface{}{userID}
+
+		if status != "" {
+			whereClause += ` AND t.status = ?`
+			args = append(args, status)
+		}
+
+		if search != "" {
+			whereClause += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm, searchTerm)
+		}
+
+		// Get total count
+		var total int
+		err := db.Get(&total, `SELECT COUNT(*) FROM events t `+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count events", "details": err.Error()})
+			return
+		}
+
 		query := `
 			SELECT 
 				t.*,
@@ -2127,34 +2155,16 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			WHERE t.organizer_id = ?
+			` + whereClause + `
+			GROUP BY t.uuid
+			ORDER BY t.created_at DESC
+			LIMIT ? OFFSET ?
 		`
-		args := []interface{}{userID}
-
-		if status != "" {
-			query += ` AND t.status = ?`
-			args = append(args, status)
-		}
-
-		if search != "" {
-			query += ` AND (t.name LIKE ? OR t.code LIKE ? OR t.location LIKE ?)`
-			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm)
-		}
-
-		query += ` GROUP BY t.uuid ORDER BY t.created_at DESC`
+		args = append(args, limit, offset)
 
 		var events []models.EventWithDetails
-		err := db.Select(&events, query, args...)
+		err = db.Select(&events, query, args...)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusOK, gin.H{
-					"events": []interface{}{},
-					"total":  0,
-				})
-				return
-			}
-
 			c.JSON(http.StatusOK, gin.H{
 				"events": []interface{}{},
 				"total":  0,
@@ -2162,9 +2172,31 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Mask URLs
+		for i := range events {
+			if events[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*events[i].BannerURL)
+				events[i].BannerURL = &masked
+			}
+			if events[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*events[i].LogoURL)
+				events[i].LogoURL = &masked
+			}
+			if events[i].TechnicalGuidebookURL != nil {
+				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
+				events[i].TechnicalGuidebookURL = &masked
+			}
+			if events[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
+				events[i].OrganizerAvatarURL = &masked
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"events": events,
-			"total":  len(events),
+			"total":  total,
+			"limit":  limit,
+			"offset": offset,
 		})
 	}
 }

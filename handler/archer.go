@@ -225,6 +225,35 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		status := c.Query("status")
 		search := c.Query("search")
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+		whereClause := "WHERE ep.archer_id = ?"
+		args := []interface{}{userID}
+
+		if status != "" {
+			whereClause += ` AND e.status = ?`
+			args = append(args, status)
+		}
+
+		if search != "" {
+			whereClause += ` AND (e.name LIKE ? OR e.code LIKE ? OR e.location LIKE ?)`
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm, searchTerm)
+		}
+
+		// Get total count
+		var total int
+		err := db.Get(&total, `
+			SELECT COUNT(DISTINCT e.uuid) 
+			FROM events e
+			INNER JOIN event_participants ep ON e.uuid = ep.event_id
+			`+whereClause, args...)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to count archer events")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count events", "details": err.Error()})
+			return
+		}
 
 		query := `
 			SELECT 
@@ -248,28 +277,15 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			) o ON e.organizer_id = o.id
 			LEFT JOIN event_participants ep2 ON e.uuid = ep2.event_id
 			LEFT JOIN event_categories ec ON e.uuid = ec.event_id
-			WHERE ep.archer_id = ?
-		`
-		args := []interface{}{userID}
-
-		if status != "" {
-			query += ` AND e.status = ?`
-			args = append(args, status)
-		}
-
-		if search != "" {
-			query += ` AND (e.name LIKE ? OR e.code LIKE ? OR e.location LIKE ?)`
-			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm)
-		}
-
-		query += `
+			` + whereClause + `
 			GROUP BY e.uuid, ep.payment_status, ep.uuid, ep.status, ep.qr_raw, o.full_name, o.email, o.slug, o.avatar_url
 			ORDER BY e.start_date DESC
+			LIMIT ? OFFSET ?
 		`
+		args = append(args, limit, offset)
 
 		var events []models.EventWithDetails
-		err := db.Select(&events, query, args...)
+		err = db.Select(&events, query, args...)
 		if err != nil {
 			logrus.WithError(err).Error("Failed to fetch archer events")
 			c.JSON(http.StatusOK, gin.H{
@@ -301,7 +317,9 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"events": events,
-			"total":  len(events),
+			"total":  total,
+			"limit":  limit,
+			"offset": offset,
 		})
 	}
 }
