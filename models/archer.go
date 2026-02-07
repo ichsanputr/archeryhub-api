@@ -80,7 +80,7 @@ type EventParticipant struct {
 	ArcherID             string     `json:"archer_id" db:"archer_id"`
 	CategoryID           string     `json:"category_id" db:"category_id"`
 	BackNumber           *string    `json:"back_number" db:"back_number"`
-	TargetNumber         *string    `json:"target_number" db:"target_number"`
+	TargetName           *string    `json:"target_name" db:"target_name"`
 	QRRaw                *string    `json:"qr_raw" db:"qr_raw"`
 	LastReregistrationAt *time.Time `json:"last_reregistration_at" db:"last_reregistration_at"`
 	Session              *int       `json:"session" db:"session"`
@@ -110,7 +110,7 @@ type RegisterParticipantRequest struct {
 	ArcherID      *string  `json:"archer_id"`
 	CategoryID    string   `json:"category_id" binding:"required"`
 	BackNumber    *string  `json:"back_number"`
-	TargetNumber  *string  `json:"target_number"`
+	TargetName    *string  `json:"target_name"`
 	Session       *int     `json:"session"`
 	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=menunggu_acc belum_lunas lunas"`
 	PaymentAmount *float64 `json:"payment_amount"`

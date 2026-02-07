@@ -331,22 +331,19 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type Target struct {
-			UUID        string    `json:"id" db:"uuid"`
-			TargetName  string    `json:"target_name" db:"target_name"`
-			Description string    `json:"description" db:"description"`
-			VenueArea   string    `json:"venue_area" db:"venue_area"`
-			Status      string    `json:"status" db:"status"`
-			Assigned    int       `json:"assigned" db:"assigned"`
-			CreatedAt   time.Time `json:"created_at" db:"created_at"`
-			UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+			Number    string    `json:"target_number" db:"target_number"`
+			Letters   string    `json:"letters" db:"letters"`
+			TargetIDs string    `json:"target_ids" db:"target_ids"` // comma separated UUIDs
+			Status    string    `json:"status" db:"status"`
+			CreatedAt time.Time `json:"created_at" db:"created_at"`
 		}
 
-		// Calculate pagination
+		// Calculate pagination based on unique target numbers
 		var total int
-		err = db.Get(&total, `SELECT COUNT(*) FROM event_targets WHERE event_uuid = ?`, eventUUID)
+		err = db.Get(&total, `SELECT COUNT(DISTINCT REGEXP_REPLACE(target_name, '[^0-9]', '')) FROM event_targets WHERE event_uuid = ?`, eventUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count targets"})
-			return
+			// Fallback if REGEXP_REPLACE is not available (older MariaDB)
+			db.Get(&total, `SELECT COUNT(DISTINCT LEFT(target_name, 1)) FROM event_targets WHERE event_uuid = ?`, eventUUID)
 		}
 
 		offset := 0
@@ -359,26 +356,37 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var targets []Target
-		sortQuery := fmt.Sprintf("ORDER BY %s %s", orderBy, orderDir)
-
+		// Sort by the numeric part
 		err = db.Select(&targets, fmt.Sprintf(`
 			SELECT 
-				t.uuid,
-				t.target_name,
-				COALESCE(t.description, '') as description,
-				COALESCE(t.venue_area, '') as venue_area,
-				t.status,
-				COALESCE(
-					(SELECT COUNT(DISTINCT qta.archer_uuid) 
-					 FROM qualification_target_assignments qta
-					 WHERE qta.target_uuid = t.uuid), 0) as assigned,
-				t.created_at,
-				t.updated_at
-			FROM event_targets t
-			WHERE t.event_uuid = ?
-			%s
+				REGEXP_REPLACE(target_name, '[^0-9]', '') as target_number,
+				GROUP_CONCAT(REGEXP_REPLACE(target_name, '[0-9]', '') ORDER BY target_name ASC SEPARATOR ', ') as letters,
+				GROUP_CONCAT(uuid SEPARATOR ',') as target_ids,
+				MAX(status) as status,
+				MIN(created_at) as created_at
+			FROM event_targets
+			WHERE event_uuid = ?
+			GROUP BY target_number
+			ORDER BY CAST(target_number AS UNSIGNED) %s
 			LIMIT %d OFFSET %d
-		`, sortQuery, limitInt, offset), eventUUID)
+		`, orderDir, limitInt, offset), eventUUID)
+
+		if err != nil {
+			// Fallback for systems without REGEXP_REPLACE
+			err = db.Select(&targets, fmt.Sprintf(`
+				SELECT 
+					LEFT(target_name, 1) as target_number,
+					GROUP_CONCAT(SUBSTRING(target_name, 2) ORDER BY target_name ASC SEPARATOR ', ') as letters,
+					GROUP_CONCAT(uuid SEPARATOR ',') as target_ids,
+					MAX(status) as status,
+					MIN(created_at) as created_at
+				FROM event_targets
+				WHERE event_uuid = ?
+				GROUP BY target_number
+				ORDER BY CAST(target_number AS UNSIGNED) %s
+				LIMIT %d OFFSET %d
+			`, orderDir, limitInt, offset), eventUUID)
+		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
@@ -443,7 +451,7 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		// Check duplicates in DB
 		dup := []string{}
 		for _, letter := range clean {
-			fullName := fmt.Sprintf("%s%s", letter, req.TargetName)
+			fullName := fmt.Sprintf("%s%s", req.TargetName, letter)
 			var existingTarget string
 			err = db.Get(&existingTarget, `
 				SELECT uuid FROM event_targets 
@@ -468,7 +476,7 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		createdIDs := []string{}
 		for _, letter := range clean {
 			newUUID := uuid.New().String()
-			fullName := fmt.Sprintf("%s%s", letter, req.TargetName)
+			fullName := fmt.Sprintf("%s%s", req.TargetName, letter)
 			_, err = tx.Exec(`
 				INSERT INTO event_targets (
 					uuid, event_uuid, target_name, 
@@ -626,7 +634,7 @@ func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&target, `
 			SELECT 
 				uuid,
-				target_name,
+				CONCAT(target_number, target_name) as target_name,
 				COALESCE(description, '') as description,
 				COALESCE(venue_area, '') as venue_area,
 				status,
@@ -691,7 +699,7 @@ func GetTargetOptions(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&options, `
 			SELECT 
 				uuid,
-				target_name
+				CONCAT(target_number, target_name) as target_name
 			FROM event_targets
 			WHERE (event_uuid = ? OR event_uuid = (SELECT uuid FROM events WHERE slug = ?))
 			AND status = 'active'
