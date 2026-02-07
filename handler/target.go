@@ -334,7 +334,6 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 			Number    string    `json:"target_number" db:"target_number"`
 			Letters   string    `json:"letters" db:"letters"`
 			TargetIDs string    `json:"target_ids" db:"target_ids"` // comma separated UUIDs
-			Status    string    `json:"status" db:"status"`
 			CreatedAt time.Time `json:"created_at" db:"created_at"`
 		}
 
@@ -362,7 +361,6 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 				REGEXP_REPLACE(target_name, '[^0-9]', '') as target_number,
 				GROUP_CONCAT(REGEXP_REPLACE(target_name, '[0-9]', '') ORDER BY target_name ASC SEPARATOR ', ') as letters,
 				GROUP_CONCAT(uuid SEPARATOR ',') as target_ids,
-				MAX(status) as status,
 				MIN(created_at) as created_at
 			FROM event_targets
 			WHERE event_uuid = ?
@@ -378,7 +376,6 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 					LEFT(target_name, 1) as target_number,
 					GROUP_CONCAT(SUBSTRING(target_name, 2) ORDER BY target_name ASC SEPARATOR ', ') as letters,
 					GROUP_CONCAT(uuid SEPARATOR ',') as target_ids,
-					MAX(status) as status,
 					MIN(created_at) as created_at
 				FROM event_targets
 				WHERE event_uuid = ?
@@ -414,8 +411,6 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			TargetNumbers []string `json:"target_numbers"`
 			TargetName    string   `json:"target_name" binding:"required"`
-			Description   string   `json:"description"`
-			VenueArea     string   `json:"venue_area"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -431,14 +426,21 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Normalize target numbers
+		// Normalize target numbers and validate A-D
 		numbers := req.TargetNumbers
 		clean := []string{}
 		seen := map[string]bool{}
+		allowedLetters := map[string]bool{"A": true, "B": true, "C": true, "D": true}
+		
 		for _, n := range numbers {
 			val := strings.TrimSpace(n)
+			val = strings.ToUpper(val)
 			if val == "" || seen[val] {
 				continue
+			}
+			if !allowedLetters[val] {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid target letter: %s. Only A, B, C, D are allowed.", val)})
+				return
 			}
 			seen[val] = true
 			clean = append(clean, val)
@@ -480,11 +482,9 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			_, err = tx.Exec(`
 				INSERT INTO event_targets (
 					uuid, event_uuid, target_name, 
-					description, venue_area, status, 
 					created_at, updated_at
-				) VALUES (?, ?, ?, ?, ?, 'active', NOW(), NOW())
-			`, newUUID, eventUUID, fullName,
-				req.Description, req.VenueArea)
+				) VALUES (?, ?, ?, NOW(), NOW())
+			`, newUUID, eventUUID, fullName)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create target", "details": err.Error()})
 				return
@@ -510,10 +510,7 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		targetID := c.Param("target_id")
 
 		var req struct {
-			TargetName  *string `json:"target_name"`
-			Description *string `json:"description"`
-			VenueArea   *string `json:"venue_area"`
-			Status      *string `json:"status"`
+			TargetName *string `json:"target_name"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -529,8 +526,20 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if new target name conflicts
+		// Check if new target name conflicts and validate A-D
 		if req.TargetName != nil {
+			name := *req.TargetName
+			if len(name) < 2 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target name format"})
+				return
+			}
+			letter := strings.ToUpper(name[len(name)-1:])
+			allowedLetters := map[string]bool{"A": true, "B": true, "C": true, "D": true}
+			if !allowedLetters[letter] {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target letter. Only A, B, C, D are allowed."})
+				return
+			}
+
 			var existingTarget string
 			err = db.Get(&existingTarget, `
 				SELECT uuid FROM event_targets 
@@ -550,18 +559,6 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		if req.TargetName != nil {
 			updateFields = append(updateFields, "target_name = ?")
 			updateValues = append(updateValues, *req.TargetName)
-		}
-		if req.Description != nil {
-			updateFields = append(updateFields, "description = ?")
-			updateValues = append(updateValues, *req.Description)
-		}
-		if req.VenueArea != nil {
-			updateFields = append(updateFields, "venue_area = ?")
-			updateValues = append(updateValues, *req.VenueArea)
-		}
-		if req.Status != nil {
-			updateFields = append(updateFields, "status = ?")
-			updateValues = append(updateValues, *req.Status)
 		}
 
 		if len(updateFields) == 0 {
@@ -621,23 +618,17 @@ func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
 		targetID := c.Param("target_id")
 
 		type TargetDetail struct {
-			UUID        string    `json:"id" db:"uuid"`
-			TargetName  string    `json:"target_name" db:"target_name"`
-			Description string    `json:"description" db:"description"`
-			VenueArea   string    `json:"venue_area" db:"venue_area"`
-			Status      string    `json:"status" db:"status"`
-			CreatedAt   time.Time `json:"created_at" db:"created_at"`
-			UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+			UUID       string    `json:"id" db:"uuid"`
+			TargetName string    `json:"target_name" db:"target_name"`
+			CreatedAt  time.Time `json:"created_at" db:"created_at"`
+			UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 		}
 
 		var target TargetDetail
 		err := db.Get(&target, `
 			SELECT 
 				uuid,
-				CONCAT(target_number, target_name) as target_name,
-				COALESCE(description, '') as description,
-				COALESCE(venue_area, '') as venue_area,
-				status,
+				target_name,
 				created_at,
 				updated_at
 			FROM event_targets
@@ -699,10 +690,9 @@ func GetTargetOptions(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&options, `
 			SELECT 
 				uuid,
-				CONCAT(target_number, target_name) as target_name
+				target_name
 			FROM event_targets
 			WHERE (event_uuid = ? OR event_uuid = (SELECT uuid FROM events WHERE slug = ?))
-			AND status = 'active'
 			ORDER BY target_name ASC
 		`, eventID, eventID)
 

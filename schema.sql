@@ -438,15 +438,11 @@ CREATE TABLE IF NOT EXISTS `event_targets` (
   `uuid` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `event_uuid` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `target_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `venue_area` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('active','inactive','maintenance') COLLATE utf8mb4_unicode_ci DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`uuid`),
   UNIQUE KEY `unique_event_target_name` (`event_uuid`,`target_name`),
   KEY `idx_event_uuid` (`event_uuid`),
-  KEY `idx_status` (`status`),
   CONSTRAINT `event_targets_ibfk_1` FOREIGN KEY (`event_uuid`) REFERENCES `events` (`uuid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Master data for physical targets available in an event';
 
@@ -730,7 +726,7 @@ CREATE TABLE IF NOT EXISTS `qualification_target_assignments` (
   `session_uuid` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `archer_uuid` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `target_uuid` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `target_position` enum('A','B','C','D','E','F') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_position` enum('A','B','C','D') COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_by` varchar(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),

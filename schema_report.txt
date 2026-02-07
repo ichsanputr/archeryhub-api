@@ -1,0 +1,3 @@
+--- SCHEMA COMPARISON REPORT ---
+
+No differences found between schema.sql and production database.
