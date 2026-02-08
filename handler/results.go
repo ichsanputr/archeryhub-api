@@ -47,7 +47,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		// Get results with end scores
 		type ResultEntry struct {
 			Rank          int             `json:"rank"`
-			ArcherUUID    string          `json:"archer_uuid" db:"archer_uuid"`
+			ParticipantUUID string          `json:"participant_id" db:"participant_uuid"`
 			ArcherName    string          `json:"archer_name" db:"archer_name"`
 			ClubName      *string         `json:"club_name" db:"club_name"`
 			TotalScore    int             `json:"total_score" db:"total_score"`
@@ -61,7 +61,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		var entries []ResultEntry
 		err = db.Select(&entries, `
 			SELECT 
-				ep.archer_id as archer_uuid,
+				ep.uuid as participant_uuid,
 				a.full_name as archer_name,
 				cl.name as club_name,
 				COALESCE(SUM(s.total_score_end), 0) as total_score,
@@ -72,14 +72,14 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 					SELECT CONCAT('[', GROUP_CONCAT(total_score_end ORDER BY end_number SEPARATOR ','), ']')
 					FROM qualification_end_scores s2
 					JOIN qualification_sessions qs2 ON s2.session_uuid = qs2.uuid
-					WHERE s2.archer_uuid = a.uuid AND qs2.event_uuid = ?
+					WHERE s2.participant_uuid = ep.uuid AND qs2.event_uuid = ?
 				) as end_scores_json
 			FROM event_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN qualification_target_assignments qta ON qta.archer_uuid = a.uuid
+			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
 			LEFT JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid AND qs.event_uuid = ?
-			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.archer_uuid = a.uuid
+			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.participant_uuid = ep.uuid
 			WHERE ep.category_id = ? AND ep.status = 'confirmed'
 			GROUP BY ep.uuid, ep.archer_id, a.full_name, cl.name
 			HAVING total_score > 0

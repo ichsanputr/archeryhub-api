@@ -41,7 +41,8 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 						COALESCE(CONCAT(' [', (
 							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') ORDER BY qta2.target_position SEPARATOR ', ')
 							FROM qualification_target_assignments qta2
-							JOIN archers a2 ON qta2.archer_uuid = a2.uuid
+							JOIN event_participants ep2 ON qta2.participant_uuid = ep2.uuid
+							JOIN archers a2 ON ep2.archer_id = a2.uuid
 							WHERE qta2.session_uuid = qs.uuid AND qta2.target_uuid = et.uuid
 						), ']'), ' (Kosong)')) as label,
 					'qualification' as phase,
@@ -131,7 +132,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&archers, `
 			SELECT
 				qta.uuid as assignment_id,
-				qta.archer_uuid as participant_id,
+				qta.participant_uuid as participant_id,
 				qta.target_position as position,
 				COALESCE(a.full_name, '') as name,
 				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division,
@@ -139,16 +140,16 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(qes.uuid) as ends_completed
 			FROM qualification_target_assignments qta
 			JOIN event_targets et ON qta.target_uuid = et.uuid
-			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
-			LEFT JOIN event_participants ep ON ep.archer_id = a.uuid AND ep.event_id = (SELECT event_uuid FROM qualification_sessions WHERE uuid = ?)
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-			LEFT JOIN qualification_end_scores qes ON qes.archer_uuid = a.uuid AND qes.session_uuid = qta.session_uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
 			WHERE qta.session_uuid = ? AND et.target_name = ?
-			GROUP BY qta.uuid, qta.archer_uuid, qta.target_position, a.full_name, bt.name, ag.name
+			GROUP BY qta.uuid, qta.participant_uuid, qta.target_position, a.full_name, bt.name, ag.name
 			ORDER BY qta.target_position ASC
-		`, sessionID, sessionID, targetName)
+		`, sessionID, targetName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring targets"})
 			return

@@ -76,7 +76,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.email as organizer_email,
 				u.slug as organizer_slug,
 				u.avatar_url as organizer_avatar_url,
-				COUNT(DISTINCT tp2.uuid) as participant_count,
+				COUNT(DISTINCT tp2.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
 				tp.payment_status,
 				tp.uuid as participant_uuid
@@ -107,7 +107,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.email as organizer_email,
 				u.slug as organizer_slug,
 				u.avatar_url as organizer_avatar_url,
-				COUNT(DISTINCT tp.uuid) as participant_count,
+				COUNT(DISTINCT tp.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
@@ -886,10 +886,10 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			LEFT JOIN (
-				SELECT archer_uuid, SUM(total_score_end) as total_score, SUM(x_count_end) as total_x
+				SELECT participant_uuid, SUM(total_score_end) as total_score, SUM(x_count_end) as total_x
 				FROM qualification_end_scores
-				GROUP BY archer_uuid
-			) scores ON a.uuid = scores.archer_uuid
+				GROUP BY participant_uuid
+			) scores ON tp.uuid = scores.participant_uuid
 			` + whereClause + `
 			GROUP BY tp.uuid, a.uuid, cl.uuid, te.uuid, d.uuid, c.uuid, et.uuid, gd.uuid, a.id, a.username, a.full_name, a.email, a.city, a.club_id, a.avatar_url, cl.name, d.name, c.name, et.name, gd.name, scores.total_score, scores.total_x
 			ORDER BY total_score DESC, total_x DESC, a.full_name ASC
@@ -2241,7 +2241,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.email as organizer_email,
 				u.slug as organizer_slug,
 				u.avatar_url as organizer_avatar_url,
-				COUNT(DISTINCT tp.uuid) as participant_count,
+				COUNT(DISTINCT tp.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (

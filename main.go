@@ -267,6 +267,7 @@ func main() {
 		qualSessions.Use(middleware.AuthMiddleware())
 		{
 			qualSessions.GET("/assignments", handler.GetSessionAssignments(db))
+			qualSessions.GET("/scores", handler.GetSessionScores(db))
 			qualSessions.POST("/auto-assign", handler.AutoAssignParticipants(db))
 		}
 

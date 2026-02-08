@@ -149,7 +149,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 				JOIN event_participants ep ON tm.participant_id = ep.uuid
 				LEFT JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
-				LEFT JOIN qualification_end_scores qes ON qes.archer_uuid = a.uuid
+				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE tm.team_id = ?
 				GROUP BY tm.uuid, ep.uuid, a.full_name, cl.name, tm.member_order
 				ORDER BY tm.member_order ASC
@@ -442,9 +442,9 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 				FROM event_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
-				LEFT JOIN qualification_end_scores s ON s.archer_uuid = a.uuid
+				LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
 				WHERE ep.category_id = ?
-				GROUP BY a.uuid, cl.uuid, cl.name
+				GROUP BY ep.uuid, cl.uuid, cl.name
 			) ranked
 			WHERE club_rank <= 3 AND club_id IS NOT NULL
 			GROUP BY club_id, club_name
@@ -569,9 +569,9 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 							COALESCE(SUM(s.x_count_end), 0) as individual_x
 						FROM event_participants ep
 						JOIN archers a ON ep.archer_id = a.uuid
-						LEFT JOIN qualification_end_scores s ON s.archer_uuid = a.uuid
+						LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
 						WHERE ep.category_id IN (?, ?)
-						GROUP BY ep.archer_id, a.club_id, ep.category_id
+						GROUP BY ep.uuid, a.club_id, ep.category_id
 					) a
 				) ep
 				JOIN clubs cl ON ep.club_id = cl.uuid

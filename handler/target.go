@@ -59,15 +59,15 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				SELECT 
 				et.target_name,
 				qta.uuid as assignment_uuid,
-				qta.archer_uuid as participant_uuid,
+				qta.participant_uuid,
 				COALESCE(a.full_name, '') as archer_name,
 				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name,
 				qta.target_position
 			FROM qualification_target_assignments qta
 			JOIN event_targets et ON qta.target_uuid = et.uuid
 			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
-			LEFT JOIN event_participants ep ON ep.archer_id = a.uuid AND ep.event_id = qs.event_uuid
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
@@ -226,22 +226,15 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if archer already has an assignment in this session
-		var archerUUID string
-		err = db.Get(&archerUUID, `SELECT archer_id FROM event_participants WHERE uuid = ?`, req.ParticipantUUID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Participant not found"})
-			return
-		}
-
+		// Check if participant already has an assignment in this session
 		var existingParticipantAssignment string
 		err = db.Get(&existingParticipantAssignment, `
 			SELECT uuid FROM qualification_target_assignments 
-			WHERE session_uuid = ? AND archer_uuid = ? AND uuid != COALESCE(?, '')
-		`, req.SessionUUID, archerUUID, req.AssignmentUUID)
+			WHERE session_uuid = ? AND participant_uuid = ? AND uuid != COALESCE(?, '')
+		`, req.SessionUUID, req.ParticipantUUID, req.AssignmentUUID)
 
 		if err == nil && existingParticipantAssignment != "" {
-			// Update existing assignment for this archer
+			// Update existing assignment for this participant
 			_, err = db.Exec(`
 					UPDATE qualification_target_assignments 
 					SET target_uuid = ?, target_position = ?, updated_at = NOW()
@@ -280,9 +273,9 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			// Create new assignment
 			newUUID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO qualification_target_assignments (uuid, session_uuid, archer_uuid, target_uuid, target_position)
+				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_position)
 				VALUES (?, ?, ?, ?, ?)
-			`, newUUID, req.SessionUUID, archerUUID, targetUUID, req.TargetPosition)
+			`, newUUID, req.SessionUUID, req.ParticipantUUID, targetUUID, req.TargetPosition)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment"})

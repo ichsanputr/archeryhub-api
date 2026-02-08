@@ -59,7 +59,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 				qs.arrows_per_end,
 				qs.created_at,
 				qs.updated_at,
-				COUNT(DISTINCT qta.archer_uuid) as participant_count
+				COUNT(DISTINCT qta.participant_uuid) as participant_count
 			FROM qualification_sessions qs
 			LEFT JOIN qualification_target_assignments qta ON qs.uuid = qta.session_uuid
 			WHERE qs.event_uuid = ?
@@ -262,13 +262,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get assignment details
-		var sessionUUID, archerUUID string
+		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 			return
 		}
-		err = db.Get(&archerUUID, `SELECT archer_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
+		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 			return
@@ -290,8 +290,8 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		var existingUUID sql.NullString
 		err = db.Get(&existingUUID, `
 			SELECT uuid FROM qualification_end_scores 
-			WHERE session_uuid = ? AND archer_uuid = ? AND end_number = ?`,
-			sessionUUID, archerUUID, req.EndNumber)
+			WHERE session_uuid = ? AND participant_uuid = ? AND end_number = ?`,
+			sessionUUID, participantUUID, req.EndNumber)
 
 		if existingUUID.Valid {
 			// Update existing end score
@@ -305,9 +305,9 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			scoreUUID := uuid.New().String()
 			_, err = db.Exec(`
 				INSERT INTO qualification_end_scores 
-				(uuid, session_uuid, archer_uuid, end_number, total_score_end, x_count_end, ten_count_end)
+				(uuid, session_uuid, participant_uuid, end_number, total_score_end, x_count_end, ten_count_end)
 				VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				scoreUUID, sessionUUID, archerUUID, req.EndNumber, total, xCount, tenCount)
+				scoreUUID, sessionUUID, participantUUID, req.EndNumber, total, xCount, tenCount)
 		}
 
 		if err != nil {
@@ -332,8 +332,8 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			err = db.Get(&endScoreUUID, `
 				SELECT uuid FROM qualification_end_scores 
-				WHERE session_uuid = ? AND archer_uuid = ? AND end_number = ?`,
-				sessionUUID, archerUUID, req.EndNumber)
+				WHERE session_uuid = ? AND participant_uuid = ? AND end_number = ?`,
+				sessionUUID, participantUUID, req.EndNumber)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve end score"})
 				return
@@ -373,14 +373,14 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get session and archer from assignment
-		var sessionUUID, archerUUID string
+		// Get session and participant from assignment
+		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 			return
 		}
-		err = db.Get(&archerUUID, `SELECT archer_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
+		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 			return
@@ -405,9 +405,9 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&scores, `
 			SELECT uuid, end_number, total_score_end, x_count_end, ten_count_end
 			FROM qualification_end_scores
-			WHERE session_uuid = ? AND archer_uuid = ?
+			WHERE session_uuid = ? AND participant_uuid = ?
 			ORDER BY end_number ASC
-		`, sessionUUID, archerUUID)
+		`, sessionUUID, participantUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores"})
 			return
@@ -487,9 +487,9 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-			LEFT JOIN qualification_target_assignments qta ON qta.archer_uuid = a.uuid
+			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
 			LEFT JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid
-			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.archer_uuid = a.uuid
+			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.participant_uuid = ep.uuid
 			WHERE ep.category_id = ?
 			GROUP BY ep.uuid, a.full_name, cl.name, bt.name, ag.name
 			ORDER BY total_score DESC, total_10x DESC, total_x DESC`,
@@ -504,26 +504,155 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetSessionScores returns all scores for all archers in a specific session
+func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("sessionId")
+		categoryID := c.Query("category_id")
+
+		if sessionID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+			return
+		}
+
+		type ArrowScore struct {
+			EndScoreUUID string `db:"end_score_uuid" json:"-"`
+			ArrowNumber  int    `db:"arrow_number" json:"arrow_number"`
+			Score        int    `db:"score" json:"score"`
+			IsX          bool   `db:"is_x" json:"is_x"`
+		}
+
+		type EndScore struct {
+			UUID          string `db:"uuid"`
+			ParticipantUUID string `db:"participant_uuid" json:"participant_uuid"`
+			EndNumber     int    `db:"end_number" json:"end_number"`
+			TotalScoreEnd int    `db:"total_score_end" json:"total_score_end"`
+			XCountEnd     int    `db:"x_count_end" json:"x_count_end"`
+			TenCountEnd   int    `db:"ten_count_end" json:"ten_count_end"`
+		}
+
+		// Query building
+		query := `
+			SELECT qes.uuid, qes.participant_uuid, qes.end_number, qes.total_score_end, qes.x_count_end, qes.ten_count_end
+			FROM qualification_end_scores qes
+		`
+		args := []interface{}{}
+
+		if categoryID != "" {
+			query += " JOIN event_participants ep ON qes.participant_uuid = ep.uuid"
+			query += " WHERE qes.session_uuid = ? AND ep.category_id = ?"
+			args = append(args, sessionID, categoryID)
+		} else {
+			query += " WHERE qes.session_uuid = ?"
+			args = append(args, sessionID)
+		}
+
+		query += " ORDER BY qes.participant_uuid, qes.end_number ASC"
+
+		var endScores []EndScore
+		err := db.Select(&endScores, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores", "details": err.Error()})
+			return
+		}
+
+		// Fetch arrows for these ends
+		var arrows []ArrowScore
+		arrowQuery := `
+			SELECT arrow_number, score, is_x, end_score_uuid
+			FROM qualification_arrow_scores
+			WHERE end_score_uuid IN (
+				SELECT qes.uuid 
+				FROM qualification_end_scores qes
+		`
+		if categoryID != "" {
+			arrowQuery += " JOIN event_participants ep ON qes.participant_uuid = ep.uuid"
+			arrowQuery += " WHERE qes.session_uuid = ? AND ep.category_id = ?"
+		} else {
+			arrowQuery += " WHERE qes.session_uuid = ?"
+		}
+		arrowQuery += ")"
+		arrowQuery += " ORDER BY end_score_uuid, arrow_number ASC"
+
+		err = db.Select(&arrows, arrowQuery, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch arrow scores", "details": err.Error()})
+			return
+		}
+
+		// Grouping
+		arrowsByEnd := make(map[string][]ArrowScore)
+		for _, a := range arrows {
+			arrowsByEnd[a.EndScoreUUID] = append(arrowsByEnd[a.EndScoreUUID], a)
+		}
+
+		type EndWithArrows struct {
+			EndNumber     int          `json:"end_number"`
+			TotalScoreEnd int          `json:"total_score_end"`
+			XCountEnd     int          `json:"x_count_end"`
+			TenCountEnd   int          `json:"ten_count_end"`
+			Arrows        []ArrowScore `json:"arrows"`
+		}
+
+		type ArcherScores struct {
+			ParticipantUUID string          `json:"participant_uuid"`
+			Ends            []EndWithArrows `json:"ends"`
+		}
+
+		scoresByArcher := make(map[string]*ArcherScores)
+		archerOrder := []string{}
+
+		for _, es := range endScores {
+			if _, ok := scoresByArcher[es.ParticipantUUID]; !ok {
+				scoresByArcher[es.ParticipantUUID] = &ArcherScores{
+					ParticipantUUID: es.ParticipantUUID,
+					Ends:       []EndWithArrows{},
+				}
+				archerOrder = append(archerOrder, es.ParticipantUUID)
+			}
+
+			endWithArrows := EndWithArrows{
+				EndNumber:     es.EndNumber,
+				TotalScoreEnd: es.TotalScoreEnd,
+				XCountEnd:     es.XCountEnd,
+				TenCountEnd:   es.TenCountEnd,
+				Arrows:        arrowsByEnd[es.UUID],
+			}
+			if endWithArrows.Arrows == nil {
+				endWithArrows.Arrows = []ArrowScore{}
+			}
+			scoresByArcher[es.ParticipantUUID].Ends = append(scoresByArcher[es.ParticipantUUID].Ends, endWithArrows)
+		}
+
+		result := make([]*ArcherScores, 0, len(archerOrder))
+		for _, archerID := range archerOrder {
+			result = append(result, scoresByArcher[archerID])
+		}
+
+		c.JSON(http.StatusOK, gin.H{"scores": result})
+	}
+}
+
 // GetSessionAssignments returns all archer assignments for a qualification session
 func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
 
 		type Assignment struct {
-			UUID           string  `json:"uuid" db:"uuid"`
-			ArcherUUID     string  `json:"archer_uuid" db:"archer_uuid"`
-			TargetUUID     string  `json:"target_uuid" db:"target_uuid"`
-			TargetName     string  `json:"target_name" db:"target_name"`
-			TargetPosition string  `json:"target_position" db:"target_position"`
-			ArcherName     string  `json:"archer_name" db:"archer_name"`
-			ClubName       *string `json:"club_name" db:"club_name"`
+			UUID            string  `json:"uuid" db:"uuid"`
+			ParticipantUUID string  `json:"participant_id" db:"participant_uuid"`
+			TargetUUID      string  `json:"target_id" db:"target_uuid"`
+			TargetName      string  `json:"target_name" db:"target_name"`
+			TargetPosition  string  `json:"target_position" db:"target_position"`
+			ArcherName      string  `json:"archer_name" db:"archer_name"`
+			ClubName        *string `json:"club_name" db:"club_name"`
 		}
 
 		var assignments []Assignment
 		err := db.Select(&assignments, `
 			SELECT 
 				qta.uuid,
-				qta.archer_uuid,
+				qta.participant_uuid,
 				qta.target_uuid,
 				et.target_name,
 				qta.target_position,
@@ -531,7 +660,8 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 				c.name as club_name
 			FROM qualification_target_assignments qta
 			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
+			LEFT JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE qta.session_uuid = ?
 			ORDER BY et.target_name ASC, qta.target_position ASC
@@ -592,22 +722,22 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get participants who are not yet assigned
+		// Get participants who are not yet assigned in this session
 		type Participant struct {
-			ArcherUUID string `db:"archer_id"`
+			ParticipationUUID string `db:"uuid"`
 		}
 		var participants []Participant
 		err = db.Select(&participants, `
-			SELECT ep.archer_id
+			SELECT ep.uuid
 			FROM event_participants ep
 			WHERE ep.category_id = ?
 			AND ep.status = 'Terdaftar'
-			AND ep.archer_id NOT IN (
-				SELECT archer_uuid 
+			AND ep.uuid NOT IN (
+				SELECT participant_uuid 
 				FROM qualification_target_assignments 
 				WHERE session_uuid = ?
 			)
-			ORDER BY ep.created_at ASC
+			ORDER BY ep.registration_date ASC
 		`, req.CategoryID, sessionID)
 
 		if err != nil {
@@ -636,9 +766,9 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			assignmentUUID := uuid.New().String()
 			_, err := db.Exec(`
 				INSERT INTO qualification_target_assignments 
-				(uuid, session_uuid, archer_uuid, target_uuid, target_position)
+				(uuid, session_uuid, participant_uuid, target_uuid, target_position)
 				VALUES (?, ?, ?, ?, ?)`,
-				assignmentUUID, sessionID, participant.ArcherUUID, targets[targetIndex].UUID, positions[positionIndex])
+				assignmentUUID, sessionID, participant.ParticipationUUID, targets[targetIndex].UUID, positions[positionIndex])
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
@@ -731,7 +861,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			CategoryID  string `json:"category_id" binding:"required"`
 			Assignments []struct {
-				ArcherUUID     string `json:"archer_uuid" binding:"required"`
+				ParticipantID  string `json:"participant_id" binding:"required"`
 				TargetID       string `json:"target_id" binding:"required"`
 				TargetPosition string `json:"target_position"`
 			} `json:"assignments" binding:"required"`
@@ -768,16 +898,16 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		for _, assignment := range req.Assignments {
 			assignmentUUID := uuid.New().String()
 
-			// Validate archer exists in participants for this category
-			var archerParticipantID string
-			err := tx.Get(&archerParticipantID, `
-				SELECT uuid FROM event_participants 
-				WHERE archer_id = ? AND category_id = ?
-			`, assignment.ArcherUUID, req.CategoryID)
-			if err != nil {
+			// Validate participation exists
+			var count int
+			err := tx.Get(&count, `
+				SELECT COUNT(*) FROM event_participants 
+				WHERE uuid = ? AND category_id = ?
+			`, assignment.ParticipantID, req.CategoryID)
+			if err != nil || count == 0 {
 				errors = append(errors, map[string]interface{}{
-					"archer_uuid": assignment.ArcherUUID,
-					"error":       "Archer not found in this category",
+					"participant_id": assignment.ParticipantID,
+					"error":          "Participant not found in this category",
 				})
 				continue
 			}
@@ -787,17 +917,21 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 				pos = "A"
 			}
 
-			// Insert assignment
+			// Upsert assignment
 			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments 
-				(uuid, session_uuid, archer_uuid, target_uuid, target_position, created_at, updated_at)
+				(uuid, session_uuid, participant_uuid, target_uuid, target_position, created_at, updated_at)
 				VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-			`, assignmentUUID, sessionUUID, assignment.ArcherUUID, assignment.TargetID, pos)
+				ON DUPLICATE KEY UPDATE 
+				target_uuid = VALUES(target_uuid),
+				target_position = VALUES(target_position),
+				updated_at = NOW()
+			`, assignmentUUID, sessionUUID, assignment.ParticipantID, assignment.TargetID, pos)
 			if err != nil {
 				errors = append(errors, map[string]interface{}{
-					"archer_uuid": assignment.ArcherUUID,
-					"target_id":   assignment.TargetID,
-					"error":       "Failed to create assignment: " + err.Error(),
+					"participant_id": assignment.ParticipantID,
+					"target_id":      assignment.TargetID,
+					"error":          "Failed to upsert assignment: " + err.Error(),
 				})
 				continue
 			}

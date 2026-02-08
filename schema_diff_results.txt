@@ -1,0 +1,25 @@
+
+==================================================
+DATABASE SCHEMA COMPARISON REPORT
+==================================================
+
+[!] Tables present in REMOTE but missing in LOCAL: task_developer
+
+[Table: event_targets]
+  - Column 'status' is missing in REMOTE
+  - Column 'description' is missing in REMOTE
+  - Column 'venue_area' is missing in REMOTE
+
+[Table: qualification_end_scores]
+  - Column 'participant_uuid' is missing in LOCAL
+  - Column 'archer_uuid' is missing in REMOTE
+
+[Table: qualification_target_assignments]
+  - Column 'participant_uuid' is missing in LOCAL
+  - Column 'archer_uuid' is missing in REMOTE
+  - Column 'target_position' Type mismatch: REMOTE(enum('A','B','C','D')) vs LOCAL(enum('A','B','C','D','E','F'))
+
+[Table: sellers]
+  - Column 'is_verified' Key mismatch: REMOTE() vs LOCAL(MUL)
+
+Comparison finished.
