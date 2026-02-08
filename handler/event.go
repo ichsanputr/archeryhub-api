@@ -11,6 +11,7 @@ import (
 
 	"archeryhub-api/utils"
 
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -683,6 +684,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		categoryFilter := c.Query("category")
 		categoryIDFilter := c.Query("category_id")
 		searchQuery := c.Query("search")
+		groupBy := c.Query("group_by")
 
 		limit, _ := strconv.Atoi(limitStr)
 		offset, _ := strconv.Atoi(offsetStr)
@@ -695,7 +697,100 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Build WHERE clause for filtering
+		if groupBy == "archer" {
+			// Grouped by archer logic
+			whereClause := "WHERE tp.event_id = ?"
+			args := []interface{}{actualEventID}
+
+			if searchQuery != "" {
+				searchTerm := "%" + searchQuery + "%"
+				whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ?)"
+				args = append(args, searchTerm, searchTerm)
+			}
+
+			// Count unique archers
+			var total int
+			countQuery := "SELECT COUNT(DISTINCT archer_id) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
+			err = db.Get(&total, countQuery, args...)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count archers", "details": err.Error()})
+				return
+			}
+
+			type GroupedParticipant struct {
+				ArcherID   string  `db:"archer_id" json:"archer_id"`
+				FullName   string  `db:"full_name" json:"full_name"`
+				Email      string  `db:"email" json:"email"`
+				AvatarURL  *string `db:"avatar_url" json:"avatar_url"`
+				ClubName   *string `db:"club_name" json:"club_name"`
+				Categories string  `db:"categories" json:"-"`
+				CategoryList []interface{} `json:"categories"`
+			}
+
+			var participants []GroupedParticipant
+			query := `
+				SELECT 
+					a.uuid as archer_id,
+					a.full_name,
+					COALESCE(a.email, '') as email,
+					a.avatar_url,
+					COALESCE(cl.name, '') as club_name,
+					JSON_ARRAYAGG(JSON_OBJECT(
+						'participant_id', tp.uuid,
+						'category_id', tp.category_id,
+						'division_name', COALESCE(d.name, ''),
+						'category_name', COALESCE(c.name, ''),
+						'event_type_name', COALESCE(et.name, ''),
+						'gender_division_name', COALESCE(gd.name, ''),
+						'status', COALESCE(tp.status, 'Menunggu Acc'),
+						'qr_raw', tp.qr_raw,
+						'registration_date', tp.registration_date,
+						'last_reregistration_at', tp.last_reregistration_at
+					)) as categories
+				FROM event_participants tp
+				JOIN archers a ON tp.archer_id = a.uuid
+				LEFT JOIN clubs cl ON a.club_id = cl.uuid
+				LEFT JOIN event_categories te ON tp.category_id = te.uuid
+				LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
+				LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
+				LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+				LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+				` + whereClause + `
+				GROUP BY a.uuid, cl.name
+				ORDER BY a.full_name ASC
+				LIMIT ? OFFSET ?
+			`
+			fetchArgs := append(args, limit, offset)
+			err = db.Select(&participants, query, fetchArgs...)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch grouped participants", "details": err.Error()})
+				return
+			}
+
+			// Post-process categories and mask URLs
+			for i := range participants {
+				if participants[i].Categories != "" {
+					var cats []interface{}
+					if err := json.Unmarshal([]byte(participants[i].Categories), &cats); err == nil {
+						participants[i].CategoryList = cats
+					}
+				}
+				if participants[i].AvatarURL != nil {
+					masked := utils.MaskMediaURL(*participants[i].AvatarURL)
+					participants[i].AvatarURL = &masked
+				}
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"participants": participants,
+				"total":        total,
+				"limit":        limit,
+				"offset":       offset,
+			})
+			return
+		}
+
+		// Standard logic (existing)
 		whereClause := "WHERE tp.event_id = ?"
 		args := []interface{}{actualEventID}
 		countArgs := []interface{}{actualEventID}
