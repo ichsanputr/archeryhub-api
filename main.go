@@ -145,6 +145,16 @@ func main() {
 		api.GET("/club/me", middleware.AuthMiddleware(), handler.GetClubMe(db))
 		api.GET("/seller/me", middleware.AuthMiddleware(), handler.GetSellerProfile(db))
 
+		// Project Task Management
+		tasks := api.Group("/tasks")
+		tasks.Use(middleware.AuthMiddleware())
+		{
+			tasks.GET("", handler.GetTasks(db))
+			tasks.POST("", handler.CreateTask(db))
+			tasks.PUT("/:uuid", handler.UpdateTask(db))
+			tasks.DELETE("/:uuid", handler.DeleteTask(db))
+		}
+
 		// Authentication routes (public)
 		auth := api.Group("/auth")
 		{
