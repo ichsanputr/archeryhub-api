@@ -643,7 +643,6 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			ParticipantUUID string  `json:"participant_id" db:"participant_uuid"`
 			TargetUUID      string  `json:"target_id" db:"target_uuid"`
 			TargetName      string  `json:"target_name" db:"target_name"`
-			TargetPosition  string  `json:"target_position" db:"target_position"`
 			ArcherName      string  `json:"archer_name" db:"archer_name"`
 			ClubName        *string `json:"club_name" db:"club_name"`
 		}
@@ -655,7 +654,6 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 				qta.participant_uuid,
 				qta.target_uuid,
 				et.target_name,
-				qta.target_position,
 				a.full_name as archer_name,
 				c.name as club_name
 			FROM qualification_target_assignments qta
@@ -664,7 +662,7 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE qta.session_uuid = ?
-			ORDER BY et.target_name ASC, qta.target_position ASC
+			ORDER BY et.target_name ASC
 		`, sessionID)
 
 		if err != nil {
@@ -714,7 +712,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, target_name
 			FROM event_targets
 			WHERE event_uuid = ?
-			ORDER BY target_name ASC
+			ORDER BY (target_name + 0) ASC, target_name ASC
 		`, eventUUID)
 
 		if err != nil || len(targets) == 0 {
@@ -730,6 +728,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&participants, `
 			SELECT ep.uuid
 			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
 			WHERE ep.category_id = ?
 			AND ep.status = 'Terdaftar'
 			AND ep.uuid NOT IN (
@@ -737,7 +736,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				FROM qualification_target_assignments 
 				WHERE session_uuid = ?
 			)
-			ORDER BY ep.registration_date ASC
+			ORDER BY (a.club_id IS NULL) ASC, a.club_id ASC, ep.registration_date ASC
 		`, req.CategoryID, sessionID)
 
 		if err != nil {
@@ -745,8 +744,16 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Fetch existing assignments to avoid duplicates
+		var existing []string
+		db.Select(&existing, `SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ?`, sessionID)
+
+		isTaken := make(map[string]bool)
+		for _, e := range existing {
+			isTaken[e] = true
+		}
+
 		// Assign participants to targets
-		positions := []string{"A", "B", "C", "D"}
 		targetIndex := 0
 		if req.StartTargetName != "" {
 			for i, t := range targets {
@@ -756,29 +763,36 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 		}
-		positionIndex := 0
 
 		for _, participant := range participants {
-			if targetIndex >= len(targets) {
-				break // No more targets available
-			}
+			found := false
+			for targetIndex < len(targets) {
+				if isTaken[targets[targetIndex].UUID] {
+					targetIndex++
+					continue
+				}
 
-			assignmentUUID := uuid.New().String()
-			_, err := db.Exec(`
-				INSERT INTO qualification_target_assignments 
-				(uuid, session_uuid, participant_uuid, target_uuid, target_position)
-				VALUES (?, ?, ?, ?, ?)`,
-				assignmentUUID, sessionID, participant.ParticipationUUID, targets[targetIndex].UUID, positions[positionIndex])
+				// Found a slot!
+				assignmentUUID := uuid.New().String()
+				_, err := db.Exec(`
+					INSERT INTO qualification_target_assignments 
+					(uuid, session_uuid, participant_uuid, target_uuid)
+					VALUES (?, ?, ?, ?)`,
+					assignmentUUID, sessionID, participant.ParticipationUUID, targets[targetIndex].UUID)
 
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
-				return
-			}
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
+					return
+				}
 
-			positionIndex++
-			if positionIndex >= req.ArchersPerTarget || positionIndex >= len(positions) {
-				positionIndex = 0
+				isTaken[targets[targetIndex].UUID] = true
 				targetIndex++
+				found = true
+				break // Move to next participant
+			}
+
+			if !found {
+				break // No more targets available
 			}
 		}
 
@@ -791,14 +805,14 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")
 
-		// Get session and archer UUIDs
-		var sessionUUID, archerUUID string
+		// Get session and participant UUIDs
+		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 			return
 		}
-		err = db.Get(&archerUUID, `SELECT archer_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
+		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 			return
@@ -809,8 +823,8 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			DELETE FROM qualification_arrow_scores 
 			WHERE end_score_uuid IN (
 				SELECT uuid FROM qualification_end_scores 
-				WHERE session_uuid = ? AND archer_uuid = ?
-			)`, sessionUUID, archerUUID)
+				WHERE session_uuid = ? AND participant_uuid = ?
+			)`, sessionUUID, participantUUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete arrow scores"})
@@ -818,7 +832,7 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Delete end scores
-		_, err = db.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ? AND archer_uuid = ?`, sessionUUID, archerUUID)
+		_, err = db.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, participantUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete end scores"})
 			return
@@ -861,9 +875,8 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			CategoryID  string `json:"category_id" binding:"required"`
 			Assignments []struct {
-				ParticipantID  string `json:"participant_id" binding:"required"`
-				TargetID       string `json:"target_id" binding:"required"`
-				TargetPosition string `json:"target_position"`
+				ParticipantID string `json:"participant_id" binding:"required"`
+				TargetID      string `json:"target_id" binding:"required"`
 			} `json:"assignments" binding:"required"`
 		}
 
@@ -912,21 +925,15 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 				continue
 			}
 
-			pos := assignment.TargetPosition
-			if pos == "" {
-				pos = "A"
-			}
-
 			// Upsert assignment
 			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments 
-				(uuid, session_uuid, participant_uuid, target_uuid, target_position, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+				(uuid, session_uuid, participant_uuid, target_uuid, created_at, updated_at)
+				VALUES (?, ?, ?, ?, NOW(), NOW())
 				ON DUPLICATE KEY UPDATE 
 				target_uuid = VALUES(target_uuid),
-				target_position = VALUES(target_position),
 				updated_at = NOW()
-			`, assignmentUUID, sessionUUID, assignment.ParticipantID, assignment.TargetID, pos)
+			`, assignmentUUID, sessionUUID, assignment.ParticipantID, assignment.TargetID)
 			if err != nil {
 				errors = append(errors, map[string]interface{}{
 					"participant_id": assignment.ParticipantID,

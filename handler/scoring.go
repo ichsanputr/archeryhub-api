@@ -39,7 +39,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 					CONCAT(qs.uuid, '-', et.uuid) as id,
 					CONCAT(qs.name, ' - ', et.target_name, 
 						COALESCE(CONCAT(' [', (
-							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') ORDER BY qta2.target_position SEPARATOR ', ')
+							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') SEPARATOR ', ')
 							FROM qualification_target_assignments qta2
 							JOIN event_participants ep2 ON qta2.participant_uuid = ep2.uuid
 							JOIN archers a2 ON ep2.archer_id = a2.uuid
@@ -133,7 +133,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			SELECT
 				qta.uuid as assignment_id,
 				qta.participant_uuid as participant_id,
-				qta.target_position as position,
+				RIGHT(et.target_name, 1) as position,
 				COALESCE(a.full_name, '') as name,
 				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division,
 				COALESCE(SUM(qes.total_score_end), 0) as current_score,
@@ -147,8 +147,8 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
 			WHERE qta.session_uuid = ? AND et.target_name = ?
-			GROUP BY qta.uuid, qta.participant_uuid, qta.target_position, a.full_name, bt.name, ag.name
-			ORDER BY qta.target_position ASC
+			GROUP BY qta.uuid, qta.participant_uuid, et.target_name, a.full_name, bt.name, ag.name
+			ORDER BY et.target_name ASC
 		`, sessionID, targetName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring targets"})

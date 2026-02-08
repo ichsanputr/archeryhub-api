@@ -22,8 +22,7 @@ type QualificationAssignment struct {
 	UUID            string    `json:"id" db:"uuid"`
 	SessionUUID     string    `json:"session_id" db:"session_uuid"`
 	ParticipantUUID string    `json:"participant_id" db:"participant_uuid"`
-	TargetNumber    int       `json:"target_number" db:"target_number"`
-	TargetPosition  string    `json:"target_position" db:"target_position"` // A, B, C, D
+	TargetUUID      string    `json:"target_id" db:"target_uuid"`
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }

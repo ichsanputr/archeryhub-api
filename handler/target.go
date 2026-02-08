@@ -36,7 +36,6 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				ParticipantID string `json:"participant_id" db:"participant_uuid"`
 				Name          string `json:"name" db:"archer_name"`
 				Division      string `json:"division" db:"division_name"`
-				Position      string `json:"position" db:"target_position"`
 			}
 
 			type TargetInfo struct {
@@ -51,7 +50,6 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				ParticipantUUID string `db:"participant_uuid"`
 				ArcherName      string `db:"archer_name"`
 				DivisionName    string `db:"division_name"`
-				TargetPosition  string `db:"target_position"`
 			}
 
 			var assignments []AssignmentRow
@@ -61,8 +59,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				qta.uuid as assignment_uuid,
 				qta.participant_uuid,
 				COALESCE(a.full_name, '') as archer_name,
-				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name,
-				qta.target_position
+				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name
 			FROM qualification_target_assignments qta
 			JOIN event_targets et ON qta.target_uuid = et.uuid
 			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
@@ -72,7 +69,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			WHERE qta.session_uuid = ?
-			ORDER BY et.target_name ASC, qta.target_position ASC`,
+			ORDER BY et.target_name ASC`,
 				sessionID)
 
 			if err != nil {
@@ -87,7 +84,6 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 					ParticipantID: a.ParticipantUUID,
 					Name:          a.ArcherName,
 					Division:      a.DivisionName,
-					Position:      a.TargetPosition,
 				}
 				targetMap[a.TargetName] = append(targetMap[a.TargetName], archer)
 			}
@@ -186,8 +182,7 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			SessionUUID     string  `json:"session_id" binding:"required"`
 			ParticipantUUID string  `json:"participant_id" binding:"required"`
-			TargetName      string  `json:"target_name" binding:"required"`
-			TargetPosition  string  `json:"target_position" binding:"required"` // A, B, C, D
+			TargetUUID      string  `json:"target_id" binding:"required"`
 			AssignmentUUID  *string `json:"assignment_id,omitempty"`
 		}
 
@@ -196,30 +191,13 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate target position
-		if req.TargetPosition != "A" && req.TargetPosition != "B" && req.TargetPosition != "C" && req.TargetPosition != "D" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "target_position must be A, B, C, or D"})
-			return
-		}
-
-		var targetUUID string
-		err := db.Get(&targetUUID, `
-			SELECT et.uuid FROM event_targets et
-			JOIN qualification_sessions qs ON qs.event_uuid = et.event_uuid
-			WHERE qs.uuid = ? AND et.target_name = ?
-		`, req.SessionUUID, req.TargetName)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target name for this session"})
-			return
-		}
-
-		// Check if position is already taken by another archer
+		// Check if target is already taken by another archer in this session
 		var existingAssignment string
-		err = db.Get(&existingAssignment, `
+		err := db.Get(&existingAssignment, `
 			SELECT uuid FROM qualification_target_assignments 
-			WHERE session_uuid = ? AND target_uuid = ? AND target_position = ? 
+			WHERE session_uuid = ? AND target_uuid = ? 
 			AND uuid != COALESCE(?, '')
-		`, req.SessionUUID, targetUUID, req.TargetPosition, req.AssignmentUUID)
+		`, req.SessionUUID, req.TargetUUID, req.AssignmentUUID)
 
 		if err == nil && existingAssignment != "" {
 			c.JSON(http.StatusConflict, gin.H{"error": "Target position already assigned to another archer"})
@@ -237,9 +215,9 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			// Update existing assignment for this participant
 			_, err = db.Exec(`
 					UPDATE qualification_target_assignments 
-					SET target_uuid = ?, target_position = ?, updated_at = NOW()
+					SET target_uuid = ?, updated_at = NOW()
 					WHERE uuid = ? AND session_uuid = ?
-				`, targetUUID, req.TargetPosition, existingParticipantAssignment, req.SessionUUID)
+				`, req.TargetUUID, existingParticipantAssignment, req.SessionUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
 				return
@@ -256,9 +234,9 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			// Update existing assignment
 			_, err = db.Exec(`
 				UPDATE qualification_target_assignments 
-				SET target_uuid = ?, target_position = ?, updated_at = NOW()
+				SET target_uuid = ?, updated_at = NOW()
 				WHERE uuid = ? AND session_uuid = ?
-			`, targetUUID, req.TargetPosition, *req.AssignmentUUID, req.SessionUUID)
+			`, req.TargetUUID, *req.AssignmentUUID, req.SessionUUID)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
@@ -273,9 +251,9 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			// Create new assignment
 			newUUID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_position)
-				VALUES (?, ?, ?, ?, ?)
-			`, newUUID, req.SessionUUID, req.ParticipantUUID, targetUUID, req.TargetPosition)
+				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid)
+				VALUES (?, ?, ?, ?)
+			`, newUUID, req.SessionUUID, req.ParticipantUUID, req.TargetUUID)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment"})
@@ -640,7 +618,6 @@ func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
 		// Get assigned archers
 		type AssignedArcher struct {
 			Name     string `json:"name" db:"name"`
-			Position string `json:"position" db:"position"`
 			Session  string `json:"session" db:"session"`
 		}
 
@@ -648,13 +625,12 @@ func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
 		db.Select(&archers, `
 			SELECT 
 				COALESCE(a.full_name, '') as name,
-				qta.target_position as position,
 				qs.name as session
 			FROM qualification_target_assignments qta
 			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
 			LEFT JOIN archers a ON qta.archer_uuid = a.uuid
 			WHERE qta.target_uuid = ?
-			ORDER BY qs.name, qta.target_position
+			ORDER BY qs.name
 		`, targetID)
 
 		if archers == nil {
