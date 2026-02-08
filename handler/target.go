@@ -360,7 +360,7 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				REGEXP_REPLACE(target_name, '[^0-9]', '') as target_number,
 				GROUP_CONCAT(REGEXP_REPLACE(target_name, '[0-9]', '') ORDER BY target_name ASC SEPARATOR ', ') as letters,
-				GROUP_CONCAT(uuid SEPARATOR ',') as target_ids,
+				GROUP_CONCAT(uuid ORDER BY target_name ASC SEPARATOR ',') as target_ids,
 				MIN(created_at) as created_at
 			FROM event_targets
 			WHERE event_uuid = ?
@@ -375,7 +375,7 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 				SELECT 
 					LEFT(target_name, 1) as target_number,
 					GROUP_CONCAT(SUBSTRING(target_name, 2) ORDER BY target_name ASC SEPARATOR ', ') as letters,
-					GROUP_CONCAT(uuid SEPARATOR ',') as target_ids,
+					GROUP_CONCAT(uuid ORDER BY target_name ASC SEPARATOR ',') as target_ids,
 					MIN(created_at) as created_at
 				FROM event_targets
 				WHERE event_uuid = ?
@@ -464,7 +464,7 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		if len(dup) > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "Target already exists", "duplicates": dup})
+			c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Target name(s) already exist: %s", strings.Join(dup, ", ")), "duplicates": dup})
 			return
 		}
 
@@ -547,7 +547,7 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			`, eventUUID, *req.TargetName, targetID)
 
 			if err == nil && existingTarget != "" {
-				c.JSON(http.StatusConflict, gin.H{"error": "Target name already exists"})
+				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Target name '%s' already exists in this event", *req.TargetName)})
 				return
 			}
 		}
@@ -672,6 +672,92 @@ func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
 			"target":  target,
 			"archers": archers,
 		})
+	}
+}
+
+// BatchUpdateTargets updates multiple targets at once within a transaction
+func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var req struct {
+			Updates []struct {
+				UUID       string `json:"uuid" binding:"required"`
+				TargetName string `json:"target_name" binding:"required"`
+			} `json:"updates" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Verify event exists
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Rename all targets in the request to a temporary name to avoid transient conflicts
+		for _, update := range req.Updates {
+			tempName := fmt.Sprintf("__tmp_%s", update.UUID)
+			_, err = tx.Exec(`UPDATE event_targets SET target_name = ?, updated_at = NOW() WHERE uuid = ? AND event_uuid = ?`, tempName, update.UUID, eventUUID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set temporary names", "details": err.Error()})
+				return
+			}
+		}
+
+		// 2. Perform actual updates and check for conflicts
+		for _, update := range req.Updates {
+			// Check if new target name conflicts and validate A-D
+			name := update.TargetName
+			if len(name) < 2 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid target name format: %s", name)})
+				return
+			}
+			letter := strings.ToUpper(name[len(name)-1:])
+			allowedLetters := map[string]bool{"A": true, "B": true, "C": true, "D": true}
+			if !allowedLetters[letter] {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid target letter in '%s'. Only A, B, C, D are allowed.", name)})
+				return
+			}
+
+			// Check if name is taken by a target NOT in our update list
+			// (Since all in update list are now __tmp_..., we just check against any target)
+			var existingTarget string
+			err = tx.Get(&existingTarget, `
+				SELECT uuid FROM event_targets 
+				WHERE event_uuid = ? AND target_name = ? AND uuid != ?
+			`, eventUUID, update.TargetName, update.UUID)
+
+			if err == nil && existingTarget != "" {
+				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Target name '%s' already exists in this event", update.TargetName)})
+				return
+			}
+
+			_, err = tx.Exec(`UPDATE event_targets SET target_name = ?, updated_at = NOW() WHERE uuid = ? AND event_uuid = ?`, update.TargetName, update.UUID, eventUUID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target", "details": err.Error()})
+				return
+			}
+		}
+
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Targets updated successfully"})
 	}
 }
 

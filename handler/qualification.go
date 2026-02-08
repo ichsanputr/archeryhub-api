@@ -731,8 +731,9 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			CategoryID  string `json:"category_id" binding:"required"`
 			Assignments []struct {
-				ArcherUUID string `json:"archer_uuid" binding:"required"`
-				TargetID   string `json:"target_id" binding:"required"`
+				ArcherUUID     string `json:"archer_uuid" binding:"required"`
+				TargetID       string `json:"target_id" binding:"required"`
+				TargetPosition string `json:"target_position"`
 			} `json:"assignments" binding:"required"`
 		}
 
@@ -781,12 +782,17 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 				continue
 			}
 
-			// Insert assignment with default position 'A'
+			pos := assignment.TargetPosition
+			if pos == "" {
+				pos = "A"
+			}
+
+			// Insert assignment
 			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments 
 				(uuid, session_uuid, archer_uuid, target_uuid, target_position, created_at, updated_at)
-				VALUES (?, ?, ?, ?, 'A', NOW(), NOW())
-			`, assignmentUUID, sessionUUID, assignment.ArcherUUID, assignment.TargetID)
+				VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+			`, assignmentUUID, sessionUUID, assignment.ArcherUUID, assignment.TargetID, pos)
 			if err != nil {
 				errors = append(errors, map[string]interface{}{
 					"archer_uuid": assignment.ArcherUUID,

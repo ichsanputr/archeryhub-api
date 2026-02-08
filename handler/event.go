@@ -1023,13 +1023,14 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE tp.event_id = ? AND (
 				tp.uuid = ? OR 
+				tp.archer_id = ? OR
 				a.username = ? OR 
 				a.id = ? OR
 				LOWER(REPLACE(a.full_name, ' ', '-')) = LOWER(?)
 			)
 			ORDER BY tp.created_at DESC
 			LIMIT 1
-		`, actualEventID, participantID, participantID, participantID, participantID)
+		`, actualEventID, participantID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
 			fmt.Printf("[DEBUG] Participant not found in DB for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)

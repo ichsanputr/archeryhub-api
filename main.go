@@ -219,6 +219,11 @@ func main() {
 				// Qualification target assignments - nested under events/:id/qualification/sessions/:sessionId
 				protected.POST("/:id/qualification/sessions/:sessionId/assignments", handler.CreateBulkTargetAssignments(db))
 
+				// Target management
+				protected.POST("/:id/targets", handler.CreateEventTarget(db))
+				protected.PUT("/:id/targets/batch", handler.BatchUpdateTargets(db))
+				protected.PUT("/:id/targets/:target_id", handler.UpdateEventTarget(db))
+				protected.DELETE("/:id/targets/:target_id", handler.DeleteEventTarget(db))
 			}
 		}
 
@@ -272,9 +277,6 @@ func main() {
 		// Event Targets Data Master routes
 		events.GET("/:id/targets", handler.GetEventTargets(db))
 		events.GET("/:id/targets/options", handler.GetTargetOptions(db))
-		events.POST("/:id/targets", middleware.AuthMiddleware(), handler.CreateEventTarget(db))
-		events.PUT("/:id/targets/:target_id", middleware.AuthMiddleware(), handler.UpdateEventTarget(db))
-		events.DELETE("/:id/targets/:target_id", middleware.AuthMiddleware(), handler.DeleteEventTarget(db))
 		events.GET("/:id/targets/:target_id", handler.GetTargetDetails(db))
 
 		// Event category reference routes
