@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -797,6 +798,17 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				})
 			}
 		}
+
+		// Sort clubs alphabetically (A-Z) with "Independen" always last
+		sort.Slice(clubGroups, func(i, j int) bool {
+			if clubGroups[i].ClubName == "Independen" {
+				return false
+			}
+			if clubGroups[j].ClubName == "Independen" {
+				return true
+			}
+			return clubGroups[i].ClubName < clubGroups[j].ClubName
+		})
 
 		// Fetch existing assignments to avoid duplicates
 		var existing []string
