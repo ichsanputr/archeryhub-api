@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"strings"
 )
 
 // GetQualificationSessions returns all sessions for an event
@@ -296,6 +297,29 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
+		// 1. Fetch all existing end scores for this participant and session once
+		type ExistingEnd struct {
+			UUID      string `db:"uuid"`
+			EndNumber int    `db:"end_number"`
+		}
+		var existingEnds []ExistingEnd
+		err = tx.Select(&existingEnds, `
+			SELECT uuid, end_number FROM qualification_end_scores 
+			WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, participantUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch existing scores"})
+			return
+		}
+
+		existingMap := make(map[int]string)
+		for _, ee := range existingEnds {
+			existingMap[ee.EndNumber] = ee.UUID
+		}
+
+		var allEndScoreUUIDs []string
+		var arrowValues []interface{}
+		arrowCount := 0
+
 		for _, end := range ends {
 			total, xCount, tenCount := 0, 0, 0
 			for _, arrow := range end.Arrows {
@@ -305,27 +329,18 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 				tenCount += ten
 			}
 
-			var existingUUID sql.NullString
-			tx.Get(&existingUUID, `
-				SELECT uuid FROM qualification_end_scores 
-				WHERE session_uuid = ? AND participant_uuid = ? AND end_number = ?`,
-				sessionUUID, participantUUID, end.EndNumber)
-
-			var currentEndScoreUUID string
-			if existingUUID.Valid {
-				currentEndScoreUUID = existingUUID.String
+			currentEndScoreUUID, exists := existingMap[end.EndNumber]
+			
+			if exists {
+				// Update end score
 				_, err = tx.Exec(`UPDATE qualification_end_scores SET total_score_end = ?, x_count_end = ?, ten_count_end = ? WHERE uuid = ?`,
 					total, xCount, tenCount, currentEndScoreUUID)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update end score"})
 					return
 				}
-				_, err = tx.Exec(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid = ?`, currentEndScoreUUID)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear old arrow scores"})
-					return
-				}
 			} else {
+				// Insert end score
 				currentEndScoreUUID = uuid.New().String()
 				_, err = tx.Exec(`INSERT INTO qualification_end_scores (uuid, session_uuid, participant_uuid, end_number, total_score_end, x_count_end, ten_count_end) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					currentEndScoreUUID, sessionUUID, participantUUID, end.EndNumber, total, xCount, tenCount)
@@ -335,18 +350,47 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 
+			allEndScoreUUIDs = append(allEndScoreUUIDs, currentEndScoreUUID)
+
 			for i, arrow := range end.Arrows {
 				val, _, _ := calculateArrowValue(arrow)
 				isX := 0
 				if arrow == "X" {
 					isX = 1
 				}
-				_, err = tx.Exec(`INSERT INTO qualification_arrow_scores (uuid, end_score_uuid, arrow_number, score, is_x) VALUES (?, ?, ?, ?, ?)`,
-					uuid.New().String(), currentEndScoreUUID, i+1, val, isX)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow score"})
-					return
-				}
+				arrowValues = append(arrowValues, uuid.New().String(), currentEndScoreUUID, i+1, val, isX)
+				arrowCount++
+			}
+		}
+
+		// 2. Clear old arrows for all affected ends in a single query
+		if len(allEndScoreUUIDs) > 0 {
+			query, args, err := sqlx.In(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (?)`, allEndScoreUUIDs)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare arrow cleanup"})
+				return
+			}
+			query = tx.Rebind(query)
+			_, err = tx.Exec(query, args...)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear old arrow scores"})
+				return
+			}
+		}
+
+		// 3. Bulk insert all new arrows in a single query
+		if arrowCount > 0 {
+			valueStrings := make([]string, 0, arrowCount)
+			for i := 0; i < arrowCount; i++ {
+				valueStrings = append(valueStrings, "(?, ?, ?, ?, ?)")
+			}
+			bulkQuery := fmt.Sprintf("INSERT INTO qualification_arrow_scores (uuid, end_score_uuid, arrow_number, score, is_x) VALUES %s", 
+				strings.Join(valueStrings, ","))
+			
+			_, err = tx.Exec(bulkQuery, arrowValues...)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow scores (bulk)"})
+				return
 			}
 		}
 
