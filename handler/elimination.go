@@ -40,6 +40,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 			BracketSize   int     `json:"bracket_size" db:"bracket_size"`
 			EndsPerMatch  int     `json:"ends_per_match" db:"ends_per_match"`
 			ArrowsPerEnd  int     `json:"arrows_per_end" db:"arrows_per_end"`
+			Status        string  `json:"status" db:"status"`
 			GeneratedAt   *string `json:"generated_at" db:"generated_at"`
 			CreatedAt     string  `json:"created_at" db:"created_at"`
 			MatchCount    int     `json:"match_count" db:"match_count"`
@@ -48,7 +49,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, 
 				COALESCE(CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, '')), 'Unknown Category') as category_name,
-				eb.bracket_type, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end,
+				eb.bracket_type, eb.format, eb.bracket_size, eb.status, eb.ends_per_match, eb.arrows_per_end,
 				eb.generated_at, eb.created_at,
 				(SELECT COUNT(*) FROM elimination_matches em WHERE em.bracket_uuid = eb.uuid) as match_count
 			FROM elimination_brackets eb
@@ -96,6 +97,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			BracketType  string  `json:"bracket_type" db:"bracket_type"`
 			Format       string  `json:"format" db:"format"`
 			BracketSize  int     `json:"bracket_size" db:"bracket_size"`
+			Status       string  `json:"status" db:"status"`
 			EndsPerMatch int     `json:"ends_per_match" db:"ends_per_match"`
 			ArrowsPerEnd int     `json:"arrows_per_end" db:"arrows_per_end"`
 			GeneratedAt  *string `json:"generated_at" db:"generated_at"`
@@ -104,7 +106,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		var bracket Bracket
 		err := db.Get(&bracket, `
-			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, eb.bracket_type, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end, eb.generated_at, eb.created_at,
+			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, eb.bracket_type, eb.status, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end, eb.generated_at, eb.created_at,
 				COALESCE(CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, '')), 'Unknown Category') as category_name
 			FROM elimination_brackets eb
 			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
@@ -289,7 +291,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		var participantCount int
 		if req.BracketType == "individual" {
 			// Count archers in this category
-			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND status = 'confirmed'`, req.CategoryID)
+			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND status IN ('confirmed', 'Terdaftar')`, req.CategoryID)
 		} else {
 			// Count teams for this tournament/category
 			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE category_uuid = ?`, req.CategoryID)
@@ -444,7 +446,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
 				FROM event_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN qualification_end_scores qes ON qes.archer_uuid = a.uuid
+				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE ep.category_id = ?
 				GROUP BY a.uuid
 				ORDER BY total_score DESC, total_x DESC, total_10 DESC
