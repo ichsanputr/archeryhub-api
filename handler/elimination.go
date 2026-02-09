@@ -171,8 +171,10 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
 			TargetName      *string    `json:"target_name" db:"target_name"`
-			ScoreA          int        `json:"score_a"`
-			ScoreB          int        `json:"score_b"`
+			TotalScoreA     int        `json:"total_score_a"`
+			TotalScoreB     int        `json:"total_score_b"`
+			TotalPointsA    int        `json:"total_points_a"`
+			TotalPointsB    int        `json:"total_points_b"`
 		}
 
 		var matches []Match
@@ -207,35 +209,73 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			matches = []Match{}
 		}
 
-		// Fetch scores for all matches
-		type MatchScore struct {
+		// Fetch all ends for all matches to calculate total scores and set points
+		type matchEnd struct {
 			MatchUUID string `db:"match_uuid"`
+			EndNo     int    `db:"end_no"`
 			Side      string `db:"side"`
-			Total     int    `db:"total"`
+			EndTotal  int    `db:"end_total"`
 		}
-		var scores []MatchScore
-		db.Select(&scores, `
-			SELECT match_uuid, side, SUM(end_total) as total
+		var allEnds []matchEnd
+		err = db.Select(&allEnds, `
+			SELECT match_uuid, end_no, side, end_total
 			FROM elimination_match_ends
 			WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
-			GROUP BY match_uuid, side
 		`, bracketUUID)
-
-		// Create a map for quick lookup
-		scoreMap := make(map[string]map[string]int)
-		for _, s := range scores {
-			if scoreMap[s.MatchUUID] == nil {
-				scoreMap[s.MatchUUID] = make(map[string]int)
-			}
-			scoreMap[s.MatchUUID][s.Side] = s.Total
+		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch match ends for bracket")
 		}
 
-		// Assign scores to matches
-		for i := range matches {
-			if scoreMap[matches[i].UUID] != nil {
-				matches[i].ScoreA = scoreMap[matches[i].UUID]["A"]
-				matches[i].ScoreB = scoreMap[matches[i].UUID]["B"]
+		// Map to store ends per match: match_uuid -> end_no -> side -> total
+		endsByMatch := make(map[string]map[int]map[string]int)
+		for _, e := range allEnds {
+			if endsByMatch[e.MatchUUID] == nil {
+				endsByMatch[e.MatchUUID] = make(map[int]map[string]int)
 			}
+			if endsByMatch[e.MatchUUID][e.EndNo] == nil {
+				endsByMatch[e.MatchUUID][e.EndNo] = make(map[string]int)
+			}
+			endsByMatch[e.MatchUUID][e.EndNo][e.Side] = e.EndTotal
+		}
+
+		// Calculate scores and points for each match
+		for i := range matches {
+			mID := matches[i].UUID
+			matchEnds := endsByMatch[mID]
+
+			totalScoreA := 0
+			totalScoreB := 0
+			totalPointsA := 0
+			totalPointsB := 0
+
+			// Sort end numbers to process them in order for set points
+			var endNos []int
+			for en := range matchEnds {
+				endNos = append(endNos, en)
+			}
+
+			for _, en := range endNos {
+				scoreA := matchEnds[en]["A"]
+				scoreB := matchEnds[en]["B"]
+				totalScoreA += scoreA
+				totalScoreB += scoreB
+
+				if bracket.Format == "recurve_set" {
+					if scoreA > scoreB {
+						totalPointsA += 2
+					} else if scoreB > scoreA {
+						totalPointsB += 2
+					} else if scoreA == scoreB && scoreA > 0 { // at least some arrows shot
+						totalPointsA += 1
+						totalPointsB += 1
+					}
+				}
+			}
+
+			matches[i].TotalScoreA = totalScoreA
+			matches[i].TotalScoreB = totalScoreB
+			matches[i].TotalPointsA = totalPointsA
+			matches[i].TotalPointsB = totalPointsB
 		}
 
 		// Group matches by round
@@ -316,9 +356,17 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		bracketUUID := uuid.New().String()
 		bracketID := fmt.Sprintf("BR-%s-%s", time.Now().Format("20060102"), bracketUUID[:8])
-		_, err = db.Exec(`
-			INSERT INTO elimination_brackets (uuid, bracket_id, event_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec(`
+			INSERT INTO elimination_brackets (uuid, bracket_id, event_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end, status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated')
 		`, bracketUUID, bracketID, eventUUID, req.CategoryID, req.BracketType, req.Format, req.BracketSize, req.EndsPerMatch, req.ArrowsPerEnd)
 
 		if err != nil {
@@ -326,8 +374,111 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// --- AUTO-GENERATE MATCHES & ENTRIES ---
+		var entries []struct {
+			ParticipantUUID string `db:"participant_uuid"`
+			TotalScore      int    `db:"total_score"`
+			TotalX          int    `db:"total_x"`
+			Total10         int    `db:"total_10"`
+		}
+
+		if req.BracketType == "individual" {
+			err = tx.Select(&entries, `
+				SELECT a.uuid as participant_uuid,
+					COALESCE(SUM(qes.total_score_end), 0) as total_score,
+					COALESCE(SUM(qes.x_count_end), 0) as total_x,
+					COALESCE(SUM(qes.ten_count_end), 0) as total_10
+				FROM event_participants ep
+				JOIN archers a ON ep.archer_id = a.uuid
+				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
+				WHERE ep.category_id = ?
+				GROUP BY a.uuid
+				ORDER BY total_score DESC, total_x DESC, total_10 DESC
+				LIMIT ?
+			`, req.CategoryID, req.BracketSize)
+		} else {
+			err = tx.Select(&entries, `
+				SELECT t.uuid as participant_uuid,
+					COALESCE(t.total_score, 0) as total_score,
+					COALESCE(t.total_x_count, 0) as total_x,
+					0 as total_10
+				FROM teams t
+				WHERE t.event_id = ? AND t.tournament_id = ?
+				ORDER BY total_score DESC, total_x DESC
+				LIMIT ?
+			`, req.CategoryID, eventUUID, req.BracketSize)
+		}
+
+		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch qualification results for auto-generation")
+		}
+
+		// Create entries
+		participantType := "archer"
+		if req.BracketType != "individual" {
+			participantType = "team"
+		}
+
+		entryUUIDs := make([]string, req.BracketSize)
+		for i := 0; i < req.BracketSize; i++ {
+			entryUUID := uuid.New().String()
+			entryUUIDs[i] = entryUUID
+			if i < len(entries) {
+				tx.Exec(`
+					INSERT INTO elimination_entries (uuid, bracket_uuid, participant_type, participant_uuid, seed, qual_total_score, qual_total_x, qual_total_10)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`, entryUUID, bracketUUID, participantType, entries[i].ParticipantUUID, i+1, entries[i].TotalScore, entries[i].TotalX, entries[i].Total10)
+			}
+		}
+
+		// Generate matches
+		numRounds := int(math.Log2(float64(req.BracketSize)))
+		firstRoundMatchups := generateBracketSeeding(req.BracketSize)
+
+		for roundNo := 1; roundNo <= numRounds; roundNo++ {
+			matchesInRound := req.BracketSize / int(math.Pow(2, float64(roundNo)))
+			for matchNo := 1; matchNo <= matchesInRound; matchNo++ {
+				matchUUID := uuid.New().String()
+				var entryAUUID, entryBUUID *string
+				isBye := false
+
+				if roundNo == 1 {
+					matchIdx := matchNo - 1
+					seedA := firstRoundMatchups[matchIdx*2]
+					seedB := firstRoundMatchups[matchIdx*2+1]
+					if seedA <= len(entries) { entryAUUID = &entryUUIDs[seedA-1] }
+					if seedB <= len(entries) { entryBUUID = &entryUUIDs[seedB-1] }
+					if (entryAUUID == nil || entryBUUID == nil) && !(entryAUUID == nil && entryBUUID == nil) {
+						isBye = true
+					}
+				}
+
+				tx.Exec(`
+					INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye)
+					VALUES (?, ?, ?, ?, ?, ?, ?)
+				`, matchUUID, bracketUUID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
+			}
+		}
+
+		if req.BracketSize >= 4 {
+			bronzeMatchUUID := uuid.New().String()
+			tx.Exec(`
+				INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+			`, bronzeMatchUUID, bracketUUID, numRounds, 2, nil, nil, false)
+		}
+
+		// Update generated_at
+		now := time.Now().Format("2006-01-02 15:04:05")
+		tx.Exec(`UPDATE elimination_brackets SET generated_at = ? WHERE uuid = ?`, now, bracketUUID)
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit bracket creation"})
+			return
+		}
+
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Bracket created successfully",
+			"message": "Bracket created and generated successfully",
 			"bracket": gin.H{
 				"id":   bracketID,
 				"uuid": bracketUUID,
@@ -543,6 +694,19 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Create 3rd Place Match (Bronze Match) if bracket size >= 4
+		if bracket.BracketSize >= 4 {
+			numRounds := int(math.Log2(float64(bracket.BracketSize)))
+			bronzeMatchUUID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+			`, bronzeMatchUUID, bracketUUID, numRounds, 2, nil, nil, false)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to create bronze match")
+			}
+		}
+
 		// Update bracket status
 		now := time.Now().Format("2006-01-02 15:04:05")
 		_, err = tx.Exec(`UPDATE elimination_brackets SET status = 'generated', generated_at = ? WHERE uuid = ?`, now, bracketUUID)
@@ -729,6 +893,10 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
 			Format          string     `json:"format" db:"format"`
+			TotalScoreA     int        `json:"total_score_a"`
+			TotalScoreB     int        `json:"total_score_b"`
+			TotalPointsA    int        `json:"total_points_a"`
+			TotalPointsB    int        `json:"total_points_b"`
 		}
 
 		var match Match
@@ -827,6 +995,43 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 		}
+
+		// Calculate total scores and points
+		var totalScoreA, totalScoreB, totalPointsA, totalPointsB int
+		
+		// Map ends by number to calculate set points
+		endByNo := make(map[int]map[string]int)
+		for _, e := range ends {
+			if endByNo[e.EndNo] == nil {
+				endByNo[e.EndNo] = make(map[string]int)
+			}
+			endByNo[e.EndNo][e.Side] = e.EndTotal
+			if e.Side == "A" {
+				totalScoreA += e.EndTotal
+			} else {
+				totalScoreB += e.EndTotal
+			}
+		}
+
+		if match.Format == "recurve_set" {
+			for _, sides := range endByNo {
+				sA := sides["A"]
+				sB := sides["B"]
+				if sA > sB {
+					totalPointsA += 2
+				} else if sB > sA {
+					totalPointsB += 2
+				} else if sA == sB && sA > 0 {
+					totalPointsA += 1
+					totalPointsB += 1
+				}
+			}
+		}
+
+		match.TotalScoreA = totalScoreA
+		match.TotalScoreB = totalScoreB
+		match.TotalPointsA = totalPointsA
+		match.TotalPointsB = totalPointsB
 
 		c.JSON(http.StatusOK, gin.H{
 			"match":         match,
@@ -1091,6 +1296,26 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 					}).Info("Created next round match")
 				}
 			}
+
+			// SPECIAL CASE: Advance Losers to Bronze Match if it's the Semifinals
+			if match.RoundNo == numRounds-1 {
+				loserID := match.EntryAUUID
+				if loserID != nil && *loserID == req.WinnerEntryID {
+					loserID = match.EntryBUUID
+				}
+
+				if loserID != nil {
+					bronzeSlot := "entry_a_uuid"
+					if match.MatchNo%2 == 0 {
+						bronzeSlot = "entry_b_uuid"
+					}
+					_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, bronzeSlot),
+						*loserID, match.BracketUUID, numRounds, 2)
+					if err != nil {
+						logrus.WithError(err).Error("Failed to advance loser to bronze match")
+					}
+				}
+			}
 		}
 
 		if err := tx.Commit(); err != nil {
@@ -1300,6 +1525,26 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 						"round":           nextRound,
 						"match_no":        nextMatchNo,
 					}).Info("Created next round match from EndMatch")
+				}
+			}
+
+			// SPECIAL CASE: Advance Losers to Bronze Match if it's the Semifinals
+			if match.RoundNo == numRounds-1 {
+				loserID := match.EntryAUUID
+				if loserID != nil && *loserID == winnerID {
+					loserID = match.EntryBUUID
+				}
+
+				if loserID != nil {
+					bronzeSlot := "entry_a_uuid"
+					if match.MatchNo%2 == 0 {
+						bronzeSlot = "entry_b_uuid"
+					}
+					_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, bronzeSlot),
+						*loserID, match.BracketUUID, numRounds, 2)
+					if err != nil {
+						logrus.WithError(err).Error("Failed to advance loser to bronze match in EndMatch")
+					}
 				}
 			}
 		}
