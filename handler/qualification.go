@@ -2,7 +2,6 @@ package handler
 
 import (
 	"archeryhub-api/models"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
