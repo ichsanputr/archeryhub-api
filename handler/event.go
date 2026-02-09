@@ -994,6 +994,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			PaymentProofURLs   *string `db:"payment_proof_urls" json:"payment_proof_urls"`
 			RegistrationDate   string  `db:"registration_date" json:"registration_date"`
 			IsVerified         bool    `db:"is_verified" json:"is_verified"`
+			QualificationAssignmentUUID *string `db:"qualification_assignment_uuid" json:"qualification_assignment_uuid"`
 		}
 
 		var participant Participant
@@ -1012,7 +1013,8 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
-				COALESCE(a.is_verified, 0) as is_verified
+				COALESCE(a.is_verified, 0) as is_verified,
+				qta.uuid as qualification_assignment_uuid
 			FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -1021,6 +1023,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = tp.uuid
 			WHERE tp.event_id = ? AND (
 				tp.uuid = ? OR 
 				tp.archer_id = ? OR

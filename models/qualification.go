@@ -40,8 +40,19 @@ type QualificationEndScore struct {
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// ScoreUpdateRequest is the request payload for updating end scores
+// ScoreUpdateRequest is the request payload for updating a single end score
 type ScoreUpdateRequest struct {
 	Arrows    []string `json:"arrows" binding:"required"`
 	EndNumber int      `json:"end_number" binding:"required"`
+}
+
+// SingleEndScore represents score for one end in a batch update
+type SingleEndScore struct {
+	EndNumber int      `json:"end_number" binding:"required"`
+	Arrows    []string `json:"arrows" binding:"required"`
+}
+
+// ScoreBatchUpdateRequest is the request payload for updating multiple end scores at once
+type ScoreBatchUpdateRequest struct {
+	Ends []SingleEndScore `json:"ends" binding:"required"`
 }

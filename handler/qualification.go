@@ -3,6 +3,7 @@ package handler
 import (
 	"archeryhub-api/models"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -251,117 +252,110 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// UpdateQualificationScore updates end scores for an assignment
+// UpdateQualificationScore updates end scores for an assignment (supports batch)
 func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")
-		var req models.ScoreUpdateRequest
 
-		if err := c.ShouldBindJSON(&req); err != nil {
+		var sessionUUID, participantUUID string
+		if err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			return
+		}
+		if err := db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			return
+		}
+
+		var raw map[string]interface{}
+		if err := c.ShouldBindJSON(&raw); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Get assignment details
-		var sessionUUID, participantUUID string
-		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
-			return
-		}
-		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
-			return
-		}
-
-		// Calculate end total and counts
-		total := 0
-		xCount := 0
-		tenCount := 0
-
-		for _, arrow := range req.Arrows {
-			val, x, ten := calculateArrowValue(arrow)
-			total += val
-			xCount += x
-			tenCount += ten
-		}
-
-		// Check if end score already exists
-		var existingUUID sql.NullString
-		err = db.Get(&existingUUID, `
-			SELECT uuid FROM qualification_end_scores 
-			WHERE session_uuid = ? AND participant_uuid = ? AND end_number = ?`,
-			sessionUUID, participantUUID, req.EndNumber)
-
-		if existingUUID.Valid {
-			// Update existing end score
-			_, err = db.Exec(`
-				UPDATE qualification_end_scores 
-				SET total_score_end = ?, x_count_end = ?, ten_count_end = ?
-				WHERE uuid = ?`,
-				total, xCount, tenCount, existingUUID.String)
+		var ends []models.SingleEndScore
+		if _, exists := raw["ends"]; exists {
+			data, _ := json.Marshal(raw)
+			var batchReq models.ScoreBatchUpdateRequest
+			json.Unmarshal(data, &batchReq)
+			ends = batchReq.Ends
+		} else if _, exists := raw["end_number"]; exists {
+			data, _ := json.Marshal(raw)
+			var singleReq models.ScoreUpdateRequest
+			json.Unmarshal(data, &singleReq)
+			ends = []models.SingleEndScore{{EndNumber: singleReq.EndNumber, Arrows: singleReq.Arrows}}
 		} else {
-			// Create new end score
-			scoreUUID := uuid.New().String()
-			_, err = db.Exec(`
-				INSERT INTO qualification_end_scores 
-				(uuid, session_uuid, participant_uuid, end_number, total_score_end, x_count_end, ten_count_end)
-				VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				scoreUUID, sessionUUID, participantUUID, req.EndNumber, total, xCount, tenCount)
-		}
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update score", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: 'ends' or 'end_number' required"})
 			return
 		}
 
-		// Now handle individual arrow scores
-		// First, delete existing arrow scores for this end
-		if existingUUID.Valid {
-			_, err = db.Exec(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid = ?`, existingUUID.String)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete old arrow scores"})
-				return
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		for _, end := range ends {
+			total, xCount, tenCount := 0, 0, 0
+			for _, arrow := range end.Arrows {
+				val, x, ten := calculateArrowValue(arrow)
+				total += val
+				xCount += x
+				tenCount += ten
 			}
-		}
 
-		// Insert new arrow scores
-		var endScoreUUID string
-		if existingUUID.Valid {
-			endScoreUUID = existingUUID.String
-		} else {
-			err = db.Get(&endScoreUUID, `
+			var existingUUID sql.NullString
+			tx.Get(&existingUUID, `
 				SELECT uuid FROM qualification_end_scores 
 				WHERE session_uuid = ? AND participant_uuid = ? AND end_number = ?`,
-				sessionUUID, participantUUID, req.EndNumber)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve end score"})
-				return
+				sessionUUID, participantUUID, end.EndNumber)
+
+			var currentEndScoreUUID string
+			if existingUUID.Valid {
+				currentEndScoreUUID = existingUUID.String
+				_, err = tx.Exec(`UPDATE qualification_end_scores SET total_score_end = ?, x_count_end = ?, ten_count_end = ? WHERE uuid = ?`,
+					total, xCount, tenCount, currentEndScoreUUID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update end score"})
+					return
+				}
+				_, err = tx.Exec(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid = ?`, currentEndScoreUUID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear old arrow scores"})
+					return
+				}
+			} else {
+				currentEndScoreUUID = uuid.New().String()
+				_, err = tx.Exec(`INSERT INTO qualification_end_scores (uuid, session_uuid, participant_uuid, end_number, total_score_end, x_count_end, ten_count_end) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+					currentEndScoreUUID, sessionUUID, participantUUID, end.EndNumber, total, xCount, tenCount)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create new end score"})
+					return
+				}
+			}
+
+			for i, arrow := range end.Arrows {
+				val, _, _ := calculateArrowValue(arrow)
+				isX := 0
+				if arrow == "X" {
+					isX = 1
+				}
+				_, err = tx.Exec(`INSERT INTO qualification_arrow_scores (uuid, end_score_uuid, arrow_number, score, is_x) VALUES (?, ?, ?, ?, ?)`,
+					uuid.New().String(), currentEndScoreUUID, i+1, val, isX)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow score"})
+					return
+				}
 			}
 		}
 
-		for i, arrow := range req.Arrows {
-			arrowUUID := uuid.New().String()
-			val, _, _ := calculateArrowValue(arrow)
-			isX := 0
-			if arrow == "X" {
-				isX = 1
-			}
-
-			_, err = db.Exec(`
-				INSERT INTO qualification_arrow_scores 
-				(uuid, end_score_uuid, arrow_number, score, is_x)
-				VALUES (?, ?, ?, ?, ?)`,
-				arrowUUID, endScoreUUID, i+1, val, isX)
-
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow score"})
-				return
-			}
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit scores"})
+			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Score updated successfully", "total": total})
+		c.JSON(http.StatusOK, gin.H{"message": "Scores updated successfully"})
 	}
 }
 

@@ -48,6 +48,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		type ResultEntry struct {
 			Rank          int             `json:"rank"`
 			ParticipantUUID string          `json:"participant_id" db:"participant_uuid"`
+			ArcherUUID    string          `json:"archer_uuid" db:"archer_uuid"`
 			ArcherName    string          `json:"archer_name" db:"archer_name"`
 			ClubName      *string         `json:"club_name" db:"club_name"`
 			TotalScore    int             `json:"total_score" db:"total_score"`
@@ -62,6 +63,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&entries, `
 			SELECT 
 				ep.uuid as participant_uuid,
+				ep.archer_id as archer_uuid,
 				a.full_name as archer_name,
 				cl.name as club_name,
 				COALESCE(SUM(s.total_score_end), 0) as total_score,
@@ -80,7 +82,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
 			LEFT JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid AND qs.event_uuid = ?
 			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.participant_uuid = ep.uuid
-			WHERE ep.category_id = ? AND ep.status = 'confirmed'
+			WHERE ep.category_id = ?
 			GROUP BY ep.uuid, ep.archer_id, a.full_name, cl.name
 			HAVING total_score > 0
 			ORDER BY total_score DESC, total_10x DESC, total_x DESC
