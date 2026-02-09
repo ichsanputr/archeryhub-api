@@ -675,6 +675,9 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // AutoAssignParticipants automatically assigns participants to targets
+// AutoAssignParticipants assigns participants to targets using lane-based algorithm
+// Each club gets assigned a unique position letter (A, B, C, D), and archers from that club
+// are placed on sequential target numbers with their lane letter.
 func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
@@ -702,33 +705,54 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get available targets for this event starting from the specified target
+		// Get available targets for this event, sorted naturally (1A, 1B, 1C, 1D, 2A, 2B...)
 		type Target struct {
 			UUID       string `db:"uuid"`
 			TargetName string `db:"target_name"`
 		}
-		var targets []Target
-		err = db.Select(&targets, `
+		var allTargets []Target
+		err = db.Select(&allTargets, `
 			SELECT uuid, target_name
 			FROM event_targets
 			WHERE event_uuid = ?
 			ORDER BY (target_name + 0) ASC, target_name ASC
 		`, eventUUID)
 
-		if err != nil || len(targets) == 0 {
+		if err != nil || len(allTargets) == 0 {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "No targets available"})
 			return
 		}
 
-		// Get participants who are not yet assigned in this session
-		type Participant struct {
-			ParticipationUUID string `db:"uuid"`
+		// Group targets by position letter (A, B, C, D)
+		// targetsByLetter["A"] = [1A, 2A, 3A, ...]
+		targetsByLetter := make(map[string][]Target)
+		letterOrder := []string{}
+		for _, t := range allTargets {
+			letter := ""
+			if len(t.TargetName) > 0 {
+				letter = string(t.TargetName[len(t.TargetName)-1])
+			}
+			if letter >= "A" && letter <= "Z" {
+				if _, exists := targetsByLetter[letter]; !exists {
+					letterOrder = append(letterOrder, letter)
+				}
+				targetsByLetter[letter] = append(targetsByLetter[letter], t)
+			}
 		}
-		var participants []Participant
+
+		// Get participants grouped by club, sorted alphabetically by name within club
+		type ParticipantWithClub struct {
+			ParticipationUUID string  `db:"uuid"`
+			ArcherName        string  `db:"archer_name"`
+			ClubID            *string `db:"club_id"`
+			ClubName          *string `db:"club_name"`
+		}
+		var participants []ParticipantWithClub
 		err = db.Select(&participants, `
-			SELECT ep.uuid
+			SELECT ep.uuid, a.full_name as archer_name, a.club_id, c.name as club_name
 			FROM event_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE ep.category_id = ?
 			AND ep.status = 'Terdaftar'
 			AND ep.uuid NOT IN (
@@ -736,12 +760,42 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				FROM qualification_target_assignments 
 				WHERE session_uuid = ?
 			)
-			ORDER BY (a.club_id IS NULL) ASC, a.club_id ASC, ep.registration_date ASC
+			ORDER BY (a.club_id IS NULL) ASC, c.name ASC, a.full_name ASC
 		`, req.CategoryID, sessionID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
 			return
+		}
+
+		if len(participants) == 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "No participants to assign", "count": 0})
+			return
+		}
+
+		// Group participants by club
+		type ClubGroup struct {
+			ClubName string
+			Archers  []ParticipantWithClub
+		}
+		clubGroups := []ClubGroup{}
+		clubMap := make(map[string]int) // clubName -> index in clubGroups
+
+		for _, p := range participants {
+			clubName := "Independen"
+			if p.ClubName != nil && *p.ClubName != "" {
+				clubName = *p.ClubName
+			}
+
+			if idx, exists := clubMap[clubName]; exists {
+				clubGroups[idx].Archers = append(clubGroups[idx].Archers, p)
+			} else {
+				clubMap[clubName] = len(clubGroups)
+				clubGroups = append(clubGroups, ClubGroup{
+					ClubName: clubName,
+					Archers:  []ParticipantWithClub{p},
+				})
+			}
 		}
 
 		// Fetch existing assignments to avoid duplicates
@@ -753,52 +807,97 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			isTaken[e] = true
 		}
 
-		// Assign participants to targets
-		targetIndex := 0
-		if req.StartTargetName != "" {
-			for i, t := range targets {
-				if t.TargetName == req.StartTargetName || t.TargetName == "Target "+req.StartTargetName {
-					targetIndex = i
+		// Track next available target index for each letter
+		letterNextIndex := make(map[string]int)
+		for _, letter := range letterOrder {
+			letterNextIndex[letter] = 0
+		}
+
+		assignedCount := 0
+
+		// Assign each club to a lane letter
+		for clubIndex, club := range clubGroups {
+			// Determine which lane letter this club gets
+			letterIdx := clubIndex % len(letterOrder)
+			letter := letterOrder[letterIdx]
+
+			targetsForLetter := targetsByLetter[letter]
+
+			// Assign each archer in this club to sequential targets with this letter
+			for _, archer := range club.Archers {
+				// Find next available target with this letter
+				found := false
+				for letterNextIndex[letter] < len(targetsForLetter) {
+					targetCandidate := targetsForLetter[letterNextIndex[letter]]
+					if isTaken[targetCandidate.UUID] {
+						letterNextIndex[letter]++
+						continue
+					}
+
+					// Found a slot!
+					assignmentUUID := uuid.New().String()
+					_, err := db.Exec(`
+						INSERT INTO qualification_target_assignments 
+						(uuid, session_uuid, participant_uuid, target_uuid)
+						VALUES (?, ?, ?, ?)`,
+						assignmentUUID, sessionID, archer.ParticipationUUID, targetCandidate.UUID)
+
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
+						return
+					}
+
+					isTaken[targetCandidate.UUID] = true
+					letterNextIndex[letter]++
+					assignedCount++
+					found = true
 					break
 				}
+
+				if !found {
+					// No more slots for this letter, cycle to next available letter
+					for _, nextLetter := range letterOrder {
+						if nextLetter == letter {
+							continue
+						}
+						nextTargets := targetsByLetter[nextLetter]
+						for letterNextIndex[nextLetter] < len(nextTargets) {
+							targetCandidate := nextTargets[letterNextIndex[nextLetter]]
+							if isTaken[targetCandidate.UUID] {
+								letterNextIndex[nextLetter]++
+								continue
+							}
+
+							assignmentUUID := uuid.New().String()
+							_, err := db.Exec(`
+								INSERT INTO qualification_target_assignments 
+								(uuid, session_uuid, participant_uuid, target_uuid)
+								VALUES (?, ?, ?, ?)`,
+								assignmentUUID, sessionID, archer.ParticipationUUID, targetCandidate.UUID)
+
+							if err != nil {
+								c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
+								return
+							}
+
+							isTaken[targetCandidate.UUID] = true
+							letterNextIndex[nextLetter]++
+							assignedCount++
+							found = true
+							break
+						}
+						if found {
+							break
+						}
+					}
+				}
 			}
 		}
 
-		for _, participant := range participants {
-			found := false
-			for targetIndex < len(targets) {
-				if isTaken[targets[targetIndex].UUID] {
-					targetIndex++
-					continue
-				}
-
-				// Found a slot!
-				assignmentUUID := uuid.New().String()
-				_, err := db.Exec(`
-					INSERT INTO qualification_target_assignments 
-					(uuid, session_uuid, participant_uuid, target_uuid)
-					VALUES (?, ?, ?, ?)`,
-					assignmentUUID, sessionID, participant.ParticipationUUID, targets[targetIndex].UUID)
-
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
-					return
-				}
-
-				isTaken[targets[targetIndex].UUID] = true
-				targetIndex++
-				found = true
-				break // Move to next participant
-			}
-
-			if !found {
-				break // No more targets available
-			}
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Participants assigned successfully", "count": len(participants)})
+		c.JSON(http.StatusOK, gin.H{"message": "Participants assigned successfully", "count": assignedCount})
 	}
 }
+
 
 // DeleteQualificationAssignment deletes an archer assignment
 func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
