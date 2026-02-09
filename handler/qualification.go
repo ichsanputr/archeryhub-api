@@ -463,25 +463,31 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type Entry struct {
-			ArcherName    string  `json:"archer_name" db:"archer_name"`
-			ClubName      *string `json:"club_name" db:"club_name"`
-			CategoryName  string  `json:"category_name" db:"category_name"`
-			TotalScore    int     `json:"total_score" db:"total_score"`
-			TotalTenX     int     `json:"total_10x" db:"total_10x"`
-			TotalX        int     `json:"total_x" db:"total_x"`
-			EndsCompleted int     `json:"ends_completed" db:"ends_completed"`
+			ParticipantUUID string  `json:"participant_uuid" db:"participant_uuid"`
+			ArcherName      string  `json:"archer_name" db:"archer_name"`
+			AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
+			ClubName        *string `json:"club_name" db:"club_name"`
+			CategoryName    string  `json:"category_name" db:"category_name"`
+			TotalScore      int     `json:"total_score" db:"total_score"`
+			TotalTenX       int     `json:"total_10x" db:"total_10x"`
+			TotalX          int     `json:"total_x" db:"total_x"`
+			EndsCompleted   int     `json:"ends_completed" db:"ends_completed"`
+			EndScores       *string `json:"end_scores" db:"end_scores"`
 		}
 
 		var leaderboard []Entry
 		err := db.Select(&leaderboard, `
 			SELECT 
+				ep.uuid as participant_uuid,
 				a.full_name as archer_name,
+				a.avatar_url as avatar_url,
 				cl.name as club_name,
 				CONCAT(bt.name, ' ', ag.name) as category_name,
 				COALESCE(SUM(s.total_score_end), 0) as total_score,
 				COALESCE(SUM(s.ten_count_end), 0) as total_10x,
 				COALESCE(SUM(s.x_count_end), 0) as total_x,
-				COUNT(s.uuid) as ends_completed
+				COUNT(s.uuid) as ends_completed,
+				GROUP_CONCAT(COALESCE(s.total_score_end, 0) ORDER BY s.end_number ASC SEPARATOR ', ') as end_scores
 			FROM event_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -492,7 +498,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid
 			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.participant_uuid = ep.uuid
 			WHERE ep.category_id = ?
-			GROUP BY ep.uuid, a.full_name, cl.name, bt.name, ag.name
+			GROUP BY ep.uuid, a.full_name, a.avatar_url, cl.name, bt.name, ag.name
 			ORDER BY total_score DESC, total_10x DESC, total_x DESC`,
 			categoryID)
 
