@@ -385,11 +385,44 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 
 				// Add shoot-off info
 				if soMap, ok := soArrowsMap[matches[i].UUID]; ok {
+					var vA, vB string
 					if val, ok := soMap["A"]; ok {
 						matches[i].ShootOffA = &val
+						vA = val
 					}
 					if val, ok := soMap["B"]; ok {
 						matches[i].ShootOffB = &val
+						vB = val
+					}
+
+					// If both shot, determine winner and add 1 point
+					if vA != "" && vB != "" {
+						getV := func(v string) int {
+							if v == "X" {
+								return 11
+							}
+							if v == "M" {
+								return 0
+							}
+							var sc int
+							fmt.Sscanf(v, "%d", &sc)
+							return sc
+						}
+						scA := getV(vA)
+						scB := getV(vB)
+						if scA > scB {
+							if bracket.Format == "recurve_set" {
+								tPA++
+							} else {
+								tSA++
+							}
+						} else if scB > scA {
+							if bracket.Format == "recurve_set" {
+								tPB++
+							} else {
+								tSB++
+							}
+						}
 					}
 				}
 

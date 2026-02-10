@@ -308,11 +308,44 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 			// Add shoot-off info
 			if soMap, ok := soArrowsMap[mID]; ok {
+				var vA, vB string
 				if val, ok := soMap["A"]; ok {
 					matches[i].ShootOffA = &val
+					vA = val
 				}
 				if val, ok := soMap["B"]; ok {
 					matches[i].ShootOffB = &val
+					vB = val
+				}
+
+				// Determiner winner of shoot-off and add 1 point
+				if vA != "" && vB != "" {
+					getV := func(v string) int {
+						if v == "X" {
+							return 11
+						}
+						if v == "M" {
+							return 0
+						}
+						var sc int
+						fmt.Sscanf(v, "%d", &sc)
+						return sc
+					}
+					scA := getV(vA)
+					scB := getV(vB)
+					if scA > scB {
+						if bracket.Format == "recurve_set" {
+							totalPointsA++
+						} else {
+							totalScoreA++
+						}
+					} else if scB > scA {
+						if bracket.Format == "recurve_set" {
+							totalPointsB++
+						} else {
+							totalScoreB++
+						}
+					}
 				}
 			}
 
@@ -1160,7 +1193,9 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		if match.Format == "recurve_set" {
 			for endNo, sides := range endByNo {
-				if endNo == 99 { continue }
+				if endNo == 99 {
+					continue
+				}
 				sA := sides["A"]
 				sB := sides["B"]
 				if sA > sB {
@@ -1170,6 +1205,52 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 				} else if sA == sB && sA > 0 {
 					totalPointsA += 1
 					totalPointsB += 1
+				}
+			}
+		}
+
+		// Process shoot-off arrows for struct fields and extra point
+		soArrowsA := ""
+		soArrowsB := ""
+		for _, e := range ends {
+			if e.EndNo == 99 {
+				if len(e.Arrows) > 0 {
+					if e.Side == "A" {
+						match.ShootOffA = &e.Arrows[0]
+						soArrowsA = e.Arrows[0]
+					} else {
+						match.ShootOffB = &e.Arrows[0]
+						soArrowsB = e.Arrows[0]
+					}
+				}
+			}
+		}
+
+		if soArrowsA != "" && soArrowsB != "" {
+			getV := func(v string) int {
+				if v == "X" {
+					return 11
+				}
+				if v == "M" {
+					return 0
+				}
+				var sc int
+				fmt.Sscanf(v, "%d", &sc)
+				return sc
+			}
+			scA := getV(soArrowsA)
+			scB := getV(soArrowsB)
+			if scA > scB {
+				if match.Format == "recurve_set" {
+					totalPointsA++
+				} else {
+					totalScoreA++
+				}
+			} else if scB > scA {
+				if match.Format == "recurve_set" {
+					totalPointsB++
+				} else {
+					totalScoreB++
 				}
 			}
 		}
@@ -1289,7 +1370,62 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update side B", "details": err.Error()})
 			return
 		}
+		// Recalculate totals and update elimination_matches
+		var m struct {
+			Format string `db:"format"`
+		}
+		if err := tx.Get(&m, `SELECT format FROM elimination_matches WHERE uuid = ?`, matchID); err == nil {
+			var allEnds []struct {
+				EndNo    int    `db:"end_no"`
+				Side     string `db:"side"`
+				EndTotal int    `db:"end_total"`
+			}
+			tx.Select(&allEnds, `SELECT end_no, side, end_total FROM elimination_match_ends WHERE match_uuid = ?`, matchID)
 
+			type arrowScore struct {
+				Side  string `db:"side"`
+				Score int    `db:"score"`
+				IsX   bool   `db:"is_x"`
+			}
+			var soArrows []arrowScore
+			tx.Select(&soArrows, `
+				SELECT eme.side, emas.score, emas.is_x
+				FROM elimination_match_arrow_scores emas
+				JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
+				WHERE eme.match_uuid = ? AND eme.end_no = 99
+			`, matchID)
+
+			mEnds := make(map[int]map[string]int)
+			for _, e := range allEnds {
+				if mEnds[e.EndNo] == nil {
+					mEnds[e.EndNo] = make(map[string]int)
+				}
+				mEnds[e.EndNo][e.Side] = e.EndTotal
+			}
+
+			tSA, tSB, tPA, tPB := 0, 0, 0, 0
+			for en, sides := range mEnds {
+				if en == 99 { continue }
+				sA, sB := sides["A"], sides["B"]
+				tSA += sA
+				tSB += sB
+				if m.Format == "recurve_set" {
+					if sA > sB { tPA += 2 } else if sB > sA { tPB += 2 } else if sA == sB && sA > 0 { tPA += 1; tPB += 1 }
+				}
+			}
+
+			// Shoot-off +1 logic
+			soA, soB := -1, -1
+			for _, a := range soArrows {
+				val := a.Score
+				if a.IsX { val = 11 }
+				if a.Side == "A" { soA = val } else { soB = val }
+			}
+			if soA >= 0 && soB >= 0 {
+				if soA > soB { if m.Format == "recurve_set" { tPA++ } else { tSA++ } } else if soB > soA { if m.Format == "recurve_set" { tPB++ } else { tSB++ } }
+			}
+			tx.Exec(`UPDATE elimination_matches SET total_score_a=?, total_score_b=?, total_points_a=?, total_points_b=? WHERE uuid=?`, tSA, tSB, tPA, tPB, matchID)
+		}
 
 
 		if err := tx.Commit(); err != nil {
