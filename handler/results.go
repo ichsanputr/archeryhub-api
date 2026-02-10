@@ -2,8 +2,8 @@ package handler
 
 import (
 	"database/sql"
-	"encoding/json"
 	"net/http"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -44,73 +44,137 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			totalEnds = 12
 		}
 
-		// Get results with end scores
-		type ResultEntry struct {
-			Rank          int             `json:"rank"`
-			ParticipantUUID string          `json:"participant_id" db:"participant_uuid"`
-			ArcherUUID    string          `json:"archer_uuid" db:"archer_uuid"`
-			ArcherName    string          `json:"archer_name" db:"archer_name"`
-			ClubName      *string         `json:"club_name" db:"club_name"`
-			TotalScore    int             `json:"total_score" db:"total_score"`
-			TotalTenX     int             `json:"total_10x" db:"total_10x"`
-			TotalX        int             `json:"total_x" db:"total_x"`
-			EndsCompleted int             `json:"ends_completed" db:"ends_completed"`
-			EndScoresJSON sql.NullString  `db:"end_scores_json"`
-			EndScores     []int           `json:"end_scores"`
+		type SessionScore struct {
+			SessionCode string `json:"session_code"`
+			SessionName string `json:"session_name"`
+			EndScores   string `json:"end_scores"`
 		}
 
-		var entries []ResultEntry
-		err = db.Select(&entries, `
+		type Entry struct {
+			Rank            int            `json:"rank"`
+			ParticipantUUID string         `json:"participant_id" db:"participant_uuid"`
+			ArcherUUID      string         `json:"archer_uuid" db:"archer_uuid"`
+			ArcherName      string         `json:"archer_name" db:"archer_name"`
+			AvatarURL       *string        `json:"avatar_url" db:"avatar_url"`
+			ClubName        *string        `json:"club_name" db:"club_name"`
+			TotalScore      int            `json:"total_score"`
+			TotalTenX       int            `json:"total_10x"`
+			TotalX          int            `json:"total_x"`
+			EndsCompleted   int            `json:"ends_completed"`
+			Sessions        []SessionScore `json:"sessions"`
+		}
+
+		type dbEntry struct {
+			ParticipantUUID string  `db:"participant_uuid"`
+			ArcherName      string  `db:"archer_name"`
+			ArcherUUID      string  `db:"archer_uuid"`
+			AvatarURL       *string `db:"avatar_url"`
+			ClubName        *string `db:"club_name"`
+			SessionName     *string `db:"session_name"`
+			SessionCode     *string `db:"session_code"`
+			TotalScore      int     `db:"total_score"`
+			TotalTenX       int     `db:"total_10x"`
+			TotalX          int     `db:"total_x"`
+			EndsCompleted   int     `db:"ends_completed"`
+			EndScores       *string `db:"end_scores"`
+		}
+
+		var dbEntries []dbEntry
+		err = db.Select(&dbEntries, `
 			SELECT 
 				ep.uuid as participant_uuid,
-				ep.archer_id as archer_uuid,
+				a.uuid as archer_uuid,
 				a.full_name as archer_name,
+				a.avatar_url as avatar_url,
 				cl.name as club_name,
-				COALESCE(SUM(s.total_score_end), 0) as total_score,
-				COALESCE(SUM(s.ten_count_end), 0) as total_10x,
-				COALESCE(SUM(s.x_count_end), 0) as total_x,
-				COUNT(DISTINCT s.end_number) as ends_completed,
-				(
-					SELECT CONCAT('[', GROUP_CONCAT(total_score_end ORDER BY end_number SEPARATOR ','), ']')
-					FROM qualification_end_scores s2
-					JOIN qualification_sessions qs2 ON s2.session_uuid = qs2.uuid
-					WHERE s2.participant_uuid = ep.uuid AND qs2.event_uuid = ?
-				) as end_scores_json
+				qs.name as session_name,
+				qs.session_code as session_code,
+				COALESCE(score_summary.total_score, 0) as total_score,
+				COALESCE(score_summary.total_10x, 0) as total_10x,
+				COALESCE(score_summary.total_x, 0) as total_x,
+				COALESCE(score_summary.ends_completed, 0) as ends_completed,
+				score_summary.end_scores
 			FROM event_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
-			LEFT JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid AND qs.event_uuid = ?
-			LEFT JOIN qualification_end_scores s ON s.session_uuid = qs.uuid AND s.participant_uuid = ep.uuid
+			JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
+			JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid
+			LEFT JOIN (
+				SELECT 
+					participant_uuid, 
+					session_uuid,
+					SUM(total_score_end) as total_score,
+					SUM(ten_count_end) as total_10x,
+					SUM(x_count_end) as total_x,
+					COUNT(uuid) as ends_completed,
+					GROUP_CONCAT(COALESCE(total_score_end, 0) ORDER BY end_number ASC SEPARATOR ',') as end_scores
+				FROM qualification_end_scores
+				GROUP BY participant_uuid, session_uuid
+			) score_summary ON score_summary.participant_uuid = ep.uuid AND score_summary.session_uuid = qs.uuid
 			WHERE ep.category_id = ?
-			GROUP BY ep.uuid, ep.archer_id, a.full_name, cl.name
-			HAVING total_score > 0
-			ORDER BY total_score DESC, total_10x DESC, total_x DESC
-		`, eventUUID, eventUUID, categoryID)
+			ORDER BY archer_name, qs.created_at ASC`,
+			categoryID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch results", "details": err.Error()})
 			return
 		}
 
-		// Parse end scores and add ranking
-		for i := range entries {
-			entries[i].Rank = i + 1
-			
-			if entries[i].EndScoresJSON.Valid && entries[i].EndScoresJSON.String != "" {
-				var scores []int
-				if err := json.Unmarshal([]byte(entries[i].EndScoresJSON.String), &scores); err == nil {
-					entries[i].EndScores = scores
-				} else {
-					entries[i].EndScores = []int{}
+		// Group by archer
+		archerMap := make(map[string]*Entry)
+		archerOrder := []string{}
+
+		for _, de := range dbEntries {
+			if _, ok := archerMap[de.ParticipantUUID]; !ok {
+				archerMap[de.ParticipantUUID] = &Entry{
+					ParticipantUUID: de.ParticipantUUID,
+					ArcherUUID:      de.ArcherUUID,
+					ArcherName:      de.ArcherName,
+					AvatarURL:       de.AvatarURL,
+					ClubName:        de.ClubName,
+					Sessions:        []SessionScore{},
 				}
-			} else {
-				entries[i].EndScores = []int{}
+				archerOrder = append(archerOrder, de.ParticipantUUID)
+			}
+
+			entry := archerMap[de.ParticipantUUID]
+			entry.TotalScore += de.TotalScore
+			entry.TotalTenX += de.TotalTenX
+			entry.TotalX += de.TotalX
+			entry.EndsCompleted += de.EndsCompleted
+
+			if de.SessionCode != nil && de.EndScores != nil {
+				entry.Sessions = append(entry.Sessions, SessionScore{
+					SessionCode: *de.SessionCode,
+					SessionName: *de.SessionName,
+					EndScores:   *de.EndScores,
+				})
 			}
 		}
 
+		// Convert map to slice and sort
+		leaderboard := make([]*Entry, 0, len(archerOrder))
+		for _, uuid := range archerOrder {
+			leaderboard = append(leaderboard, archerMap[uuid])
+		}
+
+		sort.Slice(leaderboard, func(i, j int) bool {
+			if leaderboard[i].TotalScore != leaderboard[j].TotalScore {
+				return leaderboard[i].TotalScore > leaderboard[j].TotalScore
+			}
+			if leaderboard[i].TotalTenX != leaderboard[j].TotalTenX {
+				return leaderboard[i].TotalTenX > leaderboard[j].TotalTenX
+			}
+			return leaderboard[i].TotalX > leaderboard[j].TotalX
+		})
+
+		// Assign ranks
+		for i := range leaderboard {
+			leaderboard[i].Rank = i + 1
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"results": entries,
+			"results": leaderboard,
 			"total_ends": totalEnds,
 		})
 	}
