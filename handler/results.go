@@ -185,12 +185,12 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		categoryID := c.Query("category_id")
-		
+
 		if eventID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId is required"})
 			return
 		}
-		
+
 		if categoryID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
 			return
@@ -212,6 +212,8 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			BracketType  string  `db:"bracket_type" json:"bracket_type"`
 			Format       string  `db:"format" json:"format"`
 			BracketSize  int     `db:"bracket_size" json:"bracket_size"`
+			EndsPerMatch int     `db:"ends_per_match" json:"ends_per_match"`
+			ArrowsPerEnd int     `db:"arrows_per_end" json:"arrows_per_end"`
 			GeneratedAt  *string `db:"generated_at" json:"generated_at"`
 		}
 
@@ -224,6 +226,8 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				eb.bracket_type,
 				eb.format,
 				eb.bracket_size,
+				eb.ends_per_match,
+				eb.arrows_per_end,
 				eb.generated_at
 			FROM elimination_brackets eb
 			WHERE eb.event_uuid = ? AND eb.category_uuid = ? AND eb.generated_at IS NOT NULL
@@ -241,22 +245,22 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get all matches for this bracket
 		type Match struct {
-			UUID             string  `db:"uuid" json:"uuid"`
-			RoundNo          int     `db:"round_no" json:"round_no"`
-			MatchNo          int     `db:"match_no" json:"match_no"`
-			EntryAUUID       *string `db:"entry_a_uuid" json:"entry_a_uuid"`
-			EntryAName       *string `db:"entry_a_name" json:"entry_a_name"`
-			EntryASeed       *int    `db:"entry_a_seed" json:"entry_a_seed"`
-			EntryBUUID       *string `db:"entry_b_uuid" json:"entry_b_uuid"`
-			EntryBName       *string `db:"entry_b_name" json:"entry_b_name"`
-			EntryBSeed       *int    `db:"entry_b_seed" json:"entry_b_seed"`
-			WinnerEntryUUID  *string `db:"winner_entry_uuid" json:"winner_entry_uuid"`
-			Status           string  `db:"status" json:"status"`
-			IsBye            bool    `db:"is_bye" json:"is_bye"`
-			TotalScoreA      *int    `db:"total_score_a" json:"total_score_a"`
-			TotalScoreB      *int    `db:"total_score_b" json:"total_score_b"`
-			SetPointsA       *int    `db:"set_points_a" json:"set_points_a"`
-			SetPointsB       *int    `db:"set_points_b" json:"set_points_b"`
+			UUID            string  `db:"uuid" json:"id"`
+			RoundNo         int     `db:"round_no" json:"round_no"`
+			MatchNo         int     `db:"match_no" json:"match_no"`
+			EntryAUUID      *string `db:"entry_a_uuid" json:"entry_a_id"`
+			EntryAName      *string `db:"entry_a_name" json:"entry_a_name"`
+			EntryASeed      *int    `db:"entry_a_seed" json:"entry_a_seed"`
+			EntryBUUID      *string `db:"entry_b_uuid" json:"entry_b_id"`
+			EntryBName      *string `db:"entry_b_name" json:"entry_b_name"`
+			EntryBSeed      *int    `db:"entry_b_seed" json:"entry_b_seed"`
+			WinnerEntryUUID *string `db:"winner_entry_uuid" json:"winner_entry_id"`
+			Status          string  `db:"status" json:"status"`
+			IsBye           bool    `db:"is_bye" json:"is_bye"`
+			TotalScoreA     int     `json:"total_score_a"`
+			TotalScoreB     int     `json:"total_score_b"`
+			SetPointsA      int     `json:"set_points_a"`
+			SetPointsB      int     `json:"set_points_b"`
 		}
 
 		var matches []Match
@@ -273,11 +277,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				ee2.seed as entry_b_seed,
 				em.winner_entry_uuid,
 				em.status,
-				em.is_bye,
-				(SELECT SUM(end_total) FROM elimination_match_ends WHERE match_uuid = em.uuid AND side = 'A') as total_score_a,
-				(SELECT SUM(end_total) FROM elimination_match_ends WHERE match_uuid = em.uuid AND side = 'B') as total_score_b,
-				0 as set_points_a,
-				0 as set_points_b
+				em.is_bye
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries ee1 ON em.entry_a_uuid = ee1.uuid
 			LEFT JOIN elimination_entries ee2 ON em.entry_b_uuid = ee2.uuid
@@ -294,6 +294,67 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Calculate scores and points
+		type matchEnd struct {
+			MatchUUID string `db:"match_uuid"`
+			EndNo     int    `db:"end_no"`
+			Side      string `db:"side"`
+			EndTotal  int    `db:"end_total"`
+		}
+		var allEnds []matchEnd
+		err = db.Select(&allEnds, `
+			SELECT match_uuid, end_no, side, end_total
+			FROM elimination_match_ends
+			WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
+		`, bracket.UUID)
+
+		if err == nil {
+			endsByMatch := make(map[string]map[int]map[string]int)
+			for _, e := range allEnds {
+				if endsByMatch[e.MatchUUID] == nil {
+					endsByMatch[e.MatchUUID] = make(map[int]map[string]int)
+				}
+				if endsByMatch[e.MatchUUID][e.EndNo] == nil {
+					endsByMatch[e.MatchUUID][e.EndNo] = make(map[string]int)
+				}
+				endsByMatch[e.MatchUUID][e.EndNo][e.Side] = e.EndTotal
+			}
+
+			for i := range matches {
+				mEnds := endsByMatch[matches[i].UUID]
+				tSA, tSB := 0, 0
+				tPA, tPB := 0, 0
+
+				var endNos []int
+				for en := range mEnds {
+					endNos = append(endNos, en)
+				}
+				sort.Ints(endNos)
+
+				for _, en := range endNos {
+					scA := mEnds[en]["A"]
+					scB := mEnds[en]["B"]
+					tSA += scA
+					tSB += scB
+
+					if bracket.Format == "recurve_set" {
+						if scA > scB {
+							tPA += 2
+						} else if scB > scA {
+							tPB += 2
+						} else if scA == scB && scA > 0 {
+							tPA += 1
+							tPB += 1
+						}
+					}
+				}
+				matches[i].TotalScoreA = tSA
+				matches[i].TotalScoreB = tSB
+				matches[i].SetPointsA = tPA
+				matches[i].SetPointsB = tPB
+			}
+		}
+
 		// Group matches by round
 		matchesByRound := make(map[int][]Match)
 		for _, match := range matches {
@@ -301,13 +362,15 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		bracket_result := gin.H{
-			"uuid":         bracket.UUID,
-			"bracket_id":   bracket.BracketID,
-			"bracket_type": bracket.BracketType,
-			"format":       bracket.Format,
-			"bracket_size": bracket.BracketSize,
-			"generated_at": bracket.GeneratedAt,
-			"matches":      matchesByRound,
+			"uuid":           bracket.UUID,
+			"bracket_id":     bracket.BracketID,
+			"bracket_type":   bracket.BracketType,
+			"format":         bracket.Format,
+			"bracket_size":   bracket.BracketSize,
+			"ends_per_match": bracket.EndsPerMatch,
+			"arrows_per_end": bracket.ArrowsPerEnd,
+			"generated_at":   bracket.GeneratedAt,
+			"matches":        matchesByRound,
 		}
 
 		c.JSON(http.StatusOK, gin.H{"bracket": bracket_result})
