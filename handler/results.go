@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"sort"
 
@@ -261,6 +262,8 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			TotalScoreB     int     `json:"total_score_b"`
 			SetPointsA      int     `json:"set_points_a"`
 			SetPointsB      int     `json:"set_points_b"`
+			ShootOffA       *string `json:"shoot_off_a"`
+			ShootOffB       *string `json:"shoot_off_b"`
 		}
 
 		var matches []Match
@@ -308,6 +311,36 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
 		`, bracket.UUID)
 
+		// Fetch shoot-off arrows for all matches
+		type shootOffArrow struct {
+			MatchUUID string `db:"match_uuid"`
+			Side      string `db:"side"`
+			Score     int    `db:"score"`
+			IsX       bool   `db:"is_x"`
+		}
+		var allSoArrows []shootOffArrow
+		db.Select(&allSoArrows, `
+			SELECT eme.match_uuid, eme.side, emas.score, emas.is_x
+			FROM elimination_match_arrow_scores emas
+			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
+			WHERE eme.match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
+			  AND eme.end_no = 99
+		`, bracket.UUID)
+
+		soArrowsMap := make(map[string]map[string]string)
+		for _, a := range allSoArrows {
+			if soArrowsMap[a.MatchUUID] == nil {
+				soArrowsMap[a.MatchUUID] = make(map[string]string)
+			}
+			val := fmt.Sprintf("%d", a.Score)
+			if a.IsX {
+				val = "X"
+			} else if a.Score == 0 {
+				val = "M"
+			}
+			soArrowsMap[a.MatchUUID][a.Side] = val
+		}
+
 		if err == nil {
 			endsByMatch := make(map[string]map[int]map[string]int)
 			for _, e := range allEnds {
@@ -332,6 +365,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				sort.Ints(endNos)
 
 				for _, en := range endNos {
+					if en == 99 { continue }
 					scA := mEnds[en]["A"]
 					scB := mEnds[en]["B"]
 					tSA += scA
@@ -348,6 +382,17 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 						}
 					}
 				}
+
+				// Add shoot-off info
+				if soMap, ok := soArrowsMap[matches[i].UUID]; ok {
+					if val, ok := soMap["A"]; ok {
+						matches[i].ShootOffA = &val
+					}
+					if val, ok := soMap["B"]; ok {
+						matches[i].ShootOffB = &val
+					}
+				}
+
 				matches[i].TotalScoreA = tSA
 				matches[i].TotalScoreB = tSB
 				matches[i].SetPointsA = tPA

@@ -175,6 +175,8 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			TotalScoreB     int        `json:"total_score_b"`
 			TotalPointsA    int        `json:"total_points_a"`
 			TotalPointsB    int        `json:"total_points_b"`
+			ShootOffA       *string    `json:"shoot_off_a"`
+			ShootOffB       *string    `json:"shoot_off_b"`
 		}
 
 		var matches []Match
@@ -238,6 +240,36 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			endsByMatch[e.MatchUUID][e.EndNo][e.Side] = e.EndTotal
 		}
 
+		// Fetch shoot-off arrows for all matches to show in summary
+		type shootOffArrow struct {
+			MatchUUID string `db:"match_uuid"`
+			Side      string `db:"side"`
+			Score     int    `db:"score"`
+			IsX       bool   `db:"is_x"`
+		}
+		var allSoArrows []shootOffArrow
+		db.Select(&allSoArrows, `
+			SELECT eme.match_uuid, eme.side, emas.score, emas.is_x
+			FROM elimination_match_arrow_scores emas
+			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
+			WHERE eme.match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
+			  AND eme.end_no = 99
+		`, bracketUUID)
+
+		soArrowsMap := make(map[string]map[string]string)
+		for _, a := range allSoArrows {
+			if soArrowsMap[a.MatchUUID] == nil {
+				soArrowsMap[a.MatchUUID] = make(map[string]string)
+			}
+			val := fmt.Sprintf("%d", a.Score)
+			if a.IsX {
+				val = "X"
+			} else if a.Score == 0 {
+				val = "M"
+			}
+			soArrowsMap[a.MatchUUID][a.Side] = val
+		}
+
 		// Calculate scores and points for each match
 		for i := range matches {
 			mID := matches[i].UUID
@@ -251,7 +283,9 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			// Sort end numbers to process them in order for set points
 			var endNos []int
 			for en := range matchEnds {
-				endNos = append(endNos, en)
+				if en != 99 {
+					endNos = append(endNos, en)
+				}
 			}
 
 			for _, en := range endNos {
@@ -269,6 +303,16 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 						totalPointsA += 1
 						totalPointsB += 1
 					}
+				}
+			}
+
+			// Add shoot-off info
+			if soMap, ok := soArrowsMap[mID]; ok {
+				if val, ok := soMap["A"]; ok {
+					matches[i].ShootOffA = &val
+				}
+				if val, ok := soMap["B"]; ok {
+					matches[i].ShootOffB = &val
 				}
 			}
 
@@ -993,6 +1037,8 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			TotalScoreB     int        `json:"total_score_b"`
 			TotalPointsA    int        `json:"total_points_a"`
 			TotalPointsB    int        `json:"total_points_b"`
+			ShootOffA       *string    `json:"shoot_off_a"`
+			ShootOffB       *string    `json:"shoot_off_b"`
 		}
 
 		var match Match
@@ -1102,15 +1148,19 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 				endByNo[e.EndNo] = make(map[string]int)
 			}
 			endByNo[e.EndNo][e.Side] = e.EndTotal
-			if e.Side == "A" {
-				totalScoreA += e.EndTotal
-			} else {
-				totalScoreB += e.EndTotal
+			
+			if e.EndNo != 99 { // Don't include shoot-off in totals
+				if e.Side == "A" {
+					totalScoreA += e.EndTotal
+				} else {
+					totalScoreB += e.EndTotal
+				}
 			}
 		}
 
 		if match.Format == "recurve_set" {
-			for _, sides := range endByNo {
+			for endNo, sides := range endByNo {
+				if endNo == 99 { continue }
 				sA := sides["A"]
 				sB := sides["B"]
 				if sA > sB {
@@ -1432,6 +1482,11 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
 
+		var req struct {
+			WinnerEntryID string `json:"winner_entry_id"`
+		}
+		c.ShouldBindJSON(&req)
+
 		// Get match info including bracket format
 		type MatchInfo struct {
 			UUID        string  `db:"uuid"`
@@ -1537,9 +1592,33 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 				winnerID = *match.EntryBUUID
 			}
 		} else {
-			// Tie - for now, we'll require higher score to win
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Match is tied. Cannot determine winner."})
-			return
+			// Tie - Check for manual selection or tie-breaker scores
+			// Check if there is an end 99 (Shoot-off)
+			type shootOffEnd struct {
+				Side     string `db:"side"`
+				EndTotal int    `db:"end_total"`
+			}
+			var soEnds []shootOffEnd
+			db.Select(&soEnds, `SELECT side, end_total FROM elimination_match_ends WHERE match_uuid = ? AND end_no = 99`, matchID)
+			
+			soA, soB := -1, -1
+			for _, e := range soEnds {
+				if e.Side == "A" { soA = e.EndTotal }
+				if e.Side == "B" { soB = e.EndTotal }
+			}
+
+			if soA > soB {
+				if match.EntryAUUID != nil { winnerID = *match.EntryAUUID }
+			} else if soB > soA {
+				if match.EntryBUUID != nil { winnerID = *match.EntryBUUID }
+			} else if req.WinnerEntryID != "" {
+				// Final manual override if provided in request
+				winnerID = req.WinnerEntryID
+			} else {
+				// Tie - for now, we'll require higher score to win
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Pertandingan Seri. Silahkan lakukan Shoot-off atau pilih pemenang secara manual."})
+				return
+			}
 		}
 
 		if winnerID == "" {
