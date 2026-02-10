@@ -293,6 +293,102 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetBracketScores returns all match scores for a bracket
+func GetBracketScores(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bracketID := c.Param("bracketId")
+
+		// Resolve bracket UUID
+		var bracket struct {
+			UUID         string `db:"uuid"`
+			EndsPerMatch int    `db:"ends_per_match"`
+			ArrowsPerEnd int    `db:"arrows_per_end"`
+		}
+		err := db.Get(&bracket, `SELECT uuid, ends_per_match, arrows_per_end FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
+			return
+		}
+
+		type EndScore struct {
+			MatchUUID string   `json:"match_id" db:"match_uuid"`
+			UUID      string   `json:"id" db:"uuid"`
+			EndNo     int      `json:"end_no" db:"end_no"`
+			Side      string   `json:"side" db:"side"`
+			EndTotal  int      `json:"end_total" db:"end_total"`
+			XCount    int      `json:"x_count" db:"x_count"`
+			TenCount  int      `json:"ten_count" db:"ten_count"`
+			Arrows    []string `json:"arrows"`
+		}
+
+		var ends []EndScore
+		err = db.Select(&ends, `
+			SELECT uuid, match_uuid, end_no, side, end_total, x_count, ten_count
+			FROM elimination_match_ends
+			WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
+			ORDER BY match_uuid, end_no ASC, side ASC
+		`, bracket.UUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch ends", "details": err.Error()})
+			return
+		}
+
+		if ends == nil {
+			ends = []EndScore{}
+		}
+
+		// Fetch all arrows for these matches in one query
+		type arrowScore struct {
+			EndUUID  string `db:"match_end_uuid"`
+			ArrowNo  int    `db:"arrow_no"`
+			Score    int    `db:"score"`
+			IsX      bool   `db:"is_x"`
+		}
+		var allArrows []arrowScore
+		err = db.Select(&allArrows, `
+			SELECT emas.match_end_uuid, emas.arrow_no, emas.score, emas.is_x
+			FROM elimination_match_arrow_scores emas
+			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
+			WHERE eme.match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
+			ORDER BY emas.match_end_uuid, emas.arrow_no ASC
+		`, bracket.UUID)
+
+		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch all arrow scores for bracket")
+		}
+
+		// Map arrows to ends
+		arrowsMap := make(map[string][]string)
+		for _, a := range allArrows {
+			val := fmt.Sprintf("%d", a.Score)
+			if a.IsX {
+				val = "X"
+			} else if a.Score == 0 {
+				val = "M"
+			}
+			arrowsMap[a.EndUUID] = append(arrowsMap[a.EndUUID], val)
+		}
+
+		// Attach arrows to ends and ensure they are padded
+		for i := range ends {
+			sideArrows := arrowsMap[ends[i].UUID]
+			if sideArrows == nil {
+				sideArrows = []string{}
+			}
+			// Pad to arrows_per_end
+			for len(sideArrows) < bracket.ArrowsPerEnd {
+				sideArrows = append(sideArrows, "")
+			}
+			ends[i].Arrows = sideArrows
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ends": ends,
+		})
+	}
+}
+
 // CreateBracket creates a new elimination bracket
 func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
