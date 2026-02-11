@@ -862,186 +862,100 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Group targets by position letter (A, B, C, D)
-		// targetsByLetter["A"] = [1A, 2A, 3A, ...]
-		targetsByLetter := make(map[string][]Target)
-		letterOrder := []string{}
-		for _, t := range allTargets {
-			letter := ""
-			if len(t.TargetName) > 0 {
-				letter = string(t.TargetName[len(t.TargetName)-1])
+		// 1. Natural Sort Targets: 1A, 1B, 1C, 1D, 2A, 2B...
+		sort.Slice(allTargets, func(i, j int) bool {
+			ni, _ := strconv.Atoi(strings.TrimRight(allTargets[i].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+			nj, _ := strconv.Atoi(strings.TrimRight(allTargets[j].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+			if ni != nj {
+				return ni < nj
 			}
-			if letter >= "A" && letter <= "Z" {
-				if _, exists := targetsByLetter[letter]; !exists {
-					letterOrder = append(letterOrder, letter)
-				}
-				targetsByLetter[letter] = append(targetsByLetter[letter], t)
-			}
-		}
-
-		// Get participants grouped by club, sorted alphabetically by name within club
-		type ParticipantWithClub struct {
-			ParticipationUUID string  `db:"uuid"`
-			ArcherName        string  `db:"archer_name"`
-			ClubID            *string `db:"club_id"`
-			ClubName          *string `db:"club_name"`
-		}
-		var participants []ParticipantWithClub
-		err = db.Select(&participants, `
-			SELECT ep.uuid, a.full_name as archer_name, a.club_id, c.name as club_name
-			FROM event_participants ep
-			JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN clubs c ON a.club_id = c.uuid
-			WHERE ep.category_id = ?
-			AND ep.status = 'Terdaftar'
-			AND ep.uuid NOT IN (
-				SELECT participant_uuid 
-				FROM qualification_target_assignments 
-				WHERE session_uuid = ?
-			)
-			ORDER BY (a.club_id IS NULL) ASC, c.name ASC, a.full_name ASC
-		`, req.CategoryID, sessionID)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
-			return
-		}
-
-		if len(participants) == 0 {
-			c.JSON(http.StatusOK, gin.H{"message": "No participants to assign", "count": 0})
-			return
-		}
-
-		// Group participants by club
-		type ClubGroup struct {
-			ClubName string
-			Archers  []ParticipantWithClub
-		}
-		clubGroups := []ClubGroup{}
-		clubMap := make(map[string]int) // clubName -> index in clubGroups
-
-		for _, p := range participants {
-			clubName := "Independen"
-			if p.ClubName != nil && *p.ClubName != "" {
-				clubName = *p.ClubName
-			}
-
-			if idx, exists := clubMap[clubName]; exists {
-				clubGroups[idx].Archers = append(clubGroups[idx].Archers, p)
-			} else {
-				clubMap[clubName] = len(clubGroups)
-				clubGroups = append(clubGroups, ClubGroup{
-					ClubName: clubName,
-					Archers:  []ParticipantWithClub{p},
-				})
-			}
-		}
-
-		// Sort clubs alphabetically (A-Z) with "Independen" always last
-		sort.Slice(clubGroups, func(i, j int) bool {
-			if clubGroups[i].ClubName == "Independen" {
-				return false
-			}
-			if clubGroups[j].ClubName == "Independen" {
-				return true
-			}
-			return clubGroups[i].ClubName < clubGroups[j].ClubName
+			return allTargets[i].TargetName < allTargets[j].TargetName
 		})
 
-		// Fetch existing assignments to avoid duplicates
+		// 2. Filter available slots based on session occupation and ArchersPerTarget
 		var existing []string
 		db.Select(&existing, `SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ?`, sessionID)
-
 		isTaken := make(map[string]bool)
 		for _, e := range existing {
 			isTaken[e] = true
 		}
 
-		// Track next available target index for each letter
-		letterNextIndex := make(map[string]int)
-		for _, letter := range letterOrder {
-			letterNextIndex[letter] = 0
-		}
+		letterOrder := []string{"A", "B", "C", "D", "E", "F", "G", "H"}
+		availableSlots := []Target{}
+		startFound := (req.StartTargetName == "")
 
-		assignedCount := 0
-
-		// Assign each club to a lane letter
-		for clubIndex, club := range clubGroups {
-			// Determine which lane letter this club gets
-			letterIdx := clubIndex % len(letterOrder)
-			letter := letterOrder[letterIdx]
-
-			targetsForLetter := targetsByLetter[letter]
-
-			// Assign each archer in this club to sequential targets with this letter
-			for _, archer := range club.Archers {
-				// Find next available target with this letter
-				found := false
-				for letterNextIndex[letter] < len(targetsForLetter) {
-					targetCandidate := targetsForLetter[letterNextIndex[letter]]
-					if isTaken[targetCandidate.UUID] {
-						letterNextIndex[letter]++
-						continue
-					}
-
-					// Found a slot!
-					assignmentUUID := uuid.New().String()
-					_, err := db.Exec(`
-						INSERT INTO qualification_target_assignments 
-						(uuid, session_uuid, participant_uuid, target_uuid)
-						VALUES (?, ?, ?, ?)`,
-						assignmentUUID, sessionID, archer.ParticipationUUID, targetCandidate.UUID)
-
-					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
-						return
-					}
-
-					isTaken[targetCandidate.UUID] = true
-					letterNextIndex[letter]++
-					assignedCount++
-					found = true
-					break
-				}
-
-				if !found {
-					// No more slots for this letter, cycle to next available letter
-					for _, nextLetter := range letterOrder {
-						if nextLetter == letter {
-							continue
-						}
-						nextTargets := targetsByLetter[nextLetter]
-						for letterNextIndex[nextLetter] < len(nextTargets) {
-							targetCandidate := nextTargets[letterNextIndex[nextLetter]]
-							if isTaken[targetCandidate.UUID] {
-								letterNextIndex[nextLetter]++
-								continue
-							}
-
-							assignmentUUID := uuid.New().String()
-							_, err := db.Exec(`
-								INSERT INTO qualification_target_assignments 
-								(uuid, session_uuid, participant_uuid, target_uuid)
-								VALUES (?, ?, ?, ?)`,
-								assignmentUUID, sessionID, archer.ParticipationUUID, targetCandidate.UUID)
-
-							if err != nil {
-								c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
-								return
-							}
-
-							isTaken[targetCandidate.UUID] = true
-							letterNextIndex[nextLetter]++
-							assignedCount++
-							found = true
-							break
-						}
-						if found {
-							break
-						}
-					}
+		for _, t := range allTargets {
+			if !startFound {
+				if t.TargetName == req.StartTargetName {
+					startFound = true
+				} else {
+					continue
 				}
 			}
+
+			// Respect ArchersPerTarget (e.g., if 2, skip C and D)
+			letter := ""
+			if len(t.TargetName) > 0 {
+				letter = string(t.TargetName[len(t.TargetName)-1])
+			}
+			letterIdx := -1
+			for i, l := range letterOrder {
+				if l == letter {
+					letterIdx = i
+					break
+				}
+			}
+			if letterIdx >= req.ArchersPerTarget {
+				continue
+			}
+
+			// Skip if physically occupied by another category
+			if isTaken[t.UUID] {
+				continue
+			}
+
+			availableSlots = append(availableSlots, t)
+		}
+
+		// 3. Get participants and group by club for interleaving
+		type ParticipantWithClub struct {
+			ParticipationUUID string  `db:"uuid"`
+			ClubName          *string `db:"club_name"`
+		}
+		var participants []ParticipantWithClub
+		err = db.Select(&participants, `
+			SELECT ep.uuid, c.name as club_name
+			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			WHERE ep.category_id = ?
+			AND ep.status = 'Terdaftar'
+			AND ep.uuid NOT IN (SELECT participant_uuid FROM qualification_target_assignments WHERE session_uuid = ?)
+			ORDER BY (a.club_id IS NULL) ASC, c.name ASC, a.full_name ASC
+		`, req.CategoryID, sessionID)
+
+		if err != nil || len(participants) == 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "No participants to assign", "count": 0})
+			return
+		}
+
+		// 4. Perform sequential board-by-board assignment
+		assignedCount := 0
+		for i, archer := range participants {
+			if i >= len(availableSlots) {
+				break
+			}
+			target := availableSlots[i]
+			assignmentUUID := uuid.New().String()
+			_, err := db.Exec(`
+				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid)
+				VALUES (?, ?, ?, ?)`,
+				assignmentUUID, sessionID, archer.ParticipationUUID, target.UUID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
+				return
+			}
+			assignedCount++
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Participants assigned successfully", "count": assignedCount})
@@ -1242,5 +1156,143 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			"success_count": successCount,
 			"errors":        errors,
 		})
+	}
+}
+
+// ResetSessionAssignments removes all assignments and scores for a category in a session
+func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("sessionId")
+		
+		var req struct {
+			CategoryID string `json:"category_id" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
+			return
+		}
+
+		categoryID := req.CategoryID
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Delete arrow scores for this category and session
+		_, err = tx.Exec(`
+			DELETE FROM qualification_arrow_scores 
+			WHERE end_score_uuid IN (
+				SELECT qes.uuid 
+				FROM qualification_end_scores qes
+				JOIN event_participants ep ON qes.participant_uuid = ep.uuid
+				WHERE qes.session_uuid = ? AND ep.category_id = ?
+			)`, sessionID, categoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete arrow scores", "details": err.Error()})
+			return
+		}
+
+		// 2. Delete end scores
+		_, err = tx.Exec(`
+			DELETE qes FROM qualification_end_scores qes
+			JOIN event_participants ep ON qes.participant_uuid = ep.uuid
+			WHERE qes.session_uuid = ? AND ep.category_id = ?`,
+			sessionID, categoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete end scores", "details": err.Error()})
+			return
+		}
+
+		// 3. Delete assignments
+		_, err = tx.Exec(`
+			DELETE qta FROM qualification_target_assignments qta
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			WHERE qta.session_uuid = ? AND ep.category_id = ?`,
+			sessionID, categoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete assignments", "details": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Assignments reset successfully"})
+	}
+}
+
+// SwapTargetAssignments swaps targets between two participants in a session
+func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("sessionId")
+
+		var req struct {
+			ParticipantA string `json:"participant_a" binding:"required"`
+			ParticipantB string `json:"participant_b" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Get assignments for both to verify they exist and get their current targets
+		var targetA, targetB string
+		err = tx.Get(&targetA, "SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionID, req.ParticipantA)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment for participant A not found"})
+			return
+		}
+
+		err = tx.Get(&targetB, "SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionID, req.ParticipantB)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment for participant B not found"})
+			return
+		}
+
+		// 1. Delete Participant A's assignment to free up Target A in the unique index
+		_, err = tx.Exec("DELETE FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionID, req.ParticipantA)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to detach participant A", "details": err.Error()})
+			return
+		}
+
+		// 2. Move Participant B to Target A
+		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ? WHERE session_uuid = ? AND participant_uuid = ?", targetA, sessionID, req.ParticipantB)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move participant B", "details": err.Error()})
+			return
+		}
+
+		// 3. Re-insert Participant A into Target B
+		assignmentUUID := uuid.New().String()
+		_, err = tx.Exec(`
+			INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, created_at, updated_at)
+			VALUES (?, ?, ?, ?, NOW(), NOW())`,
+			assignmentUUID, sessionID, req.ParticipantA, targetB)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to re-attach participant A", "details": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Targets swapped successfully"})
 	}
 }

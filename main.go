@@ -271,6 +271,8 @@ func main() {
 			qualSessions.GET("/assignments", handler.GetSessionAssignments(db))
 			qualSessions.GET("/scores", handler.GetSessionScores(db))
 			qualSessions.POST("/auto-assign", handler.AutoAssignParticipants(db))
+			qualSessions.POST("/reset-assignments", handler.ResetSessionAssignments(db))
+			qualSessions.POST("/swap-assignments", handler.SwapTargetAssignments(db))
 		}
 
 		qualAssignments := api.Group("/qualification/assignments/:assignmentId")
