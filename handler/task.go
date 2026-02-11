@@ -89,6 +89,35 @@ func UpdateTask(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+func ToggleTaskStatus(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		taskUUID := c.Param("uuid")
+
+		// Toggle between 'pending' and 'completed'
+		_, err := db.Exec(`
+			UPDATE task_developer 
+			SET status = CASE WHEN status = 'completed' THEN 'pending' ELSE 'completed' END,
+			    updated_at = NOW()
+			WHERE uuid = ?
+		`, taskUUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle task status"})
+			return
+		}
+
+		// Fetch the updated task to return current status
+		var task TaskDeveloper
+		err = db.Get(&task, "SELECT * FROM task_developer WHERE uuid = ?", taskUUID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": "Task status toggled"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Task status toggled", "task": task})
+	}
+}
+
 func DeleteTask(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		taskUUID := c.Param("uuid")

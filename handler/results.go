@@ -34,21 +34,25 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get total ends from first session
-		var totalEnds int
-		err = db.Get(&totalEnds, `
-			SELECT COALESCE(MAX(total_ends), 12) 
+		// Calculate total cumulative ends for the event summary
+		var totalCumulativeEnds int
+		err = db.Get(&totalCumulativeEnds, `
+			SELECT COALESCE(SUM(total_ends), 0) 
 			FROM qualification_sessions 
 			WHERE event_uuid = ?
 		`, eventUUID)
-		if err != nil {
-			totalEnds = 12
+		if err != nil || totalCumulativeEnds == 0 {
+			totalCumulativeEnds = 12
 		}
 
 		type SessionScore struct {
 			SessionCode string `json:"session_code"`
 			SessionName string `json:"session_name"`
 			EndScores   string `json:"end_scores"`
+			TotalEnds   int    `json:"total_ends"`
+			TotalScore  int    `json:"total_score"`
+			TotalTenX   int    `json:"total_10x"`
+			TotalX      int    `json:"total_x"`
 		}
 
 		type Entry struct {
@@ -73,6 +77,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			ClubName        *string `db:"club_name"`
 			SessionName     *string `db:"session_name"`
 			SessionCode     *string `db:"session_code"`
+			SessionTotalEnds int    `db:"session_total_ends"`
 			TotalScore      int     `db:"total_score"`
 			TotalTenX       int     `db:"total_10x"`
 			TotalX          int     `db:"total_x"`
@@ -90,6 +95,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 				cl.name as club_name,
 				qs.name as session_name,
 				qs.session_code as session_code,
+				qs.total_ends as session_total_ends,
 				COALESCE(score_summary.total_score, 0) as total_score,
 				COALESCE(score_summary.total_10x, 0) as total_10x,
 				COALESCE(score_summary.total_x, 0) as total_x,
@@ -144,11 +150,19 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			entry.TotalX += de.TotalX
 			entry.EndsCompleted += de.EndsCompleted
 
-			if de.SessionCode != nil && de.EndScores != nil {
+			if de.SessionCode != nil {
+				endScores := ""
+				if de.EndScores != nil {
+					endScores = *de.EndScores
+				}
 				entry.Sessions = append(entry.Sessions, SessionScore{
 					SessionCode: *de.SessionCode,
 					SessionName: *de.SessionName,
-					EndScores:   *de.EndScores,
+					EndScores:   endScores,
+					TotalEnds:   de.SessionTotalEnds,
+					TotalScore:  de.TotalScore,
+					TotalTenX:   de.TotalTenX,
+					TotalX:      de.TotalX,
 				})
 			}
 		}
@@ -176,7 +190,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"results": leaderboard,
-			"total_ends": totalEnds,
+			"total_ends": totalCumulativeEnds,
 		})
 	}
 }

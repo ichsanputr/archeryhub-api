@@ -171,16 +171,16 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
 			TargetName      *string    `json:"target_name" db:"target_name"`
-			TotalScoreA     int        `json:"total_score_a"`
-			TotalScoreB     int        `json:"total_score_b"`
-			TotalPointsA    int        `json:"total_points_a"`
-			TotalPointsB    int        `json:"total_points_b"`
+			TotalScoreA     int        `json:"total_score_a" db:"total_score_a"`
+			TotalScoreB     int        `json:"total_score_b" db:"total_score_b"`
+			TotalPointsA    int        `json:"total_points_a" db:"total_points_a"`
+			TotalPointsB    int        `json:"total_points_b" db:"total_points_b"`
 			ShootOffA       *string    `json:"shoot_off_a"`
 			ShootOffB       *string    `json:"shoot_off_b"`
 		}
 
 		var matches []Match
-		db.Select(&matches, `
+		err = db.Select(&matches, `
 			SELECT em.uuid, em.round_no, em.match_no, 
 				em.entry_a_uuid, em.entry_b_uuid,
 				CASE 
@@ -194,7 +194,11 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				eeA.seed as entry_a_seed,
 				eeB.seed as entry_b_seed,
 				em.winner_entry_uuid, em.status, em.is_bye, em.scheduled_at,
-				em.target_uuid, et.target_name
+				em.target_uuid, et.target_name,
+				COALESCE(em.total_score_a, 0) as total_score_a,
+				COALESCE(em.total_score_b, 0) as total_score_b,
+				COALESCE(em.total_points_a, 0) as total_points_a,
+				COALESCE(em.total_points_b, 0) as total_points_b
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
@@ -206,6 +210,9 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			WHERE em.bracket_uuid = ?
 			ORDER BY em.round_no ASC, em.match_no ASC
 		`, bracketUUID)
+		if err != nil {
+			logrus.WithError(err).WithField("bracket_uuid", bracketUUID).Error("Failed to fetch matches for bracket")
+		}
 
 		if matches == nil {
 			matches = []Match{}
@@ -344,6 +351,23 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 							totalPointsB++
 						} else {
 							totalScoreB++
+						}
+					} else {
+						// Tie in shoot-off - Award +1 to the recorded winner
+						if matches[i].WinnerEntryUUID != nil && matches[i].Status == "finished" {
+							if matches[i].EntryAUUID != nil && *matches[i].WinnerEntryUUID == *matches[i].EntryAUUID {
+								if bracket.Format == "recurve_set" {
+									totalPointsA++
+								} else {
+									totalScoreA++
+								}
+							} else if matches[i].EntryBUUID != nil && *matches[i].WinnerEntryUUID == *matches[i].EntryBUUID {
+								if bracket.Format == "recurve_set" {
+									totalPointsB++
+								} else {
+									totalScoreB++
+								}
+							}
 						}
 					}
 				}
@@ -1066,10 +1090,10 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
 			Format          string     `json:"format" db:"format"`
-			TotalScoreA     int        `json:"total_score_a"`
-			TotalScoreB     int        `json:"total_score_b"`
-			TotalPointsA    int        `json:"total_points_a"`
-			TotalPointsB    int        `json:"total_points_b"`
+			TotalScoreA     int        `json:"total_score_a" db:"total_score_a"`
+			TotalScoreB     int        `json:"total_score_b" db:"total_score_b"`
+			TotalPointsA    int        `json:"total_points_a" db:"total_points_a"`
+			TotalPointsB    int        `json:"total_points_b" db:"total_points_b"`
 			ShootOffA       *string    `json:"shoot_off_a"`
 			ShootOffB       *string    `json:"shoot_off_b"`
 		}
@@ -1252,6 +1276,23 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 				} else {
 					totalScoreB++
 				}
+			} else {
+				// Tie in shoot-off - Award +1 to the recorded winner
+				if match.WinnerEntryUUID != nil && match.Status == "finished" {
+					if match.EntryAUUID != nil && *match.WinnerEntryUUID == *match.EntryAUUID {
+						if match.Format == "recurve_set" {
+							totalPointsA++
+						} else {
+							totalScoreA++
+						}
+					} else if match.EntryBUUID != nil && *match.WinnerEntryUUID == *match.EntryBUUID {
+						if match.Format == "recurve_set" {
+							totalPointsB++
+						} else {
+							totalScoreB++
+						}
+					}
+				}
 			}
 		}
 
@@ -1374,7 +1415,7 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 		var m struct {
 			Format string `db:"format"`
 		}
-		if err := tx.Get(&m, `SELECT format FROM elimination_matches WHERE uuid = ?`, matchID); err == nil {
+		if err := tx.Get(&m, `SELECT eb.format FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?`, matchID); err == nil {
 			var allEnds []struct {
 				EndNo    int    `db:"end_no"`
 				Side     string `db:"side"`
@@ -1424,7 +1465,10 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			if soA >= 0 && soB >= 0 {
 				if soA > soB { if m.Format == "recurve_set" { tPA++ } else { tSA++ } } else if soB > soA { if m.Format == "recurve_set" { tPB++ } else { tSB++ } }
 			}
-			tx.Exec(`UPDATE elimination_matches SET total_score_a=?, total_score_b=?, total_points_a=?, total_points_b=? WHERE uuid=?`, tSA, tSB, tPA, tPB, matchID)
+			_, err = tx.Exec(`UPDATE elimination_matches SET total_score_a=?, total_score_b=?, total_points_a=?, total_points_b=? WHERE uuid=?`, tSA, tSB, tPA, tPB, matchID)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to update match summary scores")
+			}
 		}
 
 
@@ -1625,20 +1669,28 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get match info including bracket format
 		type MatchInfo struct {
-			UUID        string  `db:"uuid"`
-			BracketUUID string  `db:"bracket_uuid"`
-			RoundNo     int     `db:"round_no"`
-			MatchNo     int     `db:"match_no"`
-			EntryAUUID  *string `db:"entry_a_uuid"`
-			EntryBUUID  *string `db:"entry_b_uuid"`
-			Status      string  `db:"status"`
-			Format      string  `db:"format"`
+			UUID         string  `db:"uuid"`
+			BracketUUID  string  `db:"bracket_uuid"`
+			RoundNo      int     `db:"round_no"`
+			MatchNo      int     `db:"match_no"`
+			EntryAUUID   *string `db:"entry_a_uuid"`
+			EntryBUUID   *string `db:"entry_b_uuid"`
+			Status       string  `db:"status"`
+			Format       string  `db:"format"`
+			TotalScoreA  int     `db:"total_score_a"`
+			TotalScoreB  int     `db:"total_score_b"`
+			TotalPointsA int     `db:"total_points_a"`
+			TotalPointsB int     `db:"total_points_b"`
 		}
 
 		var match MatchInfo
 		err := db.Get(&match, `
 			SELECT em.uuid, em.bracket_uuid, em.round_no, em.match_no, 
-					em.entry_a_uuid, em.entry_b_uuid, em.status, eb.format 
+					em.entry_a_uuid, em.entry_b_uuid, em.status, eb.format,
+					COALESCE(em.total_score_a, 0) as total_score_a,
+					COALESCE(em.total_score_b, 0) as total_score_b,
+					COALESCE(em.total_points_a, 0) as total_points_a,
+					COALESCE(em.total_points_b, 0) as total_points_b
 			FROM elimination_matches em
 			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
 			WHERE em.uuid = ?`, matchID)
@@ -1744,12 +1796,23 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if soA > soB {
-				if match.EntryAUUID != nil { winnerID = *match.EntryAUUID }
+				if match.EntryAUUID != nil { 
+					winnerID = *match.EntryAUUID 
+					if match.Format == "recurve_set" { totalA++ } else { totalA++ }
+				}
 			} else if soB > soA {
-				if match.EntryBUUID != nil { winnerID = *match.EntryBUUID }
+				if match.EntryBUUID != nil { 
+					winnerID = *match.EntryBUUID 
+					if match.Format == "recurve_set" { totalB++ } else { totalB++ }
+				}
 			} else if req.WinnerEntryID != "" {
 				// Final manual override if provided in request
 				winnerID = req.WinnerEntryID
+				if match.EntryAUUID != nil && winnerID == *match.EntryAUUID {
+					totalA++
+				} else if match.EntryBUUID != nil && winnerID == *match.EntryBUUID {
+					totalB++
+				}
 			} else {
 				// Tie - for now, we'll require higher score to win
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Pertandingan Seri. Silahkan lakukan Shoot-off atau pilih pemenang secara manual."})
@@ -1770,10 +1833,11 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Update match with winner and status
-		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished' WHERE uuid = ?`, winnerID, matchID)
+		// Update match with winner, status AND final scores
+		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished', total_score_a = ?, total_score_b = ?, total_points_a = ?, total_points_b = ? WHERE uuid = ?`, 
+			winnerID, totalA, totalB, totalA, totalB, matchID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match results"})
 			return
 		}
 
