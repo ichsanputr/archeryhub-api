@@ -762,6 +762,9 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
+		categoryID := c.Query("category_id")
+
+		fmt.Printf("[DEBUG] GetSessionAssignments - SessionID: %s, CategoryID: %s\n", sessionID, categoryID)
 
 		type Assignment struct {
 			UUID            string  `json:"uuid" db:"uuid"`
@@ -773,7 +776,7 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var assignments []Assignment
-		err := db.Select(&assignments, `
+		query := `
 			SELECT 
 				qta.uuid,
 				qta.participant_uuid,
@@ -787,13 +790,24 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE qta.session_uuid = ?
-			ORDER BY et.target_name ASC
-		`, sessionID)
+		`
+		args := []interface{}{sessionID}
+
+		if categoryID != "" {
+			query += " AND ep.category_id = ?"
+			args = append(args, categoryID)
+		}
+
+		query += " ORDER BY et.target_name ASC"
+
+		err := db.Select(&assignments, query, args...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignments", "details": err.Error()})
 			return
 		}
+
+		fmt.Printf("[DEBUG] GetSessionAssignments - Found %d assignments\n", len(assignments))
 
 		c.JSON(http.StatusOK, gin.H{"assignments": assignments})
 	}
@@ -1120,6 +1134,8 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		fmt.Printf("[DEBUG] CreateBulkTargetAssignments - Attempting to assign for CategoryID: %s\n", req.CategoryID)
+
 		// Validate session belongs to event
 		var sessionUUID string
 		err = db.Get(&sessionUUID, `
@@ -1160,25 +1176,50 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 				continue
 			}
 
-			// Upsert assignment
+			// 1. Delete existing assignment for this participant in this session to ensure clean move
+			_, err = tx.Exec(`
+				DELETE FROM qualification_target_assignments 
+				WHERE session_uuid = ? AND participant_uuid = ?
+			`, sessionUUID, assignment.ParticipantID)
+			if err != nil {
+				errors = append(errors, map[string]interface{}{
+					"participant_id": assignment.ParticipantID,
+					"error":          "Failed to clear existing assignment: " + err.Error(),
+				})
+				continue
+			}
+
+			// 2. Delete existing assignment for this target in this session (evict current occupant if any)
+			_, err = tx.Exec(`
+				DELETE FROM qualification_target_assignments 
+				WHERE session_uuid = ? AND target_uuid = ?
+			`, sessionUUID, assignment.TargetID)
+			if err != nil {
+				errors = append(errors, map[string]interface{}{
+					"participant_id": assignment.ParticipantID,
+					"target_id":      assignment.TargetID,
+					"error":          "Failed to clear target assignment: " + err.Error(),
+				})
+				continue
+			}
+
+			// 3. Insert new assignment
 			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments 
 				(uuid, session_uuid, participant_uuid, target_uuid, created_at, updated_at)
 				VALUES (?, ?, ?, ?, NOW(), NOW())
-				ON DUPLICATE KEY UPDATE 
-				target_uuid = VALUES(target_uuid),
-				updated_at = NOW()
 			`, assignmentUUID, sessionUUID, assignment.ParticipantID, assignment.TargetID)
 			if err != nil {
 				errors = append(errors, map[string]interface{}{
 					"participant_id": assignment.ParticipantID,
 					"target_id":      assignment.TargetID,
-					"error":          "Failed to upsert assignment: " + err.Error(),
+					"error":          "Failed to create assignment: " + err.Error(),
 				})
 				continue
 			}
 
 			successCount++
+			fmt.Printf("[DEBUG] Assignment successful for participant %s to target %s\n", assignment.ParticipantID, assignment.TargetID)
 		}
 
 		// Commit transaction
