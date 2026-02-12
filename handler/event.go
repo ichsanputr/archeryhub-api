@@ -174,7 +174,9 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				u.avatar_url as organizer_avatar_url,
 				u.slug as organizer_slug,
 				COALESCE(participant_stats.participant_count, 0) as participant_count,
-				COALESCE(category_stats.event_count, 0) as event_count
+				COALESCE(category_stats.event_count, 0) as event_count,
+				COALESCE(target_stats.target_count, 0) as target_count,
+				COALESCE(active_target_stats.active_target_count, 0) as active_target_count
 			FROM events t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM organizations
@@ -182,7 +184,7 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid as id, name as full_name, email, avatar_url, slug FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT uuid) as participant_count
+				SELECT event_id, COUNT(DISTINCT archer_id) as participant_count
 				FROM event_participants
 				GROUP BY event_id
 			) participant_stats ON t.uuid = participant_stats.event_id
@@ -191,6 +193,25 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				FROM event_categories
 				GROUP BY event_id
 			) category_stats ON t.uuid = category_stats.event_id
+			LEFT JOIN (
+				SELECT event_uuid, COUNT(*) as target_count
+				FROM event_targets
+				GROUP BY event_uuid
+			) target_stats ON t.uuid = target_stats.event_uuid
+			LEFT JOIN (
+				SELECT event_id, COUNT(DISTINCT target_uuid) as active_target_count
+				FROM (
+					SELECT qs.event_uuid as event_id, qta.target_uuid
+					FROM qualification_target_assignments qta
+					JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+					UNION ALL
+					SELECT eb.event_uuid as event_id, em.target_uuid
+					FROM elimination_matches em
+					JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
+					WHERE em.target_uuid IS NOT NULL
+				) combined
+				GROUP BY event_id
+			) active_target_stats ON t.uuid = active_target_stats.event_id
 			WHERE t.uuid = ? OR t.slug = ?
 			LIMIT 1
 		`

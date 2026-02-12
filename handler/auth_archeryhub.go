@@ -17,13 +17,41 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// setAuthCookie sets the authentication cookie with appropriate security flags
+func setAuthCookie(c *gin.Context, token string, maxAge int) {
+	isProduction := os.Getenv("ENV") == "production"
+	host := c.Request.Host
+	
+	// If we are on localhost, dev, or 127.0.0.1, never use domain/secure (unless explicitly needed)
+	isLocal := strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") || strings.HasPrefix(host, "0.0.0.0")
+	
+	domain := ""
+	secure := false
+	
+	if isProduction && !isLocal {
+		domain = ".archeryhub.id"
+		secure = true
+	}
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("auth_token", token, maxAge, "/", domain, secure, true)
+}
+
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	FullName string `json:"full_name"`
-	Phone    string `json:"phone"`
-	UserType string `json:"user_type" binding:"required"` // archer, organization, club
+	Username    string `json:"username" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=6"`
+	FullName    string `json:"full_name"`
+	Phone       string `json:"phone"`
+	UserType    string `json:"user_type" binding:"required"` // archer, organization, club, seller
+	Gender      string `json:"gender"`
+	DateOfBirth string `json:"date_of_birth"`
+	City        string `json:"city"`
+	School      string `json:"school"`
+	BowType     string `json:"bow_type"`
+	Acronym     string `json:"acronym"`
+	Address     string `json:"address"`
+	WhatsAppNo  string `json:"whatsapp_no"`
 }
 
 type LoginRequest struct {
@@ -132,18 +160,24 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			_, err = db.Exec(updateQuery, req.Password, req.FullName, req.Phone, userID)
 		} else {
 			isVerified := true
-			if table != "archers" {
-				// For non-archers, we don't have is_verified column yet in some tables,
-				// but the user only specified archer verification logic.
-				columnName := "slug"
-				if table == "organizations" {
-					columnName = "slug"
+			if table == "organizations" {
+				whatsappNo := req.WhatsAppNo
+				if whatsappNo == "" {
+					whatsappNo = req.Phone
 				}
 				insertQuery := `
-					INSERT INTO ` + table + ` (uuid, ` + columnName + `, email, password, ` + nameField + `, phone, status)
-					VALUES (?, ?, ?, ?, ?, ?, 'active')
+					INSERT INTO organizations (uuid, slug, email, password, name, acronym, whatsapp_no, city, address, status)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
 				`
-				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Phone)
+				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
+			} else if table != "archers" {
+				// For other tables (clubs, sellers)
+				columnName := "slug"
+				insertQuery := `
+					INSERT INTO ` + table + ` (uuid, ` + columnName + `, email, password, ` + nameField + `, status)
+					VALUES (?, ?, ?, ?, ?, 'active')
+				`
+				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName)
 			} else {
 				// For archers, include id and is_verified
 				// Generate id (ARC-XXXX)
@@ -175,10 +209,10 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				username = username + "-" + userID[:8]
 
 				insertQuery := `
-					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified)
-					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
+					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, city, school, bow_type)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
 				`
-				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified)
+				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.City, req.School, req.BowType)
 			}
 		}
 
@@ -195,6 +229,9 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
+
+		// Set Cookie using helper
+		setAuthCookie(c, token, 60*60*24*60) // 60 days
 
 		// Log activity (silently fail if log table doesn't exist yet)
 		utils.LogActivity(db, userID, "", "user_registered", req.UserType, userID, "User registered: "+req.Username, c.ClientIP(), c.Request.UserAgent())
@@ -368,18 +405,11 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Set Cookie using helper
+		setAuthCookie(c, token, 60*60*24*60) // 60 days
+
 		// Log activity
 		utils.LogActivity(db, user.UUID, "", "user_logged_in", user.Type, user.UUID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
-
-		// Set cookie
-		isProduction := os.Getenv("ENV") == "production"
-		domain := ""
-		if isProduction {
-			domain = ".archeryhub.id"
-		}
-
-		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie("auth_token", token, 60*60*24*7, "/", domain, isProduction, true)
 
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
@@ -400,16 +430,8 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 // Logout handles user logout by clearing the auth cookie
 func Logout() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get environment settings
-		isProduction := os.Getenv("ENV") == "production"
-		domain := ""
-		if isProduction {
-			domain = ".archeryhub.id"
-		}
-
-		// Clear the auth cookie by setting it to empty with expired time
-		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie("auth_token", "", -1, "/", domain, isProduction, true)
+		// Clear cookie using helper (-1 maxAge means delete)
+		setAuthCookie(c, "", -1)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 	}
@@ -514,7 +536,7 @@ func generateJWT(userID, email, role, userType, name, avatar string) (string, er
 		"avatar":    avatar,
 		"role":      role,
 		"user_type": userType,
-		"exp":       time.Now().Add(time.Hour * 72).Unix(),
+		"exp":       time.Now().Add(time.Hour * 24 * 60).Unix(), // 60 days
 		"iat":       time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

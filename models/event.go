@@ -107,6 +107,8 @@ type EventWithDetails struct {
 	QRRaw               *string `json:"qr_raw" db:"qr_raw"`
 	WhatsAppNumber      *string `json:"whatsapp_number" db:"whatsapp_number"`
 	VenueType           *string `json:"venue_type" db:"venue_type"`
+	TargetCount         int     `json:"target_count" db:"target_count"`
+	ActiveTargetCount   int     `json:"active_target_count" db:"active_target_count"`
 }
 
 // CreateEventRequest represents the request payload for creating a Event

@@ -62,18 +62,22 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 			appURL = os.Getenv("APP_URL")
 		}
 
-		// Get user type for registration (defaults to archer)
-		userType := c.Query("user_type")
-		if userType == "" {
-			userType = "archer"
+		// Collect all metadata from query params
+		metadata := make(map[string]string)
+		for key, values := range c.Request.URL.Query() {
+			if key != "app_url" && key != "state" {
+				metadata[key] = values[0]
+			}
 		}
-		// Validate user type
-		if userType != "archer" && userType != "organization" && userType != "club" && userType != "seller" {
-			userType = "archer"
+		
+		// Ensure user_type is set
+		if metadata["user_type"] == "" {
+			metadata["user_type"] = "archer"
 		}
 
-		// Get full name if provided
-		fullName := c.Query("full_name")
+		// JSON and Base64 encode metadata for safety in state
+		metadataJSON, _ := json.Marshal(metadata)
+		metadataBase64 := hex.EncodeToString(metadataJSON) // Using hex instead of base64 for URL safety and simplicity
 
 		// Generate state for CSRF protection
 		stateBytes := make([]byte, 16)
@@ -83,9 +87,9 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 		}
 		state := hex.EncodeToString(stateBytes)
 
-		// Store state with app URL, user_type, and fullName for callback
-		// Format: state|appURL|userType|fullName
-		stateData := fmt.Sprintf("%s|%s|%s|%s", state, appURL, userType, fullName)
+		// Store state with app URL and metadata for callback
+		// Format: state|appURL|metadataHex
+		stateData := fmt.Sprintf("%s|%s|%s", state, appURL, metadataBase64)
 
 		redirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
 		if redirectURI == "" {
@@ -137,20 +141,35 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Parse state to get app URL, user_type, and fullName
-		// Format: state|appURL|userType|fullName
+		// Parse state to get app URL and metadata
+		// Format: state|appURL|metadataHex
 		appURL := ""
-		requestedUserType := "archer" // default
-		requestedFullName := ""
+		metadata := make(map[string]string)
 		parts := splitState(stateData)
 		if len(parts) >= 2 {
 			appURL = parts[1]
 		}
 		if len(parts) >= 3 {
-			requestedUserType = parts[2]
+			metadataHex := parts[2]
+			metadataJSON, err := hex.DecodeString(metadataHex)
+			if err == nil {
+				json.Unmarshal(metadataJSON, &metadata)
+			}
 		}
-		if len(parts) >= 4 {
-			requestedFullName = parts[3]
+
+		requestedUserType := metadata["user_type"]
+		if requestedUserType == "" {
+			requestedUserType = "archer"
+		}
+		requestedFullName := metadata["full_name"]
+		if requestedFullName == "" {
+			requestedFullName = metadata["organization_name"]
+		}
+		if requestedFullName == "" {
+			requestedFullName = metadata["club_name"]
+		}
+		if requestedFullName == "" {
+			requestedFullName = metadata["store_name"]
 		}
 		if appURL == "" {
 			appURL = os.Getenv("APP_URL")
@@ -300,9 +319,9 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			switch userType {
 			case "organization":
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, slug, email, google_id, name, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+					INSERT INTO organizations (uuid, slug, email, google_id, name, acronym, whatsapp_no, city, address, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["city"], metadata["address"], userInfo.Picture)
 			case "club":
 				_, insertErr = db.Exec(`
 					INSERT INTO clubs (uuid, slug, email, google_id, name, avatar_url, status, created_at, updated_at)
@@ -316,25 +335,25 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			default: // archer
 				userType = "archer"
 				role = "archer"
-				// Generate username from name
-				username := strings.ToLower(displayName)
-				username = strings.ReplaceAll(username, " ", "-")
-				username = strings.ReplaceAll(username, "'", "")
-				username = strings.ReplaceAll(username, ".", "")
-				username = strings.ReplaceAll(username, ",", "")
+				// Generate username logic matches earlier code
+				nameForUsername := displayName
+				usernameBase := strings.ToLower(nameForUsername)
+				usernameBase = strings.ReplaceAll(usernameBase, " ", "-")
+				usernameBase = strings.ReplaceAll(usernameBase, "'", "")
+				usernameBase = strings.ReplaceAll(usernameBase, ".", "")
+				usernameBase = strings.ReplaceAll(usernameBase, ",", "")
 				var cleaned strings.Builder
-				for _, r := range username {
+				for _, r := range usernameBase {
 					if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
 						cleaned.WriteRune(r)
 					}
 				}
-				username = cleaned.String()
-				username = username + "-" + userID[:8]
+				username := cleaned.String() + "-" + userID[:8]
 
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, city, school, bow_type, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture, metadata["gender"], metadata["date_of_birth"], metadata["city"], metadata["school"], metadata["bow_type"])
 			}
 
 			if insertErr != nil {

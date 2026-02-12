@@ -89,6 +89,41 @@ func UpdateTask(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+func UpdateTaskStatus(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		taskUUID := c.Param("uuid")
+		var req struct {
+			Status string `json:"status" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		_, err := db.Exec(`
+			UPDATE task_developer 
+			SET status = ?, updated_at = NOW()
+			WHERE uuid = ?
+		`, req.Status, taskUUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task status"})
+			return
+		}
+
+		// Fetch the updated task to return current status
+		var task TaskDeveloper
+		err = db.Get(&task, "SELECT * FROM task_developer WHERE uuid = ?", taskUUID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": "Task status updated"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Task status updated", "task": task})
+	}
+}
+
 func ToggleTaskStatus(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		taskUUID := c.Param("uuid")

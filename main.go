@@ -153,6 +153,7 @@ func main() {
 			tasks.POST("", handler.CreateTask(db))
 			tasks.PUT("/:uuid", handler.UpdateTask(db))
 			tasks.PATCH("/:uuid/toggle", handler.ToggleTaskStatus(db))
+			tasks.PATCH("/:uuid/status", handler.UpdateTaskStatus(db))
 			tasks.DELETE("/:uuid", handler.DeleteTask(db))
 		}
 
