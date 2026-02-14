@@ -525,10 +525,11 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Check participant count for the category
+		// event_participants.status enum: 'Ditolak','Menunggu Acc','Terdaftar' (no 'confirmed')
 		var participantCount int
 		if req.BracketType == "individual" {
-			// Count archers in this category
-			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND status IN ('confirmed', 'Terdaftar')`, req.CategoryID)
+			// Count archers in this category (Menunggu Acc + Terdaftar; exclude Ditolak)
+			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND status IN ('Menunggu Acc', 'Terdaftar')`, req.CategoryID)
 		} else {
 			// Count teams for this tournament/category
 			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE category_uuid = ?`, req.CategoryID)

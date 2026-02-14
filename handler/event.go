@@ -1425,7 +1425,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO event_participants (
 				uuid, event_id, archer_id, category_id, 
 				registration_date, payment_status, payment_amount, payment_proof_urls, status
-			) VALUES (?, ?, ?, ?, ?, 'menunggu_acc', ?, ?, 'Menunggu Acc')
+			) VALUES (?, ?, ?, ?, ?, 'menunggu_acc', ?, ?, 'Terdaftar')
 		`, participantUUID, actualEventID, archerUUID, req.EventCategoryID, registrationDate, req.PaymentAmount, proofURLs)
 
 		if err != nil {
