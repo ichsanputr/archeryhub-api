@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city, a.school, a.province,
+				a.bow_type, a.city, a.school,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -142,7 +143,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city, a.school, a.province,
+				a.bow_type, a.city, a.school,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -324,6 +325,27 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// truncateStr truncates s to maxLen in place; no-op if s is nil or len <= maxLen.
+func truncateStr(s *string, maxLen int) {
+	if s == nil || len(*s) <= maxLen {
+		return
+	}
+	*s = (*s)[:maxLen]
+}
+
+// archerFieldLimits holds DB column max lengths for archers (varchar/char).
+const (
+	archerPhoneLen    = 20
+	archerEmailLen    = 100
+	archerFullNameLen = 255
+	archerUsernameLen = 100
+	archerNicknameLen = 100
+	archerCityLen     = 100
+	archerSchoolLen   = 255
+	archerAvatarURLLen = 255
+	archerIDLen       = 20
+)
+
 // CreateArcher creates a new archer
 func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -331,6 +353,17 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
 			return
+		}
+
+		// Truncate string fields to DB limits to avoid "Data too long" errors
+		truncateStr(req.Phone, archerPhoneLen)
+		truncateStr(req.Email, archerEmailLen)
+		truncateStr(req.Nickname, archerNicknameLen)
+		truncateStr(req.City, archerCityLen)
+		truncateStr(req.School, archerSchoolLen)
+		truncateStr(req.AvatarURL, archerAvatarURLLen)
+		if len(req.FullName) > archerFullNameLen {
+			req.FullName = req.FullName[:archerFullNameLen]
 		}
 
 		archerID := uuid.New().String()
@@ -394,7 +427,11 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 		athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
 		if req.ID != nil && *req.ID != "" {
-			athleteID = *req.ID
+			idVal := *req.ID
+			if len(idVal) > archerIDLen {
+				idVal = idVal[:archerIDLen]
+			}
+			athleteID = idVal
 		}
 
 		// Generate username if not provided
@@ -432,6 +469,9 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			randomSuffix := uuid.New().String()[:8]
 			finalUsername = fmt.Sprintf("%s-%s", username, randomSuffix)
 		}
+		if len(finalUsername) > archerUsernameLen {
+			finalUsername = finalUsername[:archerUsernameLen]
+		}
 
 		// Set verification status: Unverified if no password
 		isVerified := false
@@ -454,6 +494,19 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
+			if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+				switch mysqlErr.Number {
+				case 1406: // ER_DATA_TOO_LONG
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error":   "Data too long for one or more fields",
+						"details": "Check: phone (max 20), email (max 100), full_name (max 255), username (max 100), city (max 100), school (max 255).",
+					})
+					return
+				case 1062: // ER_DUP_ENTRY
+					c.JSON(http.StatusConflict, gin.H{"error": "Email or username already exists", "details": mysqlErr.Message})
+					return
+				}
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create archer", "details": err.Error()})
 			return
 		}
@@ -479,6 +532,8 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{
 			"message":   "Archer created successfully",
 			"archer_id": archerID,
+			"uuid":      archerID,
+			"id":        athleteID,
 		})
 	}
 }
@@ -507,8 +562,12 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{}
 
 		if req.FullName != nil {
+			fn := *req.FullName
+			if len(fn) > archerFullNameLen {
+				fn = fn[:archerFullNameLen]
+			}
 			query += ", full_name = ?"
-			args = append(args, *req.FullName)
+			args = append(args, fn)
 		}
 		if req.DateOfBirth != nil {
 			query += ", date_of_birth = ?"
@@ -519,6 +578,7 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.Gender)
 		}
 		if req.City != nil {
+			truncateStr(req.City, archerCityLen)
 			query += ", city = ?"
 			args = append(args, *req.City)
 		}
@@ -527,6 +587,7 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.BowType)
 		}
 		if req.School != nil {
+			truncateStr(req.School, archerSchoolLen)
 			query += ", school = ?"
 			args = append(args, *req.School)
 		}
@@ -535,14 +596,17 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.ClubID)
 		}
 		if req.Email != nil {
+			truncateStr(req.Email, archerEmailLen)
 			query += ", email = ?"
 			args = append(args, *req.Email)
 		}
 		if req.Phone != nil {
+			truncateStr(req.Phone, archerPhoneLen)
 			query += ", phone = ?"
 			args = append(args, *req.Phone)
 		}
 		if req.AvatarURL != nil {
+			truncateStr(req.AvatarURL, archerAvatarURLLen)
 			query += ", avatar_url = ?"
 			args = append(args, *req.AvatarURL)
 		}
@@ -556,6 +620,19 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
+			if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+				switch mysqlErr.Number {
+				case 1406:
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error":   "Data too long for one or more fields",
+						"details": "Check: phone (max 20), email (max 100), full_name (max 255), city (max 100), school (max 255), avatar_url (max 255).",
+					})
+					return
+				case 1062:
+					c.JSON(http.StatusConflict, gin.H{"error": "Duplicate value (e.g. email already exists)", "details": mysqlErr.Message})
+					return
+				}
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update archer", "details": err.Error()})
 			return
 		}
@@ -629,7 +706,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Address     *string `json:"address" db:"address"`
 			City        *string `json:"city" db:"city"`
 			School      *string `json:"school" db:"school"`
-			Province    *string `json:"province" db:"province"`
 			BowType     string  `json:"bow_type" db:"bow_type"`
 			ClubID      *string `json:"club_id" db:"club_id"`
 			ClubName    *string `json:"club_name" db:"club_name"`
@@ -641,7 +717,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, 
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.phone, a.address, a.city, a.school, a.province, 
+		       a.phone, a.address, a.city, a.school, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
 		       COALESCE(a.status, 'active') as status
@@ -672,7 +748,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"address":       archer.Address,
 			"city":          archer.City,
 			"school":        archer.School,
-			"province":      archer.Province,
 			"bow_type":      archer.BowType,
 			"club_id":       archer.ClubID,
 			"club_name":     archer.ClubName,
@@ -711,7 +786,6 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 			DateOfBirth *string `json:"date_of_birth" db:"date_of_birth"`
 			Phone       *string `json:"phone" db:"phone"`
 			City        *string `json:"city" db:"city"`
-			Province    *string `json:"province" db:"province"`
 			BowType     *string `json:"bow_type" db:"bow_type"`
 			ClubID      *string `json:"club_id" db:"club_id"`
 			ClubName    *string `json:"club_name" db:"club_name"`
@@ -721,7 +795,7 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				a.uuid, a.id, a.full_name, a.email, a.avatar_url,
 				a.gender, a.date_of_birth, a.phone,
-				a.city, a.province, a.bow_type,
+				a.city, a.bow_type,
 				a.club_id, c.name as club_name
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid

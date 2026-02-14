@@ -1358,7 +1358,26 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			msg := err.Error()
+			if strings.Contains(msg, "AthleteID") || strings.Contains(msg, "athlete_id") {
+				msg = "athlete_id is required"
+			} else if strings.Contains(msg, "EventCategoryID") || strings.Contains(msg, "event_category_id") {
+				msg = "event_category_id is required"
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg, "details": err.Error()})
+			return
+		}
+		req.AthleteID = strings.TrimSpace(req.AthleteID)
+		req.EventCategoryID = strings.TrimSpace(req.EventCategoryID)
+		if req.AthleteID == "" || req.EventCategoryID == "" {
+			missing := []string{}
+			if req.AthleteID == "" {
+				missing = append(missing, "athlete_id")
+			}
+			if req.EventCategoryID == "" {
+				missing = append(missing, "event_category_id")
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields", "details": strings.Join(missing, ", ") + " is required"})
 			return
 		}
 
