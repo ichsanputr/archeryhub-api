@@ -658,7 +658,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found"})
 			return
 		}
-
 		data := gin.H{
 			"uuid":          archer.UUID,
 			"id":            archer.ID,

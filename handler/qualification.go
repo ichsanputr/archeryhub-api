@@ -4,15 +4,16 @@ import (
 	"archeryhub-api/models"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"strings"
 )
 
 // GetQualificationSessions returns all sessions for an event
@@ -813,10 +814,9 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// AutoAssignParticipants automatically assigns participants to targets
-// AutoAssignParticipants assigns participants to targets using lane-based algorithm
-// Each club gets assigned a unique position letter (A, B, C, D), and archers from that club
-// are placed on sequential target numbers with their lane letter.
+// AutoAssignParticipants automatically assigns participants to targets.
+// Participants are randomized; slots are filled target-by-target so each target
+// is full (archers_per_target) before moving to the next target.
 func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
@@ -844,7 +844,6 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get available targets for this event, sorted naturally (1A, 1B, 1C, 1D, 2A, 2B...)
 		type Target struct {
 			UUID       string `db:"uuid"`
 			TargetName string `db:"target_name"`
@@ -862,7 +861,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 1. Natural Sort Targets: 1A, 1B, 1C, 1D, 2A, 2B...
+		// 1. Natural sort targets: 1A, 1B, 1C, 1D, 2A, 2B... (target number first, then letter)
 		sort.Slice(allTargets, func(i, j int) bool {
 			ni, _ := strconv.Atoi(strings.TrimRight(allTargets[i].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 			nj, _ := strconv.Atoi(strings.TrimRight(allTargets[j].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
@@ -872,9 +871,17 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return allTargets[i].TargetName < allTargets[j].TargetName
 		})
 
-		// 2. Filter available slots based on session occupation and ArchersPerTarget
+		// 2. Build available slots: fill one target completely (all archers_per_target positions) before the next.
+		// "Taken" is per category: one physical target can be used by one archer per event category, so when
+		// auto-assigning category 2 we only consider targets already assigned to this category (not category 1).
+		// That way each category starts from the beginning (1A, 1B, 1C, 1D, 2A, ...).
 		var existing []string
-		db.Select(&existing, `SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ?`, sessionID)
+		db.Select(&existing, `
+			SELECT qta.target_uuid
+			FROM qualification_target_assignments qta
+			INNER JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			WHERE qta.session_uuid = ? AND ep.category_id = ?
+		`, sessionID, req.CategoryID)
 		isTaken := make(map[string]bool)
 		for _, e := range existing {
 			isTaken[e] = true
@@ -893,7 +900,6 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 
-			// Respect ArchersPerTarget (e.g., if 2, skip C and D)
 			letter := ""
 			if len(t.TargetName) > 0 {
 				letter = string(t.TargetName[len(t.TargetName)-1])
@@ -908,16 +914,13 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			if letterIdx >= req.ArchersPerTarget {
 				continue
 			}
-
-			// Skip if physically occupied by another category
 			if isTaken[t.UUID] {
 				continue
 			}
-
 			availableSlots = append(availableSlots, t)
 		}
 
-		// 3. Get participants and group by club for interleaving
+		// 3. Get unassigned participants (no club ordering; we randomize next)
 		type ParticipantWithClub struct {
 			ParticipationUUID string  `db:"uuid"`
 			ClubName          *string `db:"club_name"`
@@ -931,7 +934,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			WHERE ep.category_id = ?
 			AND ep.status = 'Terdaftar'
 			AND ep.uuid NOT IN (SELECT participant_uuid FROM qualification_target_assignments WHERE session_uuid = ?)
-			ORDER BY (a.club_id IS NULL) ASC, c.name ASC, a.full_name ASC
+			ORDER BY ep.uuid
 		`, req.CategoryID, sessionID)
 
 		if err != nil || len(participants) == 0 {
@@ -939,7 +942,12 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 4. Perform sequential board-by-board assignment
+		// 4. Randomize participants
+		rand.Shuffle(len(participants), func(i, j int) {
+			participants[i], participants[j] = participants[j], participants[i]
+		})
+
+		// 5. Assign in order: slot order is already target-full-first (1A..1D, 2A..2D, ...)
 		assignedCount := 0
 		for i, archer := range participants {
 			if i >= len(availableSlots) {
