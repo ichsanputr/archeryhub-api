@@ -60,40 +60,61 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 		// Validate file size (max 10MB)
 		const maxSize = 10 * 1024 * 1024
 		if header.Size > maxSize {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "File too large. Maximum size is 10MB"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File too large. Maximum size is 10MB.", "max_size_mb": 10})
 			return
 		}
 
-		// Validate file type
-		allowedTypes := []string{"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
+		// Validate file type: images, PDF, and common dashboard docs (Word, Excel)
+		allowedTypes := []string{
+			"image/jpeg", "image/png", "image/gif", "image/webp",
+			"application/pdf",
+			"application/msword",                                                                						// .doc
+			"application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+			"application/vnd.ms-excel",                                                                					// .xls
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",     // .xlsx
+		}
 		contentType := header.Header.Get("Content-Type")
+		if idx := strings.Index(contentType, ";"); idx >= 0 {
+			contentType = strings.TrimSpace(contentType[:idx])
+		} else {
+			contentType = strings.TrimSpace(contentType)
+		}
 		isAllowed := false
 		for _, t := range allowedTypes {
-			if strings.HasPrefix(contentType, t) {
+			if contentType == t {
 				isAllowed = true
 				break
 			}
 		}
 		if !isAllowed {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "File type not allowed. Allowed: jpeg, png, gif, webp, pdf"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File type not allowed. Allowed: JPEG, PNG, GIF, WebP, PDF, DOC, DOCX, XLS, XLSX."})
 			return
 		}
 
 		// Generate filename from caption or UUID
 		ext := filepath.Ext(header.Filename)
 		if ext == "" {
-			// Try to get extension from content type
-			switch {
-			case strings.HasPrefix(contentType, "image/jpeg"):
+			switch contentType {
+			case "image/jpeg":
 				ext = ".jpg"
-			case strings.HasPrefix(contentType, "image/png"):
+			case "image/png":
 				ext = ".png"
-			case strings.HasPrefix(contentType, "image/gif"):
+			case "image/gif":
 				ext = ".gif"
-			case strings.HasPrefix(contentType, "image/webp"):
+			case "image/webp":
 				ext = ".webp"
-			case strings.HasPrefix(contentType, "application/pdf"):
+			case "application/pdf":
 				ext = ".pdf"
+			case "application/msword":
+				ext = ".doc"
+			case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+				ext = ".docx"
+			case "application/vnd.ms-excel":
+				ext = ".xls"
+			case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+				ext = ".xlsx"
+			default:
+				ext = ".bin"
 			}
 		}
 		
