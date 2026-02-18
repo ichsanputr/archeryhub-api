@@ -15,12 +15,12 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		categoryID := c.Query("category_id")
-		
+
 		if eventID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId is required"})
 			return
 		}
-		
+
 		if categoryID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
 			return
@@ -70,19 +70,19 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type dbEntry struct {
-			ParticipantUUID string  `db:"participant_uuid"`
-			ArcherName      string  `db:"archer_name"`
-			ArcherUUID      string  `db:"archer_uuid"`
-			AvatarURL       *string `db:"avatar_url"`
-			ClubName        *string `db:"club_name"`
-			SessionName     *string `db:"session_name"`
-			SessionCode     *string `db:"session_code"`
-			SessionTotalEnds int    `db:"session_total_ends"`
-			TotalScore      int     `db:"total_score"`
-			TotalTenX       int     `db:"total_10x"`
-			TotalX          int     `db:"total_x"`
-			EndsCompleted   int     `db:"ends_completed"`
-			EndScores       *string `db:"end_scores"`
+			ParticipantUUID  string  `db:"participant_uuid"`
+			ArcherName       string  `db:"archer_name"`
+			ArcherUUID       string  `db:"archer_uuid"`
+			AvatarURL        *string `db:"avatar_url"`
+			ClubName         *string `db:"club_name"`
+			SessionName      *string `db:"session_name"`
+			SessionCode      *string `db:"session_code"`
+			SessionTotalEnds int     `db:"session_total_ends"`
+			TotalScore       int     `db:"total_score"`
+			TotalTenX        int     `db:"total_10x"`
+			TotalX           int     `db:"total_x"`
+			EndsCompleted    int     `db:"ends_completed"`
+			EndScores        *string `db:"end_scores"`
 		}
 
 		var dbEntries []dbEntry
@@ -189,7 +189,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"results": leaderboard,
+			"results":    leaderboard,
 			"total_ends": totalCumulativeEnds,
 		})
 	}
@@ -381,7 +381,9 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				sort.Ints(endNos)
 
 				for _, en := range endNos {
-					if en == 99 { continue }
+					if en == 99 {
+						continue
+					}
 					scA := mEnds[en]["A"]
 					scB := mEnds[en]["B"]
 					tSA += scA
