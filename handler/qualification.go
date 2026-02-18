@@ -46,6 +46,8 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt        *string `db:"created_at" json:"created_at"`
 			UpdatedAt        *string `db:"updated_at" json:"updated_at"`
 			ParticipantCount int     `db:"participant_count" json:"participant_count"`
+			CategoryIDs      string  `db:"category_ids" json:"-"`
+			CategoryList     []string `json:"category_ids"`
 		}
 
 		var sessions []SessionWithCount
@@ -62,13 +64,27 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 				qs.arrows_per_end,
 				qs.created_at,
 				qs.updated_at,
-				COUNT(DISTINCT qta.participant_uuid) as participant_count
+				COUNT(DISTINCT qta.participant_uuid) as participant_count,
+				COALESCE(GROUP_CONCAT(qsc.category_uuid), '') as category_ids
 			FROM qualification_sessions qs
 			LEFT JOIN qualification_target_assignments qta ON qs.uuid = qta.session_uuid
+			LEFT JOIN qualification_session_categories qsc ON qs.uuid = qsc.session_uuid
 			WHERE qs.event_uuid = ?
 			GROUP BY qs.uuid, qs.session_date, qs.name, qs.start_time, qs.end_time, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at
 			ORDER BY qs.session_date ASC, qs.start_time ASC, qs.created_at ASC
 		`, eventUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sessions", "details": err.Error()})
+			return
+		}
+
+		for i := range sessions {
+			if sessions[i].CategoryIDs != "" {
+				sessions[i].CategoryList = strings.Split(sessions[i].CategoryIDs, ",")
+			} else {
+				sessions[i].CategoryList = []string{}
+			}
+		}
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sessions", "details": err.Error()})
 			return
@@ -92,12 +108,13 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var req struct {
-			Name         string  `json:"name" binding:"required"`
-			SessionDate  *string `json:"session_date"`
-			StartTime    *string `json:"start_time"`
-			EndTime      *string `json:"end_time"`
-			TotalEnds    int     `json:"total_ends"`
-			ArrowsPerEnd int     `json:"arrows_per_end"`
+			Name         string   `json:"name" binding:"required"`
+			SessionDate  *string  `json:"session_date"`
+			StartTime    *string  `json:"start_time"`
+			EndTime      *string  `json:"end_time"`
+			TotalEnds    int      `json:"total_ends"`
+			ArrowsPerEnd int      `json:"arrows_per_end"`
+			CategoryIDs  []string `json:"category_ids"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -134,13 +151,34 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			finalEndTime = req.EndTime
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
 		newUUID := uuid.New().String()
-		_, err = db.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO qualification_sessions (uuid, event_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			newUUID, eventUUID, sessionCode, req.SessionDate, req.Name, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session", "details": err.Error()})
+			return
+		}
+
+		// Insert categories
+		for _, catID := range req.CategoryIDs {
+			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, newUUID, catID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add categories to session", "details": err.Error()})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
@@ -158,12 +196,13 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		sessionUUID := c.Param("sessionId")
 
 		var req struct {
-			Name         string  `json:"name" binding:"required"`
-			SessionDate  *string `json:"session_date"`
-			StartTime    *string `json:"start_time"`
-			EndTime      *string `json:"end_time"`
-			TotalEnds    int     `json:"total_ends"`
-			ArrowsPerEnd int     `json:"arrows_per_end"`
+			Name         string   `json:"name" binding:"required"`
+			SessionDate  *string  `json:"session_date"`
+			StartTime    *string  `json:"start_time"`
+			EndTime      *string  `json:"end_time"`
+			TotalEnds    int      `json:"total_ends"`
+			ArrowsPerEnd int      `json:"arrows_per_end"`
+			CategoryIDs  []string `json:"category_ids"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -187,13 +226,40 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			finalEndTime = req.EndTime
 		}
 
-		_, err := db.Exec(`
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec(`
 			UPDATE qualification_sessions 
 			SET name = ?, session_date = ?, start_time = ?, end_time = ?, total_ends = ?, arrows_per_end = ?, updated_at = NOW()
 			WHERE uuid = ?`,
 			req.Name, req.SessionDate, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd, sessionUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session", "details": err.Error()})
+			return
+		}
+
+		// Update categories: Delete old and insert new
+		_, err = tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update categories", "details": err.Error()})
+			return
+		}
+
+		for _, catID := range req.CategoryIDs {
+			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, sessionUUID, catID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to re-add categories", "details": err.Error()})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 

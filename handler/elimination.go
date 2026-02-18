@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -156,7 +157,8 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get matches grouped by round
 		type Match struct {
-			UUID            string     `json:"id" db:"uuid"`
+			UUID            string     `json:"uuid" db:"uuid"`
+			MatchID         string     `json:"id" db:"match_id"`
 			RoundNo         int        `json:"round_no" db:"round_no"`
 			MatchNo         int        `json:"match_no" db:"match_no"`
 			EntryAUUID      *string    `json:"entry_a_id" db:"entry_a_uuid"`
@@ -181,7 +183,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		var matches []Match
 		err = db.Select(&matches, `
-			SELECT em.uuid, em.round_no, em.match_no, 
+			SELECT em.uuid, em.match_id, em.round_no, em.match_no, 
 				em.entry_a_uuid, em.entry_b_uuid,
 				CASE 
 					WHEN eeA.participant_type = 'archer' THEN aA.full_name
@@ -651,19 +653,21 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 					}
 				}
 
+				matchID := strings.ToUpper(uuid.New().String()[:5])
+
 				tx.Exec(`
-					INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye)
-					VALUES (?, ?, ?, ?, ?, ?, ?)
-				`, matchUUID, bracketUUID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
+					INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`, matchUUID, matchID, bracketUUID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
 			}
 		}
-
 		if req.BracketSize >= 4 {
 			bronzeMatchUUID := uuid.New().String()
+			bronzeMatchID := strings.ToUpper(uuid.New().String()[:5])
 			tx.Exec(`
-				INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
-				VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
-			`, bronzeMatchUUID, bracketUUID, numRounds, 2, nil, nil, false)
+				INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+			`, bronzeMatchUUID, bronzeMatchID, bracketUUID, numRounds, 2, nil, nil, false)
 		}
 
 		// Update generated_at
@@ -1079,7 +1083,8 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 		matchID := c.Param("matchId")
 
 		type Match struct {
-			UUID            string     `json:"id" db:"uuid"`
+			UUID            string     `json:"uuid" db:"uuid"`
+			MatchID         string     `json:"id" db:"match_id"`
 			BracketUUID     string     `json:"bracket_id" db:"bracket_uuid"`
 			RoundNo         int        `json:"round_no" db:"round_no"`
 			MatchNo         int        `json:"match_no" db:"match_no"`
@@ -1097,6 +1102,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			TotalPointsB    int        `json:"total_points_b" db:"total_points_b"`
 			ShootOffA       *string    `json:"shoot_off_a"`
 			ShootOffB       *string    `json:"shoot_off_b"`
+			CreatedAt       *time.Time `json:"created_at" db:"created_at"`
 		}
 
 		var match Match
@@ -1104,13 +1110,15 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			SELECT em.*, eb.format 
 			FROM elimination_matches em
 			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
-			WHERE em.uuid = ?
-		`, matchID)
-			if err != nil {
+			WHERE em.uuid = ? OR em.match_id = ?
+		`, matchID, matchID)
+		if err != nil {
 			logrus.WithError(err).WithField("match_id", matchID).Error("Failed to fetch match details")
 			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
 			return
 		}
+		// Use the actual UUID for subsequent queries
+		matchID = match.UUID
 
 		// Get participant names
 		type Participant struct {
@@ -1329,6 +1337,15 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Resolve match UUID
+		var actualMatchUUID string
+		err := db.Get(&actualMatchUUID, `SELECT uuid FROM elimination_matches WHERE uuid = ? OR match_id = ?`, matchID, matchID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+		matchID = actualMatchUUID
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
@@ -1496,6 +1513,15 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Resolve match UUID
+		var actualMatchUUID string
+		err := db.Get(&actualMatchUUID, `SELECT uuid FROM elimination_matches WHERE uuid = ? OR match_id = ?`, matchID, matchID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+		matchID = actualMatchUUID
+
 		// Get match info
 		type MatchInfo struct {
 			UUID        string  `db:"uuid"`
@@ -1508,7 +1534,7 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var match MatchInfo
-		err := db.Get(&match, `SELECT uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status FROM elimination_matches WHERE uuid = ?`, matchID)
+		err = db.Get(&match, `SELECT uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status FROM elimination_matches WHERE uuid = ?`, matchID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
 			return
@@ -1606,8 +1632,9 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 					// Create the next round match
 					nextMatchUUID := uuid.New().String()
-					_, err = tx.Exec(`INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-						nextMatchUUID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
+					nextMatchID := strings.ToUpper(uuid.New().String()[:5])
+					_, err = tx.Exec(`INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+						nextMatchUUID, nextMatchID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
 					if err != nil {
 						logrus.WithError(err).Error("Failed to create next round match")
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create next round match"})
@@ -1668,6 +1695,15 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 		c.ShouldBindJSON(&req)
 
+		// Resolve match UUID
+		var actualMatchUUID string
+		err := db.Get(&actualMatchUUID, `SELECT uuid FROM elimination_matches WHERE uuid = ? OR match_id = ?`, matchID, matchID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+		matchID = actualMatchUUID
+
 		// Get match info including bracket format
 		type MatchInfo struct {
 			UUID         string  `db:"uuid"`
@@ -1685,7 +1721,7 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var match MatchInfo
-		err := db.Get(&match, `
+		err = db.Get(&match, `
 			SELECT em.uuid, em.bracket_uuid, em.round_no, em.match_no, 
 					em.entry_a_uuid, em.entry_b_uuid, em.status, eb.format,
 					COALESCE(em.total_score_a, 0) as total_score_a,

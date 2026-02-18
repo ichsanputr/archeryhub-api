@@ -260,7 +260,8 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get all matches for this bracket
 		type Match struct {
-			UUID            string  `db:"uuid" json:"id"`
+			UUID            string  `db:"uuid" json:"uuid"`
+			MatchID         string  `db:"match_id" json:"id"`
 			RoundNo         int     `db:"round_no" json:"round_no"`
 			MatchNo         int     `db:"match_no" json:"match_no"`
 			EntryAUUID      *string `db:"entry_a_uuid" json:"entry_a_id"`
@@ -284,6 +285,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&matches, `
 			SELECT 
 				em.uuid,
+				em.match_id,
 				em.round_no,
 				em.match_no,
 				em.entry_a_uuid,

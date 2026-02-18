@@ -1,12 +1,20 @@
 package utils
 
 import (
+	"database/sql"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 )
 
+// Execer is an interface that matches both *sqlx.DB and *sqlx.Tx
+type Execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
 // LogActivity inserts a record into the activity_logs table
-func LogActivity(db *sqlx.DB, userID, eventID, action, entityType, entityID, description, ipAddress, userAgent string) {
+// It takes an interface to support both *sqlx.DB and *sqlx.Tx
+func LogActivity(db interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}, userID, eventID, action, entityType, entityID, description, ipAddress, userAgent string) {
 	logID := uuid.New().String()
 	query := `
 		INSERT INTO activity_logs (id, user_id, event_id, action, entity_type, entity_id, description, ip_address, user_agent)

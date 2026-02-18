@@ -266,6 +266,9 @@ func main() {
 			elimination.POST("/brackets/:bracketId/matches/:matchId/end", middleware.AuthMiddleware(), handler.EndMatch(db))
 		}
 
+		// Public flat match details
+		api.GET("/match/:matchId", handler.GetMatch(db))
+
 		qualSessions := api.Group("/qualification/sessions/:sessionId")
 		qualSessions.Use(middleware.AuthMiddleware())
 		{
@@ -327,6 +330,7 @@ func main() {
 		api.GET("/gender-divisions", handler.GetGenderDivisions(db))
 		api.GET("/age-groups", handler.GetAgeGroups(db))
 		api.GET("/cities", handler.GetCities())
+		api.POST("/contact", handler.SubmitContactMessage(db))
 
 		// News routes
 		news := api.Group("/news")

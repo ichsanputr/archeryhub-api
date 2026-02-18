@@ -1352,7 +1352,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			AthleteID        string   `json:"athlete_id" binding:"required"`
-			EventCategoryID  string   `json:"event_category_id" binding:"required"`
+			EventCategoryID  string   `json:"event_category_id"`
+			EventCategoryIDs []string `json:"event_category_ids"`
 			PaymentAmount    float64  `json:"payment_amount"`
 			PaymentProofURLs []string `json:"payment_proof_urls"`
 		}
@@ -1361,23 +1362,36 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			msg := err.Error()
 			if strings.Contains(msg, "AthleteID") || strings.Contains(msg, "athlete_id") {
 				msg = "athlete_id is required"
-			} else if strings.Contains(msg, "EventCategoryID") || strings.Contains(msg, "event_category_id") {
-				msg = "event_category_id is required"
 			}
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg, "details": err.Error()})
 			return
 		}
 		req.AthleteID = strings.TrimSpace(req.AthleteID)
-		req.EventCategoryID = strings.TrimSpace(req.EventCategoryID)
-		if req.AthleteID == "" || req.EventCategoryID == "" {
-			missing := []string{}
-			if req.AthleteID == "" {
-				missing = append(missing, "athlete_id")
+
+		// Combine single ID and multi IDs
+		allCategoryIDs := []string{}
+		if strings.TrimSpace(req.EventCategoryID) != "" {
+			allCategoryIDs = append(allCategoryIDs, strings.TrimSpace(req.EventCategoryID))
+		}
+		for _, id := range req.EventCategoryIDs {
+			trimmed := strings.TrimSpace(id)
+			if trimmed != "" {
+				// Avoid duplicates
+				duplicate := false
+				for _, existing := range allCategoryIDs {
+					if existing == trimmed {
+						duplicate = true
+						break
+					}
+				}
+				if !duplicate {
+					allCategoryIDs = append(allCategoryIDs, trimmed)
+				}
 			}
-			if req.EventCategoryID == "" {
-				missing = append(missing, "event_category_id")
-			}
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields", "details": strings.Join(missing, ", ") + " is required"})
+		}
+
+		if req.AthleteID == "" || len(allCategoryIDs) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields", "details": "athlete_id and at least one event_category_id is required"})
 			return
 		}
 
@@ -1389,8 +1403,6 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if already registered
-		var exists bool
 		var archerUUID string
 		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
 		if err != nil {
@@ -1398,48 +1410,71 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		err = db.Get(&exists, `
-			SELECT EXISTS(SELECT 1 FROM event_participants 
-			WHERE event_id = ? AND archer_id = ?)
-		`, actualEventID, archerUUID)
-
+		// Use transaction to ensure all registrations succeed or none
+		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
+		defer tx.Rollback()
 
-		if exists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Pemanah sudah terdaftar di event ini"})
-			return
-		}
-
-		// Insert participant
-		participantUUID := uuid.New().String()
 		registrationDate := time.Now()
 		proofURLs := ""
 		if len(req.PaymentProofURLs) > 0 {
 			proofURLs = strings.Join(req.PaymentProofURLs, ",")
 		}
 
-		_, err = db.Exec(`
-			INSERT INTO event_participants (
-				uuid, event_id, archer_id, category_id, 
-				registration_date, payment_status, payment_amount, payment_proof_urls, status
-			) VALUES (?, ?, ?, ?, ?, 'menunggu_acc', ?, ?, 'Terdaftar')
-		`, participantUUID, actualEventID, archerUUID, req.EventCategoryID, registrationDate, req.PaymentAmount, proofURLs)
+		registeredCategoryIDs := []string{}
+		for _, catID := range allCategoryIDs {
+			// Check if already registered for THIS category
+			var exists bool
+			err = tx.Get(&exists, `
+				SELECT EXISTS(SELECT 1 FROM event_participants 
+				WHERE event_id = ? AND archer_id = ? AND category_id = ?)
+			`, actualEventID, archerUUID, catID)
 
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status", "details": err.Error()})
+				return
+			}
+
+			if exists {
+				continue // Skip if already registered for this category
+			}
+
+			participantUUID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO event_participants (
+					uuid, event_id, archer_id, category_id, 
+					registration_date, payment_status, payment_amount, payment_proof_urls, status
+				) VALUES (?, ?, ?, ?, ?, 'menunggu_acc', ?, ?, 'Terdaftar')
+			`, participantUUID, actualEventID, archerUUID, catID, registrationDate, req.PaymentAmount, proofURLs)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
+				return
+			}
+
+			// Log activity
+			userID, _ := c.Get("user_id")
+			utils.LogActivity(tx, userID.(string), actualEventID, "participant_registered", "event_participant", participantUUID, "Registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
+			
+			registeredCategoryIDs = append(registeredCategoryIDs, catID)
+		}
+
+		if len(registeredCategoryIDs) == 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "Pemanah sudah terdaftar di semua kategori pilihan pada event ini"})
 			return
 		}
 
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), actualEventID, "participant_registered", "event_participant", participantUUID, "Registered participant for event category: "+req.EventCategoryID, c.ClientIP(), c.Request.UserAgent())
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit registration"})
+			return
+		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"id":      participantUUID,
 			"message": "Participant registered successfully",
+			"categories": registeredCategoryIDs,
 		})
 	}
 }
