@@ -46,13 +46,14 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type SessionScore struct {
-			SessionCode string `json:"session_code"`
-			SessionName string `json:"session_name"`
-			EndScores   string `json:"end_scores"`
-			TotalEnds   int    `json:"total_ends"`
-			TotalScore  int    `json:"total_score"`
-			TotalTenX   int    `json:"total_10x"`
-			TotalX      int    `json:"total_x"`
+			AssignmentUUID string `json:"assignment_id"`
+			SessionCode    string `json:"session_code"`
+			SessionName    string `json:"session_name"`
+			EndScores      string `json:"end_scores"`
+			TotalEnds      int    `json:"total_ends"`
+			TotalScore     int    `json:"total_score"`
+			TotalTenX      int    `json:"total_10x"`
+			TotalX         int    `json:"total_x"`
 		}
 
 		type Entry struct {
@@ -83,6 +84,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			TotalX           int     `db:"total_x"`
 			EndsCompleted    int     `db:"ends_completed"`
 			EndScores        *string `db:"end_scores"`
+			AssignmentUUID   string  `db:"assignment_uuid"`
 		}
 
 		var dbEntries []dbEntry
@@ -100,6 +102,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(score_summary.total_10x, 0) as total_10x,
 				COALESCE(score_summary.total_x, 0) as total_x,
 				COALESCE(score_summary.ends_completed, 0) as ends_completed,
+				qta.uuid as assignment_uuid,
 				score_summary.end_scores
 			FROM event_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
@@ -156,13 +159,14 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 					endScores = *de.EndScores
 				}
 				entry.Sessions = append(entry.Sessions, SessionScore{
-					SessionCode: *de.SessionCode,
-					SessionName: *de.SessionName,
-					EndScores:   endScores,
-					TotalEnds:   de.SessionTotalEnds,
-					TotalScore:  de.TotalScore,
-					TotalTenX:   de.TotalTenX,
-					TotalX:      de.TotalX,
+					AssignmentUUID: de.AssignmentUUID,
+					SessionCode:    *de.SessionCode,
+					SessionName:    *de.SessionName,
+					EndScores:      endScores,
+					TotalEnds:      de.SessionTotalEnds,
+					TotalScore:     de.TotalScore,
+					TotalTenX:      de.TotalTenX,
+					TotalX:         de.TotalX,
 				})
 			}
 		}

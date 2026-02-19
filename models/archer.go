@@ -88,6 +88,7 @@ type EventParticipant struct {
 	PaymentStatus        string     `json:"payment_status" db:"payment_status"` // menunggu_acc, belum_lunas, lunas
 	PaymentAmount        float64    `json:"payment_amount" db:"payment_amount"`
 	AccreditationStatus  string     `json:"accreditation_status" db:"accreditation_status"` // pending, printed, collected
+	RegistrationSource   string     `json:"registration_source" db:"registration_source"`   // invited, admin_created, self_register
 	Notes                *string    `json:"notes" db:"notes"`
 }
 

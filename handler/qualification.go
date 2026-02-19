@@ -998,7 +998,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE ep.category_id = ?
-			AND ep.status = 'Terdaftar'
+			AND ep.payment_status = 'lunas'
 			AND ep.uuid NOT IN (SELECT participant_uuid FROM qualification_target_assignments WHERE session_uuid = ?)
 			ORDER BY ep.uuid
 		`, req.CategoryID, sessionID)

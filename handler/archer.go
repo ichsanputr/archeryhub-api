@@ -265,9 +265,8 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				o.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT ep2.uuid) as participant_count,
 				COUNT(DISTINCT ec.uuid) as event_count,
-				ep.payment_status,
+				ep.payment_status as payment_status,
 				ep.uuid as participant_uuid,
-				ep.status as participant_status,
 				ep.qr_raw
 			FROM events e
 			INNER JOIN event_participants ep ON e.uuid = ep.event_id
@@ -279,7 +278,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN event_participants ep2 ON e.uuid = ep2.event_id
 			LEFT JOIN event_categories ec ON e.uuid = ec.event_id
 			` + whereClause + `
-			GROUP BY e.uuid, ep.payment_status, ep.uuid, ep.status, ep.qr_raw, o.full_name, o.email, o.slug, o.avatar_url
+			GROUP BY e.uuid, ep.payment_status, ep.uuid, ep.qr_raw, o.full_name, o.email, o.slug, o.avatar_url
 			ORDER BY e.start_date DESC
 			LIMIT ? OFFSET ?
 		`

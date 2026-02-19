@@ -21,3 +21,11 @@ func FromPtr(s *string) string {
 	}
 	return *s
 }
+
+// FromPtrFloat returns the value of a float64 pointer, or 0 if nil
+func FromPtrFloat(f *float64) float64 {
+	if f == nil {
+		return 0
+	}
+	return *f
+}
