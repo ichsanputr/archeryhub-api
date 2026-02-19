@@ -177,12 +177,17 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 }
 
 type ArcherEventHistory struct {
-	ID        string     `json:"id" db:"id"`
-	Name      string     `json:"name" db:"name"`
-	City      *string    `json:"city" db:"city"`
-	StartDate *time.Time `json:"date" db:"start_date"`
-	Score     *int       `json:"score" db:"qual_score"`
-	Rank      *int       `json:"rank" db:"qual_rank"`
+	ID                 string     `json:"id" db:"id"`
+	Slug               *string    `json:"slug" db:"slug"`
+	Name               string     `json:"name" db:"name"`
+	City               *string    `json:"city" db:"city"`
+	StartDate          *time.Time `json:"date" db:"start_date"`
+	Score              *int       `json:"score" db:"qual_score"`
+	Rank               *int       `json:"rank" db:"qual_rank"`
+	DivisionName       string     `json:"division_name" db:"division_name"`
+	CategoryName       string     `json:"category_name" db:"category_name"`
+	EventTypeName      string     `json:"event_type_name" db:"event_type_name"`
+	GenderDivisionName string     `json:"gender_division_name" db:"gender_division_name"`
 }
 
 // GetArcherEvents returns the event history for a specific archer
@@ -192,13 +197,27 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				e.uuid as id, e.name as name, e.city, e.start_date as start_date, 
-				0 as qual_score, 0 as qual_rank
+				e.uuid as id,
+				e.slug as slug,
+				e.name as name,
+				e.city,
+				e.start_date as start_date,
+				0 as qual_score,
+				0 as qual_rank,
+				COALESCE(d.name, '') as division_name,
+				COALESCE(c.name, '') as category_name,
+				COALESCE(et.name, '') as event_type_name,
+				COALESCE(gd.name, '') as gender_division_name
 			FROM event_participants ep
 			JOIN events e ON ep.event_id = e.uuid
 			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN event_categories te ON ep.category_id = te.uuid
+			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			LEFT JOIN ref_categories c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
-			ORDER BY e.start_date DESC
+			ORDER BY e.start_date DESC, e.name ASC
 		`
 
 		var events []ArcherEventHistory
