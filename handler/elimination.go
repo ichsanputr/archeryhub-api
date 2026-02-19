@@ -1034,6 +1034,98 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// AutoAssignMatchTargets automatically assigns available targets to matches in a specific round
+func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bracketID := c.Param("bracketId")
+		roundNo := c.Query("round")
+		if roundNo == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "round parameter is required"})
+			return
+		}
+
+		// Resolve bracket UUID and event UUID
+		var bracket struct {
+			UUID      string `db:"uuid"`
+			EventUUID string `db:"event_uuid"`
+		}
+		err := db.Get(&bracket, `SELECT uuid, event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
+			return
+		}
+
+		// Get all matches in this round for this bracket
+		var matches []struct {
+			UUID     string  `db:"uuid"`
+			TargetID *string `db:"target_uuid"`
+		}
+		err = db.Select(&matches, `SELECT uuid, target_uuid FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? ORDER BY match_no ASC`, bracket.UUID, roundNo)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch matches", "details": err.Error()})
+			return
+		}
+
+		// Get all available targets for this event
+		var allTargets []struct {
+			UUID string `db:"uuid"`
+		}
+		err = db.Select(&allTargets, `SELECT uuid FROM event_targets WHERE event_uuid = ? ORDER BY target_name ASC`, bracket.EventUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
+			return
+		}
+
+		// Find which targets are already used in this round (to avoid double assignment)
+		assignedTargetIDs := make(map[string]bool)
+		for _, m := range matches {
+			if m.TargetID != nil {
+				assignedTargetIDs[*m.TargetID] = true
+			}
+		}
+
+		// Filter out used targets to get pool of free targets
+		freeTargets := []string{}
+		for _, t := range allTargets {
+			if !assignedTargetIDs[t.UUID] {
+				freeTargets = append(freeTargets, t.UUID)
+			}
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		updated := 0
+		targetIdx := 0
+		for _, m := range matches {
+			// Only assign to matches that don't have a target yet
+			if m.TargetID == nil && targetIdx < len(freeTargets) {
+				_, err = tx.Exec(`UPDATE elimination_matches SET target_uuid = ? WHERE uuid = ?`, freeTargets[targetIdx], m.UUID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to auto-assign target"})
+					return
+				}
+				targetIdx++
+				updated++
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("Berhasil melakukan auto-assign pada %d match", updated),
+			"updated": updated,
+		})
+	}
+}
+
 // DeleteBracket deletes a bracket and all related data
 func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -260,6 +260,7 @@ func main() {
 			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), handler.GenerateBracket(db))
 			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
 			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), handler.UpdateMatchTargets(db))
+			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), handler.AutoAssignMatchTargets(db))
 			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
 			elimination.POST("/brackets/:bracketId/matches/:matchId/score", middleware.AuthMiddleware(), handler.UpdateMatchScore(db))
 			elimination.POST("/brackets/:bracketId/matches/:matchId/finish", middleware.AuthMiddleware(), handler.FinishMatch(db))
@@ -401,15 +402,23 @@ func main() {
 			clubs.GET("", handler.GetClubs(db))
 			clubs.GET("/availability", handler.CheckSlugAvailability(db))
 			clubs.GET("/profile/:slug", handler.GetClubProfile(db))
+			clubs.GET("/:slug", handler.GetClubBySlug(db)) // Resolved 404 for club profile
 
 			// Protected club routes
 			protectedClubs := clubs.Group("")
 			protectedClubs.Use(middleware.AuthMiddleware())
 			{
-
 				protectedClubs.PUT("/me", handler.UpdateClubMe(db))
 				protectedClubs.GET("/dashboard/stats", handler.GetClubDashboardStats(db))
 				protectedClubs.PUT("/profile", handler.UpdateMyClubProfile(db))
+
+				// Membership & Admin routes
+				protectedClubs.POST("/join/:clubId", handler.JoinClub(db))
+				protectedClubs.GET("/my/membership", handler.GetMyClubMembership(db))
+				protectedClubs.GET("/members/:clubId", handler.GetClubMembers(db))
+				protectedClubs.POST("/approve/:memberId", handler.ApproveClubMember(db))
+				protectedClubs.POST("/leave", handler.LeaveClub(db))
+				protectedClubs.POST("/invite", handler.InviteToClub(db))
 			}
 		}
 
