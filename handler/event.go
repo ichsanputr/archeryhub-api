@@ -631,21 +631,22 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type EventEvent struct {
-			ID                 string `db:"id" json:"id"`
-			EventID            string `db:"event_id" json:"event_id"`
-			DivisionName       string `db:"division_name" json:"division_name"`
-			DivisionID         string `db:"division_id" json:"division_id"`
-			CategoryName       string `db:"category_name" json:"category_name"`
-			CategoryID         string `db:"category_id" json:"category_id"`
-			EventTypeName      string `db:"event_type_name" json:"event_type_name"`
-			EventTypeID        string `db:"event_type_id" json:"event_type_id"`
-			GenderDivisionName string `db:"gender_division_name" json:"gender_division_name"`
-			GenderDivisionID   string `db:"gender_division_id" json:"gender_division_id"`
-			MaxParticipants    *int   `db:"max_participants" json:"max_participants"`
-			TeamSize           int    `db:"team_size" json:"team_size"`
-			ParticipantCount   int    `db:"participant_count" json:"participant_count"`
-			Status             string `db:"status" json:"status"`
-			CreatedAt          string `db:"created_at" json:"created_at"`
+			ID                   string `db:"id" json:"id"`
+			EventID              string `db:"event_id" json:"event_id"`
+			DivisionName         string `db:"division_name" json:"division_name"`
+			DivisionID           string `db:"division_id" json:"division_id"`
+			CategoryName         string `db:"category_name" json:"category_name"`
+			CategoryNameCustom   *string `db:"category_name_custom" json:"category_name_custom"`
+			CategoryID           string `db:"category_id" json:"category_id"`
+			EventTypeName        string `db:"event_type_name" json:"event_type_name"`
+			EventTypeID          string `db:"event_type_id" json:"event_type_id"`
+			GenderDivisionName   string `db:"gender_division_name" json:"gender_division_name"`
+			GenderDivisionID     string `db:"gender_division_id" json:"gender_division_id"`
+			MaxParticipants      *int   `db:"max_participants" json:"max_participants"`
+			TeamSize             int    `db:"team_size" json:"team_size"`
+			ParticipantCount     int    `db:"participant_count" json:"participant_count"`
+			Status               string `db:"status" json:"status"`
+			CreatedAt            string `db:"created_at" json:"created_at"`
 		}
 
 		whereClause := "WHERE te.event_id = ?"
@@ -673,14 +674,14 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				te.uuid as id, te.event_id, 
-				te.max_participants, te.status, te.created_at,
+				te.max_participants, te.status, te.created_at, te.category_name_custom,
 				CASE 
 					WHEN et.code = 'mixed_team' THEN 2 
 					WHEN et.code = 'team' THEN 3 
 					ELSE 1 
 				END as team_size,
 				d.name as division_name, d.uuid as division_id,
-				c.name as category_name, c.uuid as category_id,
+				COALESCE(te.category_name_custom, c.name) as category_name, c.uuid as category_id,
 				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
 				COALESCE(gd.name, '') as gender_division_name, COALESCE(te.gender_division_uuid, '') as gender_division_id,
 				COALESCE(p.p_count, 0) as participant_count
@@ -783,7 +784,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 						'participant_id', tp.uuid,
 						'category_id', tp.category_id,
 						'division_name', COALESCE(d.name, ''),
-						'category_name', COALESCE(c.name, ''),
+						'category_name', COALESCE(te.category_name_custom, c.name, ''),
 						'event_type_name', COALESCE(et.name, ''),
 						'gender_division_name', COALESCE(gd.name, ''),
 						'payment_status', COALESCE(tp.payment_status, 'menunggu acc'),
@@ -920,7 +921,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				a.club_id as club_id,
 				a.avatar_url as avatar_url,
 				COALESCE(cl.name, '') as club_name,
-				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
+				COALESCE(d.name, '') as division_name, COALESCE(te.category_name_custom, c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
 				COALESCE(scores.total_score, 0) as total_score,
 				COALESCE(scores.total_x, 0) as total_x
@@ -938,7 +939,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				GROUP BY participant_uuid
 			) scores ON tp.uuid = scores.participant_uuid
 			` + whereClause + `
-			GROUP BY tp.uuid, a.uuid, cl.uuid, te.uuid, d.uuid, c.uuid, et.uuid, gd.uuid, a.id, a.username, a.full_name, a.email, a.city, a.club_id, a.avatar_url, cl.name, d.name, c.name, et.name, gd.name, scores.total_score, scores.total_x, tp.payment_status
+			GROUP BY tp.uuid, a.uuid, cl.uuid, te.uuid, d.uuid, c.uuid, et.uuid, gd.uuid, a.id, a.username, a.full_name, a.email, a.city, a.club_id, a.avatar_url, cl.name, d.name, c.name, te.category_name_custom, et.name, gd.name, scores.total_score, scores.total_x, tp.payment_status
 			ORDER BY total_score DESC, total_x DESC, a.full_name ASC
 			LIMIT ? OFFSET ?
 		`
@@ -1072,7 +1073,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 						'participant_id', tp2.uuid,
 						'category_id', tp2.category_id,
 						'division_name', COALESCE(d2.name, ''),
-						'category_name', COALESCE(c2.name, ''),
+						'category_name', COALESCE(te2.category_name_custom, c2.name, ''),
 						'event_type_name', COALESCE(et2.name, ''),
 						'gender_division_name', COALESCE(gd2.name, ''),
 						'payment_status', COALESCE(tp2.payment_status, 'menunggu acc'),
@@ -2034,12 +2035,13 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			DivisionUUID       string `json:"division_uuid" binding:"required"`
-			CategoryUUID       string `json:"category_uuid" binding:"required"`
-			EventTypeUUID      string `json:"event_type_uuid" binding:"required"`
-			GenderDivisionUUID string `json:"gender_division_uuid"`
-			MaxParticipants    *int   `json:"max_participants"`
-			Status             string `json:"status"`
+			DivisionUUID       string  `json:"division_uuid" binding:"required"`
+			CategoryUUID       string  `json:"category_uuid" binding:"required"`
+			CategoryNameCustom *string `json:"category_name_custom"`
+			EventTypeUUID      string  `json:"event_type_uuid" binding:"required"`
+			GenderDivisionUUID string  `json:"gender_division_uuid"`
+			MaxParticipants    *int    `json:"max_participants"`
+			Status             string  `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -2116,10 +2118,10 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		catEventID := uuid.New().String()
 		_, err = db.Exec(`
 			INSERT INTO event_categories (
-				uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid,
+				uuid, event_id, division_uuid, category_uuid, category_name_custom, event_type_uuid, gender_division_uuid,
 				max_participants, status
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.CategoryNameCustom, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
@@ -2146,6 +2148,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		var req struct {
 			DivisionUUID       *string `json:"division_uuid"`
 			CategoryUUID       *string `json:"category_uuid"`
+			CategoryNameCustom *string `json:"category_name_custom"`
 			EventTypeUUID      *string `json:"event_type_uuid"`
 			GenderDivisionUUID *string `json:"gender_division_uuid"`
 			MaxParticipants    *int    `json:"max_participants"`
@@ -2205,6 +2208,10 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		if req.CategoryUUID != nil {
 			query += ", category_uuid = ?"
 			args = append(args, *req.CategoryUUID)
+		}
+		if req.CategoryNameCustom != nil {
+			query += ", category_name_custom = ?"
+			args = append(args, req.CategoryNameCustom)
 		}
 		if req.EventTypeUUID != nil {
 			query += ", event_type_uuid = ?"
@@ -2580,7 +2587,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				a.email,
 				c.name as club_name,
 				COALESCE(d.name, '') as division_name,
-				COALESCE(ag.name, '') as category_name,
+				COALESCE(ec.category_name_custom, ag.name, '') as category_name,
 				e.name as event_name,
 				COALESCE(ep.payment_status, 'menunggu acc') as payment_status
 			FROM event_participants ep

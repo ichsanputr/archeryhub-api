@@ -182,6 +182,8 @@ func main() {
 			user.GET("/profile", handler.GetUserProfile(db))
 			user.PUT("/profile", handler.UpdateUserProfile(db)) // Generic profile update handler
 			user.PUT("/password", handler.UpdatePassword(db))
+			user.GET("/settings", handler.GetUserSettings(db))
+			user.PUT("/settings", handler.UpdateUserSettings(db))
 		}
 
 		// Event routes

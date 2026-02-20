@@ -607,7 +607,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 				a.full_name as archer_name,
 				a.avatar_url as avatar_url,
 				cl.name as club_name,
-				CONCAT(bt.name, ' ', ag.name) as category_name,
+				COALESCE(ec.category_name_custom, CONCAT(bt.name, ' ', ag.name)) as category_name,
 				qs.name as session_name,
 				qs.session_code as session_code,
 				COALESCE(score_summary.total_score, 0) as total_score,

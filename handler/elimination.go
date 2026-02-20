@@ -51,7 +51,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, 
-				COALESCE(CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, '')), 'Unknown Category') as category_name,
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name,
 				eb.bracket_type, eb.format, eb.bracket_size, eb.status, eb.ends_per_match, eb.arrows_per_end,
 				eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
 				(SELECT COUNT(*) FROM elimination_matches em WHERE em.bracket_uuid = eb.uuid) as match_count
@@ -112,7 +112,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 		var bracket Bracket
 		err := db.Get(&bracket, `
 			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, eb.bracket_type, eb.status, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end, eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
-				COALESCE(CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, '')), 'Unknown Category') as category_name
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name
 			FROM elimination_brackets eb
 			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid

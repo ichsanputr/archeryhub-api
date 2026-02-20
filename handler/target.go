@@ -59,7 +59,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				qta.uuid as assignment_uuid,
 				qta.participant_uuid,
 				COALESCE(a.full_name, '') as archer_name,
-				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division_name
+				COALESCE(ec.category_name_custom, CONCAT(bt.name, ' ', ag.name), '') as division_name
 			FROM qualification_target_assignments qta
 			JOIN event_targets et ON qta.target_uuid = et.uuid
 			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid

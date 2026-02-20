@@ -135,7 +135,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 				qta.participant_uuid as participant_id,
 				RIGHT(et.target_name, 1) as position,
 				COALESCE(a.full_name, '') as name,
-				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division,
+				COALESCE(ec.category_name_custom, CONCAT(bt.name, ' ', ag.name), '') as division,
 				COALESCE(SUM(qes.total_score_end), 0) as current_score,
 				COUNT(qes.uuid) as ends_completed
 			FROM qualification_target_assignments qta
