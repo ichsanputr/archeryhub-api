@@ -2111,27 +2111,136 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// CloseBracket changes bracket status to closed
-func CloseBracket(db *sqlx.DB) gin.HandlerFunc {
+// ResetMatch resets a finished match back to live/pending and removes its winner from the next round
+func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		matchID := c.Param("matchId")
+
+		// Resolve match UUID
+		var actualMatchUUID string
+		err := db.Get(&actualMatchUUID, `SELECT uuid FROM elimination_matches WHERE uuid = ? OR match_id = ?`, matchID, matchID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+		matchID = actualMatchUUID
+
+		// Get match info
+		type MatchInfo struct {
+			UUID            string  `db:"uuid"`
+			BracketUUID     string  `db:"bracket_uuid"`
+			RoundNo         int     `db:"round_no"`
+			MatchNo         int     `db:"match_no"`
+			WinnerEntryUUID *string `db:"winner_entry_uuid"`
+			Status          string  `db:"status"`
+			EntryAUUID      *string `db:"entry_a_uuid"`
+			EntryBUUID      *string `db:"entry_b_uuid"`
+		}
+
+		var match MatchInfo
+		err = db.Get(&match, `SELECT uuid, bracket_uuid, round_no, match_no, winner_entry_uuid, status, entry_a_uuid, entry_b_uuid FROM elimination_matches WHERE uuid = ?`, matchID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Reset current match
+		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = NULL, status = 'in_progress' WHERE uuid = ?`, matchID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset match state"})
+			return
+		}
+
+		// 2. Remove entries from next round match
+		var bracketSize int
+		tx.Get(&bracketSize, `SELECT bracket_size FROM elimination_brackets WHERE uuid = ?`, match.BracketUUID)
+		numRounds := int(math.Log2(float64(bracketSize)))
+
+		if match.RoundNo < numRounds {
+			nextMatchNo := (match.MatchNo + 1) / 2
+			nextRound := match.RoundNo + 1
+
+			slot := "entry_a_uuid"
+			if match.MatchNo%2 == 0 {
+				slot = "entry_b_uuid"
+			}
+
+			// Clear the slot in the next round match
+			_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = NULL WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
+				match.BracketUUID, nextRound, nextMatchNo)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to clear winner from next round match")
+			}
+
+			// SPECIAL CASE: Remove loser from Bronze Match if it's the Semifinals
+			if match.RoundNo == numRounds-1 {
+				bronzeSlot := "entry_a_uuid"
+				if match.MatchNo%2 == 0 {
+					bronzeSlot = "entry_b_uuid"
+				}
+				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = NULL WHERE bracket_uuid = ? AND round_no = ? AND match_no = 2`, bronzeSlot),
+					match.BracketUUID, numRounds)
+				if err != nil {
+					logrus.WithError(err).Error("Failed to clear loser from bronze match")
+				}
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Match status has been reset. You can now edit the score.",
+			"status":  "in_progress",
+		})
+	}
+}
+
+// DeleteBracket deletes an elimination bracket and all its matches
+func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
 
-		result, err := db.Exec(`
-			UPDATE elimination_brackets
-			SET status = 'closed'
-			WHERE (bracket_id = ? OR uuid = ?) AND status = 'running'
-		`, bracketID, bracketID)
+		var bracketUUID string
+		err := db.Get(&bracketUUID, `SELECT uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close bracket"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
-		rows, _ := result.RowsAffected()
-		if rows == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket not found or not in running state"})
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Delete everything in order
+		tx.Exec(`DELETE FROM elimination_match_arrow_scores WHERE match_end_uuid IN (SELECT uuid FROM elimination_match_ends WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?))`, bracketUUID)
+		tx.Exec(`DELETE FROM elimination_match_ends WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)`, bracketUUID)
+		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracketUUID)
+		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracketUUID)
+		_, err = tx.Exec(`DELETE FROM elimination_brackets WHERE uuid = ?`, bracketUUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete bracket", "details": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Bracket closed"})
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Bracket and all related data deleted successfully"})
 	}
 }
