@@ -76,10 +76,11 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			TrainingSchedule *string `json:"schedules" db:"training_schedule"`
 			SocialMedia      *string `json:"social_media" db:"social_media"`
 			PageSettings     *string `json:"page_settings" db:"page_settings"`
+			RegistrationConfig *string `json:"registration_config" db:"registration_config"`
 		}
 
 		err := db.Get(&club, `
-			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, established_date, facilities, training_schedule, social_media, page_settings 
+			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, established_date, facilities, training_schedule, social_media, page_settings, registration_config 
 			FROM clubs 
 			WHERE uuid = ?`, userID)
 		if err != nil {
@@ -125,6 +126,7 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			"schedules":     club.TrainingSchedule,
 			"social_media":  club.SocialMedia,
 			"page_settings": club.PageSettings,
+			"registration_config": club.RegistrationConfig,
 			"user_type":     "club",
 		}
 
@@ -157,6 +159,7 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 			Schedules    []interface{} `json:"schedules"`
 			SocialMedia  []interface{} `json:"social_media"`
 			PageSettings interface{}   `json:"page_settings"`
+			RegistrationConfig interface{} `json:"registration_config"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -196,6 +199,7 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 		schedulesJSON, _ := json.Marshal(req.Schedules)
 		socialMediaJSON, _ := json.Marshal(req.SocialMedia)
 		pageSettingsJSON, _ := json.Marshal(req.PageSettings)
+		registrationConfigJSON, _ := json.Marshal(req.RegistrationConfig)
 
 		// Parse established date from ISO format to MySQL date format
 		var establishedDate interface{}
@@ -221,12 +225,12 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 				name = ?, slug = ?, slug_changed = ?, description = ?, banner_url = ?, logo_url = ?, avatar_url = ?, 
 				city = ?, province = ?, established_date = ?, phone = ?, email = ?, 
 				social_facebook = ?, social_instagram = ?, website = ?, address = ?,
-				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, updated_at = NOW()
+				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, registration_config = ?, updated_at = NOW()
 			WHERE uuid = ?`,
 			req.Name, newSlug, newSlugChanged, req.Description, utils.ExtractFilename(req.BannerURL), utils.ExtractFilename(req.LogoURL), utils.ExtractFilename(req.LogoURL),
 			req.City, req.Province, establishedDate, req.Phone, req.Email,
 			req.Facebook, req.Instagram, req.Website, req.Address,
-			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), userID)
+			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), string(registrationConfigJSON), userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update club: " + err.Error()})
@@ -395,8 +399,9 @@ type ClubMember struct {
 	ArcherID  string     `json:"archer_id" db:"archer_id"`
 	Status    string     `json:"status" db:"status"`
 	Role      string     `json:"role" db:"role"`
-	JoinedAt  *time.Time `json:"joined_at" db:"joined_at"`
-	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+	JoinedAt         *time.Time `json:"joined_at" db:"joined_at"`
+	RegistrationData *string    `json:"registration_data" db:"registration_data"`
+	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
 }
 
@@ -550,13 +555,14 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			TrainingSchedule *string `json:"training_schedule" db:"training_schedule"`
 			SocialMedia      *string `json:"social_media" db:"social_media"`
 			PageSettings     *string `json:"page_settings" db:"page_settings"`
+			RegistrationConfig *string `json:"registration_config" db:"registration_config"`
 			CreatedAt        string  `json:"created_at" db:"created_at"`
 		}
 
 		err := db.Get(&club, `
 			SELECT uuid, name, slug, description, avatar_url, banner_url, avatar_url as logo_url, 
 			       address, city, province, phone, email, website, social_facebook, social_instagram, 
-			       established_date, facilities, training_schedule, social_media, page_settings, created_at 
+			       established_date, facilities, training_schedule, social_media, page_settings, registration_config, created_at 
 			FROM clubs 
 			WHERE slug = ? OR uuid = ?`, slug, slug)
 		if err != nil {
@@ -687,6 +693,7 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			"recent_events": clubAchievements,
 			"top_members":   topMembers,
 			"sections":      sections,
+			"registration_config": club.RegistrationConfig,
 		}
 
 		// Parse social media
@@ -738,15 +745,22 @@ func JoinClub(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Check for registration data
+		var req struct {
+			RegistrationData interface{} `json:"registration_data"`
+		}
+		c.ShouldBindJSON(&req)
+		registrationDataJSON, _ := json.Marshal(req.RegistrationData)
+
 		// Create membership request
 		memberID := uuid.New().String()
 		_, err = db.Exec(`
-			INSERT INTO club_members (uuid, club_id, archer_id, status, role)
-			VALUES (?, ?, ?, 'pending', 'member')
-		`, memberID, clubID, userID)
+			INSERT INTO club_members (uuid, club_id, archer_id, status, role, registration_data)
+			VALUES (?, ?, ?, 'pending', 'member', ?)
+		`, memberID, clubID, userID, string(registrationDataJSON))
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create membership request"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create membership request: " + err.Error()})
 			return
 		}
 
