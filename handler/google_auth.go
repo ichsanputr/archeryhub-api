@@ -205,7 +205,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Check if user is already logged in (for linking)
-		currentUserID, isCurrentlyLoggedIn := c.Get("user_id")
+		_, isCurrentlyLoggedIn := c.Get("user_id")
 		currentEmailVal, _ := c.Get("email")
 		var currentEmail string
 		if currentEmailVal != nil {
