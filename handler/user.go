@@ -59,19 +59,6 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// If user has a password, verify the current password (plain text comparison)
-		if user.HasPassword && user.Password != nil {
-			if req.CurrentPassword == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Password saat ini diperlukan"})
-				return
-			}
-
-			if *user.Password != req.CurrentPassword {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Password saat ini salah"})
-				return
-			}
-		}
-
 		// Update the password (store as plain text)
 		updateQuery := "UPDATE " + table + " SET password = ?, updated_at = NOW() WHERE uuid = ?"
 		_, err = db.Exec(updateQuery, req.NewPassword, userID)
@@ -115,6 +102,7 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
 			LogoURL     *string `json:"logo_url" db:"logo_url"`
 			HasPassword bool    `json:"has_password" db:"has_password"`
+			GoogleID    *string `json:"google_id" db:"google_id"`
 		}
 
 		logoField := "NULL as logo_url"
@@ -126,7 +114,8 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT uuid, email, ` + nameField + ` as full_name, ` + roleField + ` as user_type, avatar_url, ` + logoField + `,
-				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password
+				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
+				google_id
 			FROM ` + table + ` WHERE uuid = ?
 		`
 		err := db.Get(&user, query, userID)

@@ -167,9 +167,9 @@ func main() {
 			auth.GET("/check-name", handler.CheckNameExists(db))
 
 			// Google OAuth
-			auth.GET("/google", handler.InitiateGoogleAuth(db))
-			auth.GET("/google/callback", handler.GoogleCallback(db))
-			auth.POST("/google/callback", handler.GoogleCallback(db))
+			auth.GET("/google", middleware.OptionalAuthMiddleware(), handler.InitiateGoogleAuth(db))
+			auth.GET("/google/callback", middleware.OptionalAuthMiddleware(), handler.GoogleCallback(db))
+			auth.POST("/google/callback", middleware.OptionalAuthMiddleware(), handler.GoogleCallback(db))
 
 			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
 		}

@@ -70,6 +70,11 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		
+		// Capture current session email if exists
+		if email, exists := c.Get("email"); exists {
+			metadata["current_email"] = email.(string)
+		}
+
 		// Ensure user_type is set
 		if metadata["user_type"] == "" {
 			metadata["user_type"] = "archer"
@@ -197,6 +202,34 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error="+msg)
 			}
 			return
+		}
+
+		// Check if user is already logged in (for linking)
+		currentUserID, isCurrentlyLoggedIn := c.Get("user_id")
+		currentEmailVal, _ := c.Get("email")
+		var currentEmail string
+		if currentEmailVal != nil {
+			currentEmail = currentEmailVal.(string)
+		}
+
+		// Use current email from metadata (passed from InitiateGoogleAuth) if session is lost/unavailable
+		if currentEmail == "" && metadata["current_email"] != "" {
+			currentEmail = metadata["current_email"]
+		}
+
+		// Linking enforcement: If specifically requested or logged in, check email matching
+		if (isCurrentlyLoggedIn || metadata["is_linking"] == "true") && currentEmail != "" {
+			if userInfo.Email != currentEmail {
+				msg := "email_mismatch"
+				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "Email Google tidak cocok dengan email akun saat ini (" + currentEmail + ")",
+					})
+				} else {
+					c.Redirect(http.StatusTemporaryRedirect, appURL+"/dashboard/settings?error="+msg)
+				}
+				return
+			}
 		}
 
 		// Find or create user
