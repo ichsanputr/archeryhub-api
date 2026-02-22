@@ -166,15 +166,15 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					whatsappNo = req.Phone
 				}
 				insertQuery := `
-					INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+					INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 5, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY))
 				`
 				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
 			} else if table == "clubs" {
-				// For clubs, add 4 months free trial on package 1 (Basic Support)
+				// For clubs, add 3 months free trial on package (Standard)
 				insertQuery := `
 					INSERT INTO clubs (uuid, user_id, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 120 DAY))
+					VALUES (?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY))
 				`
 				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName)
 			} else if table != "archers" {
