@@ -88,10 +88,41 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 
 		db.Select(&plans, "SELECT id, name, price, type, features FROM subscription_plans WHERE target_type = ?", targetType)
 
+		// Get transaction history (invoices)
+		var invoices []struct {
+			Date          string  `json:"date" db:"date"`
+			Description   string  `json:"description" db:"description"`
+			Amount        string  `json:"amount" db:"amount"`
+			Status        string  `json:"status" db:"status"`
+			Method        string  `json:"method" db:"payment_method"`
+			Reference     string  `json:"reference" db:"reference"`
+			CheckoutURL   *string `json:"checkout_url" db:"checkout_url"`
+			Instructions  *string `json:"instructions" db:"instructions"`
+		}
+
+		db.Select(&invoices, `
+			SELECT 
+				DATE_FORMAT(created_at, '%d %b %Y') as date,
+				CASE 
+					WHEN subscription_plan_id IS NOT NULL THEN 'Pembayaran Langganan'
+					WHEN event_id IS NOT NULL THEN 'Pembayaran Layanan Event'
+					ELSE 'Transaksi Lainnya'
+				END as description,
+				CONCAT('Rp ', FORMAT(amount, 0, 'id_ID')) as amount,
+				status,
+				COALESCE(payment_method, '-') as payment_method,
+				reference,
+				checkout_url,
+				instructions
+			FROM payment_transactions 
+			WHERE user_id = ? 
+			ORDER BY created_at DESC 
+			LIMIT 10`, userID)
+
 		c.JSON(http.StatusOK, gin.H{
-			"current": subscription,
-			"plans":   plans,
-			"invoices": []interface{}{},
+			"current":  subscription,
+			"plans":    plans,
+			"invoices": invoices,
 		})
 	}
 }

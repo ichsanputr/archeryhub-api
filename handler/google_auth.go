@@ -352,19 +352,19 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			switch userType {
 			case "organization":
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, slug, email, google_id, name, acronym, whatsapp_no, city, address, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["city"], metadata["address"], userInfo.Picture)
+					INSERT INTO organizations (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, city, address, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["city"], metadata["address"], userInfo.Picture)
 			case "club":
 				_, insertErr = db.Exec(`
-					INSERT INTO clubs (uuid, slug, email, google_id, name, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 120 DAY), NOW(), NOW())
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "seller":
 				_, insertErr = db.Exec(`
-					INSERT INTO sellers (uuid, slug, email, google_id, store_name, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+					INSERT INTO sellers (uuid, user_id, slug, email, google_id, store_name, avatar_url, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			default: // archer
 				userType = "archer"
 				role = "archer"

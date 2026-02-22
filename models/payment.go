@@ -49,6 +49,7 @@ type PaymentTransaction struct {
 	CheckoutURL      *string         `json:"checkout_url" db:"checkout_url"`
 	PayCode          *string         `json:"pay_code" db:"pay_code"`
 	Instructions     *string         `json:"instructions" db:"instructions"`
+	Months           int             `json:"months" db:"months"`
 	Status           string          `json:"status" db:"status"` // pending, paid, expired, failed, refunded
 	PaidAt           *time.Time      `json:"paid_at" db:"paid_at"`
 	ExpiredAt        time.Time       `json:"expired_at" db:"expired_at"`
@@ -64,6 +65,7 @@ type CreatePaymentRequest struct {
 	RegistrationID *string `json:"registration_id"`
 	PlanID         *int    `json:"plan_id"`
 	Type           string  `json:"type"` // e.g., "registration" (default), "platform_fee", or "subscription"
+	Months         int     `json:"months"` // Number of months for subscription
 }
 
 // PaymentChannelFee represents the fee details for a Tripay channel

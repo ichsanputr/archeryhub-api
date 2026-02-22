@@ -166,25 +166,25 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					whatsappNo = req.Phone
 				}
 				insertQuery := `
-					INSERT INTO organizations (uuid, slug, email, password, name, acronym, whatsapp_no, city, address, status)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+					INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
 				`
-				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
+				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
 			} else if table == "clubs" {
 				// For clubs, add 4 months free trial on package 1 (Basic Support)
 				insertQuery := `
-					INSERT INTO clubs (uuid, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
-					VALUES (?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 4 MONTH))
+					INSERT INTO clubs (uuid, user_id, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
+					VALUES (?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 120 DAY))
 				`
-				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName)
+				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName)
 			} else if table != "archers" {
 				// For other tables (sellers)
 				columnName := "slug"
 				insertQuery := `
-					INSERT INTO ` + table + ` (uuid, ` + columnName + `, email, password, ` + nameField + `, status)
-					VALUES (?, ?, ?, ?, ?, 'active')
+					INSERT INTO ` + table + ` (uuid, user_id, ` + columnName + `, email, password, ` + nameField + `, status)
+					VALUES (?, ?, ?, ?, ?, ?, 'active')
 				`
-				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName)
+				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName)
 			} else {
 				// For archers, include id and is_verified
 				// Generate id (ARC-XXXX)

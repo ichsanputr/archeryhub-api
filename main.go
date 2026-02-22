@@ -383,6 +383,18 @@ func main() {
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
 		}
 
+		// Root/Admin routes
+		root := api.Group("/root")
+		{
+			root.POST("/login", handler.RootLogin(db))
+			
+			protected := root.Group("/dashboard")
+			protected.Use(middleware.AuthMiddleware(), middleware.RequireRole("root"))
+			{
+				protected.GET("/users", handler.GetAllUsers(db))
+			}
+		}
+
 		// Organization routes
 		orgs := api.Group("/organizations")
 		{
