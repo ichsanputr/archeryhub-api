@@ -38,6 +38,7 @@ type PaymentTransaction struct {
 	UserID           string          `json:"user_id" db:"user_id"`
 	EventID          *string         `json:"event_id" db:"event_id"`
 	RegistrationID   *string         `json:"registration_id" db:"registration_id"`
+	SubscriptionPlanID *int          `json:"subscription_plan_id" db:"subscription_plan_id"`
 	Amount           float64         `json:"amount" db:"amount"`
 	FeeAmount        float64         `json:"fee_amount" db:"fee_amount"`
 	TotalAmount      float64         `json:"total_amount" db:"total_amount"`
@@ -61,7 +62,8 @@ type CreatePaymentRequest struct {
 	Method         string  `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS)
 	EventID        string  `json:"event_id" binding:"required"`
 	RegistrationID *string `json:"registration_id"`
-	Type           string  `json:"type"` // e.g., "registration" (default) or "platform_fee"
+	PlanID         *int    `json:"plan_id"`
+	Type           string  `json:"type"` // e.g., "registration" (default), "platform_fee", or "subscription"
 }
 
 // PaymentChannelFee represents the fee details for a Tripay channel

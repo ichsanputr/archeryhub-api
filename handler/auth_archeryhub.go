@@ -170,8 +170,15 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
 				`
 				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
+			} else if table == "clubs" {
+				// For clubs, add 4 months free trial on package 1 (Basic Support)
+				insertQuery := `
+					INSERT INTO clubs (uuid, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
+					VALUES (?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 4 MONTH))
+				`
+				_, err = db.Exec(insertQuery, userID, req.Username, req.Email, req.Password, req.FullName)
 			} else if table != "archers" {
-				// For other tables (clubs, sellers)
+				// For other tables (sellers)
 				columnName := "slug"
 				insertQuery := `
 					INSERT INTO ` + table + ` (uuid, ` + columnName + `, email, password, ` + nameField + `, status)

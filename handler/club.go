@@ -556,13 +556,16 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			SocialMedia      *string `json:"social_media" db:"social_media"`
 			PageSettings     *string `json:"page_settings" db:"page_settings"`
 			RegistrationConfig *string `json:"registration_config" db:"registration_config"`
+			SubscriptionPlanID *int    `json:"subscription_plan_id" db:"subscription_plan_id"`
+			SubscriptionStatus string  `json:"subscription_status" db:"subscription_status"`
 			CreatedAt        string  `json:"created_at" db:"created_at"`
 		}
 
 		err := db.Get(&club, `
 			SELECT uuid, name, slug, description, avatar_url, banner_url, avatar_url as logo_url, 
 			       address, city, province, phone, email, website, social_facebook, social_instagram, 
-			       established_date, facilities, training_schedule, social_media, page_settings, registration_config, created_at 
+			       established_date, facilities, training_schedule, social_media, page_settings, registration_config, 
+			       COALESCE(subscription_status, 'trial') as subscription_status, subscription_plan_id, created_at 
 			FROM clubs 
 			WHERE slug = ? OR uuid = ?`, slug, slug)
 		if err != nil {
@@ -611,27 +614,47 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			WHERE a.club_id = ? AND (tp.score > 0)
 		`, club.UUID)
 
-		// Varied dummy achievements for display
-		dummyAchievements := []map[string]interface{}{
-			{"name": "Indonesian Open 2024", "date": "12 Okt 2024", "result": "Medali Emas"},
-			{"name": "Piala Menpora 2023", "date": "05 Jun 2023", "result": "Juara Umum"},
-			{"name": "Kejurda DKI Jakarta 2024", "date": "15 Mar 2024", "result": "Medali Perak"},
-			{"name": "Jakarta Archery Series", "date": "20 Nov 2023", "result": "Best Performance"},
-			{"name": "Bali Archery Festival", "date": "12 Jan 2024", "result": "Juara 3"},
-			{"name": "Surabaya Open 2023", "date": "18 Aug 2023", "result": "Juara 2"},
-			{"name": "Bandung Archery Cup", "date": "10 Apr 2024", "result": "Medali Perunggu"},
+		// Get real news for the club
+		type NewsItem struct {
+			UUID        string    `json:"uuid" db:"uuid"`
+			Title       string    `json:"title" db:"title"`
+			Slug        string    `json:"slug" db:"slug"`
+			Excerpt     *string   `json:"excerpt" db:"excerpt"`
+			ImageURL    *string   `json:"image_url" db:"image_url"`
+			Category    string    `json:"category" db:"category"`
+			PublishedAt *time.Time `json:"published_at" db:"published_at"`
 		}
 
-		seedValue := 0
-		if len(club.UUID) >= 4 {
-			seedValue = int(club.UUID[0]) + int(club.UUID[1]) + int(club.UUID[2]) + int(club.UUID[3])
+		var clubNews []NewsItem
+		db.Select(&clubNews, `
+			SELECT uuid, title, slug, excerpt, image_url, category, published_at 
+			FROM news 
+			WHERE club_id = ? AND status = 'published'
+			ORDER BY published_at DESC 
+			LIMIT 10
+		`, club.UUID)
+
+		if clubNews == nil {
+			clubNews = []NewsItem{}
 		}
 
-		clubAchievements := []interface{}{}
-		numAchievements := (seedValue % 3) + 2
-		for i := 0; i < numAchievements; i++ {
-			idx := (seedValue + i) % len(dummyAchievements)
-			clubAchievements = append(clubAchievements, dummyAchievements[idx])
+		// Mask news images
+		for i := range clubNews {
+			if clubNews[i].ImageURL != nil {
+				masked := utils.MaskMediaURL(*clubNews[i].ImageURL)
+				clubNews[i].ImageURL = &masked
+			}
+		}
+
+		// Split news into achievements and general news for backward compatibility or split use
+		var achievementsItems []NewsItem
+		var regularNewsItems []NewsItem
+		for _, n := range clubNews {
+			if n.Category == "prestasi" {
+				achievementsItems = append(achievementsItems, n)
+			} else {
+				regularNewsItems = append(regularNewsItems, n)
+			}
 		}
 
 		// Mask URLs
@@ -689,11 +712,14 @@ func GetClubBySlug(db *sqlx.DB) gin.HandlerFunc {
 			"members":       memberCount,
 			"event_count":   eventCount,
 			"events":        eventCount,
-			"achievements":  len(clubAchievements),
-			"recent_events": clubAchievements,
+			"achievements":  achievementsItems,
+			"news":          regularNewsItems,
+			"recent_events": achievementsItems, // Keep for backward compatibility if needed
 			"top_members":   topMembers,
 			"sections":      sections,
 			"registration_config": club.RegistrationConfig,
+			"subscription_status":  club.SubscriptionStatus,
+			"subscription_plan_id": club.SubscriptionPlanID,
 		}
 
 		// Parse social media

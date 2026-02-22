@@ -184,6 +184,7 @@ func main() {
 			user.PUT("/password", handler.UpdatePassword(db))
 			user.GET("/settings", handler.GetUserSettings(db))
 			user.PUT("/settings", handler.UpdateUserSettings(db))
+			user.GET("/subscription", handler.GetMySubscription(db))
 		}
 
 		// Event routes
