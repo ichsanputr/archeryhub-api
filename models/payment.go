@@ -60,7 +60,7 @@ type PaymentTransaction struct {
 // CreatePaymentRequest represents the request to create a payment
 type CreatePaymentRequest struct {
 	Method         string  `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS)
-	EventID        string  `json:"event_id" binding:"required"`
+	EventID        string  `json:"event_id"`
 	RegistrationID *string `json:"registration_id"`
 	PlanID         *int    `json:"plan_id"`
 	Type           string  `json:"type"` // e.g., "registration" (default), "platform_fee", or "subscription"
