@@ -1,0 +1,39 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API documentation for the mobile application.",
+        "title": "ArcheryHub Mobile API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8001",
+    "basePath": "/api/v1",
+    "paths": {
+        "/mobile/hello": {
+            "get": {
+                "description": "Provides a welcome message for mobile clients",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mobile"
+                ],
+                "summary": "Welcome to Mobile API",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

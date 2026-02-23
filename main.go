@@ -8,11 +8,20 @@ import (
 	"archeryhub-api/database"
 	"archeryhub-api/handler"
 	"archeryhub-api/middleware"
+	_ "archeryhub-api/docs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title ArcheryHub Mobile API
+// @version 1.0
+// @description API documentation for the mobile application.
+// @host localhost:8001
+// @BasePath /api/v1
 
 var logger *logrus.Logger
 
@@ -465,6 +474,14 @@ func main() {
 				protectedMedia.GET("", handler.ListMedia(db))
 				protectedMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}
+		}
+
+		// Mobile routes
+		mobile := api.Group("/mobile")
+		{
+			mobile.GET("/hello", handler.MobileHello())
+			// Swagger UI
+			mobile.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 		}
 
 		// Event registration is handled via POST /events/:id/participants

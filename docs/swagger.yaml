@@ -1,0 +1,26 @@
+basePath: /api/v1
+host: localhost:8001
+info:
+  contact: {}
+  description: API documentation for the mobile application.
+  title: ArcheryHub Mobile API
+  version: "1.0"
+paths:
+  /mobile/hello:
+    get:
+      consumes:
+      - application/json
+      description: Provides a welcome message for mobile clients
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Welcome to Mobile API
+      tags:
+      - mobile
+swagger: "2.0"
