@@ -21,6 +21,12 @@ type Archer struct {
 	City        *string    `json:"city" db:"city"`
 	School      *string    `json:"school" db:"school"`
 	ClubID      *string    `json:"club_id" db:"club_id"`
+	SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
+	SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
+	SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
+	Achievements    *string `json:"achievements" db:"achievements"`
+	Equipment       *string `json:"equipment" db:"equipment"`
+	PageSettings    *string `json:"page_settings" db:"page_settings"`
 	ID          string     `json:"id" db:"id"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
@@ -70,6 +76,12 @@ type UpdateArcherRequest struct {
 	AvatarURL   *string       `json:"avatar_url"`
 	Address     *string       `json:"address"`
 	Bio         *string       `json:"bio"`
+	SocialInstagram *string    `json:"social_instagram"`
+	SocialTiktok    *string    `json:"social_tiktok"`
+	SocialWhatsapp  *string    `json:"social_whatsapp"`
+	Achievements    *string    `json:"achievements"`
+	Equipment       *string    `json:"equipment"`
+	PageSettings    *string    `json:"page_settings"`
 	Status      *string       `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 

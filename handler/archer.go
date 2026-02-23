@@ -35,6 +35,8 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school,
+				a.social_instagram, a.social_tiktok, a.social_whatsapp,
+				a.achievements, a.equipment, a.page_settings,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -144,6 +146,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school,
+				a.social_instagram, a.social_tiktok, a.social_whatsapp,
+				a.achievements, a.equipment, a.page_settings,
 				c.name as club_name,
 				c.slug as club_slug,
 				COUNT(DISTINCT tp.uuid) as total_events,
@@ -284,9 +288,10 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				o.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT ep2.uuid) as participant_count,
 				COUNT(DISTINCT ec.uuid) as event_count,
-				ep.payment_status as payment_status,
-				ep.uuid as participant_uuid,
-				ep.qr_raw
+				MAX(ep.payment_status) as payment_status,
+				CASE WHEN MAX(ep.payment_status) = 'lunas' THEN 'Terdaftar' ELSE 'Menunggu Acc' END as participant_status,
+				MAX(ep.uuid) as participant_uuid,
+				MAX(ep.qr_raw) as qr_raw
 			FROM events e
 			INNER JOIN event_participants ep ON e.uuid = ep.event_id
 			LEFT JOIN (
@@ -297,7 +302,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN event_participants ep2 ON e.uuid = ep2.event_id
 			LEFT JOIN event_categories ec ON e.uuid = ec.event_id
 			` + whereClause + `
-			GROUP BY e.uuid, ep.payment_status, ep.uuid, ep.qr_raw, o.full_name, o.email, o.slug, o.avatar_url
+			GROUP BY e.uuid, o.full_name, o.email, o.slug, o.avatar_url
 			ORDER BY e.start_date DESC
 			LIMIT ? OFFSET ?
 		`
@@ -728,6 +733,13 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			ClubID      *string `json:"club_id" db:"club_id"`
 			ClubName    *string `json:"club_name" db:"club_name"`
 			Status      string  `json:"status" db:"status"`
+			Bio         *string `json:"bio" db:"bio"`
+			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
+			SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
+			SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
+			Achievements    *string `json:"achievements" db:"achievements"`
+			Equipment       *string `json:"equipment" db:"equipment"`
+			PageSettings    *string `json:"page_settings" db:"page_settings"`
 		}
 
 		var pageSettings *string
@@ -738,15 +750,14 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		       a.phone, a.address, a.city, a.school, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
-		       COALESCE(a.status, 'active') as status
+		       COALESCE(a.status, 'active') as status,
+		       a.bio, a.social_instagram, a.social_tiktok, a.social_whatsapp,
+		       a.achievements, a.equipment, a.page_settings
 		FROM archers a
 		LEFT JOIN clubs c ON a.club_id = c.uuid
-		WHERE a.uuid = ? OR a.email = (SELECT email FROM archers WHERE uuid = ? LIMIT 1)
+		WHERE a.uuid = ?
 	`, userID, userID)
 
-		if err == nil {
-			db.Get(&pageSettings, "SELECT page_settings FROM archers WHERE uuid = ?", userID)
-		}
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found"})
@@ -770,6 +781,13 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"club_id":       archer.ClubID,
 			"club_name":     archer.ClubName,
 			"status":        archer.Status,
+			"bio":           archer.Bio,
+			"social_instagram": archer.SocialInstagram,
+			"social_tiktok":    archer.SocialTiktok,
+			"social_whatsapp":  archer.SocialWhatsapp,
+			"achievements":    archer.Achievements,
+			"equipment":       archer.Equipment,
+			"page_settings":    archer.PageSettings,
 			"user_type":     "archer",
 		}
 

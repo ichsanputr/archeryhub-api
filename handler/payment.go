@@ -495,17 +495,25 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 
 				// Calculate next expiration
 				var currentExpires *time.Time
-				db.Get(&currentExpires, "SELECT subscription_expires_at FROM "+table+" WHERE user_id = ?", transaction.UserID)
+				_ = db.Get(&currentExpires, "SELECT subscription_expires_at FROM "+table+" WHERE user_id = ?", transaction.UserID)
 
 				effectiveMonths := transaction.Months
 				if effectiveMonths <= 0 {
 					effectiveMonths = months // Fallback to plan default
 				}
 
-				newExpiry := time.Now().AddDate(0, 0, 30*effectiveMonths)
-				if currentExpires != nil && currentExpires.After(time.Now()) {
-					newExpiry = currentExpires.AddDate(0, 0, 30*effectiveMonths)
+				// The user wants to preserve remaining days ("upgrading or downgrading package doesnt reset previous days")
+				// Example: If user has 14 days of Standard and buys Elite, they get Elite for 30 + 14 = 44 days.
+				// Example: If user has 14 days of Elite and buy Standard, they get Standard for 30 + 14 = 44 days.
+				// This ensures the user never loses the time they've already paid for.
+				now := time.Now()
+				baseTime := now
+				if currentExpires != nil && currentExpires.After(now) {
+					baseTime = *currentExpires
 				}
+
+				// Add months to base time. We use AddDate for calendar month precision.
+				newExpiry := baseTime.AddDate(0, effectiveMonths, 0)
 
 				_, err = tx.Exec("UPDATE "+table+" SET subscription_plan_id = ?, subscription_status = 'active', subscription_expires_at = ? WHERE user_id = ?", *transaction.SubscriptionPlanID, newExpiry, transaction.UserID)
 				if err != nil {
@@ -526,13 +534,43 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 }
 
 
-// GetPaymentStatus returns the status of a payment transaction
+// GetPaymentStatus returns the status of a payment transaction with enriched details
 func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		reference := c.Param("reference")
-		
-		var transaction models.PaymentTransaction
-		err := db.Get(&transaction, "SELECT * FROM payment_transactions WHERE reference = ?", reference)
+
+		type EnrichedTransaction struct {
+			models.PaymentTransaction
+			Description string  `json:"description" db:"description"`
+			PlanName    *string `json:"plan_name" db:"plan_name"`
+			EventName   *string `json:"event_name" db:"event_name"`
+			AthleteName *string `json:"athlete_name" db:"athlete_name"`
+			Division    *string `json:"division" db:"division"`
+			Category    *string `json:"category" db:"category"`
+		}
+
+		var transaction EnrichedTransaction
+		query := `
+			SELECT 
+				t.*,
+				CASE 
+					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
+					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', r.division, ' - ', r.athlete_name)
+					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
+					ELSE 'Transaksi Archeryhub'
+				END as description,
+				p.name as plan_name,
+				e.name as event_name,
+				r.athlete_name as athlete_name,
+				r.division as division,
+				r.category as category
+			FROM payment_transactions t
+			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
+			LEFT JOIN event_registrations r ON t.registration_id = r.id
+			LEFT JOIN events e ON t.event_id = e.uuid
+			WHERE t.reference = ?
+		`
+		err := db.Get(&transaction, query, reference)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
 			return

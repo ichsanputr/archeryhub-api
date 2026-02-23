@@ -379,6 +379,7 @@ func main() {
 		{
 			payment.GET("/channels", handler.GetPaymentChannels(db))
 			payment.GET("/status/:reference", handler.GetPaymentStatus(db))
+			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
 		}

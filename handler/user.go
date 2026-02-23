@@ -367,6 +367,30 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", school = ?"
 			args = append(args, *req.School)
 		}
+		if req.SocialInstagram != nil {
+			query += ", social_instagram = ?"
+			args = append(args, *req.SocialInstagram)
+		}
+		if req.SocialTiktok != nil {
+			query += ", social_tiktok = ?"
+			args = append(args, *req.SocialTiktok)
+		}
+		if req.SocialWhatsapp != nil {
+			query += ", social_whatsapp = ?"
+			args = append(args, *req.SocialWhatsapp)
+		}
+		if req.Achievements != nil {
+			query += ", achievements = ?"
+			args = append(args, *req.Achievements)
+		}
+		if req.Equipment != nil {
+			query += ", equipment = ?"
+			args = append(args, *req.Equipment)
+		}
+		if req.PageSettings != nil {
+			query += ", page_settings = ?"
+			args = append(args, *req.PageSettings)
+		}
 
 		if len(args) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
