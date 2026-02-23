@@ -182,6 +182,9 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			db.Get(&authorName, "SELECT name FROM organizations WHERE uuid = ?", userID)
 		} else if userType == "club" {
 			db.Get(&authorName, "SELECT name FROM clubs WHERE uuid = ?", userID)
+		} else {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only organizations and clubs can post news"})
+			return
 		}
 
 		// Set default values
@@ -239,35 +242,45 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify ownership
-		var ownerID string
-		if userType == "organization" {
-			db.Get(&ownerID, "SELECT organization_id FROM news WHERE uuid = ?", id)
-		} else if userType == "club" {
-			db.Get(&ownerID, "SELECT club_id FROM news WHERE uuid = ?", id)
+		// Verify ownership and get UUID
+		var article struct {
+			UUID           string  `db:"uuid"`
+			OrganizationID *string `db:"organization_id"`
+			ClubID         *string `db:"club_id"`
+			Status         string  `db:"status"`
 		}
 
-		if ownerID != userID.(string) {
+		err := db.Get(&article, "SELECT uuid, organization_id, club_id, status FROM news WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+			return
+		}
+
+		isOwner := false
+		if userType == "organization" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
+			isOwner = true
+		} else if userType == "club" && article.ClubID != nil && *article.ClubID == userID.(string) {
+			isOwner = true
+		}
+
+		if !isOwner {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to update this news"})
 			return
 		}
 
 		// Check if status changed to published
-		var currentStatus string
-		db.Get(&currentStatus, "SELECT status FROM news WHERE uuid = ?", id)
-
 		publishedAtUpdate := ""
-		if currentStatus != "published" && req.Status == "published" {
+		if article.Status != "published" && req.Status == "published" {
 			publishedAtUpdate = ", published_at = NOW()"
 		}
 
-		_, err := db.Exec(`
+		_, err = db.Exec(`
 			UPDATE news SET 
 				title = ?, excerpt = ?, content = ?, image_url = ?, 
 				category = ?, status = ?, meta_title = ?, meta_description = ?`+publishedAtUpdate+`
 			WHERE uuid = ?
 		`, req.Title, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
-			req.Category, req.Status, req.MetaTitle, req.MetaDescription, id)
+			req.Category, req.Status, req.MetaTitle, req.MetaDescription, article.UUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update news: " + err.Error()})
@@ -286,19 +299,31 @@ func DeleteNews(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		// Verify ownership
-		var ownerID string
-		if userType == "organization" {
-			db.Get(&ownerID, "SELECT organization_id FROM news WHERE uuid = ?", id)
-		} else if userType == "club" {
-			db.Get(&ownerID, "SELECT club_id FROM news WHERE uuid = ?", id)
+		var article struct {
+			UUID           string  `db:"uuid"`
+			OrganizationID *string `db:"organization_id"`
+			ClubID         *string `db:"club_id"`
 		}
 
-		if ownerID != userID.(string) {
+		err := db.Get(&article, "SELECT uuid, organization_id, club_id FROM news WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+			return
+		}
+
+		isOwner := false
+		if userType == "organization" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
+			isOwner = true
+		} else if userType == "club" && article.ClubID != nil && *article.ClubID == userID.(string) {
+			isOwner = true
+		}
+
+		if !isOwner {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this news"})
 			return
 		}
 
-		_, err := db.Exec("DELETE FROM news WHERE uuid = ?", id)
+		_, err = db.Exec("DELETE FROM news WHERE uuid = ?", article.UUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete news"})
 			return
