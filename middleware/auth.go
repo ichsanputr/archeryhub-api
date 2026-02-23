@@ -10,7 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-// AuthMiddleware validates JWT tokens from Authorization header or auth_token cookie
+// AuthMiddleware validates JWT tokens from Authorization header or auth_token cookie.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
