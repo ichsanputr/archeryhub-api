@@ -23,6 +23,7 @@ type QualificationAssignment struct {
 	SessionUUID     string    `json:"session_id" db:"session_uuid"`
 	ParticipantUUID string    `json:"participant_id" db:"participant_uuid"`
 	TargetUUID      string    `json:"target_id" db:"target_uuid"`
+	TargetBoardID   *string   `json:"target_board_id" db:"target_board_id"`
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -55,4 +56,14 @@ type SingleEndScore struct {
 // ScoreBatchUpdateRequest is the request payload for updating multiple end scores at once
 type ScoreBatchUpdateRequest struct {
 	Ends []SingleEndScore `json:"ends" binding:"required"`
+}
+
+// TargetBoardQualification represents a unique code for a target board in a session for a specific category
+type TargetBoardQualification struct {
+	UUID         string    `json:"id" db:"uuid"`
+	SessionUUID  string    `json:"session_id" db:"session_uuid"`
+	CategoryUUID string    `json:"category_id" db:"category_uuid"`
+	BoardNumber  int       `json:"board_number" db:"board_number"`
+	Code         string    `json:"code" db:"code"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }

@@ -326,6 +326,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			Role      string  `db:"role"`
 			Status    string  `db:"status"`
 			Type      string
+			OrgUUID   string  `db:"organization_uuid"`
 		}
 
 		var user UserResult
@@ -333,7 +334,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// COALESCE(password,'') so NULL (e.g. Google-created org/club/seller) is handled as empty
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status, '' as organization_uuid FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -342,7 +343,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Check organizations (Google sign-up does not set password; only Register does)
 		// Use column alias "slug" so result matches UserResult (db:"slug" for Username)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status, uuid as organization_uuid FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -353,7 +354,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs (use slug so result matches UserResult)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status, '' as organization_uuid FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -362,9 +363,18 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check sellers
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status FROM sellers WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status, '' as organization_uuid FROM sellers WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "seller"
+				found = true
+			}
+		}
+
+		// Check scorekeepers
+		if !found {
+			err = db.Get(&user, "SELECT uuid, uuid as id, email as slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'scorekeeper' as role, COALESCE(status,'') as status, organization_uuid FROM scorekeepers WHERE email = ?", req.Email)
+			if err == nil {
+				user.Type = "scorekeeper"
 				found = true
 			}
 		}
@@ -417,6 +427,9 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Log activity
 		utils.LogActivity(db, user.UUID, "", "user_logged_in", user.Type, user.UUID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
+		if user.Type == "scorekeeper" {
+			utils.LogScorekeeperAction(db, user.UUID, user.OrgUUID, "", "web_login", "Logged in via web", c.ClientIP(), c.Request.UserAgent())
+		}
 
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
@@ -467,6 +480,9 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		case "seller":
 			table = "sellers"
 			nameField = "store_name"
+		case "scorekeeper":
+			table = "scorekeepers"
+			nameField = "name"
 		}
 
 		var user struct {
@@ -495,15 +511,30 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		roleSelect := "'" + userType.(string) + "' as role"
+		
+		// Base query parts
+		idExpr := "id"
+		if table == "organizations" || table == "clubs" || table == "scorekeepers" {
+			idExpr = "uuid as id"
+		}
 
-		query := `SELECT uuid, id, slug as username, email, slug, ` + nameField + ` as full_name, ` + roleSelect + `, avatar_url, phone, status, created_at`
+		slugExpr := "slug"
+		if table == "scorekeepers" {
+			slugExpr = "email as slug"
+		}
+
+		phoneExpr := "phone"
+		if table == "scorekeepers" {
+			phoneExpr = "NULL as phone"
+		}
+
+		query := fmt.Sprintf(`SELECT uuid, %s, %s as username, email, %s, %s as full_name, %s, avatar_url, %s, status, created_at`, 
+			idExpr, slugExpr, slugExpr, nameField, roleSelect, phoneExpr)
+
 		if table == "archers" {
 			query += ", bio, gender, date_of_birth, bow_type, city, province, club_id"
 		} else if table == "sellers" {
 			query += ", store_name, slug, description, banner_url"
-		} else {
-			// organizations, clubs don't have id column yet, so use uuid as id
-			query = strings.Replace(query, "id,", "uuid as id,", 1)
 		}
 		query += " FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)

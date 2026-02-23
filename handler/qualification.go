@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -65,7 +66,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 				qs.created_at,
 				qs.updated_at,
 				COUNT(DISTINCT qta.participant_uuid) as participant_count,
-				COALESCE(GROUP_CONCAT(qsc.category_uuid), '') as category_ids
+				COALESCE(GROUP_CONCAT(DISTINCT qsc.category_uuid), '') as category_ids
 			FROM qualification_sessions qs
 			LEFT JOIN qualification_target_assignments qta ON qs.uuid = qta.session_uuid
 			LEFT JOIN qualification_session_categories qsc ON qs.uuid = qsc.session_uuid
@@ -945,9 +946,8 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		db.Select(&existing, `
 			SELECT qta.target_uuid
 			FROM qualification_target_assignments qta
-			INNER JOIN event_participants ep ON qta.participant_uuid = ep.uuid
-			WHERE qta.session_uuid = ? AND ep.category_id = ?
-		`, sessionID, req.CategoryID)
+			WHERE qta.session_uuid = ?
+		`, sessionID)
 		isTaken := make(map[string]bool)
 		for _, e := range existing {
 			isTaken[e] = true
@@ -1020,11 +1020,19 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				break
 			}
 			target := availableSlots[i]
+			
+			var boardNumber int
+			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", target.UUID)
+
+			var targetBoardUUID sql.NullString
+			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+				sessionID, req.CategoryID, boardNumber)
+
 			assignmentUUID := uuid.New().String()
 			_, err := db.Exec(`
-				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid)
-				VALUES (?, ?, ?, ?)`,
-				assignmentUUID, sessionID, archer.ParticipationUUID, target.UUID)
+				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id)
+				VALUES (?, ?, ?, ?, ?)`,
+				assignmentUUID, sessionID, archer.ParticipationUUID, target.UUID, targetBoardUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
 				return
@@ -1192,11 +1200,18 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			// 3. Insert new assignment
+			var boardNumber int
+			tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", assignment.TargetID)
+			
+			var targetBoardUUID sql.NullString
+			tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+				sessionUUID, req.CategoryID, boardNumber)
+
 			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments 
-				(uuid, session_uuid, participant_uuid, target_uuid, created_at, updated_at)
-				VALUES (?, ?, ?, ?, NOW(), NOW())
-			`, assignmentUUID, sessionUUID, assignment.ParticipantID, assignment.TargetID)
+				(uuid, session_uuid, participant_uuid, target_uuid, target_board_id, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+			`, assignmentUUID, sessionUUID, assignment.ParticipantID, assignment.TargetID, targetBoardUUID)
 			if err != nil {
 				errors = append(errors, map[string]interface{}{
 					"participant_id": assignment.ParticipantID,
@@ -1345,18 +1360,39 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 2. Move Participant B to Target A
-		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ? WHERE session_uuid = ? AND participant_uuid = ?", targetA, sessionID, req.ParticipantB)
+		var boardNumberA int
+		tx.Get(&boardNumberA, "SELECT board_number FROM event_targets WHERE uuid = ?", targetA)
+
+		var categoryIDB string
+		tx.Get(&categoryIDB, "SELECT ep.category_id FROM event_participants ep WHERE ep.uuid = ?", req.ParticipantB)
+
+		var targetBoardUUIDB sql.NullString
+		tx.Get(&targetBoardUUIDB, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			sessionID, categoryIDB, boardNumberA)
+
+		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ?, target_board_id = ? WHERE session_uuid = ? AND participant_uuid = ?", 
+			targetA, targetBoardUUIDB, sessionID, req.ParticipantB)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move participant B", "details": err.Error()})
 			return
 		}
 
 		// 3. Re-insert Participant A into Target B
+		var boardNumberB int
+		tx.Get(&boardNumberB, "SELECT board_number FROM event_targets WHERE uuid = ?", targetB)
+
+		var categoryID string
+		tx.Get(&categoryID, "SELECT ep.category_id FROM event_participants ep WHERE ep.uuid = ?", req.ParticipantA)
+
+		var targetBoardUUIDA sql.NullString
+		tx.Get(&targetBoardUUIDA, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			sessionID, categoryID, boardNumberB)
+
 		assignmentUUID := uuid.New().String()
 		_, err = tx.Exec(`
-			INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, created_at, updated_at)
-			VALUES (?, ?, ?, ?, NOW(), NOW())`,
-			assignmentUUID, sessionID, req.ParticipantA, targetB)
+			INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+			assignmentUUID, sessionID, req.ParticipantA, targetB, targetBoardUUIDA)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to re-attach participant A", "details": err.Error()})
 			return
@@ -1369,4 +1405,108 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{"message": "Targets swapped successfully"})
 	}
+}
+
+// GetBoardCodes returns all generated codes for target boards in a session for a specific category
+func GetBoardCodes(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("sessionId")
+		categoryID := c.Query("category_id")
+		if sessionID == "" || categoryID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId and category_id are required"})
+			return
+		}
+
+		// Identify all unique board numbers (e.g. 1, 2, 13) currently in use for this category
+		var boardNumbers []int
+		err := db.Select(&boardNumbers, `
+			SELECT DISTINCT et.board_number 
+			FROM qualification_target_assignments qta 
+			JOIN event_targets et ON qta.target_uuid = et.uuid 
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			WHERE qta.session_uuid = ? AND ep.category_id = ? AND et.board_number > 0
+			ORDER BY et.board_number ASC
+		`, sessionID, categoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to identify active target boards", "details": err.Error()})
+			return
+		}
+
+		// Get or generate the "event part" suffix (3 letters) for this session
+		var eventUUID string
+		db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
+
+		var suffix string
+		db.Get(&suffix, `
+			SELECT RIGHT(code, 3) 
+			FROM target_board_qualification tbq
+			JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
+			WHERE qs.event_uuid = ? LIMIT 1
+		`, eventUUID)
+
+		if suffix == "" {
+			const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+			b := make([]byte, 3)
+			for j := range b {
+				b[j] = charset[rand.Intn(len(charset))]
+			}
+			suffix = string(b)
+		}
+
+		// Ensure codes exist for all these board numbers for this category
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed", "details": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		for _, bn := range boardNumbers {
+			var exists bool
+			err := tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM `target_board_qualification` WHERE `session_uuid` = ? AND `category_uuid` = ? AND `board_number` = ?)", sessionID, categoryID, bn)
+			if err != nil {
+				continue
+			}
+			if !exists {
+				code := fmt.Sprintf("%03d%s", bn, suffix)
+				_, err = tx.Exec("INSERT INTO `target_board_qualification` (`uuid`, `session_uuid`, `category_uuid`, `board_number`, `code`) VALUES (?, ?, ?, ?, ?)",
+					uuid.New().String(), sessionID, categoryID, bn, code)
+				if err != nil {
+					continue
+				}
+			}
+		}
+		tx.Commit()
+
+		// Fetch all codes for this category in this session
+		var codes []models.TargetBoardQualification
+		err = db.Select(&codes, "SELECT `uuid`, `session_uuid`, `category_uuid`, `board_number`, `code`, `created_at` FROM `target_board_qualification` WHERE `session_uuid` = ? AND `category_uuid` = ?", sessionID, categoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch board codes", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"board_codes": codes})
+	}
+}
+
+func generateUniqueBoardCodeWithTx(tx *sqlx.Tx, sessionUUID string) (string, error) {
+	// Fallback/Legacy generator - now mostly handled inline in GetBoardCodes for specific format
+	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	for i := 0; i < 100; i++ {
+		b := make([]byte, 6)
+		for j := range b {
+			b[j] = charset[rand.Intn(len(charset))]
+		}
+		code := string(b)
+		var exists bool
+		err := tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM `target_board_qualification` WHERE `session_uuid` = ? AND `code` = ?)", sessionUUID, code)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return code, nil
+		}
+	}
+	return "", fmt.Errorf("failed to generate unique code")
 }

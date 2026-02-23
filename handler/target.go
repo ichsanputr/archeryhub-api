@@ -69,7 +69,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			WHERE qta.session_uuid = ?
-			ORDER BY et.target_name ASC`,
+			ORDER BY et.board_number ASC, et.target_name ASC`,
 				sessionID)
 
 			if err != nil {
@@ -100,7 +100,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 					SELECT target_name
 					FROM event_targets
 					WHERE event_uuid = ? AND status = 'active'
-					ORDER BY target_name ASC
+					ORDER BY board_number ASC, target_name ASC
 				`, eventUUID)
 			}
 
@@ -213,11 +213,21 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 
 		if err == nil && existingParticipantAssignment != "" {
 			// Update existing assignment for this participant
+			var boardNumber int
+			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
+
+			var categoryID string
+			db.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
+
+			var targetBoardUUID sql.NullString
+			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+				req.SessionUUID, categoryID, boardNumber)
+
 			_, err = db.Exec(`
 					UPDATE qualification_target_assignments 
-					SET target_uuid = ?, updated_at = NOW()
+					SET target_uuid = ?, target_board_id = ?, updated_at = NOW()
 					WHERE uuid = ? AND session_uuid = ?
-				`, req.TargetUUID, existingParticipantAssignment, req.SessionUUID)
+				`, req.TargetUUID, targetBoardUUID, existingParticipantAssignment, req.SessionUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
 				return
@@ -232,11 +242,21 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 
 		if req.AssignmentUUID != nil && *req.AssignmentUUID != "" {
 			// Update existing assignment
+			var boardNumber int
+			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
+
+			var categoryID string
+			db.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
+
+			var targetBoardUUID sql.NullString
+			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+				req.SessionUUID, categoryID, boardNumber)
+
 			_, err = db.Exec(`
 				UPDATE qualification_target_assignments 
-				SET target_uuid = ?, updated_at = NOW()
+				SET target_uuid = ?, target_board_id = ?, updated_at = NOW()
 				WHERE uuid = ? AND session_uuid = ?
-			`, req.TargetUUID, *req.AssignmentUUID, req.SessionUUID)
+			`, req.TargetUUID, targetBoardUUID, *req.AssignmentUUID, req.SessionUUID)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
@@ -249,11 +269,21 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			})
 		} else {
 			// Create new assignment
+			var boardNumber int
+			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
+
+			var categoryID string
+			db.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
+
+			var targetBoardUUID sql.NullString
+			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+				req.SessionUUID, categoryID, boardNumber)
+
 			newUUID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid)
-				VALUES (?, ?, ?, ?)
-			`, newUUID, req.SessionUUID, req.ParticipantUUID, req.TargetUUID)
+				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id)
+				VALUES (?, ?, ?, ?, ?)
+			`, newUUID, req.SessionUUID, req.ParticipantUUID, req.TargetUUID, targetBoardUUID)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment"})
@@ -310,11 +340,7 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		// Calculate pagination based on unique target numbers
 		var total int
-		err = db.Get(&total, `SELECT COUNT(DISTINCT REGEXP_REPLACE(target_name, '[^0-9]', '')) FROM event_targets WHERE event_uuid = ?`, eventUUID)
-		if err != nil {
-			// Fallback if REGEXP_REPLACE is not available (older MariaDB)
-			db.Get(&total, `SELECT COUNT(DISTINCT LEFT(target_name, 1)) FROM event_targets WHERE event_uuid = ?`, eventUUID)
-		}
+		err = db.Get(&total, `SELECT COUNT(DISTINCT board_number) FROM event_targets WHERE event_uuid = ?`, eventUUID)
 
 		offset := 0
 		limitInt := 10
@@ -329,32 +355,16 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 		// Sort by the numeric part
 		err = db.Select(&targets, fmt.Sprintf(`
 			SELECT 
-				REGEXP_REPLACE(target_name, '[^0-9]', '') as target_number,
+				board_number as target_number,
 				GROUP_CONCAT(REGEXP_REPLACE(target_name, '[0-9]', '') ORDER BY target_name ASC SEPARATOR ', ') as letters,
 				GROUP_CONCAT(uuid ORDER BY target_name ASC SEPARATOR ',') as target_ids,
 				MIN(created_at) as created_at
 			FROM event_targets
 			WHERE event_uuid = ?
-			GROUP BY target_number
-			ORDER BY CAST(target_number AS UNSIGNED) %s
+			GROUP BY board_number
+			ORDER BY board_number %s
 			LIMIT %d OFFSET %d
 		`, orderDir, limitInt, offset), eventUUID)
-
-		if err != nil {
-			// Fallback for systems without REGEXP_REPLACE
-			err = db.Select(&targets, fmt.Sprintf(`
-				SELECT 
-					LEFT(target_name, 1) as target_number,
-					GROUP_CONCAT(SUBSTRING(target_name, 2) ORDER BY target_name ASC SEPARATOR ', ') as letters,
-					GROUP_CONCAT(uuid ORDER BY target_name ASC SEPARATOR ',') as target_ids,
-					MIN(created_at) as created_at
-				FROM event_targets
-				WHERE event_uuid = ?
-				GROUP BY target_number
-				ORDER BY CAST(target_number AS UNSIGNED) %s
-				LIMIT %d OFFSET %d
-			`, orderDir, limitInt, offset), eventUUID)
-		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
@@ -450,12 +460,22 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		for _, letter := range clean {
 			newUUID := uuid.New().String()
 			fullName := fmt.Sprintf("%s%s", req.TargetName, letter)
+			
+			// Extract board number from target name
+			boardNumStr := ""
+			for _, char := range req.TargetName {
+				if char >= '0' && char <= '9' {
+					boardNumStr += string(char)
+				}
+			}
+			boardNum, _ := strconv.Atoi(boardNumStr)
+
 			_, err = tx.Exec(`
 				INSERT INTO event_targets (
-					uuid, event_uuid, target_name, 
+					uuid, event_uuid, target_name, board_number,
 					created_at, updated_at
-				) VALUES (?, ?, ?, NOW(), NOW())
-			`, newUUID, eventUUID, fullName)
+				) VALUES (?, ?, ?, ?, NOW(), NOW())
+			`, newUUID, eventUUID, fullName, boardNum)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create target", "details": err.Error()})
 				return
@@ -530,6 +550,17 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		if req.TargetName != nil {
 			updateFields = append(updateFields, "target_name = ?")
 			updateValues = append(updateValues, *req.TargetName)
+
+			// Extract board number from target name
+			boardNumStr := ""
+			for _, char := range *req.TargetName {
+				if char >= '0' && char <= '9' {
+					boardNumStr += string(char)
+				}
+			}
+			boardNum, _ := strconv.Atoi(boardNumStr)
+			updateFields = append(updateFields, "board_number = ?")
+			updateValues = append(updateValues, boardNum)
 		}
 
 		if len(updateFields) == 0 {
@@ -714,7 +745,16 @@ func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
-			_, err = tx.Exec(`UPDATE event_targets SET target_name = ?, updated_at = NOW() WHERE uuid = ? AND event_uuid = ?`, update.TargetName, update.UUID, eventUUID)
+			// Extract board number from target name
+			boardNumStr := ""
+			for _, char := range update.TargetName {
+				if char >= '0' && char <= '9' {
+					boardNumStr += string(char)
+				}
+			}
+			boardNum, _ := strconv.Atoi(boardNumStr)
+
+			_, err = tx.Exec(`UPDATE event_targets SET target_name = ?, board_number = ?, updated_at = NOW() WHERE uuid = ? AND event_uuid = ?`, update.TargetName, boardNum, update.UUID, eventUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target", "details": err.Error()})
 				return
@@ -748,7 +788,7 @@ func GetTargetOptions(db *sqlx.DB) gin.HandlerFunc {
 				target_name
 			FROM event_targets
 			WHERE (event_uuid = ? OR event_uuid = (SELECT uuid FROM events WHERE slug = ?))
-			ORDER BY target_name ASC
+			ORDER BY board_number ASC, target_name ASC
 		`, eventID, eventID)
 
 		if err != nil {

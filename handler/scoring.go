@@ -55,7 +55,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 				FROM qualification_sessions qs
 				JOIN event_targets et ON et.event_uuid = qs.event_uuid
 				WHERE qs.event_uuid = (SELECT event_id FROM event_categories WHERE uuid = ?)
-				ORDER BY qs.created_at ASC, et.target_name ASC
+				ORDER BY qs.created_at ASC, et.board_number ASC, et.target_name ASC
 			`, categoryID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring cards"})
@@ -147,8 +147,8 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
 			WHERE qta.session_uuid = ? AND et.target_name = ?
-			GROUP BY qta.uuid, qta.participant_uuid, et.target_name, a.full_name, bt.name, ag.name
-			ORDER BY et.target_name ASC
+			GROUP BY qta.uuid, qta.participant_uuid, et.target_name, et.board_number, a.full_name, bt.name, ag.name
+			ORDER BY et.board_number ASC, et.target_name ASC
 		`, sessionID, targetName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring targets"})

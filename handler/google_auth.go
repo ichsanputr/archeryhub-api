@@ -163,7 +163,9 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		requestedUserType := metadata["user_type"]
-		if requestedUserType == "" {
+		// Validate user_type to prevent self-registration of restricted roles like scorekeeper
+		allowedTypes := map[string]bool{"archer": true, "organization": true, "club": true, "seller": true}
+		if !allowedTypes[requestedUserType] {
 			requestedUserType = "archer"
 		}
 		requestedFullName := metadata["full_name"]
@@ -248,7 +250,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		var record UserRecord
 
 		// Priority search
-		tables := []string{"archers", "organizations", "clubs", "sellers"}
+		tables := []string{"archers", "organizations", "clubs", "sellers", "scorekeepers"}
 		for _, t := range tables {
 			typeToRole := t
 			if typeToRole == "archers" {
@@ -262,6 +264,9 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 			if typeToRole == "sellers" {
 				typeToRole = "seller"
+			}
+			if typeToRole == "scorekeepers" {
+				typeToRole = "scorekeeper"
 			}
 
 			query := "SELECT uuid, '" + typeToRole + "' as role FROM " + t + " WHERE email = ? OR google_id = ?"
@@ -298,6 +303,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				table = "organizations"
 			case "club":
 				table = "clubs"
+			case "scorekeeper":
+				table = "scorekeepers"
 			case "seller":
 				table = "sellers"
 			default:
@@ -322,6 +329,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				tableName, nameCol = "organizations", "name"
 			case "club":
 				tableName, nameCol = "clubs", "name"
+			case "scorekeeper":
+				tableName, nameCol = "scorekeepers", "name"
 			case "seller":
 				tableName, nameCol = "sellers", "store_name"
 			default:

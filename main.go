@@ -287,6 +287,7 @@ func main() {
 		qualSessions.Use(middleware.AuthMiddleware())
 		{
 			qualSessions.GET("/assignments", handler.GetSessionAssignments(db))
+			qualSessions.GET("/board-codes", handler.GetBoardCodes(db))
 			qualSessions.GET("/scores", handler.GetSessionScores(db))
 			qualSessions.POST("/auto-assign", handler.AutoAssignParticipants(db))
 			qualSessions.POST("/reset-assignments", handler.ResetSessionAssignments(db))
@@ -405,6 +406,16 @@ func main() {
 			}
 		}
 
+		// Mobile dedicated routes
+		mobile := api.Group("/mobile")
+		{
+			mobile.GET("/hello", handler.MobileHello())
+			mobile.POST("/login", handler.MobileLogin(db))
+			mobile.GET("/events", handler.MobileListEvents(db))
+			// Swagger UI
+			mobile.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		}
+
 		// Organization routes
 		orgs := api.Group("/organizations")
 		{
@@ -418,6 +429,15 @@ func main() {
 			{
 
 				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
+
+				// Scorekeeper management
+				scorekeepers := protectedOrgs.Group("/scorekeepers")
+				{
+					scorekeepers.GET("", handler.GetOrganizationScorekeepers(db))
+					scorekeepers.POST("", handler.CreateScorekeeper(db))
+					scorekeepers.PUT("/:id", handler.UpdateScorekeeper(db))
+					scorekeepers.DELETE("/:id", handler.DeleteScorekeeper(db))
+				}
 			}
 		}
 
@@ -476,13 +496,6 @@ func main() {
 			}
 		}
 
-		// Mobile routes
-		mobile := api.Group("/mobile")
-		{
-			mobile.GET("/hello", handler.MobileHello())
-			// Swagger UI
-			mobile.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		}
 
 		// Event registration is handled via POST /events/:id/participants
 

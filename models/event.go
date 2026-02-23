@@ -231,3 +231,12 @@ type EventCategoryRef struct {
 	AgeName    string `json:"age_name" db:"age_name"`
 	Status     string `json:"status" db:"status"`
 }
+// EventTarget represents a physical target in an event
+type EventTarget struct {
+	UUID        string    `json:"id" db:"uuid"`
+	EventUUID   string    `json:"event_id" db:"event_uuid"`
+	TargetName  string    `json:"target_name" db:"target_name"`
+	BoardNumber int       `json:"board_number" db:"board_number"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
