@@ -35,7 +35,7 @@ func RootLogin(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(root.UUID, root.Email, "root", "root", root.Name, "")
+		token, err := generateJWT(root.UUID, root.Email, "root", "root", root.Name, "", "")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return

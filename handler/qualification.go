@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -321,6 +322,18 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // UpdateQualificationScore updates end scores for an assignment (supports batch)
+// UpdateQualificationScore godoc
+// @Summary      Update qualification score
+// @Description  Update end scores for an assignment (supports batch)
+// @Tags         Mobile - Qualification
+// @Accept       json
+// @Produce      json
+// @Param        assignmentId  path      string  true  "Assignment UUID"
+// @Param        request       body      models.ScoreBatchUpdateRequest  true  "Score update request (Standard Batch format)"
+// @Success      200           {object}  MessageResponse
+// @Failure      400           {object}  ErrorResponse
+// @Failure      404           {object}  ErrorResponse
+// @Router       /mobile/qualification/scoring/scores/{assignmentId} [post]
 func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")
@@ -464,6 +477,19 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit scores"})
 			return
+		}
+
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			details, _ := json.Marshal(raw)
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_qualification_score", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Scores updated successfully"})
@@ -1240,6 +1266,18 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "auto_assign_participants", "Auto-assigned participants in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"message":       "Assignments created successfully",
 			"success_count": successCount,
@@ -1310,6 +1348,18 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
+		}
+
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Assignments reset successfully"})
@@ -1401,6 +1451,18 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
+		}
+
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "swap_assignments", "Swapped targets in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Targets swapped successfully"})

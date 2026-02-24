@@ -231,7 +231,11 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		// Generate JWT token
 		name := req.FullName
 		avatar := "" // New registration has no avatar yet
-		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar)
+		orgID := ""
+		if req.UserType == "organization" {
+			orgID = userID
+		}
+		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar, orgID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -416,7 +420,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		if user.AvatarURL != nil {
 			avatar = utils.MaskMediaURL(*user.AvatarURL)
 		}
-		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar)
+		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -561,7 +565,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // generateJWT generates a JWT token for the user
-func generateJWT(userID, email, role, userType, name, avatar string) (string, error) {
+func generateJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("archeryhub-secret-key-change-in-production")
@@ -574,6 +578,7 @@ func generateJWT(userID, email, role, userType, name, avatar string) (string, er
 		"avatar":    avatar,
 		"role":      role,
 		"user_type": userType,
+		"org_id":    orgUUID,
 		"exp":       time.Now().Add(time.Hour * 24 * 60).Unix(), // 60 days
 		"iat":       time.Now().Unix(),
 	}

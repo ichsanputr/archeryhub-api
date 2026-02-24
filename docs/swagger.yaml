@@ -1,26 +1,473 @@
 basePath: /api/v1
+definitions:
+  handler.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  handler.FinishMatchRequest:
+    properties:
+      winner_entry_id:
+        type: string
+    required:
+    - winner_entry_id
+    type: object
+  handler.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handler.MatchScoreRequest:
+    properties:
+      arrows_a:
+        items:
+          type: string
+        type: array
+      arrows_b:
+        items:
+          type: string
+        type: array
+      end_no:
+        type: integer
+      score_a:
+        type: integer
+      score_b:
+        type: integer
+    required:
+    - end_no
+    type: object
+  handler.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  handler.MobileEvent:
+    properties:
+      banner_url:
+        type: string
+      end_date:
+        type: string
+      location:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      organizer_avatar_url:
+        type: string
+      organizer_name:
+        type: string
+      participant_count:
+        type: integer
+      start_date:
+        type: string
+      uuid:
+        type: string
+    type: object
+  handler.MobileEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/handler.MobileEvent'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  handler.MobileLoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/handler.MobileUser'
+    type: object
+  handler.MobileUser:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      user_type:
+        type: string
+      username:
+        type: string
+      uuid:
+        type: string
+    type: object
+  handler.ScoringCard:
+    properties:
+      card_name:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      phase:
+        type: string
+      session_id:
+        type: string
+      session_name:
+        type: string
+      session_order:
+        type: integer
+      target_name:
+        type: string
+    type: object
+  handler.ScoringCardsResponse:
+    properties:
+      cards:
+        items:
+          $ref: '#/definitions/handler.ScoringCard'
+        type: array
+    type: object
+  handler.ScoringTarget:
+    properties:
+      name:
+        type: string
+      participants:
+        items: {}
+        type: array
+    type: object
+  handler.ScoringTargetsResponse:
+    properties:
+      targets:
+        items:
+          $ref: '#/definitions/handler.ScoringTarget'
+        type: array
+    type: object
+  models.ScoreBatchUpdateRequest:
+    properties:
+      ends:
+        items:
+          $ref: '#/definitions/models.SingleEndScore'
+        type: array
+    required:
+    - ends
+    type: object
+  models.SingleEndScore:
+    properties:
+      arrows:
+        items:
+          type: string
+        type: array
+      end_number:
+        type: integer
+    required:
+    - arrows
+    - end_number
+    type: object
 host: localhost:8001
 info:
   contact: {}
-  description: API documentation for the mobile application.
+  description: |-
+    This documentation is exclusively for the ArcheryHub Mobile Application.
+    NOTE: This Swagger only contains endpoints relevant to mobile app workflows (Scoring, Events, and Auth).
   title: ArcheryHub Mobile API
   version: "1.0"
 paths:
-  /mobile/hello:
-    get:
+  /mobile/auth/login:
+    post:
       consumes:
       - application/json
-      description: Provides a welcome message for mobile clients
+      description: Specialized login for mobile app
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Welcome to Mobile API
+            $ref: '#/definitions/handler.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Mobile login
       tags:
-      - mobile
+      - Mobile - Authentication
+  /mobile/elimination/scoring/matches/{matchId}/end:
+    post:
+      consumes:
+      - application/json
+      description: Calculate winner from scores and finish the match
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      - description: Winner details (optional)
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/handler.FinishMatchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: End match manually
+      tags:
+      - Mobile - Elimination
+  /mobile/elimination/scoring/matches/{matchId}/finish:
+    post:
+      consumes:
+      - application/json
+      description: Mark a match as finished and advance winner to next round
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      - description: Winner details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.FinishMatchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Finish match
+      tags:
+      - Mobile - Elimination
+  /mobile/elimination/scoring/matches/{matchId}/reset:
+    post:
+      consumes:
+      - application/json
+      description: Reset a finished match back to in_progress and remove winner from
+        next round
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Reset match
+      tags:
+      - Mobile - Elimination
+  /mobile/elimination/scoring/matches/{matchId}/score:
+    post:
+      consumes:
+      - application/json
+      description: Update or create end scores for a match
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      - description: Match score update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MatchScoreRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Update match score
+      tags:
+      - Mobile - Elimination
+  /mobile/events:
+    get:
+      description: Get events optimized for mobile view
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MobileEventsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: List mobile events
+      tags:
+      - Mobile - Events
+  /mobile/qualification/scoring/cards:
+    get:
+      description: Get selectable target cards for scoring context
+      parameters:
+      - description: Phase (qualification)
+        in: query
+        name: phase
+        required: true
+        type: string
+      - description: Category UUID
+        in: query
+        name: category_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ScoringCardsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Get scoring cards
+      tags:
+      - Mobile - Qualification
+      - Mobile - Elimination
+  /mobile/qualification/scoring/scores/{assignmentId}:
+    post:
+      consumes:
+      - application/json
+      description: Update end scores for an assignment (supports batch)
+      parameters:
+      - description: Assignment UUID
+        in: path
+        name: assignmentId
+        required: true
+        type: string
+      - description: Score update request (Standard Batch format)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ScoreBatchUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Update qualification score
+      tags:
+      - Mobile - Qualification
+  /mobile/qualification/scoring/targets:
+    get:
+      description: Get scoring progress for a selected target in a session
+      parameters:
+      - description: Phase (qualification)
+        in: query
+        name: phase
+        required: true
+        type: string
+      - description: Session UUID
+        in: query
+        name: session_id
+        required: true
+        type: string
+      - description: Target Name (e.g. 1A)
+        in: query
+        name: target_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ScoringTargetsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Get scoring targets
+      tags:
+      - Mobile - Qualification
 swagger: "2.0"

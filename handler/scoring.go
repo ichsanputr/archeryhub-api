@@ -7,8 +7,47 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// ScoringCard represents a selectable card for scoring
+type ScoringCard struct {
+	ID           string `json:"id"`
+	Label        string `json:"label"`
+	Phase        string `json:"phase"`
+	SessionID    string `json:"session_id"`
+	SessionName  string `json:"session_name"`
+	SessionOrder int    `json:"session_order"`
+	TargetName   string `json:"target_name"`
+	CardName     string `json:"card_name"`
+}
+
+// ScoringCardsResponse represents the response body for scoring cards
+type ScoringCardsResponse struct {
+	Cards []ScoringCard `json:"cards"`
+}
+
+// ScoringTarget represents a target and its participants' scores
+type ScoringTarget struct {
+	Name         string        `json:"name"`
+	Participants []interface{} `json:"participants"`
+}
+
+// ScoringTargetsResponse represents the response body for scoring targets
+type ScoringTargetsResponse struct {
+	Targets []ScoringTarget `json:"targets"`
+}
+
 // GetScoringCards returns selectable "card target" options for scoring context.
 // For now it supports qualification phase and returns cards across sessions for a given event category.
+// GetScoringCards godoc
+// @Summary      Get scoring cards
+// @Description  Get selectable target cards for scoring context
+// @Tags         Mobile - Qualification
+// @Tags         Mobile - Elimination
+// @Produce      json
+// @Param        phase        query     string  true  "Phase (qualification)"
+// @Param        category_id  query     string  true  "Category UUID"
+// @Success      200          {object}  ScoringCardsResponse
+// @Failure      400          {object}  ErrorResponse
+// @Router       /mobile/qualification/scoring/cards [get]
 func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")
@@ -22,18 +61,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 		// Qualification: list all target_numbers for all sessions in this event (derived from category_id),
 		// and attach target_name if any.
 		if phase == "qualification" {
-			type Row struct {
-				ID           string `db:"id" json:"id"`
-				Label        string `db:"label" json:"label"`
-				Phase        string `db:"phase" json:"phase"`
-				SessionID    string `db:"session_id" json:"session_id"`
-				SessionName  string `db:"session_name" json:"session_name"`
-				SessionOrder int    `db:"session_order" json:"session_order"`
-				TargetName   string `db:"target_name" json:"target_name"`
-				CardName     string `db:"card_name" json:"card_name"`
-			}
-
-			var rows []Row
+			var rows []ScoringCard
 			err := db.Select(&rows, `
 				SELECT
 					CONCAT(qs.uuid, '-', et.uuid) as id,
@@ -72,6 +100,17 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 
 // GetScoringTargets returns scoring progress for a selected target name in a session.
 // Qualification-only for now.
+// GetScoringTargets godoc
+// @Summary      Get scoring targets
+// @Description  Get scoring progress for a selected target in a session
+// @Tags         Mobile - Qualification
+// @Produce      json
+// @Param        phase        query     string  true  "Phase (qualification)"
+// @Param        session_id    query     string  true  "Session UUID"
+// @Param        target_name  query     string  true  "Target Name (e.g. 1A)"
+// @Success      200          {object}  ScoringTargetsResponse
+// @Failure      400          {object}  ErrorResponse
+// @Router       /mobile/qualification/scoring/targets [get]
 func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")

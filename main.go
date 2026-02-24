@@ -19,7 +19,8 @@ import (
 
 // @title ArcheryHub Mobile API
 // @version 1.0
-// @description API documentation for the mobile application.
+// @description This documentation is exclusively for the ArcheryHub Mobile Application.
+// @description NOTE: This Swagger only contains endpoints relevant to mobile app workflows (Scoring, Events, and Auth).
 // @host localhost:8001
 // @BasePath /api/v1
 
@@ -410,8 +411,36 @@ func main() {
 		mobile := api.Group("/mobile")
 		{
 			mobile.GET("/hello", handler.MobileHello())
-			mobile.POST("/login", handler.MobileLogin(db))
+
+			// 1. Authentication
+			auth := mobile.Group("/auth")
+			{
+				auth.POST("/login", handler.MobileLogin(db))
+			}
+
+			// 2. Events
 			mobile.GET("/events", handler.MobileListEvents(db))
+
+			// 3. Qualification Scoring
+			qual := mobile.Group("/qualification")
+			qual.Use(middleware.AuthMiddleware())
+			{
+				qual.GET("/scoring/cards", handler.GetScoringCards(db))
+				qual.GET("/scoring/targets", handler.GetScoringTargets(db))
+				qual.POST("/scoring/scores/:assignmentId", handler.UpdateQualificationScore(db))
+			}
+
+			// 4. Elimination Scoring
+			elim := mobile.Group("/elimination")
+			elim.Use(middleware.AuthMiddleware())
+			{
+				elim.GET("/scoring/cards", handler.GetScoringCards(db))
+				elim.POST("/scoring/matches/:matchId/score", handler.UpdateMatchScore(db))
+				elim.POST("/scoring/matches/:matchId/finish", handler.FinishMatch(db))
+				elim.POST("/scoring/matches/:matchId/end", handler.EndMatch(db))
+				elim.POST("/scoring/matches/:matchId/reset", handler.ResetMatch(db))
+			}
+
 			// Swagger UI
 			mobile.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 		}
@@ -496,6 +525,12 @@ func main() {
 			}
 		}
 
+
+		// Discovery routes
+		discovery := api.Group("/discovery")
+		{
+			discovery.GET("/sitemap", handler.GetSitemapData(db))
+		}
 
 		// Event registration is handled via POST /events/:id/participants
 

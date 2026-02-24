@@ -9,6 +9,54 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// MobileUser represents user information in mobile login response
+type MobileUser struct {
+	UUID      string `json:"uuid"`
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	FullName  string `json:"full_name"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url"`
+	Role      string `json:"role"`
+	UserType  string `json:"user_type"`
+}
+
+// MobileLoginResponse represents the response body for mobile login
+type MobileLoginResponse struct {
+	Token string     `json:"token"`
+	User  MobileUser `json:"user"`
+}
+
+// MobileEvent represents event information optimized for mobile
+type MobileEvent struct {
+	UUID               string  `db:"uuid" json:"uuid"`
+	Name               string  `db:"name" json:"name"`
+	Location           string  `db:"location" json:"location"`
+	StartDate          string  `db:"start_date" json:"start_date"`
+	EndDate            string  `db:"end_date" json:"end_date"`
+	LogoURL            *string `db:"logo_url" json:"logo_url"`
+	BannerURL          *string `db:"banner_url" json:"banner_url"`
+	OrganizerName      string  `db:"organizer_name" json:"organizer_name"`
+	OrganizerAvatarURL *string `db:"organizer_avatar_url" json:"organizer_avatar_url"`
+	ParticipantCount   int     `db:"participant_count" json:"participant_count"`
+}
+
+// MobileEventsResponse represents the list of events for mobile
+type MobileEventsResponse struct {
+	Events     []MobileEvent `json:"events"`
+	TotalCount int           `json:"total_count"`
+}
+
+// ErrorResponse represents a standard error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// MessageResponse represents a standard success message response
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
 // MobileHello godoc
 func MobileHello() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -19,7 +67,18 @@ func MobileHello() gin.HandlerFunc {
 	}
 }
 
-// MobileLogin handles specialized login for mobile app
+// MobileLogin godoc
+// @Summary      Mobile login
+// @Description  Specialized login for mobile app
+// @Tags         Mobile - Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      LoginRequest  true  "Login request"
+// @Success      200      {object}  MobileLoginResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      401      {object}  ErrorResponse
+// @Failure      403      {object}  ErrorResponse
+// @Router       /mobile/auth/login [post]
 func MobileLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LoginRequest
@@ -107,7 +166,7 @@ func MobileLogin(db *sqlx.DB) gin.HandlerFunc {
 			avatar = utils.MaskMediaURL(*user.AvatarURL)
 		}
 		
-		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar)
+		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -135,7 +194,17 @@ func MobileLogin(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileListEvents returns events optimized for mobile view
+// MobileListEvents godoc
+// @Summary      List mobile events
+// @Description  Get events optimized for mobile view
+// @Tags         Mobile - Events
+// @Produce      json
+// @Param        limit   query     int     false  "Limit"
+// @Param        offset  query     int     false  "Offset"
+// @Param        search  query     string  false  "Search term"
+// @Success      200     {object}  MobileEventsResponse
+// @Failure      500     {object}  ErrorResponse
+// @Router       /mobile/events [get]
 func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -170,19 +239,6 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT ? OFFSET ?
 		`
 		args = append(args, limit, offset)
-
-		type MobileEvent struct {
-			UUID                string  `db:"uuid" json:"uuid"`
-			Name                string  `db:"name" json:"name"`
-			Location            string  `db:"location" json:"location"`
-			StartDate           string  `db:"start_date" json:"start_date"`
-			EndDate             string  `db:"end_date" json:"end_date"`
-			LogoURL             *string `db:"logo_url" json:"logo_url"`
-			BannerURL           *string `db:"banner_url" json:"banner_url"`
-			OrganizerName       string  `db:"organizer_name" json:"organizer_name"`
-			OrganizerAvatarURL  *string `db:"organizer_avatar_url" json:"organizer_avatar_url"`
-			ParticipantCount    int     `db:"participant_count" json:"participant_count"`
-		}
 
 		var events []MobileEvent
 		err := db.Select(&events, query, args...)

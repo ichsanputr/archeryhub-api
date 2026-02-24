@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"archeryhub-api/utils"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -12,6 +14,20 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
+
+// MatchScoreRequest represents the request to update a match score
+type MatchScoreRequest struct {
+	EndNo   int      `json:"end_no" binding:"required"`
+	ScoreA  int      `json:"score_a"`
+	ScoreB  int      `json:"score_b"`
+	ArrowsA []string `json:"arrows_a"`
+	ArrowsB []string `json:"arrows_b"`
+}
+
+// FinishMatchRequest represents the request to finish a match
+type FinishMatchRequest struct {
+	WinnerEntryID string `json:"winner_entry_id" binding:"required"`
+}
 
 // ============= BRACKET CRUD =============
 
@@ -1420,6 +1436,18 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // UpdateMatchScore updates or creates end scores for a match
+// UpdateMatchScore godoc
+// @Summary      Update match score
+// @Description  Update or create end scores for a match
+// @Tags         Mobile - Elimination
+// @Accept       json
+// @Produce      json
+// @Param        matchId  path      string  true  "Match UUID"
+// @Param        request  body      MatchScoreRequest  true  "Match score update request"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /mobile/elimination/scoring/matches/{matchId}/score [post]
 func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -1595,11 +1623,36 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			details, _ := json.Marshal(req)
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_match_score", string(details), c.ClientIP(), c.Request.UserAgent())
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Score updated successfully"})
 	}
 }
 
 // FinishMatch marks a match as finished and advances winner to next round
+// FinishMatch godoc
+// @Summary      Finish match
+// @Description  Mark a match as finished and advance winner to next round
+// @Tags         Mobile - Elimination
+// @Accept       json
+// @Produce      json
+// @Param        matchId  path      string  true  "Match UUID"
+// @Param        request  body      FinishMatchRequest  true  "Winner details"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /mobile/elimination/scoring/matches/{matchId}/finish [post]
 func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -1777,6 +1830,19 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			details, _ := json.Marshal(req)
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "finish_match", string(details), c.ClientIP(), c.Request.UserAgent())
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"message":          "Match finished and winner advanced",
 			"winner_entry_id":  req.WinnerEntryID,
@@ -1786,6 +1852,18 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // EndMatch calculates winner from scores and finishes the match
+// EndMatch godoc
+// @Summary      End match manually
+// @Description  Calculate winner from scores and finish the match
+// @Tags         Mobile - Elimination
+// @Accept       json
+// @Produce      json
+// @Param        matchId  path      string  true  "Match UUID"
+// @Param        request  body      FinishMatchRequest  false  "Winner details (optional)"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /mobile/elimination/scoring/matches/{matchId}/end [post]
 func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -2075,6 +2153,19 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN teams t ON ee.team_uuid = t.uuid
 			WHERE ee.uuid = ?`, winnerID)
 
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			details, _ := json.Marshal(req)
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "end_match", string(details), c.ClientIP(), c.Request.UserAgent())
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"message":         "Match ended",
 			"winner_entry_id": winnerID,
@@ -2112,6 +2203,17 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // ResetMatch resets a finished match back to live/pending and removes its winner from the next round
+// ResetMatch godoc
+// @Summary      Reset match
+// @Description  Reset a finished match back to in_progress and remove winner from next round
+// @Tags         Mobile - Elimination
+// @Accept       json
+// @Produce      json
+// @Param        matchId  path      string  true  "Match UUID"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /mobile/elimination/scoring/matches/{matchId}/reset [post]
 func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -2196,6 +2298,18 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
+		}
+
+		// Log for scorekeeper audit
+		userTypeContext, _ := c.Get("user_type")
+		if userTypeContext == "scorekeeper" {
+			userID, _ := c.Get("user_id")
+			orgID, _ := c.Get("org_id")
+			
+			var eventUUID string
+			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_match", "Match reset to in_progress", c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{

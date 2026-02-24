@@ -243,9 +243,9 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Find existing user across all tables
 		type UserRecord struct {
-			UUID string `db:"uuid"`
-			Type string
-			Role string `db:"role"`
+			UUID    string `db:"uuid"`
+			Role    string `db:"role"`
+			OrgUUID string `db:"organization_uuid"`
 		}
 		var record UserRecord
 
@@ -255,21 +255,25 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			typeToRole := t
 			if typeToRole == "archers" {
 				typeToRole = "archer"
-			}
-			if typeToRole == "organizations" {
+			} else if typeToRole == "organizations" {
 				typeToRole = "organization"
-			}
-			if typeToRole == "clubs" {
+			} else if typeToRole == "clubs" {
 				typeToRole = "club"
-			}
-			if typeToRole == "sellers" {
+			} else if typeToRole == "sellers" {
 				typeToRole = "seller"
-			}
-			if typeToRole == "scorekeepers" {
+			} else if typeToRole == "scorekeepers" {
 				typeToRole = "scorekeeper"
 			}
 
-			query := "SELECT uuid, '" + typeToRole + "' as role FROM " + t + " WHERE email = ? OR google_id = ?"
+			var query string
+			if t == "organizations" {
+				query = "SELECT uuid, 'organization' as role, uuid as organization_uuid FROM organizations WHERE email = ? OR google_id = ?"
+			} else if t == "scorekeepers" {
+				query = "SELECT uuid, 'scorekeeper' as role, organization_uuid FROM scorekeepers WHERE email = ? OR google_id = ?"
+			} else {
+				query = "SELECT uuid, '" + typeToRole + "' as role, '' as organization_uuid FROM " + t + " WHERE email = ? OR google_id = ?"
+			}
+
 			err = db.Get(&record, query, userInfo.Email, userInfo.ID)
 			if err == nil && record.UUID != "" {
 				userType = typeToRole
@@ -412,7 +416,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token (use displayNameForJWT so existing user keeps their name)
-		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture)
+		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture, record.OrgUUID)
 		if err != nil {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "token_generation_failed"})
@@ -560,7 +564,7 @@ func splitState(stateData string) []string {
 }
 
 // generateGoogleJWT generates a JWT token for Google OAuth users
-func generateGoogleJWT(userID, email, role, userType, name, avatar string) (string, error) {
+func generateGoogleJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("archeryhub-secret-key-change-in-production")
@@ -573,6 +577,7 @@ func generateGoogleJWT(userID, email, role, userType, name, avatar string) (stri
 		"avatar":    avatar,
 		"role":      role,
 		"user_type": userType,
+		"org_id":    orgUUID,
 		"exp":       time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
 		"iat":       time.Now().Unix(),
 	}
