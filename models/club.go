@@ -32,6 +32,7 @@ type Club struct {
 // UpdateClubRequest represents the request to update club profile
 type UpdateClubRequest struct {
 	Name             *string `json:"clubName"`
+	Slug             *string `json:"slug"`
 	Abbreviation     *string `json:"abbreviation"`
 	Description      *string `json:"description"`
 	BannerURL        *string `json:"banner_url"`

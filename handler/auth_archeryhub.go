@@ -165,26 +165,42 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				if whatsappNo == "" {
 					whatsappNo = req.Phone
 				}
+				cleanUsername := utils.CleanUsername(req.Username)
+				if cleanUsername == "" {
+					cleanUsername = "org-" + userID[:8]
+				}
+
 				insertQuery := `
 					INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 5, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY))
 				`
-				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
+				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
 			} else if table == "clubs" {
+				cleanUsername := utils.CleanUsername(req.Username)
+				if cleanUsername == "" {
+					cleanUsername = "club-" + userID[:8]
+				}
+
 				// For clubs, add 3 months free trial on package (Standard)
 				insertQuery := `
 					INSERT INTO clubs (uuid, user_id, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
 					VALUES (?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY))
 				`
-				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName)
+				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName)
 			} else if table != "archers" {
-				// For other tables (sellers)
+				// For other tables (sellers, organizations, clubs)
+				// Clean the username/slug
+				cleanUsername := utils.CleanUsername(req.Username)
+				if cleanUsername == "" {
+					cleanUsername = "user-" + userID[:8]
+				}
+
 				columnName := "slug"
 				insertQuery := `
 					INSERT INTO ` + table + ` (uuid, user_id, ` + columnName + `, email, password, ` + nameField + `, status)
 					VALUES (?, ?, ?, ?, ?, ?, 'active')
 				`
-				_, err = db.Exec(insertQuery, userID, userID, req.Username, req.Email, req.Password, req.FullName)
+				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName)
 			} else {
 				// For archers, include id and is_verified
 				// Generate id (ARC-XXXX)
@@ -201,18 +217,10 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
 				// Generate username from full name
-				username := strings.ToLower(req.FullName)
-				username = strings.ReplaceAll(username, " ", "-")
-				username = strings.ReplaceAll(username, "'", "")
-				username = strings.ReplaceAll(username, ".", "")
-				username = strings.ReplaceAll(username, ",", "")
-				var cleaned strings.Builder
-				for _, r := range username {
-					if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-						cleaned.WriteRune(r)
-					}
+				username := utils.CleanUsername(req.FullName)
+				if username == "" {
+					username = "archer"
 				}
-				username = cleaned.String()
 				username = username + "-" + userID[:8]
 
 				insertQuery := `

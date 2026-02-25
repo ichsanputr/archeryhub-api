@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"archeryhub-api/models"
 	"archeryhub-api/utils"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -13,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
+	"math/rand"
 )
 
 // MatchScoreRequest represents the request to update a match score
@@ -1010,22 +1013,25 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		updated := 0
 		for _, assignment := range req.Assignments {
 			var targetUUID *string
+			var targetBoardUUID sql.NullString
+
 			if assignment.TargetID != "" {
 				// Validate target belongs to the event
-				var exists int
-				err = tx.Get(&exists, `SELECT COUNT(*) FROM event_targets WHERE uuid = ? AND event_uuid = ?`, assignment.TargetID, bracket.EventUUID)
+				var boardNumber int
+				err = tx.Get(&boardNumber, `SELECT board_number FROM event_targets WHERE uuid = ? AND event_uuid = ?`, assignment.TargetID, bracket.EventUUID)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate target"})
-					return
-				}
-				if exists == 0 {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target for this event"})
 					return
 				}
 				targetUUID = &assignment.TargetID
+
+				// Get board verification ID if exists
+				tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_elimination WHERE bracket_uuid = ? AND board_number = ?",
+					bracket.UUID, boardNumber)
 			}
 
-			result, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ? WHERE uuid = ? AND bracket_uuid = ?`, targetUUID, assignment.MatchID, bracket.UUID)
+			result, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, target_board_id = ? WHERE uuid = ? AND bracket_uuid = ?`,
+				targetUUID, targetBoardUUID, assignment.MatchID, bracket.UUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target assignment"})
 				return
@@ -1120,7 +1126,17 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		for _, m := range matches {
 			// Only assign to matches that don't have a target yet
 			if m.TargetID == nil && targetIdx < len(freeTargets) {
-				_, err = tx.Exec(`UPDATE elimination_matches SET target_uuid = ? WHERE uuid = ?`, freeTargets[targetIdx], m.UUID)
+				targetID := freeTargets[targetIdx]
+
+				var boardNumber int
+				tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", targetID)
+
+				var targetBoardUUID sql.NullString
+				tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_elimination WHERE bracket_uuid = ? AND board_number = ?",
+					bracket.UUID, boardNumber)
+
+				_, err = tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, target_board_id = ? WHERE uuid = ?`,
+					targetID, targetBoardUUID, m.UUID)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to auto-assign target"})
 					return
@@ -1142,52 +1158,63 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// DeleteBracket deletes a bracket and all related data
+// DeleteBracket deletes a bracket and all related data (Destructive)
 func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
+		eventID := c.Param("id")
 
-		// Get bracket to check status
+		// Get bracket information
 		var bracket struct {
 			UUID   string `db:"uuid"`
 			Status string `db:"status"`
 		}
 		err := db.Get(&bracket, `SELECT uuid, status FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
-			return
-		}
-
-		if bracket.Status == "running" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete a running bracket"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
 			return
 		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
 
-		// Delete match arrows, ends, matches, entries, then bracket
+		// 1. Delete match arrows, ends, matches, entries
 		tx.Exec(`DELETE emas FROM elimination_match_arrow_scores emas 
 			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
 			JOIN elimination_matches em ON eme.match_uuid = em.uuid
 			WHERE em.bracket_uuid = ?`, bracket.UUID)
+			
 		tx.Exec(`DELETE eme FROM elimination_match_ends eme 
 			JOIN elimination_matches em ON eme.match_uuid = em.uuid
 			WHERE em.bracket_uuid = ?`, bracket.UUID)
+			
 		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracket.UUID)
 		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracket.UUID)
-		tx.Exec(`DELETE FROM elimination_brackets WHERE uuid = ?`, bracket.UUID)
+		
+		// 2. Delete board verification codes
+		tx.Exec(`DELETE FROM target_board_elimination WHERE bracket_uuid = ?`, bracket.UUID)
 
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete bracket"})
+		// 3. Delete the bracket itself
+		_, err = tx.Exec(`DELETE FROM elimination_brackets WHERE uuid = ?`, bracket.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus record bracket", "details": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Bracket deleted successfully"})
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan penghapusan"})
+			return
+		}
+
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventID, "elimination_bracket_deleted", "elimination_bracket", bracket.UUID, "Permanently deleted elimination bracket and all match history", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Bracket eliminasi dan seluruh data terkait berhasil dihapus"})
 	}
 }
 
@@ -2319,3 +2346,92 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetEliminationBoardCodes returns all generated codes for target boards in an elimination bracket
+func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bracketID := c.Param("bracketId")
+		if bracketID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bracketId is required"})
+			return
+		}
+
+		// Resolve bracket UUID and category UUID
+		var bracket struct {
+			UUID         string `db:"uuid"`
+			EventUUID    string `db:"event_uuid"`
+			CategoryUUID string `db:"category_uuid"`
+		}
+		err := db.Get(&bracket, `SELECT uuid, event_uuid, category_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
+			return
+		}
+
+		// Identify all unique board numbers currently in use for this bracket
+		var boardNumbers []int
+		err = db.Select(&boardNumbers, `
+			SELECT DISTINCT et.board_number 
+			FROM elimination_matches em 
+			JOIN event_targets et ON em.target_uuid = et.uuid 
+			WHERE em.bracket_uuid = ? AND et.board_number > 0
+			ORDER BY et.board_number ASC
+		`, bracket.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to identify active target boards", "details": err.Error()})
+			return
+		}
+
+		// Get or generate the "event part" suffix (3 letters) for this tournament
+		var suffix string
+		db.Get(&suffix, `
+			SELECT RIGHT(code, 3) 
+			FROM target_board_elimination tbe
+			JOIN elimination_brackets eb ON tbe.bracket_uuid = eb.uuid
+			WHERE eb.event_uuid = ? LIMIT 1
+		`, bracket.EventUUID)
+
+		if suffix == "" {
+			const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+			b := make([]byte, 3)
+			for j := range b {
+				b[j] = charset[rand.Intn(len(charset))]
+			}
+			suffix = string(b)
+		}
+
+		// Ensure codes exist for all these board numbers for this bracket
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed", "details": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		for _, bn := range boardNumbers {
+			var exists bool
+			err := tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM `target_board_elimination` WHERE `bracket_uuid` = ? AND `board_number` = ?)", bracket.UUID, bn)
+			if err != nil {
+				continue
+			}
+			if !exists {
+				code := fmt.Sprintf("%03d%s", bn, suffix)
+				_, err = tx.Exec("INSERT INTO `target_board_elimination` (`uuid`, `bracket_uuid`, `category_uuid`, `board_number`, `code`) VALUES (?, ?, ?, ?, ?)",
+					uuid.New().String(), bracket.UUID, bracket.CategoryUUID, bn, code)
+				if err != nil {
+					continue
+				}
+			}
+		}
+		tx.Commit()
+
+		// Fetch all codes for this bracket
+		var codes []models.TargetBoardElimination
+		err = db.Select(&codes, "SELECT `uuid`, `bracket_uuid`, `category_uuid`, `board_number`, `code`, `created_at` FROM `target_board_elimination` WHERE `bracket_uuid` = ?", bracket.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch board codes", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"board_codes": codes})
+	}
+}

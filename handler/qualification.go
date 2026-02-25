@@ -269,10 +269,15 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// DeleteQualificationSession removes a session and all its related data
+// DeleteQualificationSession removes a session and all its related data (Destructive)
 func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionUUID := c.Param("sessionId")
+		eventID := c.Param("id")
+
+		// Resolve event UUID (allow slug for logging)
+		var eventUUID string
+		_ = db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 
 		tx, err := db.Beginx()
 		if err != nil {
@@ -282,33 +287,27 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		// 1. Delete arrow scores
-		_, err = tx.Exec(`
+		tx.Exec(`
 			DELETE FROM qualification_arrow_scores 
 			WHERE end_score_uuid IN (SELECT uuid FROM qualification_end_scores WHERE session_uuid = ?)`,
 			sessionUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete arrow scores"})
-			return
-		}
 
 		// 2. Delete end scores
-		_, err = tx.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ?`, sessionUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete end scores"})
-			return
-		}
+		tx.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ?`, sessionUUID)
 
 		// 3. Delete assignments
-		_, err = tx.Exec(`DELETE FROM qualification_target_assignments WHERE session_uuid = ?`, sessionUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete assignments"})
-			return
-		}
+		tx.Exec(`DELETE FROM qualification_target_assignments WHERE session_uuid = ?`, sessionUUID)
 
-		// 4. Delete the session itself
+		// 4. Delete session-category links
+		tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
+
+		// 5. Delete board verification codes
+		tx.Exec(`DELETE FROM target_board_qualification WHERE session_uuid = ?`, sessionUUID)
+
+		// 6. Delete the session itself
 		_, err = tx.Exec(`DELETE FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete session"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete session record", "details": err.Error()})
 			return
 		}
 
@@ -317,7 +316,11 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Session deleted successfully"})
+		// Log activity
+		userID, _ := c.Get("user_id")
+		utils.LogActivity(db, userID.(string), eventUUID, "qualification_session_deleted", "qualification_session", sessionUUID, "Permanently deleted qualification session and all scores/assignments", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Sesi kualifikasi dan seluruh data terkait berhasil dihapus"})
 	}
 }
 

@@ -1672,28 +1672,23 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 1. Get archer UUID from participant
-		var archerUUID string
-		err = tx.Get(&archerUUID, "SELECT archer_id FROM event_participants WHERE uuid = ?", actualParticipantID)
-		if err == nil {
-			// Delete arrow scores first
-			_, _ = tx.Exec(`
-				DELETE FROM qualification_arrow_scores 
-				WHERE end_score_uuid IN (
-					SELECT uuid FROM qualification_end_scores WHERE archer_uuid = ?
-				)
-			`, archerUUID)
+		// 1. Cleanup qualification data
+		// Arrows first (child table)
+		tx.Exec(`
+			DELETE FROM qualification_arrow_scores 
+			WHERE end_score_uuid IN (
+				SELECT uuid FROM qualification_end_scores WHERE participant_uuid = ?
+			)
+		`, actualParticipantID)
 
-			// Delete end scores
-			_, _ = tx.Exec("DELETE FROM qualification_end_scores WHERE archer_uuid = ?", archerUUID)
-		}
+		// End scores
+		tx.Exec("DELETE FROM qualification_end_scores WHERE participant_uuid = ?", actualParticipantID)
 
 		// 2. Delete qualification target assignments
-		_, err = tx.Exec("DELETE FROM qualification_target_assignments WHERE archer_uuid = ?", archerUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete target assignments", "details": err.Error()})
-			return
-		}
+		tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid = ?", actualParticipantID)
+
+		// 3. Cleanup elimination entries if any
+		tx.Exec("DELETE FROM elimination_entries WHERE participant_uuid = ?", actualParticipantID)
 
 		// 3. Delete from event_participants
 		_, err = tx.Exec("DELETE FROM event_participants WHERE uuid = ? AND event_id = ?", actualParticipantID, actualEventID)
@@ -2247,7 +2242,82 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// DeleteEventCategory deletes a single event category
+// GetEventCategoryDetails returns detailed info about a category's usage across the system
+func GetEventCategoryDetails(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		categoryID := c.Param("categoryId")
+
+		// Resolve slug to UUID if needed
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		type CategoryInfo struct {
+			UUID               string  `db:"uuid" json:"id"`
+			DivisionName       string  `db:"division_name" json:"division_name"`
+			CategoryName       string  `db:"category_name" json:"category_name"`
+			CategoryNameCustom *string `db:"category_name_custom" json:"category_name_custom"`
+			GenderDivisionName string  `db:"gender_division_name" json:"gender_division_name"`
+			EventTypeName      string  `db:"event_type_name" json:"event_type_name"`
+		}
+
+		var info CategoryInfo
+		err = db.Get(&info, `
+			SELECT ec.uuid, rbt.name as division_name, rag.name as category_name, 
+			       ec.category_name_custom, rgd.name as gender_division_name, ret.name as event_type_name
+			FROM event_categories ec
+			JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			WHERE ec.uuid = ? AND ec.event_id = ?
+		`, categoryID, actualEventID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			return
+		}
+
+		// Count participants
+		var participantCount int
+		db.Get(&participantCount, "SELECT COUNT(*) FROM event_participants WHERE category_id = ?", categoryID)
+
+		// Count qualification sessions linked
+		var sessionCount int
+		db.Get(&sessionCount, "SELECT COUNT(*) FROM qualification_session_categories WHERE category_uuid = ?", categoryID)
+
+		// Count qualification scores
+		var scoreCount int
+		db.Get(&scoreCount, `
+			SELECT COUNT(*) FROM qualification_end_scores 
+			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?)
+		`, categoryID)
+
+		// Count elimination brackets
+		var bracketCount int
+		db.Get(&bracketCount, "SELECT COUNT(*) FROM elimination_brackets WHERE category_uuid = ?", categoryID)
+
+		// Count teams
+		var teamCount int
+		db.Get(&teamCount, "SELECT COUNT(*) FROM teams WHERE category_uuid = ?", categoryID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"category":          info,
+			"participant_count": participantCount,
+			"session_count":     sessionCount,
+			"score_count":       scoreCount,
+			"bracket_count":     bracketCount,
+			"team_count":        teamCount,
+			"is_deletable":      participantCount == 0 && sessionCount == 0 && bracketCount == 0 && teamCount == 0,
+		})
+	}
+}
+
+// DeleteEventCategory deletes a single event category and all its related data (Destructive)
 func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -2261,41 +2331,90 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if category exists and belongs to event
+		// 1. Check if category exists
 		var exists bool
-		err = db.Get(&exists, `
-			SELECT EXISTS(SELECT 1 FROM event_categories 
-			WHERE uuid = ? AND event_id = ?)
-		`, categoryID, actualEventID)
-
+		err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_categories WHERE uuid = ? AND event_id = ?)", categoryID, actualEventID)
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 			return
 		}
 
-		// Check if category has participants
-		var hasParticipants bool
-		err = db.Get(&hasParticipants, `
-			SELECT EXISTS(SELECT 1 FROM event_participants 
-			WHERE category_id = ?)
-		`, categoryID)
-
-		if err == nil && hasParticipants {
-			c.JSON(http.StatusConflict, gin.H{"error": "Cannot delete category with existing participants"})
+		// 2. Perform Cascading Deletion
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
+		defer tx.Rollback()
 
-		_, err = db.Exec("DELETE FROM event_categories WHERE uuid = ? AND event_id = ?", categoryID, actualEventID)
+		// A. Cleanup Qualification Scores & Assignments
+		// Arrows must be deleted before their parent ends
+		tx.Exec("DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (SELECT uuid FROM qualification_end_scores WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?))", categoryID)
+		tx.Exec("DELETE FROM qualification_end_scores WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?)", categoryID)
+		tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?)", categoryID)
+		tx.Exec("DELETE FROM qualification_session_categories WHERE category_uuid = ?", categoryID)
+
+		// B. Cleanup Elimination Data (Deep Cleanup)
+		// Delete arrow scores first (lowest level)
+		tx.Exec(`
+			DELETE FROM elimination_match_arrow_scores 
+			WHERE match_end_uuid IN (
+				SELECT uuid FROM elimination_match_ends 
+				WHERE match_uuid IN (
+					SELECT uuid FROM elimination_matches 
+					WHERE bracket_uuid IN (
+						SELECT uuid FROM elimination_brackets WHERE category_uuid = ?
+					)
+				)
+			)
+		`, categoryID)
+
+		// Delete ends
+		tx.Exec(`
+			DELETE FROM elimination_match_ends 
+			WHERE match_uuid IN (
+				SELECT uuid FROM elimination_matches 
+				WHERE bracket_uuid IN (
+					SELECT uuid FROM elimination_brackets WHERE category_uuid = ?
+				)
+			)
+		`, categoryID)
+
+		// Delete matches
+		tx.Exec("DELETE FROM elimination_matches WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE category_uuid = ?)", categoryID)
+		
+		// Delete entries and brackets
+		tx.Exec("DELETE FROM elimination_entries WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE category_uuid = ?)", categoryID)
+		tx.Exec("DELETE FROM elimination_brackets WHERE category_uuid = ?", categoryID)
+
+		// C. Cleanup Team Data
+		tx.Exec("DELETE FROM team_members WHERE team_id IN (SELECT uuid FROM teams WHERE event_id = ?)", categoryID)
+		tx.Exec("DELETE FROM teams WHERE event_id = ?", categoryID)
+
+		// D. Cleanup Board & Verification Data
+		tx.Exec("DELETE FROM target_board_qualification WHERE category_uuid = ?", categoryID)
+		tx.Exec("DELETE FROM target_board_elimination WHERE category_uuid = ?", categoryID)
+
+		// E. Cleanup Participants
+		tx.Exec("DELETE FROM event_participants WHERE category_id = ?", categoryID)
+
+		// F. Delete the Category
+		_, err = tx.Exec("DELETE FROM event_categories WHERE uuid = ? AND event_id = ?", categoryID, actualEventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete category", "details": err.Error()})
 			return
 		}
 
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit destructive deletion"})
+			return
+		}
+
 		// Log activity
 		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventID, "category_deleted", "event_category", categoryID, "Deleted event category", c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), eventID, "category_deleted_destructive", "event_category", categoryID, "Permanently deleted category and all related data", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Category deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Kategori dan seluruh data terkait berhasil dihapus secara permanen"})
 	}
 }
 

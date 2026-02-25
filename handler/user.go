@@ -159,6 +159,13 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				query += ", name = ?"
 				args = append(args, *req.Name)
 			}
+			if req.Slug != nil {
+				un := utils.CleanUsername(*req.Slug)
+				if un != "" {
+					query += ", slug = ?"
+					args = append(args, un)
+				}
+			}
 			if req.Abbreviation != nil {
 				query += ", abbreviation = ?"
 				args = append(args, *req.Abbreviation)
@@ -262,8 +269,11 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				args = append(args, *req.StoreName)
 			}
 			if req.Slug != nil {
-				query += ", slug = ?"
-				args = append(args, *req.Slug)
+				un := utils.CleanUsername(*req.Slug)
+				if un != "" {
+					query += ", slug = ?"
+					args = append(args, un)
+				}
 			}
 			if req.Description != nil {
 				query += ", description = ?"
@@ -342,6 +352,17 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			}
 			query += ", " + field + " = ?"
 			args = append(args, *req.FullName)
+		}
+		if req.Username != nil {
+			un := utils.CleanUsername(*req.Username)
+			if un != "" {
+				field := "username"
+				if userType == "organization" || userType == "seller" {
+					field = "slug"
+				}
+				query += ", " + field + " = ?"
+				args = append(args, un)
+			}
 		}
 		if req.Phone != nil {
 			query += ", phone = ?"

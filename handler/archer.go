@@ -460,26 +460,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		// Generate username if not provided
 		var username string
 		if req.Username != nil && *req.Username != "" {
-			username = *req.Username
+			username = utils.CleanUsername(*req.Username)
 		} else {
 			// Generate username from full name
-			generatedUsername := strings.ToLower(req.FullName)
-			generatedUsername = strings.ReplaceAll(generatedUsername, " ", "-")
-			generatedUsername = strings.ReplaceAll(generatedUsername, "'", "")
-			generatedUsername = strings.ReplaceAll(generatedUsername, ".", "")
-			generatedUsername = strings.ReplaceAll(generatedUsername, ",", "")
-			// Remove special characters, keep only alphanumeric and hyphens
-			var cleaned strings.Builder
-			for _, r := range generatedUsername {
-				if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-					cleaned.WriteRune(r)
-				}
-			}
-			generatedUsername = cleaned.String()
-			if generatedUsername == "" {
-				generatedUsername = "archer"
-			}
-			username = generatedUsername
+			username = utils.CleanUsername(req.FullName)
+		}
+
+		if username == "" {
+			username = "archer"
 		}
 
 		// Check if username already exists, if so add a suffix
@@ -591,6 +579,13 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 			query += ", full_name = ?"
 			args = append(args, fn)
+		}
+		if req.Username != nil {
+			un := utils.CleanUsername(*req.Username)
+			if un != "" {
+				query += ", username = ?"
+				args = append(args, un)
+			}
 		}
 		if req.DateOfBirth != nil {
 			query += ", date_of_birth = ?"

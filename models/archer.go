@@ -65,6 +65,7 @@ type CreateArcherRequest struct {
 // UpdateArcherRequest represents the request payload for updating an archer
 type UpdateArcherRequest struct {
 	FullName    *string       `json:"full_name"`
+	Username    *string       `json:"username"`
 	DateOfBirth *FlexibleTime `json:"date_of_birth"`
 	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
 	BowType     *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`

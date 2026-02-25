@@ -232,6 +232,7 @@ func main() {
 				protected.POST("/:id/publish", handler.PublishEvent(db))
 				protected.POST("/:id/categories", handler.CreateEventCategory(db))
 				protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
+				protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
 				protected.PUT("/:id/categories/:categoryId", handler.UpdateEventCategory(db))
 				protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
 				protected.POST("/:id/participants", handler.RegisterParticipant(db))
@@ -258,6 +259,8 @@ func main() {
 		{
 			qualification.GET("/sessions", handler.GetQualificationSessions(db))
 			qualification.POST("/sessions", handler.CreateQualificationSession(db))
+			qualification.PATCH("/sessions/:sessionId", handler.UpdateQualificationSession(db))
+			qualification.DELETE("/sessions/:sessionId", handler.DeleteQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
 		}
 
@@ -272,6 +275,7 @@ func main() {
 			elimination.DELETE("/brackets/:bracketId", middleware.AuthMiddleware(), handler.DeleteBracket(db))
 			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), handler.GenerateBracket(db))
 			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
+			elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
 			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), handler.UpdateMatchTargets(db))
 			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), handler.AutoAssignMatchTargets(db))
 			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))

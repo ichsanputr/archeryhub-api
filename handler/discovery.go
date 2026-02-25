@@ -20,8 +20,8 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 
 		var data SitemapData
 
-		// Fetch Event slugs
-		err := db.Select(&data.Events, "SELECT slug FROM events WHERE slug IS NOT NULL AND slug != '' AND status IN ('published', 'ongoing', 'completed')")
+		// Fetch Event slugs - include anything that isn't a draft
+		err := db.Select(&data.Events, "SELECT slug FROM events WHERE slug IS NOT NULL AND slug != '' AND status != 'draft'")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event slugs: " + err.Error()})
 			return
