@@ -165,6 +165,30 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Get affiliated clubs
+		var clubs []struct {
+			UUID    string  `db:"uuid" json:"id"`
+			Name    string  `db:"name" json:"name"`
+			Slug    string  `db:"slug" json:"slug"`
+			City    *string `db:"city" json:"city"`
+			LogoURL *string `db:"logo_url" json:"logo_url"`
+			MemberCount int `db:"member_count" json:"member_count"`
+		}
+		db.Select(&clubs, `
+			SELECT c.uuid, c.name, c.slug, c.city, c.logo_url,
+				   (SELECT COUNT(*) FROM club_members WHERE club_id = c.uuid AND status = 'active') as member_count
+			FROM clubs c
+			WHERE c.organization_id = ? AND c.status = 'active'
+			ORDER BY c.name ASC
+		`, org.UUID)
+
+		for i := range clubs {
+			if clubs[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*clubs[i].LogoURL)
+				clubs[i].LogoURL = &masked
+			}
+		}
+
 		// Build response with page_settings
 		response := gin.H{
 			"organization": gin.H{
@@ -200,6 +224,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			},
 			"events":       events,
 			"total_events": totalEvents,
+			"clubs":        clubs,
 		}
 
 		// Add FAQ if exists
