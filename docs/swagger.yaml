@@ -12,16 +12,6 @@ definitions:
     required:
     - winner_entry_id
     type: object
-  handler.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    - password
-    type: object
   handler.MatchScoreRequest:
     properties:
       arrows_a:
@@ -84,6 +74,13 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/handler.MobileUser'
+    type: object
+  handler.MobileScorekeeperLoginRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
     type: object
   handler.MobileUser:
     properties:
@@ -175,18 +172,47 @@ info:
   title: ArcheryHub Mobile API
   version: "1.0"
 paths:
-  /mobile/auth/login:
+  /mobile/assignments/{assignmentId}/detail:
+    get:
+      description: Returns all ends and arrow scores for a participant's qualification
+        assignment
+      parameters:
+      - description: Target assignment UUID
+        in: path
+        name: assignmentId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Get full score detail for an assignment
+      tags:
+      - Mobile - Scoring
+  /mobile/auth/scorekeeper/login:
     post:
       consumes:
       - application/json
-      description: Specialized login for mobile app
+      description: Login for scorekeepers using their unique code
       parameters:
-      - description: Login request
+      - description: Scorekeeper login request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.LoginRequest'
+          $ref: '#/definitions/handler.MobileScorekeeperLoginRequest'
       produces:
       - application/json
       responses:
@@ -206,7 +232,7 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/handler.ErrorResponse'
-      summary: Mobile login
+      summary: Scorekeeper login
       tags:
       - Mobile - Authentication
   /mobile/elimination/scoring/matches/{matchId}/end:
@@ -470,4 +496,62 @@ paths:
       summary: Get scoring targets
       tags:
       - Mobile - Qualification
+  /mobile/scan:
+    get:
+      description: Look up a target board by its barcode code and return archer list
+        with scores
+      parameters:
+      - description: Barcode / QR code on the target board
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Scan target barcode
+      tags:
+      - Mobile - Scoring
+  /mobile/sessions/boards:
+    get:
+      description: Get all boards and their archers with score summaries for a qualification
+        session
+      parameters:
+      - description: Qualification session UUID
+        in: query
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: List all target boards in a session
+      tags:
+      - Mobile - Scoring
 swagger: "2.0"

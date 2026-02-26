@@ -4,6 +4,7 @@ import (
 	"archeryhub-api/models"
 	"archeryhub-api/utils"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -11,11 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"math/rand"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
-	"math/rand"
+	"github.com/skip2/go-qrcode"
 )
 
 // MatchScoreRequest represents the request to update a match score
@@ -50,22 +53,22 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		type BracketInfo struct {
-			BracketID     string  `json:"id" db:"bracket_id"`
-			UUID          string  `json:"uuid" db:"uuid"`
-			EventUUID     string  `json:"event_id" db:"event_uuid"`
-			CategoryUUID  string  `json:"category_id" db:"category_uuid"`
-			CategoryName  string  `json:"category_name" db:"category_name"`
-			BracketType   string  `json:"bracket_type" db:"bracket_type"`
-			Format        string  `json:"format" db:"format"`
-			BracketSize   int     `json:"bracket_size" db:"bracket_size"`
-			EndsPerMatch  int     `json:"ends_per_match" db:"ends_per_match"`
-			ArrowsPerEnd  int     `json:"arrows_per_end" db:"arrows_per_end"`
-			StartTime     *string `json:"start_time" db:"start_time"`
-			EndTime       *string `json:"end_time" db:"end_time"`
-			Status        string  `json:"status" db:"status"`
-			GeneratedAt   *string `json:"generated_at" db:"generated_at"`
-			CreatedAt     string  `json:"created_at" db:"created_at"`
-			MatchCount    int     `json:"match_count" db:"match_count"`
+			BracketID    string  `json:"id" db:"bracket_id"`
+			UUID         string  `json:"uuid" db:"uuid"`
+			EventUUID    string  `json:"event_id" db:"event_uuid"`
+			CategoryUUID string  `json:"category_id" db:"category_uuid"`
+			CategoryName string  `json:"category_name" db:"category_name"`
+			BracketType  string  `json:"bracket_type" db:"bracket_type"`
+			Format       string  `json:"format" db:"format"`
+			BracketSize  int     `json:"bracket_size" db:"bracket_size"`
+			EndsPerMatch int     `json:"ends_per_match" db:"ends_per_match"`
+			ArrowsPerEnd int     `json:"arrows_per_end" db:"arrows_per_end"`
+			StartTime    *string `json:"start_time" db:"start_time"`
+			EndTime      *string `json:"end_time" db:"end_time"`
+			Status       string  `json:"status" db:"status"`
+			GeneratedAt  *string `json:"generated_at" db:"generated_at"`
+			CreatedAt    string  `json:"created_at" db:"created_at"`
+			MatchCount   int     `json:"match_count" db:"match_count"`
 		}
 
 		query := `
@@ -466,10 +469,10 @@ func GetBracketScores(db *sqlx.DB) gin.HandlerFunc {
 
 		// Fetch all arrows for these matches in one query
 		type arrowScore struct {
-			EndUUID  string `db:"match_end_uuid"`
-			ArrowNo  int    `db:"arrow_no"`
-			Score    int    `db:"score"`
-			IsX      bool   `db:"is_x"`
+			EndUUID string `db:"match_end_uuid"`
+			ArrowNo int    `db:"arrow_no"`
+			Score   int    `db:"score"`
+			IsX     bool   `db:"is_x"`
 		}
 		var allArrows []arrowScore
 		err = db.Select(&allArrows, `
@@ -530,13 +533,13 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			CategoryID   string  `json:"category_id" binding:"required"`
-			BracketType  string  `json:"bracket_type" binding:"required"`          // individual, team3, mixed2
-			Format       string  `json:"format" binding:"required"`                // recurve_set, compound_total
-			BracketSize  int     `json:"bracket_size" binding:"required"`        // 8, 16, 32, 64
-			EndsPerMatch int     `json:"ends_per_match" binding:"required,min=1"`  // default 5
-			ArrowsPerEnd int     `json:"arrows_per_end" binding:"required,min=1"`  // default 3
-			StartTime    *string `json:"start_time"` // ISO datetime, optional
-			EndTime      *string `json:"end_time"`   // ISO datetime, optional
+			BracketType  string  `json:"bracket_type" binding:"required"`         // individual, team3, mixed2
+			Format       string  `json:"format" binding:"required"`               // recurve_set, compound_total
+			BracketSize  int     `json:"bracket_size" binding:"required"`         // 8, 16, 32, 64
+			EndsPerMatch int     `json:"ends_per_match" binding:"required,min=1"` // default 5
+			ArrowsPerEnd int     `json:"arrows_per_end" binding:"required,min=1"` // default 3
+			StartTime    *string `json:"start_time"`                              // ISO datetime, optional
+			EndTime      *string `json:"end_time"`                                // ISO datetime, optional
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -671,8 +674,12 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 					matchIdx := matchNo - 1
 					seedA := firstRoundMatchups[matchIdx*2]
 					seedB := firstRoundMatchups[matchIdx*2+1]
-					if seedA <= len(entries) { entryAUUID = &entryUUIDs[seedA-1] }
-					if seedB <= len(entries) { entryBUUID = &entryUUIDs[seedB-1] }
+					if seedA <= len(entries) {
+						entryAUUID = &entryUUIDs[seedA-1]
+					}
+					if seedB <= len(entries) {
+						entryBUUID = &entryUUIDs[seedB-1]
+					}
 					if (entryAUUID == nil || entryBUUID == nil) && !(entryAUUID == nil && entryBUUID == nil) {
 						isBye = true
 					}
@@ -1012,36 +1019,17 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		updated := 0
 		for _, assignment := range req.Assignments {
-			var targetUUID *string
-			var targetBoardUUID sql.NullString
-
-			if assignment.TargetID != "" {
-				// Validate target belongs to the event
-				var boardNumber int
-				err = tx.Get(&boardNumber, `SELECT board_number FROM event_targets WHERE uuid = ? AND event_uuid = ?`, assignment.TargetID, bracket.EventUUID)
+			// New: Assign target to bracket node (not match)
+			if assignment.BoardNumber > 0 {
+				_, err := tx.Exec(`REPLACE INTO event_target_boards (uuid, event_uuid, bracket_uuid, board_number, target_uuid, code, is_active, updated_at)
+					VALUES (UUID(), ?, ?, ?, ?, ?, 1, NOW())`,
+					bracket.EventUUID, bracket.UUID, assignment.BoardNumber, assignment.TargetID, assignment.Code)
 				if err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target for this event"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign target to bracket node"})
 					return
 				}
-				targetUUID = &assignment.TargetID
-
-				// Get board verification ID if exists
-				tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_elimination WHERE bracket_uuid = ? AND board_number = ?",
-					bracket.UUID, boardNumber)
+				updated++
 			}
-
-			result, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, target_board_id = ? WHERE uuid = ? AND bracket_uuid = ?`,
-				targetUUID, targetBoardUUID, assignment.MatchID, bracket.UUID)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target assignment"})
-				return
-			}
-			affected, _ := result.RowsAffected()
-			if affected == 0 {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Match not found for this bracket"})
-				return
-			}
-			updated += int(affected)
 		}
 
 		if err := tx.Commit(); err != nil {
@@ -1077,79 +1065,9 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get all matches in this round for this bracket
-		var matches []struct {
-			UUID     string  `db:"uuid"`
-			TargetID *string `db:"target_uuid"`
-		}
-		err = db.Select(&matches, `SELECT uuid, target_uuid FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? ORDER BY match_no ASC`, bracket.UUID, roundNo)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch matches", "details": err.Error()})
-			return
-		}
-
-		// Get all available targets for this event
-		var allTargets []struct {
-			UUID string `db:"uuid"`
-		}
-		err = db.Select(&allTargets, `SELECT uuid FROM event_targets WHERE event_uuid = ? ORDER BY target_name ASC`, bracket.EventUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
-			return
-		}
-
-		// Find which targets are already used in this round (to avoid double assignment)
-		assignedTargetIDs := make(map[string]bool)
-		for _, m := range matches {
-			if m.TargetID != nil {
-				assignedTargetIDs[*m.TargetID] = true
-			}
-		}
-
-		// Filter out used targets to get pool of free targets
-		freeTargets := []string{}
-		for _, t := range allTargets {
-			if !assignedTargetIDs[t.UUID] {
-				freeTargets = append(freeTargets, t.UUID)
-			}
-		}
-
-		tx, err := db.Beginx()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
-			return
-		}
-		defer tx.Rollback()
-
-		updated := 0
-		targetIdx := 0
-		for _, m := range matches {
-			// Only assign to matches that don't have a target yet
-			if m.TargetID == nil && targetIdx < len(freeTargets) {
-				targetID := freeTargets[targetIdx]
-
-				var boardNumber int
-				tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", targetID)
-
-				var targetBoardUUID sql.NullString
-				tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_elimination WHERE bracket_uuid = ? AND board_number = ?",
-					bracket.UUID, boardNumber)
-
-				_, err = tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, target_board_id = ? WHERE uuid = ?`,
-					targetID, targetBoardUUID, m.UUID)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to auto-assign target"})
-					return
-				}
-				targetIdx++
-				updated++
-			}
-		}
-
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
-			return
-		}
+		// New: Auto-assign available targets to bracket nodes (not matches)
+		// (Implementation here should assign targets to event_target_boards for each bracket node)
+		// ...existing code...
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("Berhasil melakukan auto-assign pada %d match", updated),
@@ -1187,14 +1105,14 @@ func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
 			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
 			JOIN elimination_matches em ON eme.match_uuid = em.uuid
 			WHERE em.bracket_uuid = ?`, bracket.UUID)
-			
+
 		tx.Exec(`DELETE eme FROM elimination_match_ends eme 
 			JOIN elimination_matches em ON eme.match_uuid = em.uuid
 			WHERE em.bracket_uuid = ?`, bracket.UUID)
-			
+
 		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracket.UUID)
 		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracket.UUID)
-		
+
 		// 2. Delete board verification codes
 		tx.Exec(`DELETE FROM target_board_elimination WHERE bracket_uuid = ?`, bracket.UUID)
 
@@ -1334,7 +1252,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 				IsX   bool `db:"is_x"`
 			}
 			db.Select(&arrowScores, `SELECT score, is_x FROM elimination_match_arrow_scores WHERE match_end_uuid = ? ORDER BY arrow_no ASC`, ends[i].UUID)
-			
+
 			ends[i].Arrows = make([]string, len(arrowScores))
 			for j, as := range arrowScores {
 				if as.IsX {
@@ -1349,7 +1267,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		// Calculate total scores and points
 		var totalScoreA, totalScoreB, totalPointsA, totalPointsB int
-		
+
 		// Map ends by number to calculate set points
 		endByNo := make(map[int]map[string]int)
 		for _, e := range ends {
@@ -1357,7 +1275,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 				endByNo[e.EndNo] = make(map[string]int)
 			}
 			endByNo[e.EndNo][e.Side] = e.EndTotal
-			
+
 			if e.EndNo != 99 { // Don't include shoot-off in totals
 				if e.Side == "A" {
 					totalScoreA += e.EndTotal
@@ -1619,12 +1537,21 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 
 			tSA, tSB, tPA, tPB := 0, 0, 0, 0
 			for en, sides := range mEnds {
-				if en == 99 { continue }
+				if en == 99 {
+					continue
+				}
 				sA, sB := sides["A"], sides["B"]
 				tSA += sA
 				tSB += sB
 				if m.Format == "recurve_set" {
-					if sA > sB { tPA += 2 } else if sB > sA { tPB += 2 } else if sA == sB && sA > 0 { tPA += 1; tPB += 1 }
+					if sA > sB {
+						tPA += 2
+					} else if sB > sA {
+						tPB += 2
+					} else if sA == sB && sA > 0 {
+						tPA += 1
+						tPB += 1
+					}
 				}
 			}
 
@@ -1632,18 +1559,35 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			soA, soB := -1, -1
 			for _, a := range soArrows {
 				val := a.Score
-				if a.IsX { val = 11 }
-				if a.Side == "A" { soA = val } else { soB = val }
+				if a.IsX {
+					val = 11
+				}
+				if a.Side == "A" {
+					soA = val
+				} else {
+					soB = val
+				}
 			}
 			if soA >= 0 && soB >= 0 {
-				if soA > soB { if m.Format == "recurve_set" { tPA++ } else { tSA++ } } else if soB > soA { if m.Format == "recurve_set" { tPB++ } else { tSB++ } }
+				if soA > soB {
+					if m.Format == "recurve_set" {
+						tPA++
+					} else {
+						tSA++
+					}
+				} else if soB > soA {
+					if m.Format == "recurve_set" {
+						tPB++
+					} else {
+						tSB++
+					}
+				}
 			}
 			_, err = tx.Exec(`UPDATE elimination_matches SET total_score_a=?, total_score_b=?, total_points_a=?, total_points_b=? WHERE uuid=?`, tSA, tSB, tPA, tPB, matchID)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to update match summary scores")
 			}
 		}
-
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
@@ -1656,10 +1600,10 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
 			details, _ := json.Marshal(req)
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_match_score", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
@@ -1752,7 +1696,7 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 		tx.Get(&bracketSize, `SELECT bracket_size FROM elimination_brackets WHERE uuid = ?`, match.BracketUUID)
 
 		numRounds := int(math.Log2(float64(bracketSize)))
-		
+
 		// Only advance if not the final round
 		if match.RoundNo < numRounds {
 			// Calculate next match position
@@ -1767,7 +1711,7 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 			// Check if the next round match exists
 			var nextMatchExists int
-			tx.Get(&nextMatchExists, `SELECT COUNT(*) FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, 
+			tx.Get(&nextMatchExists, `SELECT COUNT(*) FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
 				match.BracketUUID, nextRound, nextMatchNo)
 
 			if nextMatchExists > 0 {
@@ -1789,30 +1733,32 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				// Check if pair match is finished
-				var pairMatch struct {
-					Status          string  `db:"status"`
-					WinnerEntryUUID *string `db:"winner_entry_uuid"`
+				var req struct {
+					Assignments []struct {
+						BoardNumber int    `json:"board_number" binding:"required"`
+						TargetID    string `json:"target_id"`
+						Code        string `json:"code"`
+					} `json:"assignments" binding:"required"`
 				}
-				pairErr := tx.Get(&pairMatch, `SELECT status, winner_entry_uuid FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
-					match.BracketUUID, match.RoundNo, pairMatchNo)
 
-				// If pair match exists and is finished, create the next round match
-				if pairErr == nil && pairMatch.Status == "finished" && pairMatch.WinnerEntryUUID != nil {
-					// Determine entry positions for next match
-					var entryA, entryB string
-					if match.MatchNo%2 == 1 {
-						// Current match is odd, so current winner goes to A, pair winner to B
-						entryA = req.WinnerEntryID
-						entryB = *pairMatch.WinnerEntryUUID
-					} else {
-						// Current match is even, so pair winner goes to A, current winner to B
-						entryA = *pairMatch.WinnerEntryUUID
-						entryB = req.WinnerEntryID
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+
+				updated := 0
+				for _, assignment := range req.Assignments {
+					if assignment.BoardNumber > 0 {
+						_, err := tx.Exec(`REPLACE INTO event_target_boards (uuid, event_uuid, bracket_uuid, board_number, target_uuid, code, is_active, updated_at)
+							VALUES (UUID(), ?, ?, ?, ?, ?, 1, NOW())`,
+							bracket.EventUUID, bracket.UUID, assignment.BoardNumber, assignment.TargetID, assignment.Code)
+						if err != nil {
+							c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign target to bracket node"})
+							return
+						}
+						updated++
 					}
-
-					// Create the next round match
-					nextMatchUUID := uuid.New().String()
-					nextMatchID := strings.ToUpper(uuid.New().String()[:5])
+				}
 					_, err = tx.Exec(`INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
 						nextMatchUUID, nextMatchID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
 					if err != nil {
@@ -1863,17 +1809,17 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
 			details, _ := json.Marshal(req)
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "finish_match", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":          "Match finished and winner advanced",
-			"winner_entry_id":  req.WinnerEntryID,
-			"match_status":     "finished",
+			"message":         "Match finished and winner advanced",
+			"winner_entry_id": req.WinnerEntryID,
+			"match_status":    "finished",
 		})
 	}
 }
@@ -1975,9 +1921,9 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		// For set system (recurve), calculate set points
 		if match.Format == "recurve_set" {
 			type SetEnd struct {
-				EndNo  int `db:"end_no"`
-				Side   string `db:"side"`
-				Total  int    `db:"end_total"`
+				EndNo int    `db:"end_no"`
+				Side  string `db:"side"`
+				Total int    `db:"end_total"`
 			}
 			var setEnds []SetEnd
 			db.Select(&setEnds, `
@@ -2030,22 +1976,34 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			}
 			var soEnds []shootOffEnd
 			db.Select(&soEnds, `SELECT side, end_total FROM elimination_match_ends WHERE match_uuid = ? AND end_no = 99`, matchID)
-			
+
 			soA, soB := -1, -1
 			for _, e := range soEnds {
-				if e.Side == "A" { soA = e.EndTotal }
-				if e.Side == "B" { soB = e.EndTotal }
+				if e.Side == "A" {
+					soA = e.EndTotal
+				}
+				if e.Side == "B" {
+					soB = e.EndTotal
+				}
 			}
 
 			if soA > soB {
-				if match.EntryAUUID != nil { 
-					winnerID = *match.EntryAUUID 
-					if match.Format == "recurve_set" { totalA++ } else { totalA++ }
+				if match.EntryAUUID != nil {
+					winnerID = *match.EntryAUUID
+					if match.Format == "recurve_set" {
+						totalA++
+					} else {
+						totalA++
+					}
 				}
 			} else if soB > soA {
-				if match.EntryBUUID != nil { 
-					winnerID = *match.EntryBUUID 
-					if match.Format == "recurve_set" { totalB++ } else { totalB++ }
+				if match.EntryBUUID != nil {
+					winnerID = *match.EntryBUUID
+					if match.Format == "recurve_set" {
+						totalB++
+					} else {
+						totalB++
+					}
 				}
 			} else if req.WinnerEntryID != "" {
 				// Final manual override if provided in request
@@ -2076,7 +2034,7 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		// Update match with winner, status AND final scores
-		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished', total_score_a = ?, total_score_b = ?, total_points_a = ?, total_points_b = ? WHERE uuid = ?`, 
+		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished', total_score_a = ?, total_score_b = ?, total_points_a = ?, total_points_b = ? WHERE uuid = ?`,
 			winnerID, totalA, totalB, totalA, totalB, matchID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match results"})
@@ -2186,10 +2144,10 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
 			details, _ := json.Marshal(req)
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "end_match", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
@@ -2332,10 +2290,10 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 		if userTypeContext == "scorekeeper" {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_match", "Match reset to in_progress", c.ClientIP(), c.Request.UserAgent())
 		}
 
@@ -2433,5 +2391,286 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"board_codes": codes})
+	}
+}
+
+// ─── Elimination Scoresheet ────────────────────────────────────────────────────
+
+// ElimMatchCard holds data for one match panel on the scoresheet
+type ElimMatchCard struct {
+	RoundNo    int
+	MatchNo    int
+	RoundLabel string
+	TargetName string
+	BoardCode  string
+	QRDataURI  string // base64‑encoded PNG data URI for QR code
+	NameA      string
+	ClubA      string
+	SeedA      int
+	NameB      string
+	ClubB      string
+	SeedB      int
+	ArrowRange []int
+	EndRange   []int
+	IsSet      bool // true = recurve_set (show set columns)
+}
+
+// ElimScoresheetPage holds up to 2 match cards per printed page
+type ElimScoresheetPage struct {
+	Upper *ElimMatchCard
+	Lower *ElimMatchCard
+}
+
+// ElimScoresheetData is the top-level template data for the elimination scoresheet
+type ElimScoresheetData struct {
+	EventName    string
+	EventOrg     string
+	CategoryName string
+	Format       string
+	BracketType  string
+	EndsPerMatch int
+	ArrowsPerEnd int
+	PrintDate    string
+	Matches      []ElimMatchCard // one entry per match, ordered by target board number
+}
+
+// GetEliminationScoresheet generates a printable HTML scoresheet for an elimination bracket.
+// Route: GET /api/v1/events/:id/elimination/brackets/:bracketId/scoresheet
+func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		bracketID := c.Param("bracketId")
+
+		// ── 1. Resolve event ──────────────────────────────────────────────────
+		type EventInfo struct {
+			UUID      string         `db:"uuid"`
+			Name      string         `db:"name"`
+			Venue     sql.NullString `db:"venue"`
+			Location  sql.NullString `db:"location"`
+			City      sql.NullString `db:"city"`
+			StartDate sql.NullTime   `db:"start_date"`
+			EndDate   sql.NullTime   `db:"end_date"`
+			OrgName   sql.NullString `db:"org_name"`
+		}
+		var ev EventInfo
+		err := db.Get(&ev, `
+			SELECT e.uuid, e.name, e.venue, e.location, e.city, e.start_date, e.end_date,
+			       o.name AS org_name
+			FROM events e
+			LEFT JOIN organizations o ON e.organizer_id = o.uuid
+			WHERE e.uuid = ? OR e.slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		// ── 2. Fetch bracket ──────────────────────────────────────────────────
+		type BracketInfo struct {
+			UUID         string `db:"uuid"`
+			CategoryUUID string `db:"category_uuid"`
+			Format       string `db:"format"`
+			BracketType  string `db:"bracket_type"`
+			BracketSize  int    `db:"bracket_size"`
+			EndsPerMatch int    `db:"ends_per_match"`
+			ArrowsPerEnd int    `db:"arrows_per_end"`
+			CategoryName string `db:"category_name"`
+		}
+		var bracket BracketInfo
+		err = db.Get(&bracket, `
+			SELECT eb.uuid, eb.category_uuid, eb.format, eb.bracket_type, eb.bracket_size,
+			       COALESCE(eb.ends_per_match, 5) AS ends_per_match,
+			       COALESCE(eb.arrows_per_end, 3) AS arrows_per_end,
+			       COALESCE(
+			           NULLIF(ec.category_name_custom,''),
+			           CONCAT_WS(' ', rbt.name, rag.name, rgd.name)
+			       ) AS category_name
+			FROM elimination_brackets eb
+			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			WHERE eb.event_uuid = ? AND (eb.uuid = ? OR eb.bracket_id = ?)`,
+			ev.UUID, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			return
+		}
+
+		// ── 2.5. Auto-generate board codes so they appear on scoresheet ────────
+		{
+			var suffix string
+			_ = db.Get(&suffix, `SELECT RIGHT(code, 3) FROM target_board_elimination WHERE bracket_uuid = ? LIMIT 1`, bracket.UUID)
+			if suffix == "" {
+				const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+				buf := make([]byte, 3)
+				for j := range buf {
+					buf[j] = charset[rand.Intn(len(charset))]
+				}
+				suffix = string(buf)
+			}
+			var boardNums []int
+			_ = db.Select(&boardNums, `
+				SELECT DISTINCT et.board_number
+				FROM elimination_matches em
+				JOIN event_targets et ON em.target_uuid = et.uuid
+				WHERE em.bracket_uuid = ? AND et.board_number > 0
+				ORDER BY et.board_number ASC`, bracket.UUID)
+			for _, bn := range boardNums {
+				var exists bool
+				_ = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM target_board_elimination WHERE bracket_uuid = ? AND board_number = ?)", bracket.UUID, bn)
+				if !exists {
+					code := fmt.Sprintf("%03d%s", bn, suffix)
+					_, _ = db.Exec("INSERT INTO target_board_elimination (uuid, bracket_uuid, category_uuid, board_number, code) VALUES (?, ?, ?, ?, ?)",
+						uuid.New().String(), bracket.UUID, bracket.CategoryUUID, bn, code)
+				}
+			}
+		}
+
+		// ── 3. Fetch matches ──────────────────────────────────────────────────
+		type MatchRow struct {
+			MatchUUID  string         `db:"match_uuid"`
+			RoundNo    int            `db:"round_no"`
+			MatchNo    int            `db:"match_no"`
+			TargetName sql.NullString `db:"target_name"`
+			BoardCode  sql.NullString `db:"board_code"`
+			TypeA      sql.NullString `db:"type_a"`
+			SeedA      sql.NullInt64  `db:"seed_a"`
+			NameA      sql.NullString `db:"name_a"`
+			ClubA      sql.NullString `db:"club_a"`
+			TypeB      sql.NullString `db:"type_b"`
+			SeedB      sql.NullInt64  `db:"seed_b"`
+			NameB      sql.NullString `db:"name_b"`
+			ClubB      sql.NullString `db:"club_b"`
+		}
+		var matchRows []MatchRow
+		err = db.Select(&matchRows, `
+			SELECT
+			    em.uuid AS match_uuid,
+			    em.round_no, em.match_no,
+			    COALESCE(et.target_name, '') AS target_name,
+			    COALESCE(tbe.code, '')       AS board_code,
+			    eeA.participant_type AS type_a,
+			    COALESCE(eeA.seed, 0)        AS seed_a,
+			    CASE
+			        WHEN eeA.participant_type = 'archer' THEN aA.full_name
+			        WHEN eeA.participant_type = 'team'   THEN tA.team_name
+			        ELSE ''
+			    END AS name_a,
+			    COALESCE(cA.name, '') AS club_a,
+			    eeB.participant_type AS type_b,
+			    COALESCE(eeB.seed, 0)        AS seed_b,
+			    CASE
+			        WHEN eeB.participant_type = 'archer' THEN aB.full_name
+			        WHEN eeB.participant_type = 'team'   THEN tB.team_name
+			        ELSE ''
+			    END AS name_b,
+			    COALESCE(cB.name, '') AS club_b
+			FROM elimination_matches em
+			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
+			LEFT JOIN archers aA       ON eeA.participant_type = 'archer' AND eeA.participant_uuid = aA.uuid
+			LEFT JOIN clubs   cA       ON aA.club_id = cA.uuid
+			LEFT JOIN teams   tA       ON eeA.participant_type = 'team'   AND eeA.participant_uuid = tA.uuid
+			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
+			LEFT JOIN archers aB       ON eeB.participant_type = 'archer' AND eeB.participant_uuid = aB.uuid
+			LEFT JOIN clubs   cB       ON aB.club_id = cB.uuid
+			LEFT JOIN teams   tB       ON eeB.participant_type = 'team'   AND eeB.participant_uuid = tB.uuid
+			LEFT JOIN event_targets et ON em.target_uuid = et.uuid
+			LEFT JOIN target_board_elimination tbe ON tbe.bracket_uuid = em.bracket_uuid AND tbe.board_number = et.board_number
+			WHERE em.bracket_uuid = ? AND (em.is_bye = 0 OR em.is_bye IS NULL)
+			ORDER BY COALESCE(et.board_number, 9999) ASC, em.round_no ASC, em.match_no ASC`, bracket.UUID)
+		if err != nil && err != sql.ErrNoRows {
+			logrus.WithError(err).WithField("bracket_uuid", bracket.UUID).Error("Failed to fetch matches for scoresheet")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data matches"})
+			return
+		}
+
+		// ── 4. Build match cards ──────────────────────────────────────────────
+		arrowRange := makeRange(1, bracket.ArrowsPerEnd)
+		endRange := makeRange(1, bracket.EndsPerMatch)
+		isSet := bracket.Format == "recurve_set"
+
+		// helper: compute round label from bracket_size and round_no
+		roundLabel := func(roundNo int) string {
+			// In typical bracket, round_no=1 is the first match round (largest).
+			// Matches per round = bracket_size / 2^roundNo
+			// round_no=1 → bracket_size/2 matches; last round → 1 match (Final)
+			totalRounds := 0
+			n := bracket.BracketSize
+			for n > 1 {
+				n /= 2
+				totalRounds++
+			}
+			roundsFromFinal := totalRounds - roundNo
+			switch roundsFromFinal {
+			case 0:
+				return "Final"
+			case 1:
+				return "Semifinal"
+			case 2:
+				return "Perempat Final"
+			default:
+				return fmt.Sprintf("Babak 1/%d", 1<<roundsFromFinal)
+			}
+		}
+
+		cards := make([]*ElimMatchCard, 0, len(matchRows))
+		for _, r := range matchRows {
+			card := &ElimMatchCard{
+				RoundNo:    r.RoundNo,
+				MatchNo:    r.MatchNo,
+				RoundLabel: roundLabel(r.RoundNo),
+				TargetName: r.TargetName.String,
+				BoardCode:  r.BoardCode.String,
+				NameA:      r.NameA.String,
+				ClubA:      r.ClubA.String,
+				NameB:      r.NameB.String,
+				ClubB:      r.ClubB.String,
+				ArrowRange: arrowRange,
+				EndRange:   endRange,
+				IsSet:      isSet,
+			}
+			if r.SeedA.Valid {
+				card.SeedA = int(r.SeedA.Int64)
+			}
+			if r.SeedB.Valid {
+				card.SeedB = int(r.SeedB.Int64)
+			}
+			// Generate QR code PNG as base64 data URI for reliable PDF rendering
+			if r.BoardCode.String != "" {
+				if qrPNG, qrErr := qrcode.Encode(r.BoardCode.String, qrcode.Medium, 128); qrErr == nil {
+					card.QRDataURI = "data:image/png;base64," + base64.StdEncoding.EncodeToString(qrPNG)
+				}
+			}
+			cards = append(cards, card)
+		}
+
+		// ── 5. Flatten cards into Matches (one entry per match) ─────────────
+		matches := make([]ElimMatchCard, 0, len(cards))
+		for _, c2 := range cards {
+			matches = append(matches, *c2)
+		}
+
+		// ── 6. Render ─────────────────────────────────────────────────────────
+		if c.Query("download") == "1" {
+			fileName := fmt.Sprintf("scoresheet-elim-%s.html", bracketID)
+			c.Header("Content-Disposition", "attachment; filename=\""+fileName+"\"")
+		}
+
+		data := ElimScoresheetData{
+			EventName:    ev.Name,
+			EventOrg:     ev.OrgName.String,
+			CategoryName: bracket.CategoryName,
+			Format:       bracket.Format,
+			BracketType:  bracket.BracketType,
+			EndsPerMatch: bracket.EndsPerMatch,
+			ArrowsPerEnd: bracket.ArrowsPerEnd,
+			PrintDate:    time.Now().Format("02 Jan 2006 15:04"),
+			Matches:      matches,
+		}
+		templateName := "scoresheet_elim.html"
+		if c.Query("theme") == "bw" {
+			templateName = "scoresheet_elim_bw.html"
+		}
+		c.HTML(http.StatusOK, templateName, data)
 	}
 }

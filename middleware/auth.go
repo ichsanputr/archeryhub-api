@@ -33,6 +33,13 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// If no token in cookie, try query param (for HTML/PDF download endpoints)
+		if tokenString == "" {
+			if queryToken := c.Query("token"); queryToken != "" {
+				tokenString = queryToken
+			}
+		}
+
 		// If still no token, return unauthorized
 		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
@@ -120,25 +127,24 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
-
 		// If no token in header, try to get from cookie
 		if tokenString == "" {
 			cookie, err := c.Cookie("auth_token")
 			if err == nil && cookie != "" {
 				tokenString = cookie
 			} else {
-                fmt.Println("[DEBUG OptionalAuth] No auth_token cookie found or error:", err)
-            }
+				fmt.Println("[DEBUG OptionalAuth] No auth_token cookie found or error:", err)
+			}
 		}
 
 		// If no token, just proceed
 		if tokenString == "" {
-            fmt.Println("[DEBUG OptionalAuth] No token found in header or cookie")
+			fmt.Println("[DEBUG OptionalAuth] No token found in header or cookie")
 			c.Next()
 			return
 		}
 
-        fmt.Println("[DEBUG OptionalAuth] Token found, length:", len(tokenString))
+		fmt.Println("[DEBUG OptionalAuth] Token found, length:", len(tokenString))
 
 		secret := []byte(os.Getenv("JWT_SECRET"))
 		if len(secret) == 0 {
@@ -155,16 +161,16 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 
 		if err == nil && token.Valid {
 			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-                fmt.Printf("[DEBUG OptionalAuth] Claims found. UserID: %v\n", claims["user_id"])
+				fmt.Printf("[DEBUG OptionalAuth] Claims found. UserID: %v\n", claims["user_id"])
 				c.Set("user_id", claims["user_id"])
 				c.Set("email", claims["email"])
 				c.Set("role", claims["role"])
 				c.Set("user_type", claims["user_type"])
 			}
 		} else {
-            fmt.Println("[DEBUG OptionalAuth] Token invalid or parse error:", err)
-        }
-		
+			fmt.Println("[DEBUG OptionalAuth] Token invalid or parse error:", err)
+		}
+
 		c.Next()
 	}
 }

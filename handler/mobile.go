@@ -67,147 +67,79 @@ func MobileHello() gin.HandlerFunc {
 	}
 }
 
-type MobileLoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Code     string `json:"code"`
+type MobileScorekeeperLoginRequest struct {
+	Code string `json:"code" binding:"required"`
 }
 
-// MobileLogin godoc
-// @Summary      Mobile login
-// @Description  Specialized login for mobile app
+// MobileScorekeeperLogin godoc
+// @Summary      Scorekeeper login
+// @Description  Login for scorekeepers using their unique code
 // @Tags         Mobile - Authentication
 // @Accept       json
 // @Produce      json
-// @Param        request  body      MobileLoginRequest  true  "Login request"
+// @Param        request  body      MobileScorekeeperLoginRequest  true  "Scorekeeper login request"
 // @Success      200      {object}  MobileLoginResponse
 // @Failure      400      {object}  ErrorResponse
 // @Failure      401      {object}  ErrorResponse
 // @Failure      403      {object}  ErrorResponse
-// @Router       /mobile/auth/login [post]
-func MobileLogin(db *sqlx.DB) gin.HandlerFunc {
+// @Router       /mobile/auth/scorekeeper/login [post]
+func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req MobileLoginRequest
+		var req MobileScorekeeperLoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Code is required"})
 			return
 		}
 
-		type UserResult struct {
-			UUID      string  `db:"uuid"`
-			ID        string  `db:"id"`
-			Username  string  `db:"slug"`
-			Email     string  `db:"email"`
-			Password  string  `db:"password"`
-			FullName  string  `db:"full_name"`
-			AvatarURL *string `db:"avatar_url"`
-			Role      string  `db:"role"`
-			Status    string  `db:"status"`
-			Type      string
-			OrgUUID   string  `db:"organization_uuid"`
+		type ScorekeeperResult struct {
+			UUID             string  `db:"uuid"`
+			OrganizationUUID string  `db:"organization_uuid"`
+			Code             string  `db:"code"`
+			Name             string  `db:"name"`
+			Email            string  `db:"email"`
+			AvatarURL        *string `db:"avatar_url"`
+			Status           string  `db:"status"`
 		}
 
-		var user UserResult
-		found := false
-
-		// 1. Check if it's a scorekeeper login by Code
-		if req.Code != "" || (len(req.Email) == 5 && req.Password == "") {
-			code := req.Code
-			if code == "" {
-				code = req.Email
-			}
-			err := db.Get(&user, "SELECT uuid, uuid as id, code as slug, IFNULL(email, '') as email, '' as password, name as full_name, avatar_url, 'scorekeeper' as role, COALESCE(status,'') as status, organization_uuid FROM scorekeepers WHERE code = ?", code)
-			if err == nil {
-				user.Type = "scorekeeper"
-				found = true
-				// For scorekeepers by code, we skip the password check later
-				req.Password = "" 
-				user.Password = ""
-			}
-		}
-
-		// 2. Standard login via Email/Password
-		if !found && req.Email != "" && req.Password != "" {
-			// Check archers
-			err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status, '' as organization_uuid FROM archers WHERE email = ?", req.Email)
-			if err == nil {
-				user.Type = "archer"
-				found = true
-			}
-
-			// Check organizations
-			if !found {
-				err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status, uuid as organization_uuid FROM organizations WHERE email = ?", req.Email)
-				if err == nil {
-					user.Type = "organization"
-					found = true
-				}
-			}
-
-			// Check clubs
-			if !found {
-				err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status, '' as organization_uuid FROM clubs WHERE email = ?", req.Email)
-				if err == nil {
-					user.Type = "club"
-					found = true
-				}
-			}
-		}
-
-		if !found {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials", "code": "invalid_credentials"})
+		var sk ScorekeeperResult
+		err := db.Get(&sk, `
+			SELECT uuid, organization_uuid, code, name, IFNULL(email, '') as email, avatar_url, COALESCE(status, '') as status
+			FROM scorekeepers WHERE code = ?`, req.Code)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid scorekeeper code", "code": "invalid_code"})
 			return
 		}
 
-		if user.Status != "active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active", "code": "account_inactive"})
+		if sk.Status != "active" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Scorekeeper account is not active", "code": "account_inactive"})
 			return
-		}
-
-		// Skip password checks for scorekeeper code-based login
-		if user.Type != "scorekeeper" {
-			if user.Password == "" {
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"error": "This account uses Google sign-in. Please sign in with Google.",
-					"code":  "use_google_signin",
-				})
-				return
-			}
-
-			if user.Password != req.Password {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
-				return
-			}
 		}
 
 		avatar := ""
-		if user.AvatarURL != nil {
-			avatar = utils.MaskMediaURL(*user.AvatarURL)
+		if sk.AvatarURL != nil {
+			avatar = utils.MaskMediaURL(*sk.AvatarURL)
 		}
-		
-		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID)
+
+		token, err := generateJWT(sk.UUID, sk.Email, "scorekeeper", "scorekeeper", sk.Name, avatar, sk.OrganizationUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
-		// Update activity
-		utils.LogActivity(db, user.UUID, "", "mobile_login", user.Type, user.UUID, "User logged in via mobile", c.ClientIP(), c.Request.UserAgent())
-		if user.Type == "scorekeeper" {
-			utils.LogScorekeeperAction(db, user.UUID, user.OrgUUID, "", "mobile_login", "Logged in via mobile app", c.ClientIP(), c.Request.UserAgent())
-		}
+		utils.LogActivity(db, sk.UUID, "", "mobile_login", "scorekeeper", sk.UUID, "Scorekeeper logged in via mobile", c.ClientIP(), c.Request.UserAgent())
+		utils.LogScorekeeperAction(db, sk.UUID, sk.OrganizationUUID, "", "mobile_login", "Logged in via mobile app", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
 			"token": token,
 			"user": gin.H{
-				"uuid":       user.UUID,
-				"id":         user.ID,
-				"username":   user.Username,
-				"full_name":  user.FullName,
-				"email":      user.Email,
+				"uuid":       sk.UUID,
+				"id":         sk.UUID,
+				"username":   sk.Code,
+				"full_name":  sk.Name,
+				"email":      sk.Email,
 				"avatar_url": avatar,
-				"role":       user.Role,
-				"user_type":  user.Type,
+				"role":       "scorekeeper",
+				"user_type":  "scorekeeper",
 			},
 		})
 	}
@@ -374,8 +306,393 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"events": events,
+			"events":      events,
 			"total_count": len(events), // Simple count for now, could be improved with separate COUNT query
+		})
+	}
+}
+
+// MobileScanTarget looks up a qualification target board by its QR/barcode code.
+// Returns board info, session info, and all archers assigned to that board with their
+// current score summary — used by the "Scan Barcode Bantalan" flow.
+//
+// MobileScanTarget godoc
+// @Summary      Scan target barcode
+// @Description  Look up a target board by its barcode code and return archer list with scores
+// @Tags         Mobile - Scoring
+// @Produce      json
+// @Param        code  query     string  true  "Barcode / QR code on the target board"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      400   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Router       /mobile/scan [get]
+func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Query("code")
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			return
+		}
+
+		type BoardInfo struct {
+			UUID         string `db:"uuid"`
+			SessionUUID  string `db:"session_uuid"`
+			CategoryUUID string `db:"category_uuid"`
+			BoardNumber  int    `db:"board_number"`
+			Code         string `db:"code"`
+			SessionName  string `db:"session_name"`
+			EventUUID    string `db:"event_uuid"`
+			EventName    string `db:"event_name"`
+		}
+
+		var board BoardInfo
+		err := db.Get(&board, `
+			SELECT 
+				tbq.uuid, tbq.session_uuid, tbq.category_uuid, tbq.board_number, tbq.code,
+				qs.name as session_name, qs.event_uuid,
+				e.name as event_name
+			FROM target_board_qualification tbq
+			JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
+			JOIN events e ON qs.event_uuid = e.uuid
+			WHERE tbq.code = ?
+			LIMIT 1
+		`, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target board not found", "code": "board_not_found"})
+			return
+		}
+
+		// Fetch archers assigned to this board in this session
+		type ArcherInfo struct {
+			AssignmentUUID  string  `db:"assignment_uuid" json:"assignment_uuid"`
+			ParticipantUUID string  `db:"participant_uuid" json:"participant_uuid"`
+			Position        string  `db:"position" json:"position"`
+			Name            string  `db:"name" json:"name"`
+			Division        string  `db:"division" json:"division"`
+			AvatarURL       *string `db:"avatar_url" json:"avatar_url"`
+			CurrentScore    int     `db:"current_score" json:"current_score"`
+			EndsCompleted   int     `db:"ends_completed" json:"ends_completed"`
+			TotalEnds       int     `db:"total_ends" json:"total_ends"`
+		}
+
+		var archers []ArcherInfo
+		err = db.Select(&archers, `
+			SELECT
+				qta.uuid as assignment_uuid,
+				qta.participant_uuid,
+				RIGHT(et.target_name, 1) as position,
+				COALESCE(a.full_name, '') as name,
+				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division,
+				a.avatar_url,
+				COALESCE(SUM(qes.total_score_end), 0) as current_score,
+				COUNT(qes.uuid) as ends_completed,
+				qs.total_ends
+			FROM qualification_target_assignments qta
+			JOIN event_targets et ON qta.target_uuid = et.uuid
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
+			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
+			WHERE qta.target_board_id = ? AND qta.session_uuid = ?
+			GROUP BY qta.uuid, qta.participant_uuid, et.target_name, a.full_name, bt.name, ag.name, qs.total_ends, a.avatar_url
+			ORDER BY et.target_name ASC
+		`, board.UUID, board.SessionUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archers", "details": err.Error()})
+			return
+		}
+
+		for i := range archers {
+			if archers[i].AvatarURL != nil {
+				masked := utils.MaskMediaURL(*archers[i].AvatarURL)
+				archers[i].AvatarURL = &masked
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"board": gin.H{
+				"uuid":          board.UUID,
+				"board_number":  board.BoardNumber,
+				"code":          board.Code,
+				"session_uuid":  board.SessionUUID,
+				"session_name":  board.SessionName,
+				"event_uuid":    board.EventUUID,
+				"event_name":    board.EventName,
+				"category_uuid": board.CategoryUUID,
+			},
+			"archers": archers,
+		})
+	}
+}
+
+// MobileGetSessionBoards returns all target boards in a qualification session
+// with each archer's current score summary — powers the "List Targets" leaderboard screen.
+//
+// MobileGetSessionBoards godoc
+// @Summary      List all target boards in a session
+// @Description  Get all boards and their archers with score summaries for a qualification session
+// @Tags         Mobile - Scoring
+// @Produce      json
+// @Param        session_id  query  string  true  "Qualification session UUID"
+// @Success      200         {object}  map[string]interface{}
+// @Failure      400         {object}  ErrorResponse
+// @Failure      404         {object}  ErrorResponse
+// @Router       /mobile/sessions/boards [get]
+func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Query("session_id")
+		if sessionID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
+			return
+		}
+
+		type SessionInfo struct {
+			UUID         string `db:"uuid"`
+			Name         string `db:"name"`
+			EventUUID    string `db:"event_uuid"`
+			EventName    string `db:"event_name"`
+			TotalEnds    int    `db:"total_ends"`
+			ArrowsPerEnd int    `db:"arrows_per_end"`
+		}
+
+		var session SessionInfo
+		err := db.Get(&session, `
+			SELECT qs.uuid, qs.name, qs.event_uuid, e.name as event_name, qs.total_ends, qs.arrows_per_end
+			FROM qualification_sessions qs
+			JOIN events e ON qs.event_uuid = e.uuid
+			WHERE qs.uuid = ?
+		`, sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			return
+		}
+
+		type ArcherAtBoard struct {
+			AssignmentUUID  string  `db:"assignment_uuid" json:"assignment_uuid"`
+			ParticipantUUID string  `db:"participant_uuid" json:"participant_uuid"`
+			TargetName      string  `db:"target_name" json:"target_name"`
+			BoardNumber     int     `db:"board_number" json:"board_number"`
+			Position        string  `db:"position" json:"position"`
+			Name            string  `db:"name" json:"name"`
+			Division        string  `db:"division" json:"division"`
+			AvatarURL       *string `db:"avatar_url" json:"avatar_url"`
+			CurrentScore    int     `db:"current_score" json:"current_score"`
+			EndsCompleted   int     `db:"ends_completed" json:"ends_completed"`
+			LastEndScore    int     `db:"last_end_score" json:"last_end_score"`
+			Rank            int     `json:"rank,omitempty"`
+		}
+
+		var archers []ArcherAtBoard
+		err = db.Select(&archers, `
+			SELECT
+				qta.uuid as assignment_uuid,
+				qta.participant_uuid,
+				et.target_name,
+				et.board_number,
+				RIGHT(et.target_name, 1) as position,
+				COALESCE(a.full_name, '') as name,
+				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division,
+				a.avatar_url,
+				COALESCE(SUM(qes.total_score_end), 0) as current_score,
+				COUNT(qes.uuid) as ends_completed,
+				COALESCE((
+					SELECT qes2.total_score_end
+					FROM qualification_end_scores qes2
+					WHERE qes2.participant_uuid = ep.uuid AND qes2.session_uuid = qta.session_uuid
+					ORDER BY qes2.end_number DESC
+					LIMIT 1
+				), 0) as last_end_score
+			FROM qualification_target_assignments qta
+			JOIN event_targets et ON qta.target_uuid = et.uuid
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
+			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
+			WHERE qta.session_uuid = ?
+			GROUP BY qta.uuid, qta.participant_uuid, et.target_name, et.board_number, a.full_name, bt.name, ag.name, a.avatar_url, ep.uuid
+			ORDER BY et.board_number ASC, et.target_name ASC
+		`, sessionID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch boards", "details": err.Error()})
+			return
+		}
+
+		// Assign rank by current_score desc
+		for i := range archers {
+			if archers[i].AvatarURL != nil {
+				masked := utils.MaskMediaURL(*archers[i].AvatarURL)
+				archers[i].AvatarURL = &masked
+			}
+			archers[i].Rank = i + 1
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"session": gin.H{
+				"uuid":           session.UUID,
+				"name":           session.Name,
+				"event_uuid":     session.EventUUID,
+				"event_name":     session.EventName,
+				"total_ends":     session.TotalEnds,
+				"arrows_per_end": session.ArrowsPerEnd,
+			},
+			"archers": archers,
+		})
+	}
+}
+
+// MobileGetAssignmentScoreDetail returns the full arrow-by-arrow score history for a
+// participant's target assignment — powers the "Detail Score Target" screen.
+//
+// MobileGetAssignmentScoreDetail godoc
+// @Summary      Get full score detail for an assignment
+// @Description  Returns all ends and arrow scores for a participant's qualification assignment
+// @Tags         Mobile - Scoring
+// @Produce      json
+// @Param        assignmentId  path   string  true  "Target assignment UUID"
+// @Success      200           {object}  map[string]interface{}
+// @Failure      400           {object}  ErrorResponse
+// @Failure      404           {object}  ErrorResponse
+// @Router       /mobile/assignments/{assignmentId}/detail [get]
+func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		assignmentID := c.Param("assignmentId")
+		if assignmentID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId is required"})
+			return
+		}
+
+		type AssignmentMeta struct {
+			AssignmentUUID  string  `db:"assignment_uuid"`
+			ParticipantUUID string  `db:"participant_uuid"`
+			SessionUUID     string  `db:"session_uuid"`
+			SessionName     string  `db:"session_name"`
+			EventName       string  `db:"event_name"`
+			TargetName      string  `db:"target_name"`
+			ArcherName      string  `db:"archer_name"`
+			Division        string  `db:"division"`
+			AvatarURL       *string `db:"avatar_url"`
+			TotalEnds       int     `db:"total_ends"`
+			ArrowsPerEnd    int     `db:"arrows_per_end"`
+		}
+
+		var meta AssignmentMeta
+		err := db.Get(&meta, `
+			SELECT
+				qta.uuid as assignment_uuid,
+				qta.participant_uuid,
+				qta.session_uuid,
+				qs.name as session_name,
+				e.name as event_name,
+				et.target_name,
+				COALESCE(a.full_name, '') as archer_name,
+				COALESCE(CONCAT(bt.name, ' ', ag.name), '') as division,
+				a.avatar_url,
+				qs.total_ends,
+				qs.arrows_per_end
+			FROM qualification_target_assignments qta
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			JOIN events e ON qs.event_uuid = e.uuid
+			JOIN event_targets et ON qta.target_uuid = et.uuid
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
+			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			WHERE qta.uuid = ?
+			LIMIT 1
+		`, assignmentID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			return
+		}
+
+		if meta.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*meta.AvatarURL)
+			meta.AvatarURL = &masked
+		}
+
+		type ArrowScore struct {
+			ArrowNumber int  `db:"arrow_number" json:"arrow_number"`
+			Score       int  `db:"score" json:"score"`
+			IsX         bool `db:"is_x" json:"is_x"`
+		}
+
+		type EndScore struct {
+			EndNumber    int          `db:"end_number" json:"end_number"`
+			EndScoreUUID string       `db:"end_score_uuid" json:"end_score_uuid"`
+			EndTotal     int          `db:"end_total" json:"end_total"`
+			XCount       int          `db:"x_count" json:"x_count"`
+			TenCount     int          `db:"ten_count" json:"ten_count"`
+			CumTotal     int          `json:"cumulative_total"`
+			Arrows       []ArrowScore `json:"arrows"`
+		}
+
+		var ends []EndScore
+		err = db.Select(&ends, `
+			SELECT 
+				qes.end_number,
+				qes.uuid as end_score_uuid,
+				qes.total_score_end as end_total,
+				qes.x_count_end as x_count,
+				qes.ten_count_end as ten_count
+			FROM qualification_end_scores qes
+			WHERE qes.participant_uuid = ? AND qes.session_uuid = ?
+			ORDER BY qes.end_number ASC
+		`, meta.ParticipantUUID, meta.SessionUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores"})
+			return
+		}
+
+		// For each end, fetch arrow scores and compute cumulative total
+		cumTotal := 0
+		totalXCount := 0
+		totalTenPlusXCount := 0
+
+		for i := range ends {
+			cumTotal += ends[i].EndTotal
+			ends[i].CumTotal = cumTotal
+			totalXCount += ends[i].XCount
+			totalTenPlusXCount += ends[i].TenCount + ends[i].XCount
+
+			var arrows []ArrowScore
+			_ = db.Select(&arrows, `
+				SELECT arrow_number, score, is_x
+				FROM qualification_arrow_scores
+				WHERE end_score_uuid = ?
+				ORDER BY arrow_number ASC
+			`, ends[i].EndScoreUUID)
+			if arrows == nil {
+				arrows = []ArrowScore{}
+			}
+			ends[i].Arrows = arrows
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"assignment": gin.H{
+				"uuid":           meta.AssignmentUUID,
+				"session_uuid":   meta.SessionUUID,
+				"session_name":   meta.SessionName,
+				"event_name":     meta.EventName,
+				"target_name":    meta.TargetName,
+				"archer_name":    meta.ArcherName,
+				"division":       meta.Division,
+				"avatar_url":     meta.AvatarURL,
+				"total_ends":     meta.TotalEnds,
+				"arrows_per_end": meta.ArrowsPerEnd,
+			},
+			"summary": gin.H{
+				"total_score":      cumTotal,
+				"total_x":          totalXCount,
+				"total_ten_plus_x": totalTenPlusXCount,
+				"ends_completed":   len(ends),
+			},
+			"ends": ends,
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"archeryhub-api/models"
 	"archeryhub-api/utils"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -36,19 +37,19 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type SessionWithCount struct {
-			UUID             string  `db:"uuid" json:"uuid"`
-			EventUUID        string  `db:"event_uuid" json:"event_uuid"`
-			SessionCode      string  `db:"session_code" json:"session_code"`
-			SessionDate      *string `db:"session_date" json:"session_date"`
-			Name             string  `db:"name" json:"name"`
-			StartTime        *string `db:"start_time" json:"start_time"`
-			EndTime          *string `db:"end_time" json:"end_time"`
-			TotalEnds        int     `db:"total_ends" json:"total_ends"`
-			ArrowsPerEnd     int     `db:"arrows_per_end" json:"arrows_per_end"`
-			CreatedAt        *string `db:"created_at" json:"created_at"`
-			UpdatedAt        *string `db:"updated_at" json:"updated_at"`
-			ParticipantCount int     `db:"participant_count" json:"participant_count"`
-			CategoryIDs      string  `db:"category_ids" json:"-"`
+			UUID             string   `db:"uuid" json:"uuid"`
+			EventUUID        string   `db:"event_uuid" json:"event_uuid"`
+			SessionCode      string   `db:"session_code" json:"session_code"`
+			SessionDate      *string  `db:"session_date" json:"session_date"`
+			Name             string   `db:"name" json:"name"`
+			StartTime        *string  `db:"start_time" json:"start_time"`
+			EndTime          *string  `db:"end_time" json:"end_time"`
+			TotalEnds        int      `db:"total_ends" json:"total_ends"`
+			ArrowsPerEnd     int      `db:"arrows_per_end" json:"arrows_per_end"`
+			CreatedAt        *string  `db:"created_at" json:"created_at"`
+			UpdatedAt        *string  `db:"updated_at" json:"updated_at"`
+			ParticipantCount int      `db:"participant_count" json:"participant_count"`
+			CategoryIDs      string   `db:"category_ids" json:"-"`
 			CategoryList     []string `json:"category_ids"`
 		}
 
@@ -413,7 +414,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			currentEndScoreUUID, exists := existingMap[end.EndNumber]
-			
+
 			if exists {
 				// Update end score
 				_, err = tx.Exec(`UPDATE qualification_end_scores SET total_score_end = ?, x_count_end = ?, ten_count_end = ? WHERE uuid = ?`,
@@ -467,9 +468,9 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			for i := 0; i < arrowCount; i++ {
 				valueStrings = append(valueStrings, "(?, ?, ?, ?, ?)")
 			}
-			bulkQuery := fmt.Sprintf("INSERT INTO qualification_arrow_scores (uuid, end_score_uuid, arrow_number, score, is_x) VALUES %s", 
+			bulkQuery := fmt.Sprintf("INSERT INTO qualification_arrow_scores (uuid, end_score_uuid, arrow_number, score, is_x) VALUES %s",
 				strings.Join(valueStrings, ","))
-			
+
 			_, err = tx.Exec(bulkQuery, arrowValues...)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow scores (bulk)"})
@@ -488,7 +489,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
 			details, _ := json.Marshal(raw)
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
 
@@ -745,12 +746,12 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type EndScore struct {
-			UUID          string `db:"uuid"`
+			UUID            string `db:"uuid"`
 			ParticipantUUID string `db:"participant_uuid" json:"participant_uuid"`
-			EndNumber     int    `db:"end_number" json:"end_number"`
-			TotalScoreEnd int    `db:"total_score_end" json:"total_score_end"`
-			XCountEnd     int    `db:"x_count_end" json:"x_count_end"`
-			TenCountEnd   int    `db:"ten_count_end" json:"ten_count_end"`
+			EndNumber       int    `db:"end_number" json:"end_number"`
+			TotalScoreEnd   int    `db:"total_score_end" json:"total_score_end"`
+			XCountEnd       int    `db:"x_count_end" json:"x_count_end"`
+			TenCountEnd     int    `db:"ten_count_end" json:"ten_count_end"`
 		}
 
 		// Query building
@@ -828,7 +829,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 			if _, ok := scoresByArcher[es.ParticipantUUID]; !ok {
 				scoresByArcher[es.ParticipantUUID] = &ArcherScores{
 					ParticipantUUID: es.ParticipantUUID,
-					Ends:       []EndWithArrows{},
+					Ends:            []EndWithArrows{},
 				}
 				archerOrder = append(archerOrder, es.ParticipantUUID)
 			}
@@ -957,7 +958,47 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 1. Natural sort targets: 1A, 1B, 1C, 1D, 2A, 2B... (target number first, then letter)
+		// 1. Clear all existing assignments for this category in this session first,
+		// so auto-assign always does a clean full re-assignment from scratch.
+		// Also clean up any associated scores so there's no orphaned data.
+		_, err = db.Exec(`
+			DELETE FROM qualification_arrow_scores
+			WHERE end_score_uuid IN (
+			  SELECT uuid FROM qualification_end_scores
+			  WHERE session_uuid = ?
+			    AND participant_uuid IN (
+			      SELECT uuid FROM event_participants WHERE category_id = ?
+			    )
+			)
+		`, sessionID, req.CategoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear arrow scores", "details": err.Error()})
+			return
+		}
+		_, err = db.Exec(`
+			DELETE FROM qualification_end_scores
+			WHERE session_uuid = ?
+			  AND participant_uuid IN (
+			    SELECT uuid FROM event_participants WHERE category_id = ?
+			  )
+		`, sessionID, req.CategoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear end scores", "details": err.Error()})
+			return
+		}
+		_, err = db.Exec(`
+			DELETE FROM qualification_target_assignments
+			WHERE session_uuid = ?
+			  AND participant_uuid IN (
+			    SELECT uuid FROM event_participants WHERE category_id = ?
+			  )
+		`, sessionID, req.CategoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear existing assignments", "details": err.Error()})
+			return
+		}
+
+		// 2. Natural sort targets: 1A, 1B, 1C, 1D, 2A, 2B... (target number first, then letter)
 		sort.Slice(allTargets, func(i, j int) bool {
 			ni, _ := strconv.Atoi(strings.TrimRight(allTargets[i].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 			nj, _ := strconv.Atoi(strings.TrimRight(allTargets[j].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
@@ -967,16 +1008,15 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return allTargets[i].TargetName < allTargets[j].TargetName
 		})
 
-		// 2. Build available slots: fill one target completely (all archers_per_target positions) before the next.
-		// "Taken" is per category: one physical target can be used by one archer per event category, so when
-		// auto-assigning category 2 we only consider targets already assigned to this category (not category 1).
-		// That way each category starts from the beginning (1A, 1B, 1C, 1D, 2A, ...).
+		// 3. Build available slots. "Taken" now only reflects OTHER categories' assignments
+		// (this category was fully cleared in step 1).
 		var existing []string
 		db.Select(&existing, `
 			SELECT qta.target_uuid
 			FROM qualification_target_assignments qta
-			WHERE qta.session_uuid = ?
-		`, sessionID)
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			WHERE qta.session_uuid = ? AND ep.category_id != ?
+		`, sessionID, req.CategoryID)
 		isTaken := make(map[string]bool)
 		for _, e := range existing {
 			isTaken[e] = true
@@ -1015,7 +1055,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			availableSlots = append(availableSlots, t)
 		}
 
-		// 3. Get unassigned participants (no club ordering; we randomize next)
+		// 4. Get ALL participants for this category (assignments were cleared in step 1)
 		type ParticipantWithClub struct {
 			ParticipationUUID string  `db:"uuid"`
 			ClubName          *string `db:"club_name"`
@@ -1027,34 +1067,32 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE ep.category_id = ?
-			AND ep.payment_status = 'lunas'
-			AND ep.uuid NOT IN (SELECT participant_uuid FROM qualification_target_assignments WHERE session_uuid = ?)
 			ORDER BY ep.uuid
-		`, req.CategoryID, sessionID)
+		`, req.CategoryID)
 
 		if err != nil || len(participants) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "No participants to assign", "count": 0})
 			return
 		}
 
-		// 4. Randomize participants
+		// 5. Randomize participants
 		rand.Shuffle(len(participants), func(i, j int) {
 			participants[i], participants[j] = participants[j], participants[i]
 		})
 
-		// 5. Assign in order: slot order is already target-full-first (1A..1D, 2A..2D, ...)
+		// 6. Assign in order: slot order is already target-full-first (1A..1D, 2A..2D, ...)
 		assignedCount := 0
 		for i, archer := range participants {
 			if i >= len(availableSlots) {
 				break
 			}
 			target := availableSlots[i]
-			
+
 			var boardNumber int
 			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", target.UUID)
 
 			var targetBoardUUID sql.NullString
-			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
 				sessionID, req.CategoryID, boardNumber)
 
 			assignmentUUID := uuid.New().String()
@@ -1072,7 +1110,6 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Participants assigned successfully", "count": assignedCount})
 	}
 }
-
 
 // DeleteQualificationAssignment deletes an archer assignment
 func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
@@ -1231,9 +1268,9 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			// 3. Insert new assignment
 			var boardNumber int
 			tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", assignment.TargetID)
-			
+
 			var targetBoardUUID sql.NullString
-			tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
 				sessionUUID, req.CategoryID, boardNumber)
 
 			_, err = tx.Exec(`
@@ -1274,10 +1311,10 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if userTypeContext == "scorekeeper" {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "auto_assign_participants", "Auto-assigned participants in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
 
@@ -1293,7 +1330,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
-		
+
 		var req struct {
 			CategoryID string `json:"category_id" binding:"required"`
 		}
@@ -1358,10 +1395,10 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if userTypeContext == "scorekeeper" {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
 
@@ -1420,10 +1457,10 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		tx.Get(&categoryIDB, "SELECT ep.category_id FROM event_participants ep WHERE ep.uuid = ?", req.ParticipantB)
 
 		var targetBoardUUIDB sql.NullString
-		tx.Get(&targetBoardUUIDB, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+		tx.Get(&targetBoardUUIDB, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
 			sessionID, categoryIDB, boardNumberA)
 
-		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ?, target_board_id = ? WHERE session_uuid = ? AND participant_uuid = ?", 
+		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ?, target_board_id = ? WHERE session_uuid = ? AND participant_uuid = ?",
 			targetA, targetBoardUUIDB, sessionID, req.ParticipantB)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move participant B", "details": err.Error()})
@@ -1438,7 +1475,7 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		tx.Get(&categoryID, "SELECT ep.category_id FROM event_participants ep WHERE ep.uuid = ?", req.ParticipantA)
 
 		var targetBoardUUIDA sql.NullString
-		tx.Get(&targetBoardUUIDA, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+		tx.Get(&targetBoardUUIDA, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
 			sessionID, categoryID, boardNumberB)
 
 		assignmentUUID := uuid.New().String()
@@ -1461,10 +1498,10 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if userTypeContext == "scorekeeper" {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
-			
+
 			var eventUUID string
 			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
-			
+
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "swap_assignments", "Swapped targets in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
 
@@ -1575,6 +1612,271 @@ func generateUniqueBoardCodeWithTx(tx *sqlx.Tx, sessionUUID string) (string, err
 	}
 	return "", fmt.Errorf("failed to generate unique code")
 }
+
+// ─── Scoresheet Data Structures ───────────────────────────────────────────────
+
+type ScoresheetPosition struct {
+	TargetName string
+	ArcherName string
+	ClubName   string
+	Category   string
+	Code       string
+	ArrowRange []int
+	EndRange   []int
+	Empty      bool
+}
+
+type ScoresheetRow struct {
+	Left  *ScoresheetPosition
+	Right *ScoresheetPosition
+}
+
+type ScoresheetBoard struct {
+	BoardNumber  int
+	Code         string
+	QRCodeBase64 string
+	Rows         []ScoresheetRow
+}
+
+type ScoresheetData struct {
+	EventName      string
+	EventOrg       string
+	Location       string
+	EventDates     string
+	SessionName    string
+	SessionCode    string
+	SessionDate    string
+	SessionDayName string
+	TotalEnds      int
+	ArrowsPerEnd   int
+	PrintDate      string
+	Boards         []ScoresheetBoard
+}
+
+// makeRange returns []int{start, start+1, ..., end}
+func makeRange(start, end int) []int {
+	result := make([]int, end-start+1)
+	for i := range result {
+		result[i] = start + i
+	}
+	return result
+}
+
+// GetQualificationScoresheet generates a printable HTML scoresheet for a qualification session.
+// Route: GET /api/v1/events/:id/qualification/sessions/:sessionCode/scoresheet
+func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		sessionCode := c.Param("sessionCode")
+
+		// ── 1. Fetch event ────────────────────────────────────────────────────
+		type EventRow struct {
+			UUID      string         `db:"uuid"`
+			Name      string         `db:"name"`
+			ShortName sql.NullString `db:"short_name"`
+			Venue     sql.NullString `db:"venue"`
+			Location  sql.NullString `db:"location"`
+			City      sql.NullString `db:"city"`
+			StartDate sql.NullTime   `db:"start_date"`
+			EndDate   sql.NullTime   `db:"end_date"`
+			OrgName   sql.NullString `db:"org_name"`
+		}
+		var ev EventRow
+		err := db.Get(&ev, `
+			SELECT e.uuid, e.name, e.short_name, e.venue, e.location, e.city,
+			       e.start_date, e.end_date,
+			       o.name as org_name
+			FROM events e
+			LEFT JOIN organizations o ON e.organizer_id = o.uuid
+			WHERE (e.uuid = ? OR e.slug = ?)`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		// Build event date string
+		eventDates := ""
+		if ev.StartDate.Valid {
+			sd := ev.StartDate.Time.Format("02 Jan 2006")
+			if ev.EndDate.Valid && ev.EndDate.Time.Format("2006-01-02") != ev.StartDate.Time.Format("2006-01-02") {
+				eventDates = sd + " – " + ev.EndDate.Time.Format("02 Jan 2006")
+			} else {
+				eventDates = sd
+			}
+		}
+
+		location := ""
+		if ev.Venue.Valid && ev.Venue.String != "" {
+			location = ev.Venue.String
+		} else if ev.Location.Valid && ev.Location.String != "" {
+			location = ev.Location.String
+		} else if ev.City.Valid && ev.City.String != "" {
+			location = ev.City.String
+		}
+
+		// ── 2. Fetch session ──────────────────────────────────────────────────
+		type SessionRow struct {
+			UUID         string       `db:"uuid"`
+			Name         string       `db:"name"`
+			Code         string       `db:"session_code"`
+			SessionDate  sql.NullTime `db:"session_date"`
+			StartTime    sql.NullTime `db:"start_time"`
+			TotalEnds    int          `db:"total_ends"`
+			ArrowsPerEnd int          `db:"arrows_per_end"`
+		}
+		var sess SessionRow
+		err = db.Get(&sess, `
+			SELECT uuid, name, session_code, session_date, start_time, total_ends, arrows_per_end
+			FROM qualification_sessions
+			WHERE event_uuid = ? AND session_code = ?`, ev.UUID, sessionCode)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi tidak ditemukan"})
+			return
+		}
+
+		sessionDateStr := ""
+		sessionDayName := ""
+		if sess.SessionDate.Valid {
+			sessionDateStr = sess.SessionDate.Time.Format("02 January 2006")
+			sessionDayName = sess.SessionDate.Time.Format("Monday")
+		}
+
+		// ── 3. Fetch assignments ──────────────────────────────────────────────
+		type AssignmentRow struct {
+			BoardNumber int            `db:"board_number"`
+			TargetName  string         `db:"target_name"`
+			ArcherName  sql.NullString `db:"archer_name"`
+			ClubName    sql.NullString `db:"club_name"`
+			BowType     sql.NullString `db:"bow_type"`
+			AgeGroup    sql.NullString `db:"age_group"`
+			BoardCode   sql.NullString `db:"board_code"`
+		}
+		var rows []AssignmentRow
+		err = db.Select(&rows, `
+			SELECT
+				et.board_number,
+				et.target_name,
+				COALESCE(a.full_name, '') AS archer_name,
+				COALESCE(c.name, '') AS club_name,
+				COALESCE(rbt.name, '') AS bow_type,
+				COALESCE(rag.name, '') AS age_group,
+				tbq.code AS board_code
+			FROM qualification_target_assignments qta
+			JOIN event_targets et ON qta.target_uuid = et.uuid
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN target_board_qualification tbq ON qta.target_board_id = tbq.uuid
+			WHERE qta.session_uuid = ?
+			ORDER BY et.board_number ASC, et.target_name ASC`, sess.UUID)
+		if err != nil && err != sql.ErrNoRows {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data"})
+			return
+		}
+
+		// ── 4. Build boards ───────────────────────────────────────────────────
+		arrowRange := makeRange(1, sess.ArrowsPerEnd)
+		endRange := makeRange(1, sess.TotalEnds)
+
+		// Group by board_number → ordered list of positions
+		type boardEntry struct {
+			boardNumber int
+			code        string
+			positions   []*ScoresheetPosition
+		}
+		boardMap := make(map[int]*boardEntry)
+		boardOrder := []int{}
+
+		for _, r := range rows {
+			bf, ok := boardMap[r.BoardNumber]
+			if !ok {
+				bf = &boardEntry{boardNumber: r.BoardNumber}
+				if r.BoardCode.Valid && r.BoardCode.String != "" {
+					bf.code = r.BoardCode.String
+				}
+				boardMap[r.BoardNumber] = bf
+				boardOrder = append(boardOrder, r.BoardNumber)
+			}
+
+			category := strings.TrimSpace(r.BowType.String + " " + r.AgeGroup.String)
+			code := r.TargetName
+			if r.BoardCode.Valid && r.BoardCode.String != "" {
+				code = r.BoardCode.String + "-" + string(r.TargetName[len(r.TargetName)-1])
+			}
+
+			pos := &ScoresheetPosition{
+				TargetName: r.TargetName,
+				ArcherName: r.ArcherName.String,
+				ClubName:   r.ClubName.String,
+				Category:   category,
+				Code:       strings.ToUpper(code),
+				ArrowRange: arrowRange,
+				EndRange:   endRange,
+			}
+			bf.positions = append(bf.positions, pos)
+		}
+
+		// Build ScoresheetBoard slices with rows of 2
+		boards := make([]ScoresheetBoard, 0, len(boardOrder))
+		for _, bn := range boardOrder {
+			bf := boardMap[bn]
+			positions := bf.positions
+
+			// Ensure at least 2 positions per row (fill up to 4 for a nice grid)
+			for len(positions)%2 != 0 {
+				positions = append(positions, &ScoresheetPosition{Empty: true, ArrowRange: arrowRange, EndRange: endRange})
+			}
+
+			// Always ensure there is a display code for the barcode; fall back to zero-padded board number
+			displayCode := bf.code
+			if displayCode == "" {
+				displayCode = fmt.Sprintf("%02d", bn)
+			}
+
+			// Generate QR code as base64 PNG
+			qrBase64 := ""
+			if qrBytes, err := utils.GenerateQRCode(displayCode, 128); err == nil {
+				qrBase64 = base64.StdEncoding.EncodeToString(qrBytes)
+			}
+
+			sb := ScoresheetBoard{BoardNumber: bn, Code: displayCode, QRCodeBase64: qrBase64}
+			for i := 0; i < len(positions); i += 2 {
+				row := ScoresheetRow{Left: positions[i], Right: positions[i+1]}
+				sb.Rows = append(sb.Rows, row)
+			}
+			boards = append(boards, sb)
+		}
+
+		// ── 5. Render ─────────────────────────────────────────────────────────
+		if c.Query("download") == "1" {
+			fileName := "scoresheet-" + sessionCode + ".html"
+			c.Header("Content-Disposition", "attachment; filename=\""+fileName+"\"")
+		}
+		data := ScoresheetData{
+			EventName:      ev.Name,
+			EventOrg:       ev.OrgName.String,
+			Location:       location,
+			EventDates:     eventDates,
+			SessionName:    sess.Name,
+			SessionCode:    sess.Code,
+			SessionDate:    sessionDateStr,
+			SessionDayName: sessionDayName,
+			TotalEnds:      sess.TotalEnds,
+			ArrowsPerEnd:   sess.ArrowsPerEnd,
+			PrintDate:      time.Now().Format("02 Jan 2006 15:04"),
+			Boards:         boards,
+		}
+		templateName := "scoresheet_gen.html"
+		if c.Query("theme") == "bw" {
+			templateName = "scoresheet_gen_bw.html"
+		}
+		c.HTML(http.StatusOK, templateName, data)
+	}
+}
+
 // PreviewScoresheet renders the scoresheet template with mock data
 func PreviewScoresheet() gin.HandlerFunc {
 	return func(c *gin.Context) {

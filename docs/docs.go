@@ -15,9 +15,51 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/mobile/auth/login": {
+        "/mobile/assignments/{assignmentId}/detail": {
+            "get": {
+                "description": "Returns all ends and arrow scores for a participant's qualification assignment",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Get full score detail for an assignment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target assignment UUID",
+                        "name": "assignmentId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/scorekeeper/login": {
             "post": {
-                "description": "Specialized login for mobile app",
+                "description": "Login for scorekeepers using their unique code",
                 "consumes": [
                     "application/json"
                 ],
@@ -27,15 +69,15 @@ const docTemplate = `{
                 "tags": [
                     "Mobile - Authentication"
                 ],
-                "summary": "Mobile login",
+                "summary": "Scorekeeper login",
                 "parameters": [
                     {
-                        "description": "Login request",
+                        "description": "Scorekeeper login request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.LoginRequest"
+                            "$ref": "#/definitions/handler.MobileScorekeeperLoginRequest"
                         }
                     }
                 ],
@@ -459,6 +501,90 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/mobile/scan": {
+            "get": {
+                "description": "Look up a target board by its barcode code and return archer list with scores",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Scan target barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Barcode / QR code on the target board",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/sessions/boards": {
+            "get": {
+                "description": "Get all boards and their archers with score summaries for a qualification session",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "List all target boards in a session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Qualification session UUID",
+                        "name": "session_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -477,21 +603,6 @@ const docTemplate = `{
             ],
             "properties": {
                 "winner_entry_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.LoginRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
                     "type": "string"
                 }
             }
@@ -590,6 +701,17 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/handler.MobileUser"
+                }
+            }
+        },
+        "handler.MobileScorekeeperLoginRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
                 }
             }
         },

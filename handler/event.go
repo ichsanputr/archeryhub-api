@@ -12,6 +12,7 @@ import (
 	"archeryhub-api/utils"
 
 	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -634,22 +635,22 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type EventEvent struct {
-			ID                   string `db:"id" json:"id"`
-			EventID              string `db:"event_id" json:"event_id"`
-			DivisionName         string `db:"division_name" json:"division_name"`
-			DivisionID           string `db:"division_id" json:"division_id"`
-			CategoryName         string `db:"category_name" json:"category_name"`
-			CategoryNameCustom   *string `db:"category_name_custom" json:"category_name_custom"`
-			CategoryID           string `db:"category_id" json:"category_id"`
-			EventTypeName        string `db:"event_type_name" json:"event_type_name"`
-			EventTypeID          string `db:"event_type_id" json:"event_type_id"`
-			GenderDivisionName   string `db:"gender_division_name" json:"gender_division_name"`
-			GenderDivisionID     string `db:"gender_division_id" json:"gender_division_id"`
-			MaxParticipants      *int   `db:"max_participants" json:"max_participants"`
-			TeamSize             int    `db:"team_size" json:"team_size"`
-			ParticipantCount     int    `db:"participant_count" json:"participant_count"`
-			Status               string `db:"status" json:"status"`
-			CreatedAt            string `db:"created_at" json:"created_at"`
+			ID                 string  `db:"id" json:"id"`
+			EventID            string  `db:"event_id" json:"event_id"`
+			DivisionName       string  `db:"division_name" json:"division_name"`
+			DivisionID         string  `db:"division_id" json:"division_id"`
+			CategoryName       string  `db:"category_name" json:"category_name"`
+			CategoryNameCustom *string `db:"category_name_custom" json:"category_name_custom"`
+			CategoryID         string  `db:"category_id" json:"category_id"`
+			EventTypeName      string  `db:"event_type_name" json:"event_type_name"`
+			EventTypeID        string  `db:"event_type_id" json:"event_type_id"`
+			GenderDivisionName string  `db:"gender_division_name" json:"gender_division_name"`
+			GenderDivisionID   string  `db:"gender_division_id" json:"gender_division_id"`
+			MaxParticipants    *int    `db:"max_participants" json:"max_participants"`
+			TeamSize           int     `db:"team_size" json:"team_size"`
+			ParticipantCount   int     `db:"participant_count" json:"participant_count"`
+			Status             string  `db:"status" json:"status"`
+			CreatedAt          string  `db:"created_at" json:"created_at"`
 		}
 
 		whereClause := "WHERE te.event_id = ?"
@@ -762,15 +763,16 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			type GroupedParticipant struct {
-				ArcherID     string        `db:"archer_id" json:"archer_id"`
-				AthleteCode  string        `db:"athlete_code" json:"athlete_code"`
-				FullName     string        `db:"full_name" json:"full_name"`
-				Email        string        `db:"email" json:"email"`
-				AvatarURL    *string       `db:"avatar_url" json:"avatar_url"`
-				ClubName     *string       `db:"club_name" json:"club_name"`
-				City         *string       `db:"city" json:"city"`
-				Categories   string        `db:"categories" json:"-"`
-				CategoryList []interface{} `json:"categories"`
+				ArcherID      string        `db:"archer_id" json:"archer_id"`
+				AthleteCode   string        `db:"athlete_code" json:"athlete_code"`
+				FullName      string        `db:"full_name" json:"full_name"`
+				Email         string        `db:"email" json:"email"`
+				AvatarURL     *string       `db:"avatar_url" json:"avatar_url"`
+				ClubName      *string       `db:"club_name" json:"club_name"`
+				City          *string       `db:"city" json:"city"`
+				PaymentStatus string        `db:"payment_status" json:"payment_status"`
+				Categories    string        `db:"categories" json:"-"`
+				CategoryList  []interface{} `json:"categories"`
 			}
 
 			var participants []GroupedParticipant
@@ -783,6 +785,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					a.avatar_url,
 					COALESCE(cl.name, '') as club_name,
 					a.city as city,
+					MAX(tp.payment_status) as payment_status,
 					JSON_ARRAYAGG(JSON_OBJECT(
 						'participant_id', tp.uuid,
 						'category_id', tp.category_id,
@@ -1508,15 +1511,19 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		paymentStatus := "menunggu acc"
 		userID, _ := c.Get("user_id")
 		userRole, _ := c.Get("role")
+		orgID, _ := c.Get("org_id")
+
+		// isPrivileged: admin always; organizer if their org_id matches the event's organizer_id
+		isPrivileged := userRole == "admin" || (userRole == "organizer" && orgID != nil && fmt.Sprintf("%v", orgID) == event.OrganizerID)
 
 		// Only allow admin or the event organizer to set status directly
-		if req.PaymentStatus != "" && (userRole == "admin" || (userRole == "organizer" && event.OrganizerID == userID.(string))) {
+		if req.PaymentStatus != "" && isPrivileged {
 			paymentStatus = req.PaymentStatus
 		}
 
 		// Determine registration source
 		registrationSource := "self_register"
-		if userRole == "admin" || (userRole == "organizer" && event.OrganizerID == userID.(string)) {
+		if isPrivileged {
 			if req.RegistrationSource != "" {
 				registrationSource = req.RegistrationSource
 			} else {
@@ -1571,8 +1578,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			// Log activity
-			userID, _ := c.Get("user_id")
-			utils.LogActivity(tx, userID.(string), actualEventID, "participant_registered", "event_participant", participantUUID, "Registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(tx, fmt.Sprintf("%v", userID), actualEventID, "participant_registered", "event_participant", participantUUID, "Registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
 
 			registeredCategoryIDs = append(registeredCategoryIDs, catID)
 		}
@@ -1590,6 +1596,183 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{
 			"message":    "Participant registered successfully",
 			"categories": registeredCategoryIDs,
+		})
+	}
+}
+
+// BatchRegisterParticipants registers multiple archers for an event in a single transaction
+func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var req struct {
+			AthleteIDs         []string `json:"athlete_ids" binding:"required"`
+			EventCategoryIDs   []string `json:"event_category_ids" binding:"required"`
+			PaymentAmount      float64  `json:"payment_amount"`
+			PaymentProofURLs   []string `json:"payment_proof_urls"`
+			PaymentStatus      string   `json:"payment_status"`
+			RegistrationSource string   `json:"registration_source"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if len(req.AthleteIDs) == 0 || len(req.EventCategoryIDs) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "athlete_ids and event_category_ids are required"})
+			return
+		}
+
+		// Resolve event
+		var event struct {
+			UUID        string `db:"uuid"`
+			OrganizerID string `db:"organizer_id"`
+		}
+		if err := db.Get(&event, `SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+		actualEventID := event.UUID
+
+		// Determine privileges
+		userID, _ := c.Get("user_id")
+		userRole, _ := c.Get("role")
+		orgID, _ := c.Get("org_id")
+
+		isPrivileged := userRole == "admin" || (userRole == "organizer" && orgID != nil && fmt.Sprintf("%v", orgID) == event.OrganizerID)
+
+		paymentStatus := "menunggu acc"
+		if req.PaymentStatus != "" && isPrivileged {
+			paymentStatus = req.PaymentStatus
+		}
+
+		registrationSource := "self_register"
+		if isPrivileged {
+			if req.RegistrationSource != "" {
+				registrationSource = req.RegistrationSource
+			} else {
+				registrationSource = "admin_created"
+			}
+		}
+
+		proofURLs := ""
+		if len(req.PaymentProofURLs) > 0 {
+			proofURLs = strings.Join(req.PaymentProofURLs, ",")
+		}
+
+		// Resolve all archer UUIDs in one query
+		cleanedIDs := make([]string, 0, len(req.AthleteIDs))
+		for _, id := range req.AthleteIDs {
+			if trimmed := strings.TrimSpace(id); trimmed != "" {
+				cleanedIDs = append(cleanedIDs, trimmed)
+			}
+		}
+
+		type archerRow struct {
+			UUID string `db:"uuid"`
+			ID   string `db:"id"`
+		}
+		query, args, err := sqlx.In(`SELECT uuid, id FROM archers WHERE uuid IN (?) OR id IN (?)`, cleanedIDs, cleanedIDs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build archer query"})
+			return
+		}
+		query = db.Rebind(query)
+		var archerRows []archerRow
+		if err := db.Select(&archerRows, query, args...); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resolve archers"})
+			return
+		}
+
+		// Map input IDs → resolved UUIDs (deduplicate)
+		seenUUIDs := map[string]bool{}
+		archerUUIDs := []string{}
+		for _, row := range archerRows {
+			if !seenUUIDs[row.UUID] {
+				seenUUIDs[row.UUID] = true
+				archerUUIDs = append(archerUUIDs, row.UUID)
+			}
+		}
+
+		if len(archerUUIDs) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No valid archers found"})
+			return
+		}
+
+		// Deduplicate category IDs
+		seenCats := map[string]bool{}
+		allCategoryIDs := []string{}
+		for _, id := range req.EventCategoryIDs {
+			if trimmed := strings.TrimSpace(id); trimmed != "" && !seenCats[trimmed] {
+				seenCats[trimmed] = true
+				allCategoryIDs = append(allCategoryIDs, trimmed)
+			}
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		registrationDate := time.Now()
+		registeredCount := 0
+		skippedCount := 0
+
+		for _, archerUUID := range archerUUIDs {
+			// Get or generate a shared QR for this archer×event if status is lunas
+			var qrRaw *string
+			if paymentStatus == "lunas" {
+				var existingQR sql.NullString
+				_ = tx.Get(&existingQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
+				if existingQR.Valid {
+					qrRaw = &existingQR.String
+				} else {
+					randomQR := uuid.New().String()
+					qrRaw = &randomQR
+				}
+			}
+
+			for _, catID := range allCategoryIDs {
+				var exists bool
+				if err := tx.Get(&exists, `SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = ? AND archer_id = ? AND category_id = ?)`, actualEventID, archerUUID, catID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status"})
+					return
+				}
+				if exists {
+					skippedCount++
+					continue
+				}
+
+				participantUUID := uuid.New().String()
+				_, err = tx.Exec(`
+					INSERT INTO event_participants (
+						uuid, event_id, archer_id, category_id,
+						registration_date, payment_status, payment_amount, payment_proof_urls, qr_raw,
+						registration_source
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofURLs, qrRaw, registrationSource)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
+					return
+				}
+
+				utils.LogActivity(tx, fmt.Sprintf("%v", userID), actualEventID, "participant_registered", "event_participant", participantUUID, "Batch registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
+				registeredCount++
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit batch registration"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":    "Batch registration complete",
+			"registered": registeredCount,
+			"skipped":    skippedCount,
 		})
 	}
 }
@@ -2385,7 +2568,7 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// Delete matches
 		tx.Exec("DELETE FROM elimination_matches WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE category_uuid = ?)", categoryID)
-		
+
 		// Delete entries and brackets
 		tx.Exec("DELETE FROM elimination_entries WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE category_uuid = ?)", categoryID)
 		tx.Exec("DELETE FROM elimination_brackets WHERE category_uuid = ?", categoryID)

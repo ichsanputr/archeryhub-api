@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"archeryhub-api/database"
+	_ "archeryhub-api/docs"
 	"archeryhub-api/handler"
 	"archeryhub-api/middleware"
-	_ "archeryhub-api/docs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -241,6 +241,7 @@ func main() {
 				protected.PUT("/:id/categories/:categoryId", handler.UpdateEventCategory(db))
 				protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
 				protected.POST("/:id/participants", handler.RegisterParticipant(db))
+				protected.POST("/:id/participants/batch", handler.BatchRegisterParticipants(db))
 				protected.PUT("/:id/images", handler.UpdateEventImages(db))
 				protected.PUT("/:id/schedule", handler.UpdateEventSchedule(db))
 				protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
@@ -267,6 +268,7 @@ func main() {
 			qualification.PATCH("/sessions/:sessionId", handler.UpdateQualificationSession(db))
 			qualification.DELETE("/sessions/:sessionId", handler.DeleteQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
+			qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
 		}
 
 		// Elimination routes (event-level brackets)
@@ -281,6 +283,7 @@ func main() {
 			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), handler.GenerateBracket(db))
 			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
 			elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
+			elimination.GET("/brackets/:bracketId/scoresheet", handler.GetEliminationScoresheet(db))
 			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), handler.UpdateMatchTargets(db))
 			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), handler.AutoAssignMatchTargets(db))
 			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
@@ -408,7 +411,7 @@ func main() {
 		root := api.Group("/root")
 		{
 			root.POST("/login", handler.RootLogin(db))
-			
+
 			protected := root.Group("/dashboard")
 			protected.Use(middleware.AuthMiddleware(), middleware.RequireRole("root"))
 			{
@@ -421,16 +424,25 @@ func main() {
 		{
 			mobile.GET("/hello", handler.MobileHello())
 
-			// 1. Authentication
+			// 1. Authentication (no auth required)
 			auth := mobile.Group("/auth")
 			{
-				auth.POST("/login", handler.MobileLogin(db))
+				auth.POST("/scorekeeper/login", handler.MobileScorekeeperLogin(db))
 			}
 
-			// 2. Events
+			// 2. Events (public)
 			mobile.GET("/events", handler.MobileListEvents(db))
 
-			// 3. Qualification Scoring
+			// 3. Target scan by QR/barcode code (requires auth)
+			mobileAuth := mobile.Group("")
+			mobileAuth.Use(middleware.AuthMiddleware())
+			{
+				mobileAuth.GET("/scan", handler.MobileScanTarget(db))
+				mobileAuth.GET("/sessions/boards", handler.MobileGetSessionBoards(db))
+				mobileAuth.GET("/assignments/:assignmentId/detail", handler.MobileGetAssignmentScoreDetail(db))
+			}
+
+			// 4. Qualification Scoring
 			qual := mobile.Group("/qualification")
 			qual.Use(middleware.AuthMiddleware())
 			{
@@ -439,7 +451,7 @@ func main() {
 				qual.POST("/scoring/scores/:assignmentId", handler.UpdateQualificationScore(db))
 			}
 
-			// 4. Elimination Scoring
+			// 5. Elimination Scoring
 			elim := mobile.Group("/elimination")
 			elim.Use(middleware.AuthMiddleware())
 			{
@@ -450,7 +462,7 @@ func main() {
 				elim.POST("/scoring/matches/:matchId/reset", handler.ResetMatch(db))
 			}
 
-			// 5. Scorekeeper dedicated endpoints
+			// 6. Scorekeeper dedicated endpoints
 			sk := mobile.Group("/scorekeeper")
 			sk.Use(middleware.AuthMiddleware())
 			{
@@ -541,7 +553,6 @@ func main() {
 				protectedMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}
 		}
-
 
 		// Discovery routes
 		discovery := api.Group("/discovery")
