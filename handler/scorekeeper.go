@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"crypto/rand"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,15 +11,23 @@ import (
 )
 
 type CreateScorekeeperRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Name string `json:"name" binding:"required"`
 }
 
 type UpdateScorekeeperRequest struct {
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Password string `json:"password"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// generateScorekeeperCode generates a random 5-character uppercase code
+func generateScorekeeperCode() string {
+	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Exclude confusing chars like 0, O, I, 1
+	b := make([]byte, 5)
+	rand.Read(b)
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b)
 }
 
 // CreateScorekeeper creates a new scorekeeper for an organization
@@ -38,30 +47,37 @@ func CreateScorekeeper(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if email already used
-		var exists bool
-		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM scorekeepers WHERE email = ?)", req.Email)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		if exists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
-			return
+		// Generate unique code
+		var scorekeeperCode string
+		for {
+			scorekeeperCode = generateScorekeeperCode()
+			var exists bool
+			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM scorekeepers WHERE code = ?)", scorekeeperCode)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+				return
+			}
+			if !exists {
+				break
+			}
 		}
 
 		scorekeeperUUID := uuid.New().String()
-		_, err = db.Exec(`
-			INSERT INTO scorekeepers (uuid, organization_uuid, name, email, password)
-			VALUES (?, ?, ?, ?, ?)
-		`, scorekeeperUUID, orgUUID, req.Name, req.Email, req.Password)
+		_, err := db.Exec(`
+			INSERT INTO scorekeepers (uuid, organization_uuid, code, name, status)
+			VALUES (?, ?, ?, ?, 'active')
+		`, scorekeeperUUID, orgUUID, scorekeeperCode, req.Name)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create scorekeeper", "details": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"message": "Scorekeeper created successfully", "uuid": scorekeeperUUID})
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Scorekeeper created successfully",
+			"uuid":    scorekeeperUUID,
+			"code":    scorekeeperCode,
+		})
 	}
 }
 
@@ -77,7 +93,7 @@ func GetOrganizationScorekeepers(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var scorekeepers []models.Scorekeeper
-		err := db.Select(&scorekeepers, "SELECT uuid, organization_uuid, name, email, avatar_url, status, created_at FROM scorekeepers WHERE organization_uuid = ? ORDER BY created_at DESC", orgUUID)
+		err := db.Select(&scorekeepers, "SELECT uuid, organization_uuid, code, name, avatar_url, status, created_at FROM scorekeepers WHERE organization_uuid = ? ORDER BY created_at DESC", orgUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scorekeepers", "details": err.Error()})
 			return
@@ -111,13 +127,8 @@ func UpdateScorekeeper(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if req.Password != "" {
-			_, err = db.Exec("UPDATE scorekeepers SET name = ?, status = ?, password = ?, updated_at = NOW() WHERE uuid = ?", 
-				req.Name, req.Status, req.Password, scorekeeperID)
-		} else {
-			_, err = db.Exec("UPDATE scorekeepers SET name = ?, status = ?, updated_at = NOW() WHERE uuid = ?", 
-				req.Name, req.Status, scorekeeperID)
-		}
+		_, err = db.Exec("UPDATE scorekeepers SET name = ?, status = ?, updated_at = NOW() WHERE uuid = ?", 
+			req.Name, req.Status, scorekeeperID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update scorekeeper", "details": err.Error()})

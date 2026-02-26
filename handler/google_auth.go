@@ -250,7 +250,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		var record UserRecord
 
 		// Priority search
-		tables := []string{"archers", "organizations", "clubs", "sellers", "scorekeepers"}
+		tables := []string{"archers", "organizations", "clubs", "sellers"}
 		for _, t := range tables {
 			typeToRole := t
 			if typeToRole == "archers" {
@@ -268,8 +268,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			var query string
 			if t == "organizations" {
 				query = "SELECT uuid, 'organization' as role, uuid as organization_uuid FROM organizations WHERE email = ? OR google_id = ?"
-			} else if t == "scorekeepers" {
-				query = "SELECT uuid, 'scorekeeper' as role, organization_uuid FROM scorekeepers WHERE email = ? OR google_id = ?"
 			} else {
 				query = "SELECT uuid, '" + typeToRole + "' as role, '' as organization_uuid FROM " + t + " WHERE email = ? OR google_id = ?"
 			}
@@ -307,8 +305,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				table = "organizations"
 			case "club":
 				table = "clubs"
-			case "scorekeeper":
-				table = "scorekeepers"
 			case "seller":
 				table = "sellers"
 			default:
@@ -333,8 +329,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				tableName, nameCol = "organizations", "name"
 			case "club":
 				tableName, nameCol = "clubs", "name"
-			case "scorekeeper":
-				tableName, nameCol = "scorekeepers", "name"
 			case "seller":
 				tableName, nameCol = "sellers", "store_name"
 			default:

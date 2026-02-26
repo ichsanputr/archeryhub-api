@@ -88,6 +88,9 @@ func main() {
 	// Initialize Gin router
 	r := gin.Default()
 
+	// Load HTML templates
+	r.LoadHTMLGlob("templates/*")
+
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
@@ -132,6 +135,8 @@ func main() {
 			"status":  "running",
 		})
 	})
+
+	r.GET("/preview/scoresheet", handler.PreviewScoresheet())
 
 	// Serve static media files
 	r.Static("/media", "./media")
@@ -443,6 +448,14 @@ func main() {
 				elim.POST("/scoring/matches/:matchId/finish", handler.FinishMatch(db))
 				elim.POST("/scoring/matches/:matchId/end", handler.EndMatch(db))
 				elim.POST("/scoring/matches/:matchId/reset", handler.ResetMatch(db))
+			}
+
+			// 5. Scorekeeper dedicated endpoints
+			sk := mobile.Group("/scorekeeper")
+			sk.Use(middleware.AuthMiddleware())
+			{
+				sk.GET("/me", handler.MobileGetScorekeeperMe(db))
+				sk.GET("/events", handler.MobileGetScorekeeperEvents(db))
 			}
 
 			// Swagger UI

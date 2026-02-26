@@ -382,14 +382,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Check scorekeepers
-		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, email as slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'scorekeeper' as role, COALESCE(status,'') as status, organization_uuid FROM scorekeepers WHERE email = ?", req.Email)
-			if err == nil {
-				user.Type = "scorekeeper"
-				found = true
-			}
-		}
+		// Scorekeepers only allowed via mobile login now
 
 		if !found {
 			if os.Getenv("ENV") == "development" {
@@ -531,8 +524,10 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		slugExpr := "slug"
+		emailExpr := "email"
 		if table == "scorekeepers" {
-			slugExpr = "email as slug"
+			slugExpr = "code as slug"
+			emailExpr = "COALESCE(email, '') as email"
 		}
 
 		phoneExpr := "phone"
@@ -540,8 +535,8 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			phoneExpr = "NULL as phone"
 		}
 
-		query := fmt.Sprintf(`SELECT uuid, %s, %s as username, email, %s, %s as full_name, %s, avatar_url, %s, status, created_at`, 
-			idExpr, slugExpr, slugExpr, nameField, roleSelect, phoneExpr)
+		query := fmt.Sprintf(`SELECT uuid, %s, %s as username, %s, %s as slug, %s as full_name, %s, avatar_url, %s, status, created_at`, 
+			idExpr, slugExpr, emailExpr, slugExpr, nameField, roleSelect, phoneExpr)
 
 		if table == "archers" {
 			query += ", bio, gender, date_of_birth, bow_type, city, province, club_id"

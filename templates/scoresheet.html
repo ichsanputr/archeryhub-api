@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archery Scoresheet - {{.ParticipantName}}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #1a1a1a;
+            font-size: 11pt;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 190mm;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .event-info h1 {
+            margin: 0;
+            font-size: 18pt;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+        }
+
+        .event-info p {
+            margin: 2px 0;
+            font-size: 10pt;
+            color: #64748b;
+        }
+
+        .scoresheet-title {
+            background: #0f172a;
+            color: #fff;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 10pt;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .meta-item {
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        .meta-label {
+            font-size: 8pt;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .meta-value {
+            font-size: 12pt;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+
+        th {
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 8pt;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+
+        td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 11pt;
+            height: 30px;
+        }
+
+        .col-end {
+            width: 40px;
+            font-weight: 800;
+            background: #f8fafc;
+        }
+
+        .col-arrow {
+            width: 45px;
+        }
+
+        .col-total {
+            width: 55px;
+            font-weight: 700;
+            background: #f1f5f9;
+        }
+
+        .col-sum {
+            width: 65px;
+            font-weight: 800;
+            background: #e2e8f0;
+        }
+
+        .col-stats {
+            width: 45px;
+        }
+
+        .signature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 100px;
+            margin-top: 40px;
+            padding: 0 40px;
+        }
+
+        .signature-box {
+            text-align: center;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            font-size: 9pt;
+            font-weight: 600;
+        }
+
+        .watermark {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 8pt;
+            color: #cbd5e1;
+            font-weight: 700;
+        }
+
+        /* Print optimization */
+        @media print {
+            .container {
+                border: none;
+                padding: 0;
+            }
+
+            body {
+                -webkit-print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="event-info">
+                <h1>{{.EventName}}</h1>
+                <p>{{.EventDate}} | {{.Location}}</p>
+            </div>
+            <div class="scoresheet-title">QUALIFICATION SCORESHEET</div>
+        </div>
+
+        <div class="meta-grid">
+            <div class="meta-item">
+                <div class="meta-label">Nama Peserta / Archer</div>
+                <div class="meta-value">{{.ParticipantName}}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Bantalan / Target</div>
+                <div class="meta-value"
+                    style="font-size: 24pt; color: #d9ff00; -webkit-text-stroke: 1px #0f172a; text-shadow: 2px 2px 0 #0f172a;">
+                    {{.Target}}
+                </div>
+            </div>
+        </div>
+
+        <div class="meta-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="meta-item">
+                <div class="meta-label">Kategori / Category</div>
+                <div class="meta-value">{{.Category}}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Klub / Club</div>
+                <div class="meta-value">{{.ClubName}}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Sesi / Session</div>
+                <div class="meta-value">{{.SessionName}}</div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2" class="col-end">End</th>
+                    <th colspan="6">Arrows</th>
+                    <th rowspan="2" class="col-total">Sum</th>
+                    <th rowspan="2" class="col-sum">Accum.</th>
+                    <th rowspan="2" class="col-stats">10+X</th>
+                    <th rowspan="2" class="col-stats">X</th>
+                </tr>
+                <tr>
+                    <th class="col-arrow">1</th>
+                    <th class="col-arrow">2</th>
+                    <th class="col-arrow">3</th>
+                    <th class="col-arrow">4</th>
+                    <th class="col-arrow">5</th>
+                    <th class="col-arrow">6</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-end">1</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-total"></td>
+                    <td class="col-sum"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="col-end">2</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-total"></td>
+                    <td class="col-sum"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="col-end">3</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-total"></td>
+                    <td class="col-sum"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="col-end">4</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-total"></td>
+                    <td class="col-sum"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="col-end">5</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-total"></td>
+                    <td class="col-sum"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="col-end">6</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-total"></td>
+                    <td class="col-sum"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr style="background: #f8fafc; font-weight: 800;">
+                    <td colspan="7" style="text-align: right; padding-right: 15px;">TOTAL SESSION</td>
+                    <td class="col-total"></td>
+                    <td class="col-sum" style="background: #cbd5e1;"></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div
+            style="margin-top: 10px; border: 1px dashed #cbd5e1; padding: 10px; border-radius: 4px; font-size: 8pt; color: #64748b;">
+            <strong>Catatan:</strong> Pastikan seluruh skor telah diverifikasi oleh judge sebelum menandatangani
+            scoresheet ini. Segala bentuk coretan wajib diparaf oleh judge.
+        </div>
+
+        <div class="signature-grid">
+            <div class="signature-box">Signature Archer</div>
+            <div class="signature-box">Signature Scorer / Judge</div>
+        </div>
+
+        <div class="watermark">Generated by ArcheryHub.id</div>
+    </div>
+</body>
+
+</html>

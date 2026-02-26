@@ -1575,3 +1575,21 @@ func generateUniqueBoardCodeWithTx(tx *sqlx.Tx, sessionUUID string) (string, err
 	}
 	return "", fmt.Errorf("failed to generate unique code")
 }
+// PreviewScoresheet renders the scoresheet template with mock data
+func PreviewScoresheet() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		data := gin.H{
+			"EventName":       "ArcheryHub Open Championship 2024",
+			"EventDate":       "26 - 28 Feb 2024",
+			"Location":        "Stadion Mandala Krida, Yogyakarta",
+			"ParticipantName": "FAJAR ADI NUGROHO",
+			"Target":          "14A",
+			"Category":        "Recurve Men Open",
+			"ClubName":        "Jogja Archery School",
+			"SessionName":     "Kualifikasi Sesi 1",
+			"TotalEnds":       6,
+			"ArrowsPerEnd":    6,
+		}
+		c.HTML(http.StatusOK, "scoresheet.html", data)
+	}
+}
