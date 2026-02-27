@@ -989,8 +989,9 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			Assignments []struct {
-				MatchID  string `json:"match_id" binding:"required"`
-				TargetID string `json:"target_id"`
+				BoardNumber int    `json:"board_number" binding:"required"`
+				TargetID    string `json:"target_id"`
+				Code        string `json:"code"`
 			} `json:"assignments" binding:"required"`
 		}
 
@@ -1067,7 +1068,7 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		// New: Auto-assign available targets to bracket nodes (not matches)
 		// (Implementation here should assign targets to event_target_boards for each bracket node)
-		// ...existing code...
+		updated := 0
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("Berhasil melakukan auto-assign pada %d match", updated),
@@ -1723,83 +1724,31 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to advance winner"})
 					return
 				}
-			} else {
-				// Find the pair match (if match_no is odd, pair is match_no+1; if even, pair is match_no-1)
-				var pairMatchNo int
-				if match.MatchNo%2 == 1 {
-					pairMatchNo = match.MatchNo + 1
-				} else {
-					pairMatchNo = match.MatchNo - 1
-				}
+			}
+		}
 
-				// Check if pair match is finished
-				var req struct {
-					Assignments []struct {
-						BoardNumber int    `json:"board_number" binding:"required"`
-						TargetID    string `json:"target_id"`
-						Code        string `json:"code"`
-					} `json:"assignments" binding:"required"`
-				}
-
-				if err := c.ShouldBindJSON(&req); err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-					return
-				}
-
-				updated := 0
-				for _, assignment := range req.Assignments {
-					if assignment.BoardNumber > 0 {
-						_, err := tx.Exec(`REPLACE INTO event_target_boards (uuid, event_uuid, bracket_uuid, board_number, target_uuid, code, is_active, updated_at)
-							VALUES (UUID(), ?, ?, ?, ?, ?, 1, NOW())`,
-							bracket.EventUUID, bracket.UUID, assignment.BoardNumber, assignment.TargetID, assignment.Code)
-						if err != nil {
-							c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign target to bracket node"})
-							return
-						}
-						updated++
-					}
-				}
-					_, err = tx.Exec(`INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-						nextMatchUUID, nextMatchID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
-					if err != nil {
-						logrus.WithError(err).Error("Failed to create next round match")
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create next round match"})
-						return
-					}
-
-					logrus.WithFields(logrus.Fields{
-						"next_match_uuid": nextMatchUUID,
-						"round":           nextRound,
-						"match_no":        nextMatchNo,
-						"entry_a":         entryA,
-						"entry_b":         entryB,
-					}).Info("Created next round match")
-				}
+		// SPECIAL CASE: Advance Losers to Bronze Match if it's the Semifinals
+		if match.RoundNo == numRounds-1 {
+			loserID := match.EntryAUUID
+			if loserID != nil && *loserID == req.WinnerEntryID {
+				loserID = match.EntryBUUID
 			}
 
-			// SPECIAL CASE: Advance Losers to Bronze Match if it's the Semifinals
-			if match.RoundNo == numRounds-1 {
-				loserID := match.EntryAUUID
-				if loserID != nil && *loserID == req.WinnerEntryID {
-					loserID = match.EntryBUUID
+			if loserID != nil {
+				bronzeSlot := "entry_a_uuid"
+				if match.MatchNo%2 == 0 {
+					bronzeSlot = "entry_b_uuid"
 				}
-
-				if loserID != nil {
-					bronzeSlot := "entry_a_uuid"
-					if match.MatchNo%2 == 0 {
-						bronzeSlot = "entry_b_uuid"
-					}
-					_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, bronzeSlot),
-						*loserID, match.BracketUUID, numRounds, 2)
-					if err != nil {
-						logrus.WithError(err).Error("Failed to advance loser to bronze match")
-					}
+				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, bronzeSlot),
+					*loserID, match.BracketUUID, numRounds, 2)
+				if err != nil {
+					logrus.WithError(err).Error("Failed to advance loser to bronze match")
 				}
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 

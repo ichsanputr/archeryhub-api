@@ -161,6 +161,7 @@ func main() {
 		api.GET("/seller/me", middleware.AuthMiddleware(), handler.GetSellerProfile(db))
 
 		// Project Task Management
+		/*
 		tasks := api.Group("/tasks")
 		tasks.Use(middleware.AuthMiddleware())
 		{
@@ -171,6 +172,7 @@ func main() {
 			tasks.PATCH("/:uuid/status", handler.UpdateTaskStatus(db))
 			tasks.DELETE("/:uuid", handler.DeleteTask(db))
 		}
+		*/
 
 		// Authentication routes (public)
 		auth := api.Group("/auth")
