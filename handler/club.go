@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 )
 
 // CheckSlugAvailability checks if a club slug is available
@@ -402,7 +404,8 @@ type ClubMember struct {
 	JoinedAt         *time.Time `json:"joined_at" db:"joined_at"`
 	RegistrationData *string    `json:"registration_data" db:"registration_data"`
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
+	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
+	CoachNotes       *string    `json:"coach_notes" db:"coach_notes"`
 }
 
 // GetClubs returns all clubs (public) with pagination and filtering
@@ -761,7 +764,7 @@ func JoinClub(db *sqlx.DB) gin.HandlerFunc {
 			ClubID string `db:"club_id"`
 			Status string `db:"status"`
 		}
-		err = db.Get(&existing, "SELECT club_id, status FROM club_members WHERE archer_id = ? AND status IN ('pending', 'active')", userID)
+		err = db.Get(&existing, "SELECT club_id, status FROM club_members WHERE archer_id = ? AND status IN ('pending', 'active', 'invited')", userID)
 		if err == nil {
 			if existing.ClubID == clubID {
 				c.JSON(http.StatusConflict, gin.H{"error": "You already have a membership request for this club"})
@@ -861,28 +864,59 @@ func ApproveClubMember(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify the member belongs to the user's club
-		var clubID string
-		err := db.Get(&clubID, "SELECT uuid FROM clubs WHERE owner_id = ?", userID)
-		if err != nil {
+		logrus.Infof("[APPROVE] Attempting to approve member %s. UserID: %v, UserType: %v", memberID, userID, userType)
+		
+		// In our system, for a club user, the userID in the token is their club's UUID
+		clubID := fmt.Sprintf("%v", userID)
+		
+		// Verify this club actually exists
+		var exists bool
+		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM clubs WHERE uuid = ?)", clubID)
+		if err != nil || !exists {
+			logrus.Errorf("[APPROVE] Club verification failed for ID: %s. Error: %v", clubID, err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
 		}
 
 		now := time.Now()
-		result, err := db.Exec(`
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Update membership status to active
+		var archerID string
+		err = tx.Get(&archerID, "SELECT archer_id FROM club_members WHERE uuid = ? AND club_id = ? AND status = 'pending'", memberID, clubID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Membership request not found"})
+			return
+		}
+
+		_, err = tx.Exec(`
 			UPDATE club_members SET status = 'active', joined_at = ?, updated_at = NOW() 
 			WHERE uuid = ? AND club_id = ? AND status = 'pending'
 		`, now, memberID, clubID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to approve member"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to approve member record"})
 			return
 		}
 
-		rows, _ := result.RowsAffected()
-		if rows == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Membership request not found"})
+		// Update archer's club_id
+		_, err = tx.Exec(`
+			UPDATE archers SET club_id = ? 
+			WHERE uuid = ?
+		`, clubID, archerID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update archer record"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
@@ -890,34 +924,53 @@ func ApproveClubMember(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MemberWithDetails includes all membership and archer profile information
+type MemberWithDetails struct {
+	ClubMember
+	ArcherName  string     `json:"full_name" db:"archer_name"`
+	BowType     *string    `json:"bow_type" db:"bow_type"`
+	Gender      *string    `json:"gender" db:"gender"`
+	DateOfBirth *time.Time `json:"date_of_birth" db:"date_of_birth"`
+	City        *string    `json:"city" db:"city"`
+	ID          string     `json:"id" db:"archer_human_id"`
+	AvatarURL   *string    `json:"avatar_url" db:"avatar_url"`
+}
+
 // GetClubMembers returns all members of a club
 func GetClubMembers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clubID := c.Param("clubId")
 
-		var members []struct {
-			ClubMember
-			ArcherName string `json:"archer_name" db:"archer_name"`
-		}
+		var members []MemberWithDetails
 
 		err := db.Select(&members, `
-			SELECT cm.*, u.full_name as archer_name
+			SELECT 
+				cm.*, 
+				u.full_name as archer_name,
+				u.bow_type,
+				u.gender,
+				u.date_of_birth,
+				u.city,
+				u.id as archer_human_id,
+				u.avatar_url
 			FROM club_members cm
 			JOIN archers u ON cm.archer_id = u.uuid
-			WHERE cm.club_id = ?
+			WHERE cm.club_id = ? AND cm.status IN ('active', 'pending', 'invited')
 			ORDER BY cm.status ASC, cm.created_at DESC
 		`, clubID)
 
 		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch members from database")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch members"})
 			return
 		}
 
+		if err == nil {
+			logrus.Infof("[MEMBERS] Found %d active/pending members for club %s", len(members), clubID)
+		}
+
 		if members == nil {
-			members = []struct {
-				ClubMember
-				ArcherName string `json:"archer_name" db:"archer_name"`
-			}{}
+			members = []MemberWithDetails{}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": members})
@@ -946,10 +999,16 @@ func InviteToClub(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get club owned by user
-		var clubID string
-		err := db.Get(&clubID, "SELECT uuid FROM clubs WHERE owner_id = ?", userID)
-		if err != nil {
+		logrus.Infof("[INVITE] Attempting to invite archer %s. UserID: %v, UserType: %v", req.ArcherID, userID, userType)
+		
+		// In our system, for a club user, the userID in the token is their club's UUID
+		clubID := fmt.Sprintf("%v", userID)
+		
+		// Verify this club actually exists
+		var exists bool
+		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM clubs WHERE uuid = ?)", clubID)
+		if err != nil || !exists {
+			logrus.Errorf("[INVITE] Club verification failed for ID: %s. Error: %v", clubID, err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
 			return
 		}
@@ -982,6 +1041,7 @@ func InviteToClub(db *sqlx.DB) gin.HandlerFunc {
 		`, memberID, clubID, req.ArcherID, req.Role)
 
 		if err != nil {
+			logrus.WithError(err).Errorf("[INVITE] Failed to insert club_members record. clubID=%s archerID=%s", clubID, req.ArcherID)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send invitation"})
 			return
 		}
@@ -990,5 +1050,137 @@ func InviteToClub(db *sqlx.DB) gin.HandlerFunc {
 			"message": "Invitation sent successfully",
 			"id":      memberID,
 		})
+	}
+}
+
+// KickClubMember allows club admin to remove an archer from their club
+func KickClubMember(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+		archerID := c.Param("archerId")
+
+		// Only club owners can kick
+		if userType != "club" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only club owners can remove members"})
+			return
+		}
+
+		logrus.Infof("[KICK] Attempting to kick archer %s. UserID: %v, UserType: %v", archerID, userID, userType)
+		
+		// In our system, for a club user, the userID in the token is their club's UUID
+		clubID := fmt.Sprintf("%v", userID)
+		
+		// Verify this club actually exists
+		var exists bool
+		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM clubs WHERE uuid = ?)", clubID)
+		if err != nil || !exists {
+			logrus.Errorf("[KICK] Club verification failed for ID: %s. Error: %v", clubID, err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			return
+		}
+
+		// Update membership status to left
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		result, err := tx.Exec(`
+			UPDATE club_members SET status = 'left', updated_at = NOW() 
+			WHERE archer_id = ? AND club_id = ? AND status IN ('active', 'pending', 'invited')
+		`, archerID, clubID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove member record"})
+			return
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No active membership found for this archer in your club"})
+			return
+		}
+
+		// Also clear club_id in archers table if it matches this club
+		_, err = tx.Exec(`
+			UPDATE archers SET club_id = NULL 
+			WHERE uuid = ? AND club_id = ?
+		`, archerID, clubID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update archer record"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Member successfully removed from the club"})
+	}
+}
+
+// UpdateMemberNotes allows club owner to update notes for a specific member
+func UpdateMemberNotes(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+		archerID := c.Param("archerId")
+
+		if userType != "club" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only club owners can update notes"})
+			return
+		}
+
+		var req struct {
+			Notes string `json:"notes"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		logrus.Infof("[NOTES] Updating notes for archer %s. UserID: %v, UserType: %v", archerID, userID, userType)
+		
+		// In our system, for a club user, the userID in the token is their club's UUID
+		clubID := fmt.Sprintf("%v", userID)
+		
+		// Verify this club actually exists
+		var exists bool
+		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM clubs WHERE uuid = ?)", clubID)
+		if err != nil || !exists {
+			logrus.Errorf("[NOTES] Club verification failed for ID: %s. Error: %v", clubID, err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			return
+		}
+
+		logrus.Infof("Updating notes for archer %s in club %s", archerID, clubID)
+
+		// Update notes in club_members table
+		result, err := db.Exec(`
+			UPDATE club_members 
+			SET coach_notes = ?, updated_at = NOW() 
+			WHERE archer_id = ? AND club_id = ?
+		`, req.Notes, archerID, clubID)
+
+		if err != nil {
+			logrus.WithError(err).Error("Failed to update notes in database")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update notes"})
+			return
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			logrus.Warnf("No rows updated for archer %s in club %s. Member might not belong to this club.", archerID, clubID)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Member not found in your club"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Notes updated successfully"})
 	}
 }

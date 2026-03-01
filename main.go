@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"os"
 
@@ -26,20 +25,51 @@ import (
 
 var logger *logrus.Logger
 
+// fileOnlyHook is a logrus hook that writes specific log levels to a file
+type fileOnlyHook struct {
+	file   *os.File
+	levels []logrus.Level
+	formatter logrus.Formatter
+}
+
+func (h *fileOnlyHook) Levels() []logrus.Level {
+	return h.levels
+}
+
+func (h *fileOnlyHook) Fire(entry *logrus.Entry) error {
+	line, err := h.formatter.Format(entry)
+	if err != nil {
+		return err
+	}
+	_, err = h.file.Write(line)
+	return err
+}
+
 // initLogger initializes the global Logrus logger
 func initLogger() {
 	logger = logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
-	logger.SetFormatter(&logrus.JSONFormatter{
+
+	// stdout: plain text, all levels
+	logger.SetOutput(os.Stdout)
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05",
-		FieldMap: logrus.FieldMap{
-			logrus.FieldKeyTime:  "timestamp",
-			logrus.FieldKeyLevel: "level",
-			logrus.FieldKeyMsg:   "message",
-			logrus.FieldKeyFunc:  "function",
-		},
 	})
 
+	// Also configure the global logrus logger used by handlers
+	logrus.SetOutput(os.Stdout)
+	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05",
+	})
+
+	// GIN output: stdout only (not the file)
+	gin.DefaultWriter = os.Stdout
+	gin.DefaultErrorWriter = os.Stdout
+
+	// File: JSON format, only Error and Fatal
 	if err := os.MkdirAll("logs", 0755); err != nil {
 		logger.WithError(err).Error("Failed to create logs directory")
 		return
@@ -51,23 +81,29 @@ func initLogger() {
 		return
 	}
 
-	logger.SetOutput(io.MultiWriter(os.Stdout, logFile))
-	logrus.SetOutput(io.MultiWriter(os.Stdout, logFile))
-	gin.DefaultWriter = io.MultiWriter(os.Stdout, logFile)
-	logrus.SetFormatter(&logrus.JSONFormatter{
+	fileFormatter := &logrus.JSONFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
 		FieldMap: logrus.FieldMap{
 			logrus.FieldKeyTime:  "timestamp",
 			logrus.FieldKeyLevel: "level",
 			logrus.FieldKeyMsg:   "message",
-			logrus.FieldKeyFunc:  "function",
 		},
-	})
+	}
 
-	logger.Info("Global logger initialized successfully")
+	// Add hook to write only Error/Fatal to file
+	hook := &fileOnlyHook{
+		file:      logFile,
+		levels:    []logrus.Level{logrus.ErrorLevel, logrus.FatalLevel, logrus.PanicLevel},
+		formatter: fileFormatter,
+	}
+	logger.AddHook(hook)
+	logrus.AddHook(hook)
 }
 
 func main() {
+	// Set Gin to release mode to disable debug logging
+	gin.SetMode(gin.ReleaseMode)
+
 	// Initialize logger
 	initLogger()
 
@@ -77,13 +113,11 @@ func main() {
 	}
 
 	// Initialize database
-	logger.Info("Initializing database connection")
 	db, err := database.InitDB()
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to connect to database")
 	}
 	defer db.Close()
-	logger.Info("Database connection established successfully")
 
 	// Initialize Gin router
 	r := gin.Default()
@@ -127,6 +161,20 @@ func main() {
 		}
 
 		c.Next()
+	})
+
+	// Middleware: log all 5xx responses to file via logrus.Error
+	r.Use(func(c *gin.Context) {
+		c.Next()
+		status := c.Writer.Status()
+		if status >= 500 {
+			logrus.WithFields(logrus.Fields{
+				"status": status,
+				"method": c.Request.Method,
+				"path":   c.Request.URL.Path,
+				"errors": c.Errors.String(),
+			}).Errorf("[5xx] %s %s -> %d", c.Request.Method, c.Request.URL.Path, status)
+		}
 	})
 
 	r.GET("/", func(c *gin.Context) {
@@ -504,13 +552,12 @@ func main() {
 		// Club routes
 		clubs := api.Group("/clubs")
 		{
-			// Public club routes
+			// Public club routes (specific paths MUST come before wildcard)
 			clubs.GET("", handler.GetClubs(db))
 			clubs.GET("/availability", handler.CheckSlugAvailability(db))
 			clubs.GET("/profile/:slug", handler.GetClubProfile(db))
-			clubs.GET("/:slug", handler.GetClubBySlug(db)) // Resolved 404 for club profile
 
-			// Protected club routes
+			// Protected club routes (prefixed to avoid wildcard collision)
 			protectedClubs := clubs.Group("")
 			protectedClubs.Use(middleware.AuthMiddleware())
 			{
@@ -525,7 +572,51 @@ func main() {
 				protectedClubs.POST("/approve/:memberId", handler.ApproveClubMember(db))
 				protectedClubs.POST("/leave", handler.LeaveClub(db))
 				protectedClubs.POST("/invite", handler.InviteToClub(db))
+				protectedClubs.DELETE("/members/:archerId", handler.KickClubMember(db))
+				protectedClubs.PATCH("/members/:archerId/notes", handler.UpdateMemberNotes(db))
+
+				// Registration Form Builder routes
+				protectedClubs.GET("/forms", handler.GetRegistrationForm(db))
+				protectedClubs.POST("/forms", handler.CreateRegistrationForm(db))
+				protectedClubs.GET("/forms/:formId", handler.GetRegistrationForm(db))
+				protectedClubs.PUT("/forms/:formId", handler.UpdateRegistrationForm(db))
+				protectedClubs.DELETE("/forms/:formId", handler.DeleteRegistrationForm(db))
+				protectedClubs.POST("/forms/:formId/publish", handler.PublishRegistrationForm(db))
+				protectedClubs.PUT("/forms/:formId/reorder", handler.ReorderFormItems(db))
+
+				// Section routes
+				protectedClubs.POST("/forms/:formId/sections", handler.CreateFormSection(db))
+				protectedClubs.PUT("/forms/:formId/sections/:sectionId", handler.UpdateFormSection(db))
+				protectedClubs.DELETE("/forms/:formId/sections/:sectionId", handler.DeleteFormSection(db))
+
+				// Field routes
+				protectedClubs.POST("/forms/:formId/sections/:sectionId/fields", handler.CreateFormField(db))
+				protectedClubs.PUT("/forms/:formId/fields/:fieldId", handler.UpdateFormField(db))
+				protectedClubs.DELETE("/forms/:formId/fields/:fieldId", handler.DeleteFormField(db))
+
+				// Membership Management routes
+				membership := protectedClubs.Group("/membership")
+				{
+					// Stats
+					membership.GET("/stats", handler.GetMembershipStats(db))
+
+					// Packages (paket buatan club)
+					membership.GET("/packages", handler.GetMembershipPackages(db))
+					membership.POST("/packages", handler.CreateMembershipPackage(db))
+					membership.PUT("/packages/:packageId", handler.UpdateMembershipPackage(db))
+					membership.DELETE("/packages/:packageId", handler.DeleteMembershipPackage(db))
+
+					// Subscriptions
+					membership.GET("/subscriptions", handler.GetMembershipSubscriptions(db))
+					membership.POST("/subscriptions", handler.AssignMembershipPackage(db))
+					membership.POST("/subscriptions/:subscriptionId/pay", handler.RecordMembershipPayment(db))
+					membership.GET("/subscriptions/archer/:archerId", handler.GetArcherSubscriptionHistory(db))
+				}
 			}
+
+			// Public endpoints — wildcard MUST be last to avoid shadowing named routes above
+			clubs.GET("/:slug/registration-form", handler.GetPublicRegistrationForm(db))
+			clubs.GET("/:slug", handler.GetClubBySlug(db))
 		}
 
 		// Seller routes
@@ -570,7 +661,7 @@ func main() {
 			port = "8001"
 		}
 
-		logger.WithField("port", port).Info("Archery Hub API starting")
+
 		logger.Fatal(r.Run(":" + port))
 	}
 }

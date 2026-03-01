@@ -40,6 +40,7 @@ type ArcherWithStats struct {
 	TotalEvents     int        `json:"total_events" db:"total_events"`
 	CompletedEvents int        `json:"completed_events" db:"completed_events"`
 	LastEventDate   *time.Time `json:"last_event_date" db:"last_event_date"`
+	CoachNotes      *string    `json:"coach_notes" db:"coach_notes"`
 }
 
 // CreateArcherRequest represents the request payload for creating an archer

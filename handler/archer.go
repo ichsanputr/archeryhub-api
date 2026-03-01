@@ -150,15 +150,17 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.achievements, a.equipment, a.page_settings,
 				c.name as club_name,
 				c.slug as club_slug,
+				cm.coach_notes,
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN club_members cm ON a.uuid = cm.archer_id AND a.club_id = cm.club_id
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
-			GROUP BY a.uuid
+			GROUP BY a.uuid, cm.coach_notes
 			LIMIT 1
 		`
 
