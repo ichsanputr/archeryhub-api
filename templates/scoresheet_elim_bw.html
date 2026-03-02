@@ -1,12 +1,23 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scoresheet Eliminasi (B&amp;W) — {{.CategoryName}}</title>
   <style>
-    @page { size: A4 portrait; margin: 5mm 5mm 5mm 5mm; }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page {
+      size: A4 portrait;
+      margin: 5mm 5mm 5mm 5mm;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       font-family: Arial, Helvetica, sans-serif;
@@ -28,7 +39,10 @@
       page-break-after: always;
       page-break-inside: avoid;
     }
-    .board-page:last-child { page-break-after: avoid; }
+
+    .board-page:last-child {
+      page-break-after: avoid;
+    }
 
     /* ── Page header: thick ruled top bar ── */
     .page-header {
@@ -41,7 +55,12 @@
       gap: 3mm;
       flex-shrink: 0;
     }
-    .header-text { flex: 1; min-width: 0; }
+
+    .header-text {
+      flex: 1;
+      min-width: 0;
+    }
+
     .event-name {
       font-size: 10.5pt;
       font-weight: 900;
@@ -51,7 +70,13 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .event-sub { font-size: 6pt; color: #555; margin-top: 0.4mm; }
+
+    .event-sub {
+      font-size: 6pt;
+      color: #555;
+      margin-top: 0.4mm;
+    }
+
     .session-meta {
       font-size: 6pt;
       color: #333;
@@ -61,8 +86,23 @@
     }
 
     /* Board code in header */
-    .header-barcode { flex-shrink: 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.8mm; }
-    .qr-img { width: 16mm; height: 16mm; image-rendering: pixelated; border: 1pt solid #333; border-radius: 1pt; }
+    .header-barcode {
+      flex-shrink: 0;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8mm;
+    }
+
+    .qr-img {
+      width: 22mm;
+      height: 22mm;
+      image-rendering: pixelated;
+      border: 1pt solid #333;
+      border-radius: 1pt;
+    }
+
     .board-code-box {
       border: 1.5pt solid #000;
       padding: 1.5mm 2.5mm;
@@ -71,6 +111,7 @@
       font-weight: 900;
       letter-spacing: 0.1em;
     }
+
     .barcode-label {
       font-size: 5pt;
       color: #555;
@@ -87,6 +128,7 @@
       padding: 1.5mm 2mm;
       gap: 0;
     }
+
     .position-group {
       flex: 1;
       display: flex;
@@ -107,8 +149,19 @@
       gap: 4mm;
       margin: 0;
     }
-    .vs-line { flex: 1; height: 0.5pt; background: #888; }
-    .vs-text { font-weight: 900; font-size: 7pt; letter-spacing: 0.1em; color: #333; }
+
+    .vs-line {
+      flex: 1;
+      height: 0.5pt;
+      background: #888;
+    }
+
+    .vs-text {
+      font-weight: 900;
+      font-size: 7pt;
+      letter-spacing: 0.1em;
+      color: #333;
+    }
 
     /* ── Archer panel ── */
     .archer-section {
@@ -130,6 +183,7 @@
       padding-bottom: 1mm;
       flex-shrink: 0;
     }
+
     .target-badge {
       display: flex;
       align-items: center;
@@ -144,9 +198,27 @@
       line-height: 1;
       flex-shrink: 0;
     }
-    .badge-b { background: #777; }
-    .archer-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 0.2mm; }
-    .info-row-label { font-size: 5pt; color: #777; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .badge-b {
+      background: #777;
+    }
+
+    .archer-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.2mm;
+    }
+
+    .info-row-label {
+      font-size: 5pt;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
     .archer-name {
       font-size: 8.5pt;
       font-weight: 900;
@@ -155,7 +227,14 @@
       text-overflow: ellipsis;
       line-height: 1.15;
     }
-    .archer-club { font-size: 6pt; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .archer-club {
+      font-size: 6pt;
+      color: #444;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     /* Score grid */
     .score-grid {
@@ -164,7 +243,9 @@
       table-layout: fixed;
       flex-shrink: 0;
     }
-    .score-grid th, .score-grid td {
+
+    .score-grid th,
+    .score-grid td {
       border: 0.5pt solid #666;
       text-align: center;
       padding: 0;
@@ -173,6 +254,7 @@
       line-height: 6.5mm;
       overflow: hidden;
     }
+
     .score-grid th {
       background: #e0e0e0;
       font-weight: 700;
@@ -181,14 +263,44 @@
       line-height: 4.5mm;
       border: 0.5pt solid #666;
     }
-    .col-end  { width: 5%; }
-    .col-sum  { width: 9%; }
-    .col-tot  { width: 11%; }
-    .col-set  { width: 8%; }
-    .td-end   { background: #ddd; font-weight: 700; font-size: 5.5pt; }
-    .td-set   { background: #f5f5f5; }
-    .total-row td { background: #ccc; font-weight: 700; border-top: 1pt solid #555; }
-    .so-row td { background: #f0f0f0; border-top: 0.5pt dashed #888; border-bottom: 0.5pt dashed #888; }
+
+    .col-end {
+      width: 5%;
+    }
+
+    .col-sum {
+      width: 9%;
+    }
+
+    .col-tot {
+      width: 11%;
+    }
+
+    .col-set {
+      width: 8%;
+    }
+
+    .td-end {
+      background: #ddd;
+      font-weight: 700;
+      font-size: 5.5pt;
+    }
+
+    .td-set {
+      background: #f5f5f5;
+    }
+
+    .total-row td {
+      background: #ccc;
+      font-weight: 700;
+      border-top: 1pt solid #555;
+    }
+
+    .so-row td {
+      background: #f0f0f0;
+      border-top: 0.5pt dashed #888;
+      border-bottom: 0.5pt dashed #888;
+    }
 
     /* Shared footer */
     .shared-footer {
@@ -196,384 +308,44 @@
       padding: 3mm 4mm;
       border-top: 1pt solid #888;
     }
+
     .footer-content {
       display: flex;
       flex-direction: row;
       justify-content: center;
       align-items: flex-end;
     }
+
     .signature-group {
       display: flex;
       flex-direction: row;
       gap: 8mm;
       width: 100%;
     }
-    .sig-block { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 40mm; }
-    .sig-line { width: 100%; height: 10mm; border-bottom: 0.7pt solid #555; }
-    .sig-label { font-size: 5pt; color: #666; text-align: center; margin-top: 0.5mm; }
+
+    .sig-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 40mm;
+    }
+
+    .sig-line {
+      width: 100%;
+      height: 10mm;
+      border-bottom: 0.7pt solid #555;
+    }
+
+    .sig-label {
+      font-size: 5pt;
+      color: #666;
+      text-align: center;
+      margin-top: 0.5mm;
+    }
 
     /* No-data page */
-    .no-boards { text-align: center; padding: 20mm; color: #aaa; font-size: 11pt; }
-
-    /* Print bar (screen only) */
-    .print-bar {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #222; color: #fff;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 18px; z-index: 9999;
-      font-family: Arial, sans-serif; font-size: 13px;
-    }
-    .print-bar .info { opacity: 0.6; font-size: 11px; margin-left: 8px; }
-    .print-btn {
-      background: #fff; color: #222; border: none;
-      padding: 7px 22px; border-radius: 5px;
-      font-weight: 900; font-size: 13px; cursor: pointer;
-    }
-
-    @media print {
-      .print-bar { display: none !important; }
-      body { background: #fff; padding: 0 !important; }
-      .board-page { margin: 0; box-shadow: none; }
-    }
-    @media screen {
-      body { padding-top: 52px; padding-bottom: 12mm; }
-      .board-page { margin: 0 auto 8mm; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
-    }
-  </style>
-</head>
-<body>
-
-<div class="print-bar">
-  <div>
-    <strong>SCORESHEET ELIMINASI (B&amp;W)</strong>
-    <span class="info">{{.CategoryName}} &nbsp;&bull;&nbsp; Dicetak: {{.PrintDate}}</span>
-  </div>
-  <button class="print-btn" onclick="window.print()">&#128424;&nbsp; Cetak / Simpan PDF</button>
-</div>
-
-<script>
-  if (window.location.search.indexOf('autoprint=1') !== -1) {
-    window.addEventListener('load', function() { setTimeout(function() { window.print(); }, 900); });
-  }
-</script>
-
-{{if .Matches}}
-{{range .Matches}}{{$m := .}}
-<div class="board-page">
-
-  <!-- Page header -->
-  <div class="page-header">
-    <div class="header-text">
-      <div class="event-name">{{$.EventName}}</div>
-      <div class="event-sub">{{$.EventOrg}}</div>
-      <div class="session-meta">
-        <strong>{{$m.RoundLabel}}</strong> (Match #{{$m.MatchNo}})
-        {{if $m.TargetName}} &bull; Bantalan <strong>{{$m.TargetName}}</strong>{{end}} &bull;
-        {{$.CategoryName}} &bull;
-        {{if eq $.Format "recurve_set"}}Sistem Set ({{$.EndsPerMatch}} set &times; {{$.ArrowsPerEnd}} panah){{else}}Kumulatif ({{$.EndsPerMatch}} end &times; {{$.ArrowsPerEnd}} panah){{end}}
-      </div>
-    </div>
-    {{if $m.QRDataURI}}
-    <div class="header-barcode">
-      <img class="qr-img" src="{{$m.QRDataURI}}" alt="{{$m.BoardCode}}">
-      <div class="barcode-label">{{$m.BoardCode}}</div>
-    </div>
-    {{else if $m.BoardCode}}
-    <div class="header-barcode">
-      <div class="board-code-box">{{$m.BoardCode}}</div>
-      <div class="barcode-label">KODE PAPAN</div>
-    </div>
-    {{end}}
-  </div>
-
-  <!-- Two archers: A on top, B on bottom -->
-  <div class="positions-wrapper">
-
-    <!-- Peserta A -->
-    <div class="position-group">
-      <div class="archer-section">
-        <div class="section-header">
-          <div class="target-badge">A</div>
-          <div class="archer-info">
-            <div class="info-row-label">Peserta A{{if $m.SeedA}} &mdash; Seed #{{$m.SeedA}}{{end}}</div>
-            <div class="archer-name">{{if $m.NameA}}{{$m.NameA}}{{else}}&mdash; TBD &mdash;{{end}}</div>
-            <div class="archer-club">{{$m.ClubA}}</div>
-          </div>
-        </div>
-        <table class="score-grid">
-          <thead><tr>
-            <th class="col-end">End</th>
-            {{range $m.ArrowRange}}<th>{{.}}</th>{{end}}
-            <th class="col-sum">Jml</th>
-            <th class="col-tot">Total</th>
-            {{if $m.IsSet}}<th class="col-set">Set</th>{{end}}
-          </tr></thead>
-          <tbody>
-            {{range $m.EndRange}}<tr>
-              <td class="col-end td-end">{{.}}</td>
-              {{range $m.ArrowRange}}<td></td>{{end}}
-              <td></td><td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
-            </tr>{{end}}
-            <tr class="so-row">
-              <td class="col-end td-end" style="font-size:4.5pt;line-height:1;padding:1mm 0;">S/O</td>
-              {{range $m.ArrowRange}}<td></td>{{end}}
-              <td></td><td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
-            </tr>
-            <tr class="total-row">
-              <td class="col-end td-end">&#x3A3;</td>
-              {{range $m.ArrowRange}}<td></td>{{end}}
-              <td></td><td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- VS divider -->
-    <div class="vs-divider">
-      <div class="vs-line"></div>
-      <span class="vs-text">&#9654;&nbsp;VS&nbsp;&#9664;</span>
-      <div class="vs-line"></div>
-    </div>
-
-    <!-- Peserta B -->
-    <div class="position-group">
-      <div class="archer-section">
-        <div class="section-header">
-          <div class="target-badge badge-b">B</div>
-          <div class="archer-info">
-            <div class="info-row-label">Peserta B{{if $m.SeedB}} &mdash; Seed #{{$m.SeedB}}{{end}}</div>
-            <div class="archer-name">{{if $m.NameB}}{{$m.NameB}}{{else}}&mdash; TBD &mdash;{{end}}</div>
-            <div class="archer-club">{{$m.ClubB}}</div>
-          </div>
-        </div>
-        <table class="score-grid">
-          <thead><tr>
-            <th class="col-end">End</th>
-            {{range $m.ArrowRange}}<th>{{.}}</th>{{end}}
-            <th class="col-sum">Jml</th>
-            <th class="col-tot">Total</th>
-            {{if $m.IsSet}}<th class="col-set">Set</th>{{end}}
-          </tr></thead>
-          <tbody>
-            {{range $m.EndRange}}<tr>
-              <td class="col-end td-end">{{.}}</td>
-              {{range $m.ArrowRange}}<td></td>{{end}}
-              <td></td><td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
-            </tr>{{end}}
-            <tr class="so-row">
-              <td class="col-end td-end" style="font-size:4.5pt;line-height:1;padding:1mm 0;">S/O</td>
-              {{range $m.ArrowRange}}<td></td>{{end}}
-              <td></td><td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
-            </tr>
-            <tr class="total-row">
-              <td class="col-end td-end">&#x3A3;</td>
-              {{range $m.ArrowRange}}<td></td>{{end}}
-              <td></td><td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </div><!-- .positions-wrapper -->
-
-  <!-- Shared footer with signatures -->
-  <div class="shared-footer">
-    <div class="footer-content">
-      <div class="signature-group">
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Wasit / Referee</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</div></div>
-      </div>
-    </div>
-  </div>
-
-</div><!-- .board-page -->
-{{end}}
-{{else}}
-<div class="board-page">
-  <div class="page-header">
-    <div class="header-text">
-      <div class="event-name">{{.EventName}}</div>
-      <div class="event-sub">{{.EventOrg}}</div>
-      <div class="session-meta"><strong>Babak Eliminasi</strong> &bull; {{.CategoryName}}</div>
-    </div>
-  </div>
-  <div class="no-boards">
-    <p>Belum ada pertandingan eliminasi untuk bracket ini.</p>
-    <p style="font-size:9pt;margin-top:6px;color:#bbb;">Generate bracket terlebih dahulu untuk melihat scoresheet.</p>
-  </div>
-</div>
-{{end}}
-
-</body>
-</html>
-
-
-    /* ── Page ── */
-    .sheet-page {
-      width: 200mm;
-      height: 285mm;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      page-break-after: always;
-    }
-    .sheet-page:last-child { page-break-after: avoid; }
-
-    /* ── Page Header ── */
-    .page-header {
-      border-bottom: 2pt solid #000;
-      padding: 2mm 3mm 1.5mm;
-      flex-shrink: 0;
-    }
-    .ev-name {
-      font-size: 10.5pt;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-    .ev-sub { font-size: 7pt; color: #444; }
-    .ev-meta {
-      font-size: 7pt;
-      color: #222;
-      margin-top: 1mm;
-      padding-top: 1mm;
-      border-top: 0.5pt dashed #888;
-    }
-
-    /* ── Page body: two match halves ── */
-    .page-body {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ── Match card (one half of a page) ── */
-    .match-card {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      border-top: 1.5pt dashed #555;
-      padding: 1.5mm 2.5mm;
-      overflow: hidden;
-    }
-
-    /* Match card header */
-    .match-header {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      border-bottom: 0.7pt solid #888;
-      padding-bottom: 1mm;
-      margin-bottom: 1mm;
-      gap: 3mm;
-    }
-    .match-labels { flex: 1; }
-    .round-label {
-      font-size: 9.5pt;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-    .match-info { font-size: 7pt; color: #444; }
-    .board-code-box {
-      border: 1pt solid #000;
-      padding: 1mm 2.5mm;
-      font-size: 8pt;
-      font-weight: 900;
-      font-family: 'Courier New', monospace;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    /* Combatants row */
-    .combatants {
-      display: flex;
-      flex-direction: row;
-      gap: 2mm;
-      margin-bottom: 1mm;
-    }
-    .combatant {
-      flex: 1;
-      padding: 1mm 1.5mm;
-      border: 0.7pt solid #888;
-      display: flex;
-      flex-direction: column;
-      gap: 0.3mm;
-    }
-    .combatant-label { font-size: 5.5pt; color: #666; text-transform: uppercase; }
-    .combatant-name { font-size: 9pt; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .combatant-club { font-size: 6.5pt; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .combatant-seed { font-size: 6pt; color: #555; }
-    .vs-separator { display:flex; align-items:center; font-size:10pt; font-weight:bold; color:#666; flex-shrink:0; }
-
-    /* Score table */
-    .score-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    .score-table th, .score-table td {
-      border: 0.7pt solid #555;
-      text-align: center;
-      padding: 0;
-      font-size: 6.5pt;
-      height: 4.5mm;
-      line-height: 4.5mm;
-      overflow: hidden;
-    }
-    .score-table th {
-      background: #e8e8e8;
-      font-weight: bold;
-      font-size: 5.5pt;
-      height: 4mm;
-      line-height: 4mm;
-    }
-    .score-table .th-name {
-      font-size: 5pt;
-      background: #d8d8d8;
-    }
-    .col-end   { width: 5%; }
-    .col-arrow { /* auto */ }
-    .col-tot   { width: 9%; }
-    .col-set   { width: 8%; background: #f5f5f5; }
-    .td-end    { background: #e8e8e8; font-weight: bold; }
-    .td-set    { background: #f5f5f5; }
-    .total-row td { background: #d0d0d0; font-weight: bold; }
-    .so-row td { background: #ececec; }
-
-    /* Signature area */
-    .sig-row {
-      margin-top: auto;
-      padding-top: 1mm;
-      border-top: 0.7pt solid #888;
-      display: flex;
-      flex-direction: row;
-      gap: 3mm;
-    }
-    .sig-block { flex: 1; display: flex; flex-direction: column; align-items: center; }
-    .sig-line { width: 100%; height: 8mm; border-bottom: 0.7pt solid #000; }
-    .sig-label { font-size: 5.5pt; color: #555; text-align: center; margin-top: 0.5mm; }
-
-    /* Empty match half */
-    .match-empty {
-      flex: 1;
-      border-top: 1pt dashed #ccc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #fff;
-      color: #bbb;
-      font-size: 8pt;
-      font-style: italic;
-    }
-
-    /* No pages message */
-    .no-pages {
+    .no-boards {
       text-align: center;
       padding: 20mm;
       color: #aaa;
@@ -582,242 +354,700 @@
 
     /* Print bar (screen only) */
     .print-bar {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #333; color: #fff;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px; z-index: 1000;
-      font-family: Arial, sans-serif; font-size: 13px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #222;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 18px;
+      z-index: 9999;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
     }
-    .print-bar .info { opacity: 0.75; font-size: 11px; }
+
+    .print-bar .info {
+      opacity: 0.6;
+      font-size: 11px;
+      margin-left: 8px;
+    }
+
     .print-btn {
-      background: #fff; color: #333; border: 1px solid #666;
-      padding: 7px 20px; border-radius: 5px;
-      font-weight: bold; font-size: 13px; cursor: pointer;
+      background: #fff;
+      color: #222;
+      border: none;
+      padding: 7px 22px;
+      border-radius: 5px;
+      font-weight: 900;
+      font-size: 13px;
+      cursor: pointer;
     }
+
     @media print {
-      .print-bar { display: none; }
-      body { background: #fff; padding: 0; }
-      .sheet-page { margin: 0; }
+      .print-bar {
+        display: none !important;
+      }
+
+      body {
+        background: #fff;
+        padding: 0 !important;
+      }
+
+      .board-page {
+        margin: 0;
+        box-shadow: none;
+      }
     }
+
     @media screen {
-      body { padding-top: 50px; padding-bottom: 10mm; }
-      .sheet-page { margin: 0 auto 10mm; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+      body {
+        padding-top: 52px;
+        padding-bottom: 12mm;
+      }
+
+      .board-page {
+        margin: 0 auto 8mm;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+      }
     }
   </style>
 </head>
+
 <body>
 
-<div class="print-bar">
-  <div>
-    <strong>SCORESHEET ELIMINASI (HITAM PUTIH)</strong>
-    <span class="info"> — {{.CategoryName}} | Dicetak: {{.PrintDate}}</span>
-  </div>
-  <button class="print-btn" onclick="window.print()">&#128424; Cetak / Simpan PDF</button>
-</div>
-
-{{if .Pages}}
-{{range .Pages}}{{$page := .}}
-<div class="sheet-page">
-
-  <!-- Page header shared by both match halves -->
-  <div class="page-header">
-    <div class="ev-name">{{$.EventName}}</div>
-    <div class="ev-sub">{{$.EventOrg}}</div>
-    <div class="ev-meta">
-      <strong>Babak Eliminasi</strong> &bull;
-      {{$.CategoryName}} &bull;
-      {{if eq $.Format "recurve_set"}}Sistem Set ({{$.EndsPerMatch}} set &times; {{$.ArrowsPerEnd}} anak panah){{else}}Kumulatif ({{$.EndsPerMatch}} end &times; {{$.ArrowsPerEnd}} anak panah){{end}}
+  <div class="print-bar">
+    <div>
+      <strong>SCORESHEET ELIMINASI (B&amp;W)</strong>
+      <span class="info">{{.CategoryName}} &nbsp;&bull;&nbsp; Dicetak: {{.PrintDate}}</span>
     </div>
+    <button class="print-btn" onclick="window.print()">&#128424;&nbsp; Cetak / Simpan PDF</button>
   </div>
 
-  <div class="page-body">
+  <script>
+    if (window.location.search.indexOf('autoprint=1') !== -1) {
+      window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 900); });
+    }
+  </script>
 
-    <!-- Upper match -->
-    {{if .Upper}}{{$m := .Upper}}
-    <div class="match-card">
-      <div class="match-header">
-        <div class="match-labels">
-          <div class="round-label">{{$m.RoundLabel}}</div>
-          <div class="match-info">
-            Match {{$m.MatchNo}}
-            {{if $m.TargetName}} &bull; Target {{$m.TargetName}}{{end}}
+  {{if .Matches}}
+  {{range .Matches}}{{$m := .}}
+  <div class="board-page">
+
+    <!-- Page header -->
+    <div class="page-header">
+      <div class="header-text">
+        <div class="event-name">{{$.EventName}}</div>
+        <div class="event-sub">{{$.EventOrg}}</div>
+        <div class="session-meta">
+          <strong>{{$m.RoundLabel}}</strong> (Match #{{$m.MatchNo}})
+          {{if $m.TargetName}} &bull; Bantalan <strong>{{$m.TargetName}}</strong>{{end}} &bull;
+          {{$.CategoryName}} &bull;
+          {{if eq $.Format "recurve_set"}}Sistem Set ({{$.EndsPerMatch}} set &times; {{$.ArrowsPerEnd}}
+          panah){{else}}Kumulatif ({{$.EndsPerMatch}} end &times; {{$.ArrowsPerEnd}} panah){{end}}
+        </div>
+      </div>
+      {{if $m.QRDataURI}}
+      <div class="header-barcode">
+        <img class="qr-img" src="{{$m.QRDataURI}}" alt="{{$m.BoardCode}}">
+        <div class="barcode-label">{{$m.BoardCode}}</div>
+      </div>
+      {{else if $m.BoardCode}}
+      <div class="header-barcode">
+        <div class="board-code-box">{{$m.BoardCode}}</div>
+        <div class="barcode-label">KODE PAPAN</div>
+      </div>
+      {{end}}
+    </div>
+
+    <!-- Two archers: A on top, B on bottom -->
+    <div class="positions-wrapper">
+
+      <!-- Peserta A -->
+      <div class="position-group">
+        <div class="archer-section">
+          <div class="section-header">
+            <div class="target-badge">A</div>
+            <div class="archer-info">
+              <div class="info-row-label">Peserta A{{if $m.SeedA}} &mdash; Seed #{{$m.SeedA}}{{end}}</div>
+              <div class="archer-name">{{if $m.NameA}}{{$m.NameA}}{{else}}&mdash; TBD &mdash;{{end}}</div>
+              <div class="archer-club">{{$m.ClubA}}</div>
+            </div>
+          </div>
+          <table class="score-grid">
+            <thead>
+              <tr>
+                <th class="col-end">End</th>
+                {{range $m.ArrowRange}}<th>{{.}}</th>{{end}}
+                <th class="col-sum">Jml</th>
+                <th class="col-tot">Total</th>
+                {{if $m.IsSet}}<th class="col-set">Set</th>{{end}}
+              </tr>
+            </thead>
+            <tbody>
+              {{range $m.EndRange}}<tr>
+                <td class="col-end td-end">{{.}}</td>
+                {{range $m.ArrowRange}}<td></td>{{end}}
+                <td></td>
+                <td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
+              </tr>{{end}}
+              <tr class="so-row">
+                <td class="col-end td-end" style="font-size:4.5pt;line-height:1;padding:1mm 0;">S/O</td>
+                {{range $m.ArrowRange}}<td></td>{{end}}
+                <td></td>
+                <td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
+              </tr>
+              <tr class="total-row">
+                <td class="col-end td-end">&#x3A3;</td>
+                {{range $m.ArrowRange}}<td></td>{{end}}
+                <td></td>
+                <td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VS divider -->
+      <div class="vs-divider">
+        <div class="vs-line"></div>
+        <span class="vs-text">&#9654;&nbsp;VS&nbsp;&#9664;</span>
+        <div class="vs-line"></div>
+      </div>
+
+      <!-- Peserta B -->
+      <div class="position-group">
+        <div class="archer-section">
+          <div class="section-header">
+            <div class="target-badge badge-b">B</div>
+            <div class="archer-info">
+              <div class="info-row-label">Peserta B{{if $m.SeedB}} &mdash; Seed #{{$m.SeedB}}{{end}}</div>
+              <div class="archer-name">{{if $m.NameB}}{{$m.NameB}}{{else}}&mdash; TBD &mdash;{{end}}</div>
+              <div class="archer-club">{{$m.ClubB}}</div>
+            </div>
+          </div>
+          <table class="score-grid">
+            <thead>
+              <tr>
+                <th class="col-end">End</th>
+                {{range $m.ArrowRange}}<th>{{.}}</th>{{end}}
+                <th class="col-sum">Jml</th>
+                <th class="col-tot">Total</th>
+                {{if $m.IsSet}}<th class="col-set">Set</th>{{end}}
+              </tr>
+            </thead>
+            <tbody>
+              {{range $m.EndRange}}<tr>
+                <td class="col-end td-end">{{.}}</td>
+                {{range $m.ArrowRange}}<td></td>{{end}}
+                <td></td>
+                <td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
+              </tr>{{end}}
+              <tr class="so-row">
+                <td class="col-end td-end" style="font-size:4.5pt;line-height:1;padding:1mm 0;">S/O</td>
+                {{range $m.ArrowRange}}<td></td>{{end}}
+                <td></td>
+                <td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
+              </tr>
+              <tr class="total-row">
+                <td class="col-end td-end">&#x3A3;</td>
+                {{range $m.ArrowRange}}<td></td>{{end}}
+                <td></td>
+                <td></td>{{if $m.IsSet}}<td class="td-set"></td>{{end}}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- .positions-wrapper -->
+
+    <!-- Shared footer with signatures -->
+    <div class="shared-footer">
+      <div class="footer-content">
+        <div class="signature-group">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">Wasit / Referee</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</div>
           </div>
         </div>
-        {{if $m.BoardCode}}
-        <div class="board-code-box">{{$m.BoardCode}}</div>
-        {{end}}
-      </div>
-
-      <div class="combatants">
-        <div class="combatant">
-          <div class="combatant-label">Peserta A</div>
-          <div class="combatant-name">{{if $m.NameA}}{{$m.NameA}}{{else}}TBD{{end}}</div>
-          <div class="combatant-club">{{$m.ClubA}}</div>
-          {{if $m.SeedA}}<div class="combatant-seed">Seed #{{$m.SeedA}}</div>{{end}}
-        </div>
-        <div class="vs-separator">VS</div>
-        <div class="combatant">
-          <div class="combatant-label">Peserta B</div>
-          <div class="combatant-name">{{if $m.NameB}}{{$m.NameB}}{{else}}TBD{{end}}</div>
-          <div class="combatant-club">{{$m.ClubB}}</div>
-          {{if $m.SeedB}}<div class="combatant-seed">Seed #{{$m.SeedB}}</div>{{end}}
-        </div>
-      </div>
-
-      <table class="score-table">
-        <thead>
-          <tr>
-            <th class="col-end" rowspan="2">End</th>
-            <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</th>
-            <th class="col-tot" rowspan="2">Tot A</th>
-            {{if $m.IsSet}}<th class="col-set" rowspan="2">Pts A</th><th class="col-set" rowspan="2">Pts B</th>{{end}}
-            <th class="col-tot" rowspan="2">Tot B</th>
-            <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</th>
-          </tr>
-          <tr>
-            {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
-            {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
-          </tr>
-        </thead>
-        <tbody>
-          {{range $m.EndRange}}<tr>
-            <td class="col-end td-end">{{.}}</td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-            <td></td>
-            {{if $m.IsSet}}<td class="td-set"></td><td class="td-set"></td>{{end}}
-            <td></td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-          </tr>{{end}}
-          <tr class="so-row">
-            <td class="col-end td-end" style="font-size:5pt;line-height:1;padding:0.3mm;">S/O</td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-            <td></td>
-            {{if $m.IsSet}}<td class="td-set"></td><td class="td-set"></td>{{end}}
-            <td></td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-          </tr>
-          <tr class="total-row">
-            <td class="col-end td-end">&#x3A3;</td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-            <td></td>
-            {{if $m.IsSet}}<td class="td-set"></td><td class="td-set"></td>{{end}}
-            <td></td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="sig-row">
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Wasit / Referee</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</div></div>
       </div>
     </div>
-    {{else}}
-    <div class="match-empty">— Tidak ada pertandingan —</div>
-    {{end}}
 
-    <!-- Lower match -->
-    {{if .Lower}}{{$m := .Lower}}
-    <div class="match-card">
-      <div class="match-header">
-        <div class="match-labels">
-          <div class="round-label">{{$m.RoundLabel}}</div>
-          <div class="match-info">
-            Match {{$m.MatchNo}}
-            {{if $m.TargetName}} &bull; Target {{$m.TargetName}}{{end}}
-          </div>
-        </div>
-        {{if $m.BoardCode}}
-        <div class="board-code-box">{{$m.BoardCode}}</div>
-        {{end}}
-      </div>
-
-      <div class="combatants">
-        <div class="combatant">
-          <div class="combatant-label">Peserta A</div>
-          <div class="combatant-name">{{if $m.NameA}}{{$m.NameA}}{{else}}TBD{{end}}</div>
-          <div class="combatant-club">{{$m.ClubA}}</div>
-          {{if $m.SeedA}}<div class="combatant-seed">Seed #{{$m.SeedA}}</div>{{end}}
-        </div>
-        <div class="vs-separator">VS</div>
-        <div class="combatant">
-          <div class="combatant-label">Peserta B</div>
-          <div class="combatant-name">{{if $m.NameB}}{{$m.NameB}}{{else}}TBD{{end}}</div>
-          <div class="combatant-club">{{$m.ClubB}}</div>
-          {{if $m.SeedB}}<div class="combatant-seed">Seed #{{$m.SeedB}}</div>{{end}}
-        </div>
-      </div>
-
-      <table class="score-table">
-        <thead>
-          <tr>
-            <th class="col-end" rowspan="2">End</th>
-            <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</th>
-            <th class="col-tot" rowspan="2">Tot A</th>
-            {{if $m.IsSet}}<th class="col-set" rowspan="2">Pts A</th><th class="col-set" rowspan="2">Pts B</th>{{end}}
-            <th class="col-tot" rowspan="2">Tot B</th>
-            <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</th>
-          </tr>
-          <tr>
-            {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
-            {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
-          </tr>
-        </thead>
-        <tbody>
-          {{range $m.EndRange}}<tr>
-            <td class="col-end td-end">{{.}}</td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-            <td></td>
-            {{if $m.IsSet}}<td class="td-set"></td><td class="td-set"></td>{{end}}
-            <td></td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-          </tr>{{end}}
-          <tr class="so-row">
-            <td class="col-end td-end" style="font-size:5pt;line-height:1;padding:0.3mm;">S/O</td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-            <td></td>
-            {{if $m.IsSet}}<td class="td-set"></td><td class="td-set"></td>{{end}}
-            <td></td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-          </tr>
-          <tr class="total-row">
-            <td class="col-end td-end">&#x3A3;</td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-            <td></td>
-            {{if $m.IsSet}}<td class="td-set"></td><td class="td-set"></td>{{end}}
-            <td></td>
-            {{range $m.ArrowRange}}<td></td>{{end}}
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="sig-row">
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Wasit / Referee</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</div></div>
+  </div><!-- .board-page -->
+  {{end}}
+  {{else}}
+  <div class="board-page">
+    <div class="page-header">
+      <div class="header-text">
+        <div class="event-name">{{.EventName}}</div>
+        <div class="event-sub">{{.EventOrg}}</div>
+        <div class="session-meta"><strong>Babak Eliminasi</strong> &bull; {{.CategoryName}}</div>
       </div>
     </div>
-    {{else}}
-    <div class="match-empty">— —</div>
-    {{end}}
-
-  </div><!-- .page-body -->
-</div><!-- .sheet-page -->
-{{end}}
-{{else}}
-<div class="sheet-page">
-  <div class="page-header">
-    <div class="ev-name">{{.EventName}}</div>
-    <div class="ev-sub">{{.EventOrg}}</div>
-    <div class="ev-meta"><strong>Babak Eliminasi</strong> &bull; {{.CategoryName}}</div>
+    <div class="no-boards">
+      <p>Belum ada pertandingan eliminasi untuk bracket ini.</p>
+      <p style="font-size:9pt;margin-top:6px;color:#bbb;">Generate bracket terlebih dahulu untuk melihat scoresheet.</p>
+    </div>
   </div>
-  <div class="no-pages">
-    <p>Belum ada pertandingan eliminasi untuk bracket ini.</p>
-    <p style="font-size:9pt;margin-top:6px;">Generate bracket terlebih dahulu untuk melihat scoresheet.</p>
-  </div>
-</div>
-{{end}}
+  {{end}}
 
 </body>
+
+</html>
+
+
+/* ── Page ── */
+.sheet-page {
+width: 200mm;
+height: 285mm;
+background: #fff;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+page-break-after: always;
+}
+.sheet-page:last-child { page-break-after: avoid; }
+
+/* ── Page Header ── */
+.page-header {
+border-bottom: 2pt solid #000;
+padding: 2mm 3mm 1.5mm;
+flex-shrink: 0;
+}
+.ev-name {
+font-size: 10.5pt;
+font-weight: bold;
+text-transform: uppercase;
+letter-spacing: 0.02em;
+}
+.ev-sub { font-size: 7pt; color: #444; }
+.ev-meta {
+font-size: 7pt;
+color: #222;
+margin-top: 1mm;
+padding-top: 1mm;
+border-top: 0.5pt dashed #888;
+}
+
+/* ── Page body: two match halves ── */
+.page-body {
+flex: 1;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+
+/* ── Match card (one half of a page) ── */
+.match-card {
+flex: 1;
+display: flex;
+flex-direction: column;
+border-top: 1.5pt dashed #555;
+padding: 1.5mm 2.5mm;
+overflow: hidden;
+}
+
+/* Match card header */
+.match-header {
+display: flex;
+flex-direction: row;
+align-items: center;
+border-bottom: 0.7pt solid #888;
+padding-bottom: 1mm;
+margin-bottom: 1mm;
+gap: 3mm;
+}
+.match-labels { flex: 1; }
+.round-label {
+font-size: 9.5pt;
+font-weight: bold;
+text-transform: uppercase;
+letter-spacing: 0.03em;
+}
+.match-info { font-size: 7pt; color: #444; }
+.board-code-box {
+border: 1pt solid #000;
+padding: 1mm 2.5mm;
+font-size: 8pt;
+font-weight: 900;
+font-family: 'Courier New', monospace;
+text-align: center;
+flex-shrink: 0;
+}
+
+/* Combatants row */
+.combatants {
+display: flex;
+flex-direction: row;
+gap: 2mm;
+margin-bottom: 1mm;
+}
+.combatant {
+flex: 1;
+padding: 1mm 1.5mm;
+border: 0.7pt solid #888;
+display: flex;
+flex-direction: column;
+gap: 0.3mm;
+}
+.combatant-label { font-size: 5.5pt; color: #666; text-transform: uppercase; }
+.combatant-name { font-size: 9pt; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combatant-club { font-size: 6.5pt; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combatant-seed { font-size: 6pt; color: #555; }
+.vs-separator { display:flex; align-items:center; font-size:10pt; font-weight:bold; color:#666; flex-shrink:0; }
+
+/* Score table */
+.score-table {
+width: 100%;
+border-collapse: collapse;
+table-layout: fixed;
+}
+.score-table th, .score-table td {
+border: 0.7pt solid #555;
+text-align: center;
+padding: 0;
+font-size: 6.5pt;
+height: 4.5mm;
+line-height: 4.5mm;
+overflow: hidden;
+}
+.score-table th {
+background: #e8e8e8;
+font-weight: bold;
+font-size: 5.5pt;
+height: 4mm;
+line-height: 4mm;
+}
+.score-table .th-name {
+font-size: 5pt;
+background: #d8d8d8;
+}
+.col-end { width: 5%; }
+.col-arrow { /* auto */ }
+.col-tot { width: 9%; }
+.col-set { width: 8%; background: #f5f5f5; }
+.td-end { background: #e8e8e8; font-weight: bold; }
+.td-set { background: #f5f5f5; }
+.total-row td { background: #d0d0d0; font-weight: bold; }
+.so-row td { background: #ececec; }
+
+/* Signature area */
+.sig-row {
+margin-top: auto;
+padding-top: 1mm;
+border-top: 0.7pt solid #888;
+display: flex;
+flex-direction: row;
+gap: 3mm;
+}
+.sig-block { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.sig-line { width: 100%; height: 8mm; border-bottom: 0.7pt solid #000; }
+.sig-label { font-size: 5.5pt; color: #555; text-align: center; margin-top: 0.5mm; }
+
+/* Empty match half */
+.match-empty {
+flex: 1;
+border-top: 1pt dashed #ccc;
+display: flex;
+align-items: center;
+justify-content: center;
+background: #fff;
+color: #bbb;
+font-size: 8pt;
+font-style: italic;
+}
+
+/* No pages message */
+.no-pages {
+text-align: center;
+padding: 20mm;
+color: #aaa;
+font-size: 11pt;
+}
+
+/* Print bar (screen only) */
+.print-bar {
+position: fixed; top: 0; left: 0; right: 0;
+background: #333; color: #fff;
+display: flex; align-items: center; justify-content: space-between;
+padding: 8px 16px; z-index: 1000;
+font-family: Arial, sans-serif; font-size: 13px;
+}
+.print-bar .info { opacity: 0.75; font-size: 11px; }
+.print-btn {
+background: #fff; color: #333; border: 1px solid #666;
+padding: 7px 20px; border-radius: 5px;
+font-weight: bold; font-size: 13px; cursor: pointer;
+}
+@media print {
+.print-bar { display: none; }
+body { background: #fff; padding: 0; }
+.sheet-page { margin: 0; }
+}
+@media screen {
+body { padding-top: 50px; padding-bottom: 10mm; }
+.sheet-page { margin: 0 auto 10mm; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+}
+</style>
+</head>
+
+<body>
+
+  <div class="print-bar">
+    <div>
+      <strong>SCORESHEET ELIMINASI (HITAM PUTIH)</strong>
+      <span class="info"> — {{.CategoryName}} | Dicetak: {{.PrintDate}}</span>
+    </div>
+    <button class="print-btn" onclick="window.print()">&#128424; Cetak / Simpan PDF</button>
+  </div>
+
+  {{if .Pages}}
+  {{range .Pages}}{{$page := .}}
+  <div class="sheet-page">
+
+    <!-- Page header shared by both match halves -->
+    <div class="page-header">
+      <div class="ev-name">{{$.EventName}}</div>
+      <div class="ev-sub">{{$.EventOrg}}{{if $.Location}} &bull; {{$.Location}}{{end}}{{if $.EventDates}} &bull;
+        {{$.EventDates}}{{end}}</div>
+      <div class="ev-meta">
+        <strong>Babak Eliminasi</strong> &bull;
+        {{$.CategoryName}} &bull;
+        {{if eq $.Format "recurve_set"}}Sistem Set ({{$.EndsPerMatch}} set &times; {{$.ArrowsPerEnd}} anak
+        panah){{else}}Kumulatif ({{$.EndsPerMatch}} end &times; {{$.ArrowsPerEnd}} anak panah){{end}}
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Upper match -->
+      {{if .Upper}}{{$m := .Upper}}
+      <div class="match-card">
+        <div class="match-header">
+          <div class="match-labels">
+            <div class="round-label">{{$m.RoundLabel}}</div>
+            <div class="match-info">
+              Match {{$m.MatchNo}}
+              {{if $m.TargetName}} &bull; Target {{$m.TargetName}}{{end}}
+            </div>
+          </div>
+          {{if $m.BoardCode}}
+          <div class="board-code-box">{{$m.BoardCode}}</div>
+          {{end}}
+        </div>
+
+        <div class="combatants">
+          <div class="combatant">
+            <div class="combatant-label">Peserta A</div>
+            <div class="combatant-name">{{if $m.NameA}}{{$m.NameA}}{{else}}TBD{{end}}</div>
+            <div class="combatant-club">{{$m.ClubA}}</div>
+            {{if $m.SeedA}}<div class="combatant-seed">Seed #{{$m.SeedA}}</div>{{end}}
+          </div>
+          <div class="vs-separator">VS</div>
+          <div class="combatant">
+            <div class="combatant-label">Peserta B</div>
+            <div class="combatant-name">{{if $m.NameB}}{{$m.NameB}}{{else}}TBD{{end}}</div>
+            <div class="combatant-club">{{$m.ClubB}}</div>
+            {{if $m.SeedB}}<div class="combatant-seed">Seed #{{$m.SeedB}}</div>{{end}}
+          </div>
+        </div>
+
+        <table class="score-table">
+          <thead>
+            <tr>
+              <th class="col-end" rowspan="2">End</th>
+              <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}
+              </th>
+              <th class="col-tot" rowspan="2">Tot A</th>
+              {{if $m.IsSet}}<th class="col-set" rowspan="2">Pts A</th>
+              <th class="col-set" rowspan="2">Pts B</th>{{end}}
+              <th class="col-tot" rowspan="2">Tot B</th>
+              <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}
+              </th>
+            </tr>
+            <tr>
+              {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
+              {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
+            </tr>
+          </thead>
+          <tbody>
+            {{range $m.EndRange}}<tr>
+              <td class="col-end td-end">{{.}}</td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+              <td></td>
+              {{if $m.IsSet}}<td class="td-set"></td>
+              <td class="td-set"></td>{{end}}
+              <td></td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+            </tr>{{end}}
+            <tr class="so-row">
+              <td class="col-end td-end" style="font-size:5pt;line-height:1;padding:0.3mm;">S/O</td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+              <td></td>
+              {{if $m.IsSet}}<td class="td-set"></td>
+              <td class="td-set"></td>{{end}}
+              <td></td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+            </tr>
+            <tr class="total-row">
+              <td class="col-end td-end">&#x3A3;</td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+              <td></td>
+              {{if $m.IsSet}}<td class="td-set"></td>
+              <td class="td-set"></td>{{end}}
+              <td></td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="sig-row">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">Wasit / Referee</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</div>
+          </div>
+        </div>
+      </div>
+      {{else}}
+      <div class="match-empty">— Tidak ada pertandingan —</div>
+      {{end}}
+
+      <!-- Lower match -->
+      {{if .Lower}}{{$m := .Lower}}
+      <div class="match-card">
+        <div class="match-header">
+          <div class="match-labels">
+            <div class="round-label">{{$m.RoundLabel}}</div>
+            <div class="match-info">
+              Match {{$m.MatchNo}}
+              {{if $m.TargetName}} &bull; Target {{$m.TargetName}}{{end}}
+            </div>
+          </div>
+          {{if $m.BoardCode}}
+          <div class="board-code-box">{{$m.BoardCode}}</div>
+          {{end}}
+        </div>
+
+        <div class="combatants">
+          <div class="combatant">
+            <div class="combatant-label">Peserta A</div>
+            <div class="combatant-name">{{if $m.NameA}}{{$m.NameA}}{{else}}TBD{{end}}</div>
+            <div class="combatant-club">{{$m.ClubA}}</div>
+            {{if $m.SeedA}}<div class="combatant-seed">Seed #{{$m.SeedA}}</div>{{end}}
+          </div>
+          <div class="vs-separator">VS</div>
+          <div class="combatant">
+            <div class="combatant-label">Peserta B</div>
+            <div class="combatant-name">{{if $m.NameB}}{{$m.NameB}}{{else}}TBD{{end}}</div>
+            <div class="combatant-club">{{$m.ClubB}}</div>
+            {{if $m.SeedB}}<div class="combatant-seed">Seed #{{$m.SeedB}}</div>{{end}}
+          </div>
+        </div>
+
+        <table class="score-table">
+          <thead>
+            <tr>
+              <th class="col-end" rowspan="2">End</th>
+              <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}
+              </th>
+              <th class="col-tot" rowspan="2">Tot A</th>
+              {{if $m.IsSet}}<th class="col-set" rowspan="2">Pts A</th>
+              <th class="col-set" rowspan="2">Pts B</th>{{end}}
+              <th class="col-tot" rowspan="2">Tot B</th>
+              <th colspan="{{len $m.ArrowRange}}" class="th-name">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}
+              </th>
+            </tr>
+            <tr>
+              {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
+              {{range $m.ArrowRange}}<th class="col-arrow">{{.}}</th>{{end}}
+            </tr>
+          </thead>
+          <tbody>
+            {{range $m.EndRange}}<tr>
+              <td class="col-end td-end">{{.}}</td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+              <td></td>
+              {{if $m.IsSet}}<td class="td-set"></td>
+              <td class="td-set"></td>{{end}}
+              <td></td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+            </tr>{{end}}
+            <tr class="so-row">
+              <td class="col-end td-end" style="font-size:5pt;line-height:1;padding:0.3mm;">S/O</td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+              <td></td>
+              {{if $m.IsSet}}<td class="td-set"></td>
+              <td class="td-set"></td>{{end}}
+              <td></td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+            </tr>
+            <tr class="total-row">
+              <td class="col-end td-end">&#x3A3;</td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+              <td></td>
+              {{if $m.IsSet}}<td class="td-set"></td>
+              <td class="td-set"></td>{{end}}
+              <td></td>
+              {{range $m.ArrowRange}}<td></td>{{end}}
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="sig-row">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">Wasit / Referee</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">{{if $m.NameA}}{{$m.NameA}}{{else}}Peserta A{{end}}</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">{{if $m.NameB}}{{$m.NameB}}{{else}}Peserta B{{end}}</div>
+          </div>
+        </div>
+      </div>
+      {{else}}
+      <div class="match-empty">— —</div>
+      {{end}}
+
+    </div><!-- .page-body -->
+  </div><!-- .sheet-page -->
+  {{end}}
+  {{else}}
+  <div class="sheet-page">
+    <div class="page-header">
+      <div class="ev-name">{{.EventName}}</div>
+      <div class="ev-sub">{{.EventOrg}}</div>
+      <div class="ev-meta"><strong>Babak Eliminasi</strong> &bull; {{.CategoryName}}</div>
+    </div>
+    <div class="no-pages">
+      <p>Belum ada pertandingan eliminasi untuk bracket ini.</p>
+      <p style="font-size:9pt;margin-top:6px;">Generate bracket terlebih dahulu untuk melihat scoresheet.</p>
+    </div>
+  </div>
+  {{end}}
+
+</body>
+
 </html>

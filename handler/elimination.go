@@ -2374,6 +2374,8 @@ type ElimScoresheetPage struct {
 type ElimScoresheetData struct {
 	EventName    string
 	EventOrg     string
+	Location     string
+	EventDates   string
 	CategoryName string
 	Format       string
 	BracketType  string
@@ -2381,6 +2383,7 @@ type ElimScoresheetData struct {
 	ArrowsPerEnd int
 	PrintDate    string
 	Matches      []ElimMatchCard // one entry per match, ordered by target board number
+	Pages        []ElimScoresheetPage
 }
 
 // GetEliminationScoresheet generates a printable HTML scoresheet for an elimination bracket.
@@ -2411,6 +2414,38 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
+		}
+
+		eventDates := ""
+		if ev.StartDate.Valid {
+			months := map[string]string{
+				"January": "Januari", "February": "Februari", "March": "Maret", "April": "April",
+				"May": "Mei", "June": "Juni", "July": "Juli", "August": "Agustus",
+				"September": "September", "October": "Oktober", "November": "November", "December": "Desember",
+			}
+			days := map[string]string{
+				"Monday": "Senin", "Tuesday": "Selasa", "Wednesday": "Rabu", "Thursday": "Kamis",
+				"Friday": "Jumat", "Saturday": "Sabtu", "Sunday": "Minggu",
+			}
+
+			sd := ev.StartDate.Time.Format("02") + " " + months[ev.StartDate.Time.Format("January")] + " " + ev.StartDate.Time.Format("2006")
+			dayName := days[ev.StartDate.Time.Format("Monday")]
+			
+			if ev.EndDate.Valid && ev.EndDate.Time.Format("2006-01-02") != ev.StartDate.Time.Format("2006-01-02") {
+				ed := ev.EndDate.Time.Format("02") + " " + months[ev.EndDate.Time.Format("January")] + " " + ev.EndDate.Time.Format("2006")
+				eventDates = fmt.Sprintf("%s – %s", sd, ed)
+			} else {
+				eventDates = fmt.Sprintf("%s, %s", sd, dayName)
+			}
+		}
+
+		location := ""
+		if ev.Venue.Valid && ev.Venue.String != "" {
+			location = ev.Venue.String
+		} else if ev.Location.Valid && ev.Location.String != "" {
+			location = ev.Location.String
+		} else if ev.City.Valid && ev.City.String != "" {
+			location = ev.City.String
 		}
 
 		// ── 2. Fetch bracket ──────────────────────────────────────────────────
@@ -2593,21 +2628,28 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			cards = append(cards, card)
 		}
 
-		// ── 5. Flatten cards into Matches (one entry per match) ─────────────
+		// ── 5. Prepare data for templates ────────────────────────────────────
 		matches := make([]ElimMatchCard, 0, len(cards))
 		for _, c2 := range cards {
 			matches = append(matches, *c2)
 		}
 
-		// ── 6. Render ─────────────────────────────────────────────────────────
-		if c.Query("download") == "1" {
-			fileName := fmt.Sprintf("scoresheet-elim-%s.html", bracketID)
-			c.Header("Content-Disposition", "attachment; filename=\""+fileName+"\"")
+		pages := []ElimScoresheetPage{}
+		if c.Query("theme") == "bw" {
+			for i := 0; i < len(matches); i += 2 {
+				page := ElimScoresheetPage{Upper: &matches[i]}
+				if i+1 < len(matches) {
+					page.Lower = &matches[i+1]
+				}
+				pages = append(pages, page)
+			}
 		}
 
 		data := ElimScoresheetData{
 			EventName:    ev.Name,
 			EventOrg:     ev.OrgName.String,
+			Location:     location,
+			EventDates:   eventDates,
 			CategoryName: bracket.CategoryName,
 			Format:       bracket.Format,
 			BracketType:  bracket.BracketType,
@@ -2615,6 +2657,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			ArrowsPerEnd: bracket.ArrowsPerEnd,
 			PrintDate:    time.Now().Format("02 Jan 2006 15:04"),
 			Matches:      matches,
+			Pages:        pages,
 		}
 		templateName := "scoresheet_elim.html"
 		if c.Query("theme") == "bw" {

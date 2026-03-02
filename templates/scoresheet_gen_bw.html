@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,8 +9,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
-    @page { size: A4 portrait; margin: 5mm 5mm 5mm 5mm; }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page {
+      size: A4 portrait;
+      margin: 5mm 5mm 5mm 5mm;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       font-family: 'Inter', Arial, sans-serif;
@@ -32,7 +43,10 @@
       page-break-after: always;
       page-break-inside: avoid;
     }
-    .board-page:last-child { page-break-after: avoid; }
+
+    .board-page:last-child {
+      page-break-after: avoid;
+    }
 
     /* ── Page header — thick top border, no background fill ── */
     .page-header {
@@ -47,7 +61,12 @@
       gap: 3mm;
       flex-shrink: 0;
     }
-    .header-text { flex: 1; min-width: 0; }
+
+    .header-text {
+      flex: 1;
+      min-width: 0;
+    }
+
     .event-name {
       font-size: 10.5pt;
       font-weight: 900;
@@ -58,7 +77,13 @@
       text-overflow: ellipsis;
       color: #000;
     }
-    .event-sub { font-size: 6pt; color: #444; margin-top: 0.4mm; }
+
+    .event-sub {
+      font-size: 6pt;
+      color: #444;
+      margin-top: 0.4mm;
+    }
+
     .session-meta {
       font-size: 6pt;
       color: #222;
@@ -66,7 +91,10 @@
       padding-top: 0.8mm;
       border-top: 0.5pt solid #aaa;
     }
-    .session-meta strong { color: #000; }
+
+    .session-meta strong {
+      color: #000;
+    }
 
     /* ── Archer grid ── */
     .positions-wrapper {
@@ -78,6 +106,7 @@
       padding: 1.5mm 2mm;
       gap: 1.5mm;
     }
+
     .position-group {
       flex: 1;
       display: flex;
@@ -85,6 +114,7 @@
       overflow: hidden;
       min-height: 0;
     }
+
     .position-row {
       flex: 1;
       display: flex;
@@ -93,33 +123,35 @@
       min-height: 0;
     }
 
-    /* ── QR divider: ONE QR code, center of page — dashed separator ── */
+    /* ── QR divider: ONE QR code, center of page ── */
     .qr-divider {
       flex-shrink: 0;
-      height: 26mm;
+      height: 32mm;
       background: #fff;
-      border-top: 1.5pt dashed #555;
-      border-bottom: 1.5pt dashed #555;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 5mm;
       padding: 0 8mm;
     }
+
     .qr-divider-img {
-      width: 20mm;
-      height: 20mm;
-      border: 1.5pt solid #000;
+      width: 24mm;
+      height: 24mm;
+      border: 1pt solid #000;
       border-radius: 2pt;
       background: #fff;
       display: block;
+      image-rendering: pixelated;
     }
+
     .qr-divider-text {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0.8mm;
     }
+
     .qr-divider-label {
       font-size: 6pt;
       font-weight: 700;
@@ -127,6 +159,7 @@
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
+
     .qr-divider-code {
       font-size: 18pt;
       font-weight: 900;
@@ -134,7 +167,12 @@
       letter-spacing: 0.04em;
       line-height: 1;
     }
-    .qr-divider-session { font-size: 5.5pt; color: #666; margin-top: 0.5mm; }
+
+    .qr-divider-session {
+      font-size: 5.5pt;
+      color: #666;
+      margin-top: 0.5mm;
+    }
 
     /* ── Archer panel ── */
     .archer-section {
@@ -146,8 +184,18 @@
       overflow: hidden;
       min-width: 0;
     }
-    .empty-section { align-items: center; justify-content: center; background: #fff !important; }
-    .empty-label { color: #bbb; font-size: 8pt; font-style: italic; }
+
+    .empty-section {
+      align-items: center;
+      justify-content: center;
+      background: #fff !important;
+    }
+
+    .empty-label {
+      color: #bbb;
+      font-size: 8pt;
+      font-style: italic;
+    }
 
     /* Panel header */
     .section-header {
@@ -159,6 +207,7 @@
       padding-bottom: 1mm;
       flex-shrink: 0;
     }
+
     /* B&W target badge: outlined box, no fill */
     .target-badge {
       display: flex;
@@ -175,8 +224,23 @@
       line-height: 1;
       flex-shrink: 0;
     }
-    .archer-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 0.2mm; }
-    .info-row-label { font-size: 5pt; color: #777; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .archer-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.2mm;
+    }
+
+    .info-row-label {
+      font-size: 5pt;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
     .archer-name {
       font-size: 8.5pt;
       font-weight: 900;
@@ -186,8 +250,20 @@
       line-height: 1.15;
       color: #000;
     }
-    .archer-club { font-size: 6pt; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .archer-cat { font-size: 6pt; font-weight: 700; color: #000; }
+
+    .archer-club {
+      font-size: 6pt;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .archer-cat {
+      font-size: 6pt;
+      font-weight: 700;
+      color: #000;
+    }
 
     /* Score grid */
     .score-grid {
@@ -196,7 +272,9 @@
       table-layout: fixed;
       flex-shrink: 0;
     }
-    .score-grid th, .score-grid td {
+
+    .score-grid th,
+    .score-grid td {
       border: 0.5pt solid #666;
       text-align: center;
       padding: 0;
@@ -205,6 +283,7 @@
       line-height: 7mm;
       overflow: hidden;
     }
+
     /* B&W header: bold top/bottom border, no fill */
     .score-grid th {
       background: #fff;
@@ -216,14 +295,39 @@
       border-top: 1pt solid #000;
       border-bottom: 1pt solid #000;
     }
-    .col-end  { width: 6%; }
-    .col-sum  { width: 9%; }
-    .col-tot  { width: 12%; }
-    .col-10x  { width: 10%; }
-    .col-x    { width: 7%; }
+
+    .col-end {
+      width: 6%;
+    }
+
+    .col-sum {
+      width: 9%;
+    }
+
+    .col-tot {
+      width: 12%;
+    }
+
+    .col-10x {
+      width: 10%;
+    }
+
+    .col-x {
+      width: 7%;
+    }
+
     /* B&W end column: light grey fill retained (1 shade only) */
-    .td-end   { background: #efefef; font-weight: 700; color: #000; font-size: 5.5pt; }
-    .total-row td { background: #e0e0e0; font-weight: 700; }
+    .td-end {
+      background: #efefef;
+      font-weight: 700;
+      color: #000;
+      font-size: 5.5pt;
+    }
+
+    .total-row td {
+      background: #e0e0e0;
+      font-weight: 700;
+    }
 
     /* Shared footer */
     .shared-footer {
@@ -231,6 +335,7 @@
       padding: 3mm 4mm;
       border-top: 1pt solid #000;
     }
+
     .footer-content {
       display: flex;
       flex-direction: row;
@@ -238,27 +343,60 @@
       align-items: flex-end;
       gap: 10mm;
     }
+
     .signature-group {
       display: flex;
       flex-direction: row;
       gap: 8mm;
     }
-    .sig-block { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 50mm; }
-    .sig-line { width: 100%; height: 10mm; border-bottom: 0.7pt solid #000; }
-    .sig-label { font-size: 5pt; color: #555; text-align: center; margin-top: 0.5mm; }
+
+    .sig-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 50mm;
+    }
+
+    .sig-line {
+      width: 100%;
+      height: 10mm;
+      border-bottom: 0.7pt solid #000;
+    }
+
+    .sig-label {
+      font-size: 5pt;
+      color: #555;
+      text-align: center;
+      margin-top: 0.5mm;
+    }
 
     /* No boards */
-    .no-boards { text-align: center; padding: 20mm; color: #aaa; font-size: 11pt; }
+    .no-boards {
+      text-align: center;
+      padding: 20mm;
+      color: #aaa;
+      font-size: 11pt;
+    }
 
     /* Print bar (screen only) */
     .print-bar {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #222; color: #fff;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 18px; z-index: 9999;
-      font-family: 'Inter', Arial, sans-serif; font-size: 13px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #222;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 18px;
+      z-index: 9999;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
     }
+
     .print-bar .badge-bw {
       display: inline-block;
       background: #fff;
@@ -271,193 +409,253 @@
       vertical-align: middle;
       letter-spacing: 0.05em;
     }
-    .print-bar .info { opacity: 0.6; font-size: 11px; margin-left: 8px; }
+
+    .print-bar .info {
+      opacity: 0.6;
+      font-size: 11px;
+      margin-left: 8px;
+    }
+
     .print-btn {
-      background: #fff; color: #000; border: none;
-      padding: 7px 22px; border-radius: 5px;
-      font-weight: 900; font-size: 13px; cursor: pointer;
+      background: #fff;
+      color: #000;
+      border: none;
+      padding: 7px 22px;
+      border-radius: 5px;
+      font-weight: 900;
+      font-size: 13px;
+      cursor: pointer;
       font-family: 'Inter', Arial, sans-serif;
     }
-    .print-btn:hover { background: #e0e0e0; }
+
+    .print-btn:hover {
+      background: #e0e0e0;
+    }
 
     @media print {
-      .print-bar { display: none !important; }
-      body { background: #fff; padding: 0 !important; }
-      .board-page { margin: 0; box-shadow: none; }
+      .print-bar {
+        display: none !important;
+      }
+
+      body {
+        background: #fff;
+        padding: 0 !important;
+      }
+
+      .board-page {
+        margin: 0;
+        box-shadow: none;
+      }
     }
+
     @media screen {
-      body { padding-top: 52px; padding-bottom: 12mm; }
-      .board-page { margin: 0 auto 8mm; box-shadow: 0 3px 20px rgba(0,0,0,.25); }
+      body {
+        padding-top: 52px;
+        padding-bottom: 12mm;
+      }
+
+      .board-page {
+        margin: 0 auto 8mm;
+        box-shadow: 0 3px 20px rgba(0, 0, 0, .25);
+      }
     }
   </style>
 </head>
+
 <body>
 
-<div class="print-bar">
-  <div>
-    <strong>SCORESHEET KUALIFIKASI</strong>
-    <span class="badge-bw">HITAM PUTIH</span>
-    <span class="info">{{.SessionCode}} &nbsp;&bull;&nbsp; {{.SessionName}} &nbsp;&bull;&nbsp; Dicetak: {{.PrintDate}}</span>
+  <div class="print-bar">
+    <div>
+      <strong>SCORESHEET KUALIFIKASI</strong>
+      <span class="badge-bw">HITAM PUTIH</span>
+      <span class="info">{{.SessionCode}} &nbsp;&bull;&nbsp; {{.SessionName}} &nbsp;&bull;&nbsp; Dicetak:
+        {{.PrintDate}}</span>
+    </div>
+    <button class="print-btn" onclick="window.print()">&#128424;&nbsp; Cetak / Simpan PDF</button>
   </div>
-  <button class="print-btn" onclick="window.print()">&#128424;&nbsp; Cetak / Simpan PDF</button>
-</div>
 
-<script>
-  if (window.location.search.indexOf('autoprint=1') !== -1) {
-    window.addEventListener('load', function() { setTimeout(function() { window.print(); }, 900); });
-  }
-</script>
+  <script>
+    if (window.location.search.indexOf('autoprint=1') !== -1) {
+      window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 900); });
+    }
+  </script>
 
-{{if .Boards}}
-{{range .Boards}}{{$board := .}}
-<div class="board-page">
+  {{if .Boards}}
+  {{range .Boards}}{{$board := .}}
+  <div class="board-page">
 
-  <!-- Page header (no QR, no color fill) -->
-  <div class="page-header">
-    <div class="header-text">
-      <div class="event-name">{{$.EventName}}</div>
-      <div class="event-sub">{{$.EventOrg}}{{if $.Location}} &bull; {{$.Location}}{{end}}{{if $.EventDates}} &bull; {{$.EventDates}}{{end}}</div>
-      <div class="session-meta">
-        <strong>{{$.SessionName}}</strong> ({{$.SessionCode}}) &bull;
-        {{$.SessionDate}}{{if $.SessionDayName}}, {{$.SessionDayName}}{{end}} &bull;
-        Bantalan&nbsp;<strong>{{$board.Code}}</strong> &bull;
-        {{$.TotalEnds}}&thinsp;End &times; {{$.ArrowsPerEnd}}&thinsp;Anak Panah
+    <!-- Page header (no QR, no color fill) -->
+    <div class="page-header">
+      <div class="header-text">
+        <div class="event-name">{{$.EventName}}</div>
+        <div class="event-sub">{{$.EventOrg}}{{if $.Location}} &bull; {{$.Location}}{{end}}</div>
+        <div class="session-meta">
+          <strong>{{$.SessionName}}</strong> ({{$.SessionCode}}) &bull;
+          {{$.SessionDate}}, {{$.SessionDayName}} &bull;
+          Bantalan&nbsp;<strong>{{$board.Code}}</strong> &bull;
+          {{$.TotalEnds}}&thinsp;End &times; {{$.ArrowsPerEnd}}&thinsp;Anak Panah
+        </div>
       </div>
     </div>
+
+    <!-- Archer rows -->
+    <div class="positions-wrapper">
+      {{range $rowIdx, $row := .Rows}}
+
+      {{if gt $rowIdx 0}}
+      <!-- ONE QR code in the center dashed divider -->
+      <div class="qr-divider">
+        {{if $board.QRCodeBase64}}
+        <img class="qr-divider-img" src="data:image/png;base64,{{$board.QRCodeBase64}}" alt="QR {{$board.Code}}" />
+        {{end}}
+        <div class="qr-divider-text">
+          <div class="qr-divider-label">Bantalan / Board</div>
+          <div class="qr-divider-code">{{$board.Code}}</div>
+          <div class="qr-divider-session">{{$.SessionCode}} &bull; {{$.SessionDate}}</div>
+        </div>
+      </div>
+      {{end}}
+
+      <div class="position-group">
+        <div class="position-row">
+
+          <!-- Left panel -->
+          {{if and $row.Left (not $row.Left.Empty)}}{{$L := $row.Left}}
+          <div class="archer-section">
+            <div class="section-header">
+              <div class="target-badge">{{$L.TargetName}}</div>
+              <div class="archer-info">
+                <div class="info-row-label">Pemanah / Target {{$L.TargetName}}</div>
+                <div class="archer-name">{{$L.ArcherName}}</div>
+                <div class="archer-club">{{$L.ClubName}}</div>
+                <div class="archer-cat">{{$L.Category}}</div>
+              </div>
+            </div>
+            <table class="score-grid">
+              <thead>
+                <tr>
+                  <th class="col-end">End</th>
+                  {{range $L.ArrowRange}}<th>{{.}}</th>{{end}}
+                  <th class="col-sum">Jml</th>
+                  <th class="col-tot">Total</th>
+                  <th class="col-10x">10+X</th>
+                  <th class="col-x">X</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range $L.EndRange}}<tr>
+                  <td class="col-end td-end">{{.}}</td>
+                  {{range $L.ArrowRange}}<td></td>{{end}}
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>{{end}}
+                <tr class="total-row">
+                  <td class="col-end td-end">&#x3A3;</td>
+                  {{range $L.ArrowRange}}<td></td>{{end}}
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {{else}}
+          <div class="archer-section empty-section"><span class="empty-label">— Kosong —</span></div>
+          {{end}}
+
+          <!-- Right panel -->
+          {{if and $row.Right (not $row.Right.Empty)}}{{$R := $row.Right}}
+          <div class="archer-section">
+            <div class="section-header">
+              <div class="target-badge">{{$R.TargetName}}</div>
+              <div class="archer-info">
+                <div class="info-row-label">Pemanah / Target {{$R.TargetName}}</div>
+                <div class="archer-name">{{$R.ArcherName}}</div>
+                <div class="archer-club">{{$R.ClubName}}</div>
+                <div class="archer-cat">{{$R.Category}}</div>
+              </div>
+            </div>
+            <table class="score-grid">
+              <thead>
+                <tr>
+                  <th class="col-end">End</th>
+                  {{range $R.ArrowRange}}<th>{{.}}</th>{{end}}
+                  <th class="col-sum">Jml</th>
+                  <th class="col-tot">Total</th>
+                  <th class="col-10x">10+X</th>
+                  <th class="col-x">X</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range $R.EndRange}}<tr>
+                  <td class="col-end td-end">{{.}}</td>
+                  {{range $R.ArrowRange}}<td></td>{{end}}
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>{{end}}
+                <tr class="total-row">
+                  <td class="col-end td-end">&#x3A3;</td>
+                  {{range $R.ArrowRange}}<td></td>{{end}}
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {{else}}
+          <div class="archer-section empty-section"><span class="empty-label">— Kosong —</span></div>
+          {{end}}
+
+        </div>
+      </div>
+      {{end}}
+    </div>
+
+    <!-- ONE footer per page/board -->
+    <div class="shared-footer">
+      <div class="footer-content">
+        <div class="signature-group">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">Tanda tangan Archer L</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">Tanda tangan Archer R</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-label">Tanda tangan Pencatat / Scorer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
-
-  <!-- Archer rows -->
-  <div class="positions-wrapper">
-  {{range $rowIdx, $row := .Rows}}
-
-  {{if gt $rowIdx 0}}
-  <!-- ONE QR code in the center dashed divider -->
-  <div class="qr-divider">
-    {{if $board.QRCodeBase64}}
-    <img class="qr-divider-img" src="data:image/png;base64,{{$board.QRCodeBase64}}" alt="QR {{$board.Code}}" />
-    {{end}}
-    <div class="qr-divider-text">
-      <div class="qr-divider-label">Bantalan / Board</div>
-      <div class="qr-divider-code">{{$board.Code}}</div>
-      <div class="qr-divider-session">{{$.SessionCode}} &bull; {{$.SessionDate}}</div>
+  {{end}}
+  {{else}}
+  <div class="board-page">
+    <div class="page-header">
+      <div class="header-text">
+        <div class="event-name">{{.EventName}}</div>
+        <div class="event-sub">{{.EventOrg}}</div>
+        <div class="session-meta"><strong>{{.SessionName}}</strong> ({{.SessionCode}}) &bull; {{.SessionDate}}</div>
+      </div>
+    </div>
+    <div class="no-boards">
+      <p>Belum ada penugasan target untuk sesi ini.</p>
+      <p style="font-size:9pt;margin-top:6px;color:#bbb;">Silakan atur penugasan target terlebih dahulu.</p>
     </div>
   </div>
   {{end}}
-
-  <div class="position-group">
-  <div class="position-row">
-
-    <!-- Left panel -->
-    {{if and $row.Left (not $row.Left.Empty)}}{{$L := $row.Left}}
-    <div class="archer-section">
-      <div class="section-header">
-        <div class="target-badge">{{$L.TargetName}}</div>
-        <div class="archer-info">
-          <div class="info-row-label">Pemanah / Target {{$L.TargetName}}</div>
-          <div class="archer-name">{{$L.ArcherName}}</div>
-          <div class="archer-club">{{$L.ClubName}}</div>
-          <div class="archer-cat">{{$L.Category}}</div>
-        </div>
-      </div>
-      <table class="score-grid">
-        <thead><tr>
-          <th class="col-end">End</th>
-          {{range $L.ArrowRange}}<th>{{.}}</th>{{end}}
-          <th class="col-sum">Jml</th>
-          <th class="col-tot">Total</th>
-          <th class="col-10x">10+X</th>
-          <th class="col-x">X</th>
-        </tr></thead>
-        <tbody>
-          {{range $L.EndRange}}<tr>
-            <td class="col-end td-end">{{.}}</td>
-            {{range $L.ArrowRange}}<td></td>{{end}}
-            <td></td><td></td><td></td><td></td>
-          </tr>{{end}}
-          <tr class="total-row">
-            <td class="col-end td-end">&#x3A3;</td>
-            {{range $L.ArrowRange}}<td></td>{{end}}
-            <td></td><td></td><td></td><td></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    {{else}}
-    <div class="archer-section empty-section"><span class="empty-label">— Kosong —</span></div>
-    {{end}}
-
-    <!-- Right panel -->
-    {{if and $row.Right (not $row.Right.Empty)}}{{$R := $row.Right}}
-    <div class="archer-section">
-      <div class="section-header">
-        <div class="target-badge">{{$R.TargetName}}</div>
-        <div class="archer-info">
-          <div class="info-row-label">Pemanah / Target {{$R.TargetName}}</div>
-          <div class="archer-name">{{$R.ArcherName}}</div>
-          <div class="archer-club">{{$R.ClubName}}</div>
-          <div class="archer-cat">{{$R.Category}}</div>
-        </div>
-      </div>
-      <table class="score-grid">
-        <thead><tr>
-          <th class="col-end">End</th>
-          {{range $R.ArrowRange}}<th>{{.}}</th>{{end}}
-          <th class="col-sum">Jml</th>
-          <th class="col-tot">Total</th>
-          <th class="col-10x">10+X</th>
-          <th class="col-x">X</th>
-        </tr></thead>
-        <tbody>
-          {{range $R.EndRange}}<tr>
-            <td class="col-end td-end">{{.}}</td>
-            {{range $R.ArrowRange}}<td></td>{{end}}
-            <td></td><td></td><td></td><td></td>
-          </tr>{{end}}
-          <tr class="total-row">
-            <td class="col-end td-end">&#x3A3;</td>
-            {{range $R.ArrowRange}}<td></td>{{end}}
-            <td></td><td></td><td></td><td></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    {{else}}
-    <div class="archer-section empty-section"><span class="empty-label">— Kosong —</span></div>
-    {{end}}
-
-  </div>
-  </div>
-  {{end}}
-  </div>
-
-  <!-- ONE footer per page/board -->
-  <div class="shared-footer">
-    <div class="footer-content">
-      <div class="signature-group">
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Tanda tangan Archer L</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Tanda tangan Archer R</div></div>
-        <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Tanda tangan Pencatat / Scorer</div></div>
-      </div>
-    </div>
-  </div>
-
-</div>
-{{end}}
-{{else}}
-<div class="board-page">
-  <div class="page-header">
-    <div class="header-text">
-      <div class="event-name">{{.EventName}}</div>
-      <div class="event-sub">{{.EventOrg}}</div>
-      <div class="session-meta"><strong>{{.SessionName}}</strong> ({{.SessionCode}}) &bull; {{.SessionDate}}</div>
-    </div>
-  </div>
-  <div class="no-boards">
-    <p>Belum ada penugasan target untuk sesi ini.</p>
-    <p style="font-size:9pt;margin-top:6px;color:#bbb;">Silakan atur penugasan target terlebih dahulu.</p>
-  </div>
-</div>
-{{end}}
 
 </body>
+
 </html>

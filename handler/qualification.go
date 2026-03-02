@@ -1737,8 +1737,21 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		sessionDateStr := ""
 		sessionDayName := ""
 		if sess.SessionDate.Valid {
-			sessionDateStr = sess.SessionDate.Time.Format("02 January 2006")
-			sessionDayName = sess.SessionDate.Time.Format("Monday")
+			months := map[string]string{
+				"January": "Januari", "February": "Februari", "March": "Maret", "April": "April",
+				"May": "Mei", "June": "Juni", "July": "Juli", "August": "Agustus",
+				"September": "September", "October": "Oktober", "November": "November", "December": "Desember",
+			}
+			days := map[string]string{
+				"Monday": "Senin", "Tuesday": "Selasa", "Wednesday": "Rabu", "Thursday": "Kamis",
+				"Friday": "Jumat", "Saturday": "Sabtu", "Sunday": "Minggu",
+			}
+
+			engMonth := sess.SessionDate.Time.Format("January")
+			engDay := sess.SessionDate.Time.Format("Monday")
+			
+			sessionDateStr = fmt.Sprintf("%02d %s %d", sess.SessionDate.Time.Day(), months[engMonth], sess.SessionDate.Time.Year())
+			sessionDayName = days[engDay]
 		}
 
 		// ── 3. Fetch assignments ──────────────────────────────────────────────
