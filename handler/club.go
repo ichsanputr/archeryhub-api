@@ -826,6 +826,121 @@ func GetMyClubMembership(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetMyClubInvitations returns the current user's club invitations
+func GetMyClubInvitations(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		var invitations []struct {
+			MemberUUID string  `json:"uuid" db:"uuid"`
+			ClubID     string  `json:"club_id" db:"club_id"`
+			ClubName   string  `json:"club_name" db:"club_name"`
+			ClubLogo   *string `json:"club_logo" db:"club_logo"`
+			Status     string  `json:"status" db:"status"`
+			Role       string  `json:"role" db:"role"`
+			CreatedAt  string  `json:"created_at" db:"created_at"`
+		}
+
+		err := db.Select(&invitations, `
+			SELECT cm.uuid, cm.club_id, c.name as club_name, c.logo_url as club_logo, cm.status, cm.role, cm.created_at
+			FROM club_members cm 
+			JOIN clubs c ON cm.club_id = c.uuid 
+			WHERE cm.archer_id = ? AND cm.status = 'invited'
+		`, userID)
+
+		if err != nil {
+			logrus.WithError(err).Error("[INVITE] Failed to get invitations")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch invitations"})
+			return
+		}
+
+		if invitations == nil {
+			invitations = []struct {
+				MemberUUID string  `json:"uuid" db:"uuid"`
+				ClubID     string  `json:"club_id" db:"club_id"`
+				ClubName   string  `json:"club_name" db:"club_name"`
+				ClubLogo   *string `json:"club_logo" db:"club_logo"`
+				Status     string  `json:"status" db:"status"`
+				Role       string  `json:"role" db:"role"`
+				CreatedAt  string  `json:"created_at" db:"created_at"`
+			}{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": invitations})
+	}
+}
+
+// RespondToInvitation allows an archer to accept or reject a club invitation
+func RespondToInvitation(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+		memberID := c.Param("memberId")
+
+		if userType != "archer" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only archers can respond to invitations"})
+			return
+		}
+
+		var req struct {
+			Action string `json:"action" binding:"required"` // 'accept' or 'reject'
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		status := "rejected"
+		if req.Action == "accept" {
+			status = "active"
+		} else if req.Action != "reject" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action, must be 'accept' or 'reject'"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Verify invitation exists for this user
+		var clubID string
+		err = tx.Get(&clubID, `SELECT club_id FROM club_members WHERE uuid = ? AND archer_id = ? AND status = 'invited'`, memberID, userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Invitation not found or no longer valid"})
+			return
+		}
+
+		// Update membership status
+		_, err = tx.Exec(`
+			UPDATE club_members SET status = ?, updated_at = NOW() 
+			WHERE uuid = ? AND archer_id = ?
+		`, status, memberID, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update membership status"})
+			return
+		}
+
+		// If accepted, sync club_id in archers table
+		if status == "active" {
+			_, err = tx.Exec(`UPDATE archers SET club_id = ?, updated_at = NOW() WHERE uuid = ?`, clubID, userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync archer record"})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Successfully " + status + " the invitation"})
+	}
+}
+
 // LeaveClub allows an archer to leave their club
 func LeaveClub(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

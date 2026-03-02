@@ -29,7 +29,7 @@ type MemberSubscription struct {
 	UUID                string     `json:"uuid" db:"uuid"`
 	UserID              string     `json:"user_id" db:"user_id"`
 	ClubUUID            string     `json:"club_uuid" db:"club_uuid"`
-	PlanID              int        `json:"plan_id" db:"plan_id"`
+	PlanID              *int       `json:"plan_id" db:"plan_id"`
 	MembershipPackageID *string    `json:"membership_package_id" db:"membership_package_id"`
 	Amount              float64    `json:"amount" db:"amount"`
 	PaymentMethod       *string    `json:"payment_method" db:"payment_method"`
@@ -56,9 +56,15 @@ type MembershipPayment struct {
 	Amount           float64   `json:"amount" db:"amount"`
 	PaymentMethod    string    `json:"payment_method" db:"payment_method"`
 	PaymentNote      *string   `json:"payment_note" db:"payment_note"`
+	ProofURL         *string   `json:"proof_url" db:"proof_url"`
 	RecordedBy       string    `json:"recorded_by" db:"recorded_by"`
 	PaidAt           time.Time `json:"paid_at" db:"paid_at"`
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	// Joined fields
+	ArcherName  string  `json:"archer_name" db:"archer_name"`
+	ArcherEmail string  `json:"archer_email" db:"archer_email"`
+	AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+	PackageName *string `json:"package_name" db:"package_name"`
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -193,11 +199,17 @@ func GetMembershipSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 				a.avatar_url,
 				cmp.name                               AS package_name
 			FROM club_member_subscriptions cms
+			INNER JOIN (
+				SELECT user_id, MAX(created_at) as latest_created
+				FROM club_member_subscriptions
+				WHERE club_uuid = ?
+				GROUP BY user_id
+			) latest ON cms.user_id = latest.user_id AND cms.created_at = latest.latest_created
 			JOIN archers a ON a.uuid = cms.user_id
 			LEFT JOIN club_membership_packages cmp ON cmp.uuid = cms.membership_package_id
 			WHERE cms.club_uuid = ?
 			ORDER BY cms.created_at DESC
-		`, clubID)
+		`, clubID, clubID)
 		if err != nil {
 			logrus.WithError(err).Error("[MEMBERSHIP] Failed to list subscriptions")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subscriptions"})
@@ -219,6 +231,7 @@ func AssignMembershipPackage(db *sqlx.DB) gin.HandlerFunc {
 			MembershipPackageID string `json:"membership_package_id" binding:"required"`
 			PaymentMethod     *string `json:"payment_method"`
 			PaymentNote       *string `json:"payment_note"`
+			ProofURL          *string `json:"proof_url"`
 			StartDate         *string `json:"start_date"` // optional, defaults to now
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -227,19 +240,19 @@ func AssignMembershipPackage(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Verify archer is a club member
-		var memberCount int
-		db.Get(&memberCount, `
-			SELECT COUNT(*) FROM club_members
-			WHERE club_id = ? AND archer_id = ? AND status = 'active'
+		var memberStatus string
+		err := db.Get(&memberStatus, `
+			SELECT status FROM club_members
+			WHERE club_id = ? AND archer_id = ? AND status IN ('active', 'pending', 'invited')
 		`, clubID, req.ArcherID)
-		if memberCount == 0 {
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Archer is not an active member of this club"})
 			return
 		}
 
 		// Get package duration
 		var pkg MembershipPackage
-		err := db.Get(&pkg, `
+		err = db.Get(&pkg, `
 			SELECT * FROM club_membership_packages WHERE uuid = ? AND club_id = ? AND is_active = 1
 		`, req.MembershipPackageID, clubID)
 		if err != nil {
@@ -278,7 +291,7 @@ func AssignMembershipPackage(db *sqlx.DB) gin.HandlerFunc {
 			  (uuid, user_id, club_uuid, membership_package_id, plan_id, amount,
 			   payment_method, payment_note, paid_at, created_by,
 			   status, start_date, end_date)
-			VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, subID, req.ArcherID, clubID, req.MembershipPackageID, pkg.Price,
 			req.PaymentMethod, req.PaymentNote, paidAt, clubID,
 			status, startDate, endDate)
@@ -293,9 +306,9 @@ func AssignMembershipPackage(db *sqlx.DB) gin.HandlerFunc {
 			payID := uuid.New().String()
 			db.Exec(`
 				INSERT INTO club_membership_payments
-				  (uuid, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, recorded_by)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			`, payID, subID, clubID, req.ArcherID, pkg.Price, *req.PaymentMethod, req.PaymentNote, clubID)
+				  (uuid, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, proof_url, recorded_by)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, payID, subID, clubID, req.ArcherID, pkg.Price, *req.PaymentMethod, req.PaymentNote, req.ProofURL, clubID)
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -316,6 +329,7 @@ func RecordMembershipPayment(db *sqlx.DB) gin.HandlerFunc {
 			Amount        float64 `json:"amount" binding:"required"`
 			PaymentMethod string  `json:"payment_method" binding:"required"`
 			PaymentNote   *string `json:"payment_note"`
+			ProofURL      *string `json:"proof_url"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -342,9 +356,9 @@ func RecordMembershipPayment(db *sqlx.DB) gin.HandlerFunc {
 		payID := uuid.New().String()
 		_, err := db.Exec(`
 			INSERT INTO club_membership_payments
-			  (uuid, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, recorded_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, payID, subID, clubID, sub.ArcherID, req.Amount, req.PaymentMethod, req.PaymentNote, clubID)
+			  (uuid, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, proof_url, recorded_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, payID, subID, clubID, sub.ArcherID, req.Amount, req.PaymentMethod, req.PaymentNote, req.ProofURL, clubID)
 		if err != nil {
 			logrus.WithError(err).Error("[MEMBERSHIP] Failed to record payment")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record payment"})
@@ -369,12 +383,19 @@ func GetMembershipStats(db *sqlx.DB) gin.HandlerFunc {
 
 		db.QueryRowx(`
 			SELECT
-				COALESCE(SUM(CASE WHEN status = 'active'  THEN 1 ELSE 0 END), 0) AS total_active,
-				COALESCE(SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END), 0) AS total_expired,
-				COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS total_pending,
+				COALESCE(SUM(CASE WHEN cms.status = 'active'  THEN 1 ELSE 0 END), 0) AS total_active,
+				COALESCE(SUM(CASE WHEN cms.status = 'expired' THEN 1 ELSE 0 END), 0) AS total_expired,
+				COALESCE(SUM(CASE WHEN cms.status = 'pending' THEN 1 ELSE 0 END), 0) AS total_pending,
 				0 AS revenue_month, 0 AS expiring_in_3_days
-			FROM club_member_subscriptions WHERE club_uuid = ?
-		`, clubID).StructScan(&stats)
+			FROM club_member_subscriptions cms
+			INNER JOIN (
+				SELECT user_id, MAX(created_at) as latest_created
+				FROM club_member_subscriptions
+				WHERE club_uuid = ?
+				GROUP BY user_id
+			) latest ON cms.user_id = latest.user_id AND cms.created_at = latest.latest_created
+			WHERE cms.club_uuid = ?
+		`, clubID, clubID).StructScan(&stats)
 
 		// Revenue this month
 		db.QueryRowx(`
@@ -385,9 +406,15 @@ func GetMembershipStats(db *sqlx.DB) gin.HandlerFunc {
 
 		// Expiring in 3 days
 		db.QueryRowx(`
-			SELECT COUNT(*) FROM club_member_subscriptions
-			WHERE club_uuid = ? AND status = 'active' AND end_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 DAY)
-		`, clubID).Scan(&stats.ExpiringIn3)
+			SELECT COUNT(*) FROM club_member_subscriptions cms
+			INNER JOIN (
+				SELECT user_id, MAX(created_at) as latest_created
+				FROM club_member_subscriptions
+				WHERE club_uuid = ?
+				GROUP BY user_id
+			) latest ON cms.user_id = latest.user_id AND cms.created_at = latest.latest_created
+			WHERE cms.club_uuid = ? AND cms.status = 'active' AND cms.end_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 DAY)
+		`, clubID, clubID).Scan(&stats.ExpiringIn3)
 
 		c.JSON(http.StatusOK, gin.H{"data": stats})
 	}
@@ -431,3 +458,101 @@ func GetArcherSubscriptionHistory(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+// GetMembershipPayments lists all membership payments for the club
+func GetMembershipPayments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		clubID := getClubIDFromCtx(c)
+
+		var payments []MembershipPayment
+		err := db.Select(&payments, `
+			SELECT
+				cmp.*,
+				COALESCE(a.full_name, a.username, '') AS archer_name,
+				COALESCE(a.email, '')                  AS archer_email,
+				a.avatar_url,
+				pk.name                                AS package_name
+			FROM club_membership_payments cmp
+			JOIN archers a ON a.uuid = cmp.archer_id
+			LEFT JOIN club_member_subscriptions cms ON cms.uuid = cmp.subscription_uuid
+			LEFT JOIN club_membership_packages pk ON pk.uuid = cms.membership_package_id
+			WHERE cmp.club_id = ?
+			ORDER BY cmp.paid_at DESC
+		`, clubID)
+
+		if err != nil {
+			logrus.WithError(err).Error("[MEMBERSHIP] Failed to list payments")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payments"})
+			return
+		}
+
+		if payments == nil {
+			payments = []MembershipPayment{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": payments})
+	}
+}
+
+// GetMembershipPaymentDetail returns details of a single membership payment
+func GetMembershipPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		paymentID := c.Param("id")
+		clubID := getClubIDFromCtx(c)
+
+		var payment MembershipPayment
+		err := db.Get(&payment, `
+			SELECT
+				cmp.*,
+				COALESCE(a.full_name, a.username, '') AS archer_name,
+				COALESCE(a.email, '')                  AS archer_email,
+				a.avatar_url,
+				pk.name                                AS package_name
+			FROM club_membership_payments cmp
+			JOIN archers a ON a.uuid = cmp.archer_id
+			LEFT JOIN club_member_subscriptions cms ON cms.uuid = cmp.subscription_uuid
+			LEFT JOIN club_membership_packages pk ON pk.uuid = cms.membership_package_id
+			WHERE cmp.uuid = ? AND cmp.club_id = ?
+		`, paymentID, clubID)
+
+		if err != nil {
+			logrus.WithError(err).Error("[MEMBERSHIP] Failed to fetch payment detail")
+			c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": payment})
+	}
+}
+
+// GetUnpaidSubscribers lists members who have pending (unpaid) subscriptions
+func GetUnpaidSubscribers(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		clubID := getClubIDFromCtx(c)
+
+		var subs []MemberSubscription
+		err := db.Select(&subs, `
+			SELECT cms.*, COALESCE(a.full_name, a.username, '') AS archer_name,
+			       COALESCE(a.email, '') AS archer_email, a.avatar_url,
+				   pk.name AS package_name
+			FROM club_member_subscriptions cms
+			JOIN archers a ON a.uuid = cms.user_id
+			LEFT JOIN club_membership_packages pk ON pk.uuid = cms.membership_package_id
+			WHERE cms.club_uuid = ? AND cms.status = 'pending'
+			ORDER BY cms.created_at DESC
+		`, clubID)
+
+		if err != nil {
+			logrus.WithError(err).Error("[MEMBERSHIP] Failed to list unpaid subs")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch unpaid subscriptions"})
+			return
+		}
+
+		if subs == nil {
+			subs = []MemberSubscription{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": subs})
+	}
+}
+

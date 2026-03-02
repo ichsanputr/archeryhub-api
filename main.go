@@ -101,9 +101,6 @@ func initLogger() {
 }
 
 func main() {
-	// Set Gin to release mode to disable debug logging
-	gin.SetMode(gin.ReleaseMode)
-
 	// Initialize logger
 	initLogger()
 
@@ -262,6 +259,7 @@ func main() {
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
 			events.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
+			events.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
 			events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
 			events.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
@@ -568,6 +566,8 @@ func main() {
 				// Membership & Admin routes
 				protectedClubs.POST("/join/:clubId", handler.JoinClub(db))
 				protectedClubs.GET("/my/membership", handler.GetMyClubMembership(db))
+				protectedClubs.GET("/my/invitations", handler.GetMyClubInvitations(db))
+				protectedClubs.POST("/invitations/:memberId/respond", handler.RespondToInvitation(db))
 				protectedClubs.GET("/members/:clubId", handler.GetClubMembers(db))
 				protectedClubs.POST("/approve/:memberId", handler.ApproveClubMember(db))
 				protectedClubs.POST("/leave", handler.LeaveClub(db))
@@ -611,6 +611,9 @@ func main() {
 					membership.POST("/subscriptions", handler.AssignMembershipPackage(db))
 					membership.POST("/subscriptions/:subscriptionId/pay", handler.RecordMembershipPayment(db))
 					membership.GET("/subscriptions/archer/:archerId", handler.GetArcherSubscriptionHistory(db))
+					membership.GET("/payments", handler.GetMembershipPayments(db))
+					membership.GET("/payments/:id", handler.GetMembershipPaymentDetail(db))
+					membership.GET("/subscribers/unpaid", handler.GetUnpaidSubscribers(db))
 				}
 			}
 

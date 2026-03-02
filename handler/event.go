@@ -749,8 +749,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 			if searchQuery != "" {
 				searchTerm := "%" + searchQuery + "%"
-				whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ?)"
-				args = append(args, searchTerm, searchTerm)
+				whereClause += " AND (a.full_name LIKE ? OR a.email LIKE ? OR cl.name LIKE ?)"
+				args = append(args, searchTerm, searchTerm, searchTerm)
 			}
 
 			// Count unique archers
@@ -1154,6 +1154,92 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, participant)
+	}
+}
+
+// GetMyEventRegistration returns the current logged-in archer's registration for a specific event
+func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Resolve event slug to UUID
+		var actualEventID string
+		if err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		// Get archer UUID for this user (if any)
+		var archerID string
+		if err := db.Get(&archerID, `SELECT uuid FROM archers WHERE user_id = ? LIMIT 1`, userID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found for this user"})
+			return
+		}
+
+		type MyRegistration struct {
+			ID                  string   `db:"id" json:"id"`
+			EventID             string   `db:"event_id" json:"event_id"`
+			ArcherID            string   `db:"archer_id" json:"archer_id"`
+			AthleteCode         *string  `db:"athlete_code" json:"athlete_code"`
+			FullName            string   `db:"full_name" json:"full_name"`
+			Email               string   `db:"email" json:"email"`
+			ClubName            *string  `db:"club_name" json:"club_name"`
+			City                *string  `db:"city" json:"city"`
+			TargetName          *string  `db:"target_name" json:"target_name"`
+			PaymentStatus       string   `db:"payment_status" json:"payment_status"`
+			PaymentAmount       float64  `db:"payment_amount" json:"payment_amount"`
+			PaymentProofURLsRaw *string  `db:"payment_proof_urls" json:"-"`
+			PaymentProofURLs    []string `json:"payment_proof_urls"`
+			RegistrationDate    string   `db:"registration_date" json:"registration_date"`
+			DivisionName        string   `db:"division_name" json:"division_name"`
+			CategoryName        string   `db:"category_name" json:"category_name"`
+			EventTypeName       *string  `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName  *string  `db:"gender_division_name" json:"gender_division_name"`
+		}
+
+		var reg MyRegistration
+		err := db.Get(&reg, `
+			SELECT 
+				tp.uuid as id, tp.event_id, tp.archer_id, tp.target_name,
+				tp.payment_status, tp.payment_amount, tp.payment_proof_urls, tp.registration_date,
+				a.id as athlete_code,
+				a.full_name,
+				COALESCE(a.email, '') as email,
+				a.city as city,
+				COALESCE(cl.name, '') as club_name,
+				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
+				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
+			FROM event_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+			WHERE tp.event_id = ? AND tp.archer_id = ?
+			ORDER BY tp.created_at ASC
+			LIMIT 1
+		`, actualEventID, archerID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found for this event"})
+			return
+		}
+
+		if reg.PaymentProofURLsRaw != nil && *reg.PaymentProofURLsRaw != "" {
+			reg.PaymentProofURLs = strings.Split(*reg.PaymentProofURLsRaw, ",")
+		} else {
+			reg.PaymentProofURLs = []string{}
+		}
+
+		c.JSON(http.StatusOK, reg)
 	}
 }
 
