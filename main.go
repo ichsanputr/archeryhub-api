@@ -241,6 +241,11 @@ func main() {
 			auth.POST("/google/callback", middleware.OptionalAuthMiddleware(), handler.GoogleCallback(db))
 
 			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
+
+			// Forgot / Reset password (public — no auth required)
+			auth.POST("/forgot-password", handler.ForgotPassword(db))
+			auth.POST("/verify-reset-otp", handler.VerifyResetOTP(db))
+			auth.POST("/reset-password", handler.ResetPassword(db))
 		}
 
 		// User routes
