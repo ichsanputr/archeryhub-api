@@ -138,8 +138,8 @@ func CreateRegistrationForm(db *sqlx.DB) gin.HandlerFunc {
 
 		formID := uuid.New().String()
 		_, err := db.Exec(`
-			INSERT INTO club_registration_forms (uuid, club_id, title, description)
-			VALUES (?, ?, ?, ?)
+			INSERT INTO club_registration_forms (uuid, club_id, title, description, is_published)
+			VALUES (?, ?, ?, ?, 1)
 		`, formID, clubID, req.Title, req.Description)
 		if err != nil {
 			logrus.WithError(err).Error("[FORM] Failed to create registration form")

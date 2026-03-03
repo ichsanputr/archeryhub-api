@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,7 @@ type MemberSubscription struct {
 
 type MembershipPayment struct {
 	UUID             string    `json:"uuid" db:"uuid"`
+	InvoiceID        string    `json:"invoice_id" db:"invoice_id"`
 	SubscriptionUUID string    `json:"subscription_uuid" db:"subscription_uuid"`
 	ClubID           string    `json:"club_id" db:"club_id"`
 	ArcherID         string    `json:"archer_id" db:"archer_id"`
@@ -304,11 +306,12 @@ func AssignMembershipPackage(db *sqlx.DB) gin.HandlerFunc {
 		// Record payment if method provided
 		if isPaid {
 			payID := uuid.New().String()
+			invoiceID := fmt.Sprintf("INV-MEM-%s", strings.ToUpper(payID[:8]))
 			db.Exec(`
 				INSERT INTO club_membership_payments
-				  (uuid, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, proof_url, recorded_by)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, payID, subID, clubID, req.ArcherID, pkg.Price, *req.PaymentMethod, req.PaymentNote, req.ProofURL, clubID)
+				  (uuid, invoice_id, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, proof_url, recorded_by)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, payID, invoiceID, subID, clubID, req.ArcherID, pkg.Price, *req.PaymentMethod, req.PaymentNote, req.ProofURL, clubID)
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -330,10 +333,18 @@ func RecordMembershipPayment(db *sqlx.DB) gin.HandlerFunc {
 			PaymentMethod string  `json:"payment_method" binding:"required"`
 			PaymentNote   *string `json:"payment_note"`
 			ProofURL      *string `json:"proof_url"`
+			PaidAt        *string `json:"paid_at"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+
+		paidAt := time.Now()
+		if req.PaidAt != nil && *req.PaidAt != "" {
+			if parsed, err := time.Parse("2006-01-02", *req.PaidAt); err == nil {
+				paidAt = parsed
+			}
 		}
 
 		// Get subscription
@@ -348,17 +359,18 @@ func RecordMembershipPayment(db *sqlx.DB) gin.HandlerFunc {
 		// Mark subscription as active + record paid_at
 		db.Exec(`
 			UPDATE club_member_subscriptions
-			SET status = 'active', paid_at = NOW(), payment_method = ?, payment_note = ?, updated_at = NOW()
+			SET status = 'active', paid_at = ?, payment_method = ?, payment_note = ?, updated_at = NOW()
 			WHERE uuid = ? AND club_uuid = ?
-		`, req.PaymentMethod, req.PaymentNote, subID, clubID)
+		`, paidAt, req.PaymentMethod, req.PaymentNote, subID, clubID)
 
 		// Insert payment record
 		payID := uuid.New().String()
+		invoiceID := fmt.Sprintf("INV-MEM-%s", strings.ToUpper(payID[:8]))
 		_, err := db.Exec(`
 			INSERT INTO club_membership_payments
-			  (uuid, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, proof_url, recorded_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, payID, subID, clubID, sub.ArcherID, req.Amount, req.PaymentMethod, req.PaymentNote, req.ProofURL, clubID)
+			  (uuid, invoice_id, subscription_uuid, club_id, archer_id, amount, payment_method, payment_note, proof_url, recorded_by, paid_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, payID, invoiceID, subID, clubID, sub.ArcherID, req.Amount, req.PaymentMethod, req.PaymentNote, req.ProofURL, clubID, paidAt)
 		if err != nil {
 			logrus.WithError(err).Error("[MEMBERSHIP] Failed to record payment")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record payment"})
@@ -512,8 +524,8 @@ func GetMembershipPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 			JOIN archers a ON a.uuid = cmp.archer_id
 			LEFT JOIN club_member_subscriptions cms ON cms.uuid = cmp.subscription_uuid
 			LEFT JOIN club_membership_packages pk ON pk.uuid = cms.membership_package_id
-			WHERE cmp.uuid = ? AND cmp.club_id = ?
-		`, paymentID, clubID)
+			WHERE (cmp.uuid = ? OR cmp.invoice_id = ?) AND cmp.club_id = ?
+		`, paymentID, paymentID, clubID)
 
 		if err != nil {
 			logrus.WithError(err).Error("[MEMBERSHIP] Failed to fetch payment detail")

@@ -1882,10 +1882,7 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			PrintDate:      time.Now().Format("02 Jan 2006 15:04"),
 			Boards:         boards,
 		}
-		templateName := "scoresheet_gen.html"
-		if c.Query("theme") == "bw" {
-			templateName = "scoresheet_gen_bw.html"
-		}
+		templateName := "scoresheet_gen_bw.html"
 		c.HTML(http.StatusOK, templateName, data)
 	}
 }

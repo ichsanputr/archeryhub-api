@@ -2,12 +2,13 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
+	"fmt"
 	"net/http"
 	"time"
 
-	"archeryhub-api/utils"
-
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -428,5 +429,161 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui"})
+	}
+}
+
+// RequestEmailChange sends an OTP to the new email address
+func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		var req struct {
+			NewEmail string `json:"new_email" binding:"required,email"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email tidak valid"})
+			return
+		}
+
+		// Check if new email already exists in any table (archers, organizations, clubs, sellers)
+		var exists bool
+		tables := []string{"archers", "organizations", "clubs", "sellers"}
+		for _, t := range tables {
+			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM "+t+" WHERE email = ?)", req.NewEmail)
+			if err == nil && exists {
+				c.JSON(http.StatusConflict, gin.H{"error": "Email sudah digunakan oleh akun lain"})
+				return
+			}
+		}
+
+		// Get old email
+		var oldEmail string
+		table := "archers"
+		switch userType {
+		case "organization": table = "organizations"
+		case "club": table = "clubs"
+		case "seller": table = "sellers"
+		}
+		
+		err := db.Get(&oldEmail, "SELECT email FROM "+table+" WHERE uuid = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
+			return
+		}
+
+		// Generate OTP
+		otp := utils.GenerateOTP()
+		otpUUID := uuid.New().String()
+		expiresAt := time.Now().Add(15 * time.Minute)
+
+		// Save to database
+		_, err = db.Exec(`
+			INSERT INTO email_otps (uuid, user_id, user_type, old_email, new_email, otp_code, expires_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, otpUUID, userID, userType, oldEmail, req.NewEmail, otp, expiresAt)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan OTP: " + err.Error()})
+			return
+		}
+
+		// Send Email
+		subject := "Kode OTP Verifikasi Perubahan Email - ArcheryHub"
+		body := fmt.Sprintf(`
+			<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+				<h2 style="color: #0ea5e9; text-align: center;">Verifikasi Email Baru Anda</h2>
+				<p>Halo,</p>
+				<p>Kami menerima permintaan untuk mengubah alamat email akun ArcheryHub Anda ke <strong>%s</strong>.</p>
+				<p>Silakan gunakan kode OTP di bawah ini untuk memverifikasi perubahan ini:</p>
+				<div style="background: #f0f9ff; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+					<span style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: #0369a1;">%s</span>
+				</div>
+				<p style="color: #666; font-size: 14px;">Kode ini akan kedaluwarsa dalam 15 menit. Jika Anda tidak merasa melakukan permintaan ini, silakan abaikan email ini.</p>
+				<hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+				<p style="text-align: center; color: #999; font-size: 12px;">&copy; 2026 ArcheryHub.id - Platform Panahan Indonesia</p>
+			</div>
+		`, req.NewEmail, otp)
+
+		err = utils.SendEmail(req.NewEmail, subject, body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim email verifikasi"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email baru Anda"})
+	}
+}
+
+// VerifyEmailChange verifies the OTP and updates the email
+func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		
+		var req struct {
+			NewEmail string `json:"new_email" binding:"required,email"`
+			OTP      string `json:"otp" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid"})
+			return
+		}
+
+		// Find valid OTP
+		var otpRecord struct {
+			UUID     string `db:"uuid"`
+			UserType string `db:"user_type"`
+		}
+		
+		err := db.Get(&otpRecord, `
+			SELECT uuid, user_type FROM email_otps 
+			WHERE user_id = ? AND new_email = ? AND otp_code = ? AND is_used = false AND expires_at > NOW()
+			ORDER BY created_at DESC LIMIT 1
+		`, userID, req.NewEmail, req.OTP)
+
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP salah atau sudah kedaluwarsa"})
+			return
+		}
+
+		// Begin transaction
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Mark OTP as used
+		_, err = tx.Exec("UPDATE email_otps SET is_used = true WHERE uuid = ?", otpRecord.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status OTP"})
+			return
+		}
+
+		// Update Email in relevant table
+		table := "archers"
+		switch otpRecord.UserType {
+		case "organization": table = "organizations"
+		case "club": table = "clubs"
+		case "seller": table = "sellers"
+		}
+
+		_, err = tx.Exec("UPDATE "+table+" SET email = ?, updated_at = NOW() WHERE uuid = ?", req.NewEmail, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui email"})
+			return
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		// Log activity
+		utils.LogActivity(db, userID.(string), "", "email_changed", otpRecord.UserType, userID.(string), "User changed email to: "+req.NewEmail, c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Email berhasil diperbarui. Silakan gunakan email baru untuk login berikutnya."})
 	}
 }

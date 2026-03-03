@@ -1,6 +1,7 @@
 package main
 
 import (
+	"html/template"
 	"net/http"
 	"os"
 
@@ -118,6 +119,12 @@ func main() {
 
 	// Initialize Gin router
 	r := gin.Default()
+
+	// Register custom template functions
+	r.SetFuncMap(template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"not": func(v bool) bool { return !v },
+	})
 
 	// Load HTML templates
 	r.LoadHTMLGlob("templates/*")
@@ -244,6 +251,8 @@ func main() {
 			user.GET("/profile", handler.GetUserProfile(db))
 			user.PUT("/profile", handler.UpdateUserProfile(db)) // Generic profile update handler
 			user.PUT("/password", handler.UpdatePassword(db))
+			user.POST("/request-email-change", handler.RequestEmailChange(db))
+			user.POST("/verify-email-change", handler.VerifyEmailChange(db))
 			user.GET("/settings", handler.GetUserSettings(db))
 			user.PUT("/settings", handler.UpdateUserSettings(db))
 			user.GET("/subscription", handler.GetMySubscription(db))
