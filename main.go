@@ -28,8 +28,8 @@ var logger *logrus.Logger
 
 // fileOnlyHook is a logrus hook that writes specific log levels to a file
 type fileOnlyHook struct {
-	file   *os.File
-	levels []logrus.Level
+	file      *os.File
+	levels    []logrus.Level
 	formatter logrus.Formatter
 }
 
@@ -206,6 +206,8 @@ func main() {
 		})
 
 		// Session endpoint (Global)
+		api.GET("/chatbot/intents", handler.ChatbotIntents())
+		api.POST("/chatbot/message", handler.ChatbotMessage())
 
 		api.GET("/archer/me", middleware.AuthMiddleware(), handler.GetArcherProfile(db))
 		api.GET("/organization/me", middleware.AuthMiddleware(), handler.GetOrganizationProfile(db))
@@ -214,16 +216,16 @@ func main() {
 
 		// Project Task Management
 		/*
-		tasks := api.Group("/tasks")
-		tasks.Use(middleware.AuthMiddleware())
-		{
-			tasks.GET("", handler.GetTasks(db))
-			tasks.POST("", handler.CreateTask(db))
-			tasks.PUT("/:uuid", handler.UpdateTask(db))
-			tasks.PATCH("/:uuid/toggle", handler.ToggleTaskStatus(db))
-			tasks.PATCH("/:uuid/status", handler.UpdateTaskStatus(db))
-			tasks.DELETE("/:uuid", handler.DeleteTask(db))
-		}
+			tasks := api.Group("/tasks")
+			tasks.Use(middleware.AuthMiddleware())
+			{
+				tasks.GET("", handler.GetTasks(db))
+				tasks.POST("", handler.CreateTask(db))
+				tasks.PUT("/:uuid", handler.UpdateTask(db))
+				tasks.PATCH("/:uuid/toggle", handler.ToggleTaskStatus(db))
+				tasks.PATCH("/:uuid/status", handler.UpdateTaskStatus(db))
+				tasks.DELETE("/:uuid", handler.DeleteTask(db))
+			}
 		*/
 
 		// Authentication routes (public)
@@ -246,6 +248,7 @@ func main() {
 			auth.POST("/forgot-password", handler.ForgotPassword(db))
 			auth.POST("/verify-reset-otp", handler.VerifyResetOTP(db))
 			auth.POST("/reset-password", handler.ResetPassword(db))
+			auth.POST("/change-password-otp", handler.ChangePasswordWithOTP(db))
 		}
 
 		// User routes
@@ -677,7 +680,6 @@ func main() {
 		if port == "" {
 			port = "8001"
 		}
-
 
 		logger.Fatal(r.Run(":" + port))
 	}

@@ -278,12 +278,13 @@
       display: inline-block;
       font-size: 5.5pt;
       font-weight: 700;
-      border: 0.5pt solid #000;
-      border-radius: 1pt;
-      padding: 0 1.5mm;
+      border: none;
+      border-radius: 0;
+      padding: 0;
       margin-top: 0.5mm;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      color: #444;
     }
 
     /* ── Score table ── */
@@ -510,16 +511,16 @@
     <!-- ── Page header: event info only, no duplicate board code ── -->
     <div class="page-header">
       <div class="header-main">
-        <div class="event-name">{{$.EventName}}</div>
-        <div class="event-sub">{{$.EventOrg}}{{if $.Location}} &bull; {{$.Location}}{{end}}</div>
+        <div class="event-name">{{if $.EventName}}{{$.EventName}}{{else}}-{{end}}</div>
+        <div class="event-sub">{{if $.EventOrg}}{{$.EventOrg}}{{else}}-{{end}}{{if $.Location}} &bull; {{$.Location}}{{end}}</div>
         <div class="session-meta">
           <div class="meta-item">
             <span class="meta-label">Sesi</span>
-            <span class="meta-val">{{$.SessionName}} &mdash; {{$.SessionCode}}</span>
+            <span class="meta-val">{{if $.SessionName}}{{$.SessionName}}{{else}}-{{end}} &mdash; {{if $.SessionCode}}{{$.SessionCode}}{{else}}-{{end}}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Tanggal</span>
-            <span class="meta-val">{{$.SessionDate}}{{if $.SessionDayName}}, {{$.SessionDayName}}{{end}}</span>
+            <span class="meta-val">{{if $.SessionDate}}{{$.SessionDate}}{{if $.SessionDayName}}, {{$.SessionDayName}}{{end}}{{else}}-{{end}}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Format</span>
@@ -527,7 +528,7 @@
           </div>
           <div class="meta-item">
             <span class="meta-label">Bantalan</span>
-            <span class="meta-val">{{$board.Code}}</span>
+            <span class="meta-val">{{if $board.Code}}{{$board.Code}}{{else}}-{{end}}</span>
           </div>
         </div>
       </div>
@@ -545,8 +546,8 @@
         {{end}}
         <div class="qr-info">
           <div class="qr-label">Bantalan</div>
-          <div class="qr-code">{{$board.Code}}</div>
-          <div class="qr-session">{{$.SessionCode}} &bull; {{$.SessionDate}}</div>
+          <div class="qr-code">{{if $board.Code}}{{$board.Code}}{{else}}-{{end}}</div>
+          <div class="qr-session">{{if $.SessionCode}}{{$.SessionCode}}{{else}}-{{end}} &bull; {{if $.SessionDate}}{{$.SessionDate}}{{else}}-{{end}}</div>
         </div>
       </div>
       {{end}}
@@ -558,12 +559,12 @@
           {{if and $row.Left (not $row.Left.Empty)}}{{$L := $row.Left}}
           <div class="archer-section">
             <div class="section-header">
-              <div class="target-badge">{{$L.TargetName}}</div>
+              <div class="target-badge">{{if $L.TargetName}}{{$L.TargetName}}{{else}}-{{end}}</div>
               <div class="archer-info">
                 <div class="info-tag">Pemanah / Archer</div>
-                <div class="archer-name">{{$L.ArcherName}}</div>
-                <div class="archer-club">{{$L.ClubName}}</div>
-                {{if $L.Category}}<div class="archer-cat">{{$L.Category}}</div>{{end}}
+                <div class="archer-name">{{if $L.ArcherName}}{{$L.ArcherName}}{{else}}-{{end}}</div>
+                <div class="archer-club">{{if $L.ClubName}}{{$L.ClubName}}{{else}}-{{end}}</div>
+                <div class="archer-cat">{{if $L.Category}}{{$L.Category}}{{else}}-{{end}}</div>
               </div>
             </div>
             <table class="score-grid">
@@ -614,12 +615,12 @@
           {{if and $row.Right (not $row.Right.Empty)}}{{$R := $row.Right}}
           <div class="archer-section">
             <div class="section-header">
-              <div class="target-badge">{{$R.TargetName}}</div>
+              <div class="target-badge">{{if $R.TargetName}}{{$R.TargetName}}{{else}}-{{end}}</div>
               <div class="archer-info">
                 <div class="info-tag">Pemanah / Archer</div>
-                <div class="archer-name">{{$R.ArcherName}}</div>
-                <div class="archer-club">{{$R.ClubName}}</div>
-                {{if $R.Category}}<div class="archer-cat">{{$R.Category}}</div>{{end}}
+                <div class="archer-name">{{if $R.ArcherName}}{{$R.ArcherName}}{{else}}-{{end}}</div>
+                <div class="archer-club">{{if $R.ClubName}}{{$R.ClubName}}{{else}}-{{end}}</div>
+                <div class="archer-cat">{{if $R.Category}}{{$R.Category}}{{else}}-{{end}}</div>
               </div>
             </div>
             <table class="score-grid">
@@ -675,11 +676,11 @@
   <div class="board-page">
     <div class="page-header">
       <div class="header-main">
-        <div class="event-name">{{.EventName}}</div>
-        <div class="event-sub">{{.EventOrg}}</div>
+        <div class="event-name">{{if .EventName}}{{.EventName}}{{else}}-{{end}}</div>
+        <div class="event-sub">{{if .EventOrg}}{{.EventOrg}}{{else}}-{{end}}</div>
         <div class="session-meta">
-          <div class="meta-item"><span class="meta-val">{{.SessionName}} ({{.SessionCode}}) &bull;
-              {{.SessionDate}}</span></div>
+          <div class="meta-item"><span class="meta-val">{{if .SessionName}}{{.SessionName}}{{else}}-{{end}} ({{if .SessionCode}}{{.SessionCode}}{{else}}-{{end}}) &bull;
+              {{if .SessionDate}}{{.SessionDate}}{{else}}-{{end}}</span></div>
         </div>
       </div>
     </div>

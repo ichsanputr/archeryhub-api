@@ -1,0 +1,47 @@
+[
+  {
+    "name": "greeting",
+    "examples": ["hai", "halo", "pagi", "hey"],
+    "answer": "Halo! Mau tanya apa?"
+  },
+  {
+    "name": "daftar_klub",
+    "examples": ["cara daftar klub", "mendaftarkan klub", "registrasi akun klub", "buat akun klub"],
+    "answer": "Anda dapat mendaftarkan klub melalui halaman registrasi dengan memilih tipe akun \"Klub\". Setelah email terverifikasi, lengkapi profil klub lalu mulai kelola anggota."
+  },
+  {
+    "name": "scoring_offline",
+    "examples": ["scoring offline", "apakah bisa turnamen offline", "input skor offline", "pakai scoring saat lomba offline"],
+    "answer": "Bisa. Archeryhub.id mendukung scoring turnamen offline secara digital. Skor dapat diinput langsung oleh wasit atau peserta melalui aplikasi."
+  },
+  {
+    "name": "pembayaran_event",
+    "examples": ["metode pembayaran", "bayar event", "pembayaran pendaftaran", "bisa qris atau ewallet"],
+    "answer": "Kami mendukung Transfer Bank, E-Wallet (Gopay, OVO), dan QRIS. Status pendaftaran akan terupdate otomatis setelah pembayaran berhasil."
+  },
+  {
+    "name": "keamanan_data",
+    "examples": ["data aman", "keamanan data atlet", "apakah data terenkripsi", "privasi data"],
+    "answer": "Kami menerapkan standar keamanan data yang ketat dan enkripsi end-to-end untuk menjaga informasi pribadi atlet dan klub tetap aman."
+  },
+  {
+    "name": "bantuan_teknis",
+    "examples": ["butuh bantuan teknis", "error aplikasi", "kendala teknis", "hubungi support"],
+    "answer": "Jika mengalami kendala teknis, silakan hubungi tim support lewat halaman Kontak atau email ke support@archeryhub.id."
+  },
+  {
+    "name": "event_schedule",
+    "examples": ["jadwal event", "schedule pertandingan", "kapan lomba"],
+    "answer": "Kamu bisa cek jadwal event di menu Event. Kalau mau, kirim nama event yang ingin dicek."
+  },
+  {
+    "name": "registration_help",
+    "examples": ["cara daftar", "registrasi event", "bantu pendaftaran"],
+    "answer": "Untuk pendaftaran, buka detail event lalu klik Daftar. Kalau ada error, kirimkan nama event dan screenshot ya."
+  },
+  {
+    "name": "score_tracking",
+    "examples": ["cek skor", "lihat hasil", "track score"],
+    "answer": "Untuk cek skor, buka hasil event lalu pilih kategori. Kamu juga bisa kirim nama event biar aku bantu arahkan."
+  }
+]

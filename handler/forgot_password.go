@@ -4,6 +4,7 @@ import (
 	"archeryhub-api/utils"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -85,50 +86,71 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
-        .container { width: 100%%; max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
-        .header { background-color: #0f172a; padding: 40px 20px; text-align: center; }
-        .logo { font-family: 'Outfit', sans-serif; color: #ffffff; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
-        .logo-id { color: #f9d006; }
-        .content { padding: 48px 40px; }
-        .label { font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; display: block; }
-        .title { font-family: 'Outfit', sans-serif; font-size: 26px; color: #0f172a; font-weight: 900; line-height: 1.2; margin: 0 0 16px; }
-        .text { font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 32px; }
-        .otp-container { background-color: #fffbeb; border: 2px solid #fef3c7; border-radius: 20px; padding: 32px 20px; text-align: center; margin-bottom: 32px; }
-        .otp-label { font-size: 10px; color: #b45309; font-weight: 800; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 8px; }
-        .otp-code { font-family: 'Outfit', sans-serif; font-size: 56px; color: #f9d006; font-weight: 900; letter-spacing: 12px; margin: 0; line-height: 1; margin-left: 12px; }
-        .footer { padding: 0 40px 40px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 32px; }
-        .footer-text { font-size: 12px; color: #94a3b8; line-height: 1.6; margin-bottom: 16px; }
-        .copyright { font-size: 11px; color: #cbd5e1; font-weight: 600; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@500;700;800;900&display=swap" rel="stylesheet">
+	<style>
+		body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #020617; }
+		.wrapper { width: 100%%; padding: 32px 12px; box-sizing: border-box; }
+		.container { width: 100%%; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 22px 60px rgba(2,6,23,0.45); }
+		.hero { background: linear-gradient(170deg, #0f172a 0%%, #111827 60%%, #052e16 100%%); padding: 34px 28px 28px; }
+		.brand { margin: 0 0 18px; font-family: 'Lexend', sans-serif; color: #ffffff; font-size: 30px; font-weight: 900; letter-spacing: -0.6px; }
+		.brand-accent { color: #84cc16; }
+		.hero-title { margin: 0; color: #e2e8f0; font-family: 'Lexend', sans-serif; font-size: 20px; font-weight: 800; line-height: 1.35; }
+		.hero-sub { margin: 10px 0 0; color: #94a3b8; font-size: 13px; line-height: 1.7; }
+		.content { padding: 30px 28px 10px; }
+		.badge { display: inline-block; margin-bottom: 14px; padding: 6px 12px; border-radius: 999px; background: #f0fdf4; border: 1px solid #dcfce7; color: #4d7c0f; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+		.title { margin: 0 0 12px; color: #0f172a; font-family: 'Lexend', sans-serif; font-size: 26px; font-weight: 900; line-height: 1.2; }
+		.text { margin: 0 0 22px; color: #475569; font-size: 15px; line-height: 1.75; }
+		.otp-card { background: linear-gradient(180deg, #f7fee7 0%%, #ecfccb 100%%); border: 1px solid #d9f99d; border-radius: 18px; padding: 22px 14px; text-align: center; margin-bottom: 20px; }
+		.otp-label { color: #4d7c0f; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2.4px; margin-bottom: 10px; }
+		.otp-code { margin: 0; color: #365314; font-family: 'Lexend', sans-serif; font-size: 46px; font-weight: 900; letter-spacing: 10px; line-height: 1; padding-left: 10px; }
+		.tip { margin: 0 0 26px; color: #64748b; font-size: 13px; line-height: 1.7; }
+		.tip b { color: #0f172a; }
+		.footer { padding: 0 28px 28px; }
+		.footer-box { border-top: 1px solid #e2e8f0; padding-top: 18px; }
+		.footer-text { margin: 0 0 10px; color: #94a3b8; font-size: 12px; line-height: 1.7; text-align: center; }
+		.copyright { margin: 0; color: #cbd5e1; font-size: 11px; font-weight: 600; text-align: center; }
+		@media only screen and (max-width: 640px) {
+			.wrapper { padding: 16px 8px; }
+			.hero { padding: 28px 20px 24px; }
+			.brand { font-size: 26px; }
+			.hero-title { font-size: 18px; }
+			.content { padding: 24px 20px 8px; }
+			.title { font-size: 23px; }
+			.otp-code { font-size: 38px; letter-spacing: 7px; padding-left: 7px; }
+			.footer { padding: 0 20px 24px; }
+		}
+	</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">Archeryhub<span class="logo-id">.id</span></div>
-        </div>
-        <div class="content">
-            <span class="label">Reset Password</span>
-            <h1 class="title">Hai, %s!</h1>
-            <p class="text">
-                Kami menerima permintaan untuk mereset password akun kamu. 
-                Gunakan kode OTP di bawah ini untuk melanjutkan ke langkah berikutnya.
-            </p>
-            <div class="otp-container">
-                <div class="otp-label">Kode OTP Anda</div>
-                <div class="otp-code">%s</div>
-            </div>
-            <p class="text" style="font-size: 13px; color: #94a3b8; font-style: italic; margin-bottom: 0;">
-                Kode ini berlaku selama 15 menit. Jika kamu tidak merasa melakukan permintaan ini, silakan abaikan email ini.
-            </p>
-        </div>
-        <div class="footer">
-            <p class="footer-text">Email ini dikirim secara otomatis oleh sistem Archeryhub.id untuk melindungi keamanan akun kamu.</p>
-            <div class="copyright">&copy; 2025 Archeryhub.id &bull; Platform Panahan No. 1 Indonesia</div>
-        </div>
-    </div>
+	<div class="wrapper">
+		<div class="container">
+			<div class="hero">
+				<h2 class="brand">Archeryhub<span class="brand-accent">.id</span></h2>
+				<h3 class="hero-title">Atur Ulang Akses Akun Kamu</h3>
+				<p class="hero-sub">Kami menjaga akunmu tetap aman dengan verifikasi OTP sekali pakai.</p>
+			</div>
+
+			<div class="content">
+				<span class="badge">Reset Password</span>
+				<h1 class="title">Hai, %s!</h1>
+				<p class="text">Kami menerima permintaan untuk mereset password akun kamu. Masukkan kode OTP berikut ke halaman reset password Archeryhub.id.</p>
+
+				<div class="otp-card">
+					<div class="otp-label">Kode OTP Kamu</div>
+					<p class="otp-code">%s</p>
+				</div>
+
+				<p class="tip"><b>Penting:</b> kode ini berlaku selama 15 menit dan hanya bisa dipakai satu kali. Jika kamu tidak merasa melakukan permintaan ini, abaikan email ini.</p>
+			</div>
+
+			<div class="footer">
+				<div class="footer-box">
+					<p class="footer-text">Email ini dikirim otomatis oleh sistem Archeryhub.id untuk keamanan akun kamu.</p>
+					<p class="copyright">&copy; 2026 Archeryhub.id &bull; Platform Panahan No. 1 Indonesia</p>
+				</div>
+			</div>
+		</div>
+	</div>
 </body>
 </html>`, found.FullName, otp)
 
@@ -186,9 +208,9 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 			"VERIFIED:"+resetToken, tokenExpiry, row.UUID)
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":      "OTP valid",
-			"reset_token":  resetToken,
-			"user_type":    row.UserType,
+			"message":     "OTP valid",
+			"reset_token": resetToken,
+			"user_type":   row.UserType,
 		})
 	}
 }
@@ -257,6 +279,92 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 
 		// Mark token as used
 		db.Exec(`UPDATE password_resets SET is_used = 1 WHERE uuid = ?`, row.UUID)
+
+		c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan masuk dengan password baru."})
+	}
+}
+
+// ChangePasswordWithOTP — public endpoint to set new password directly using email + OTP
+func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email       string `json:"email" binding:"required,email"`
+			OTP         string `json:"otp" binding:"required"`
+			NewPassword string `json:"new_password" binding:"required,min=6"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap atau tidak valid"})
+			return
+		}
+
+		matched, _ := regexp.MatchString(`^\d{6}$`, req.OTP)
+		if !matched {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format OTP tidak valid"})
+			return
+		}
+
+		type ResetRow struct {
+			UUID      string    `db:"uuid"`
+			UserID    string    `db:"user_id"`
+			UserType  string    `db:"user_type"`
+			IsUsed    bool      `db:"is_used"`
+			ExpiresAt time.Time `db:"expires_at"`
+		}
+
+		var row ResetRow
+		err := db.Get(&row, `
+			SELECT uuid, user_id, user_type, is_used, expires_at
+			FROM password_resets
+			WHERE email = ? AND otp_code = ?
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, req.Email, req.OTP)
+
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "OTP tidak valid atau sudah kedaluwarsa"})
+			return
+		}
+
+		if row.IsUsed || time.Now().After(row.ExpiresAt) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "OTP tidak valid atau sudah kedaluwarsa"})
+			return
+		}
+
+		table := "archers"
+		switch row.UserType {
+		case "organization":
+			table = "organizations"
+		case "club":
+			table = "clubs"
+		case "seller":
+			table = "sellers"
+		}
+
+		tx, txErr := db.Beginx()
+		if txErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses reset password"})
+			return
+		}
+
+		_, execErr := tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, updated_at = NOW() WHERE uuid = ?", table), req.NewPassword, row.UserID)
+		if execErr != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan password baru"})
+			return
+		}
+
+		_, execErr = tx.Exec(`UPDATE password_resets SET is_used = 1 WHERE email = ? AND is_used = 0`, req.Email)
+		if execErr != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			return
+		}
+
+		if commitErr := tx.Commit(); commitErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan masuk dengan password baru."})
 	}
