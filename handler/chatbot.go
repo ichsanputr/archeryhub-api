@@ -26,14 +26,14 @@ var chatbotIntents = []Intent{
 		Answer:   "Halo! Mau tanya apa?",
 	},
 	{
-		Name:     "harga_crypto",
-		Examples: []string{"berapa harga btc", "cek harga bitcoin", "price eth"},
-		Answer:   "Mau cek koin apa?",
+		Name:     "event_discovery",
+		Examples: []string{"cari event", "event terdekat", "turnamen panahan"},
+		Answer:   "Kamu bisa cek daftar event di menu Event lalu gunakan filter kota atau tanggal.",
 	},
 	{
-		Name:     "stop_loss",
-		Examples: []string{"berapa persen sl", "hitung stop loss", "risk management"},
-		Answer:   "Kasih modal, leverage, dan nominal SL ya.",
+		Name:     "membership_package",
+		Examples: []string{"paket membership", "perpanjang paket", "fitur langganan"},
+		Answer:   "Info paket ada di dashboard subscription, termasuk status aktif dan tanggal berakhir.",
 	},
 	{
 		Name:     "event_schedule",
@@ -157,7 +157,7 @@ func bestIntent(message string) (Intent, float64) {
 }
 
 func recommendedQuickActions() []string {
-	actions := []string{"Track my Score", "Event Schedule", "Registration Help"}
+	actions := []string{"Cek Jadwal Event", "Bantuan Pendaftaran", "Lihat Hasil Skor"}
 	sort.Strings(actions)
 	return actions
 }
