@@ -72,7 +72,9 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			Website          *string `json:"website" db:"website"`
 			Facebook         *string `json:"facebook" db:"social_facebook"`
 			Instagram        *string `json:"instagram" db:"social_instagram"`
-			WhatsApp         *string `json:"whatsapp" db:"-"`
+			TikTok           *string `json:"tiktok" db:"social_tiktok"`
+			Twitter          *string `json:"twitter" db:"social_twitter"`
+			WhatsApp         *string `json:"whatsapp" db:"social_whatsapp"`
 			EstablishedDate  *string `json:"established" db:"established_date"`
 			Facilities       *string `json:"facilities" db:"facilities"`
 			TrainingSchedule *string `json:"schedules" db:"training_schedule"`
@@ -82,7 +84,7 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		err := db.Get(&club, `
-			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, established_date, facilities, training_schedule, social_media, page_settings, registration_config 
+			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, social_tiktok, social_twitter, social_whatsapp, established_date, facilities, training_schedule, social_media, page_settings, registration_config 
 			FROM clubs 
 			WHERE uuid = ?`, userID)
 		if err != nil {
@@ -122,6 +124,8 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			"website":       club.Website,
 			"facebook":      club.Facebook,
 			"instagram":     club.Instagram,
+			"tiktok":        club.TikTok,
+			"twitter":       club.Twitter,
 			"whatsapp":      club.WhatsApp,
 			"established":   club.EstablishedDate,
 			"facilities":    club.Facilities,
@@ -154,6 +158,8 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 			WhatsApp     string        `json:"whatsapp"`
 			Email        string        `json:"email"`
 			Instagram    string        `json:"instagram"`
+			TikTok       string        `json:"tiktok"`
+			Twitter      string        `json:"twitter"`
 			Facebook     string        `json:"facebook"`
 			Website      string        `json:"website"`
 			Address      string        `json:"address"`
@@ -225,13 +231,13 @@ func UpdateClubMe(db *sqlx.DB) gin.HandlerFunc {
 		_, err = db.Exec(`
 			UPDATE clubs SET 
 				name = ?, slug = ?, slug_changed = ?, description = ?, banner_url = ?, logo_url = ?, avatar_url = ?, 
-				city = ?, province = ?, established_date = ?, phone = ?, email = ?, 
-				social_facebook = ?, social_instagram = ?, website = ?, address = ?,
+				city = ?, province = ?, established_date = ?, phone = ?, social_whatsapp = ?, email = ?, 
+				social_facebook = ?, social_instagram = ?, social_tiktok = ?, social_twitter = ?, website = ?, address = ?,
 				facilities = ?, training_schedule = ?, social_media = ?, page_settings = ?, registration_config = ?, updated_at = NOW()
 			WHERE uuid = ?`,
 			req.Name, newSlug, newSlugChanged, req.Description, utils.ExtractFilename(req.BannerURL), utils.ExtractFilename(req.LogoURL), utils.ExtractFilename(req.LogoURL),
-			req.City, req.Province, establishedDate, req.Phone, req.Email,
-			req.Facebook, req.Instagram, req.Website, req.Address,
+			req.City, req.Province, establishedDate, req.Phone, req.WhatsApp, req.Email,
+			req.Facebook, req.Instagram, req.TikTok, req.Twitter, req.Website, req.Address,
 			string(facilitiesJSON), string(schedulesJSON), string(socialMediaJSON), string(pageSettingsJSON), string(registrationConfigJSON), userID)
 
 		if err != nil {

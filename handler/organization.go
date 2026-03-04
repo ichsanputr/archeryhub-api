@@ -125,6 +125,10 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			masked := utils.MaskMediaURL(*org.AvatarURL)
 			org.AvatarURL = &masked
 		}
+		if org.BannerURL != nil {
+			masked := utils.MaskMediaURL(*org.BannerURL)
+			org.BannerURL = &masked
+		}
 
 		// Get events organized by this organization with pagination
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
