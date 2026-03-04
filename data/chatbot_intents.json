@@ -1,87 +1,223 @@
 [
   {
     "name": "greeting",
-    "examples": ["hai", "halo", "pagi", "hey", "selamat pagi", "permisi", "hello admin"],
+    "examples": [
+      "hai",
+      "halo",
+      "pagi",
+      "hey",
+      "selamat pagi",
+      "permisi",
+      "hello admin"
+    ],
     "answer": "Halo! Saya asisten Archeryhub. Saya bisa bantu soal event, pendaftaran, hasil skor, klub, pembayaran, dan paket membership."
   },
   {
     "name": "daftar_klub",
-    "examples": ["cara daftar klub", "mendaftarkan klub", "registrasi akun klub", "buat akun klub", "buat akun organisasi", "daftar sebagai klub"],
+    "examples": [
+      "cara daftar klub",
+      "mendaftarkan klub",
+      "registrasi akun klub",
+      "buat akun klub",
+      "buat akun organisasi",
+      "daftar sebagai klub"
+    ],
     "answer": "Daftar melalui halaman registrasi lalu pilih tipe akun Klub/Organisasi. Setelah verifikasi email, lengkapi profil lalu mulai kelola anggota, event, dan publikasi klub."
   },
   {
     "name": "scoring_offline",
-    "examples": ["scoring offline", "apakah bisa turnamen offline", "input skor offline", "pakai scoring saat lomba offline", "penilaian tanpa internet", "scorecard offline"],
+    "examples": [
+      "scoring offline",
+      "apakah bisa turnamen offline",
+      "input skor offline",
+      "pakai scoring saat lomba offline",
+      "penilaian tanpa internet",
+      "scorecard offline"
+    ],
     "answer": "Bisa. Archeryhub mendukung scoring digital untuk lomba offline. Scorekeeper dapat input skor per end, lalu hasil akan tersinkron saat koneksi stabil."
   },
   {
     "name": "pembayaran_event",
-    "examples": ["metode pembayaran", "bayar event", "pembayaran pendaftaran", "bisa qris atau ewallet", "pembayaran pending", "status pembayaran belum masuk"],
+    "examples": [
+      "metode pembayaran",
+      "bayar event",
+      "pembayaran pendaftaran",
+      "bisa qris atau ewallet",
+      "pembayaran pending",
+      "status pembayaran belum masuk"
+    ],
     "answer": "Pembayaran event mendukung Transfer Bank, E-Wallet, dan QRIS. Status pendaftaran biasanya terupdate otomatis setelah pembayaran sukses. Jika masih pending, cek detail invoice di halaman pendaftaran event."
   },
   {
     "name": "keamanan_data",
-    "examples": ["data aman", "keamanan data atlet", "apakah data terenkripsi", "privasi data", "data klub aman tidak", "akun saya aman"],
+    "examples": [
+      "data aman",
+      "keamanan data atlet",
+      "apakah data terenkripsi",
+      "privasi data",
+      "data klub aman tidak",
+      "akun saya aman"
+    ],
     "answer": "Kami menerapkan kontrol keamanan untuk melindungi data pengguna, atlet, dan klub. Gunakan juga password kuat serta jangan bagikan OTP/kode verifikasi kepada siapa pun."
   },
   {
     "name": "bantuan_teknis",
-    "examples": ["butuh bantuan teknis", "error aplikasi", "kendala teknis", "hubungi support", "website error", "ga bisa submit"],
+    "examples": [
+      "butuh bantuan teknis",
+      "error aplikasi",
+      "kendala teknis",
+      "hubungi support",
+      "website error",
+      "ga bisa submit"
+    ],
     "answer": "Jika ada kendala teknis, kirim detail masalah (halaman, waktu kejadian, dan screenshot) lewat halaman Kontak atau email support@archeryhub.id agar tim bisa bantu lebih cepat."
   },
   {
     "name": "event_schedule",
-    "examples": ["jadwal event", "schedule pertandingan", "kapan lomba", "event terdekat", "lomba minggu ini", "kalender event"],
+    "examples": [
+      "jadwal event",
+      "schedule pertandingan",
+      "kapan lomba",
+      "event terdekat",
+      "lomba minggu ini",
+      "kalender event"
+    ],
     "answer": "Cek jadwal di menu Event untuk melihat event aktif, tanggal, lokasi, dan status pendaftaran. Kirim nama event bila ingin saya bantu arahkan langkah selanjutnya."
   },
   {
     "name": "registration_help",
-    "examples": ["cara daftar", "registrasi event", "bantu pendaftaran", "daftar kategori", "daftar peserta", "join event"],
-    "answer": "Untuk daftar event: buka detail event, pilih kategori, isi data peserta, lalu selesaikan pembayaran. Setelah sukses, status registrasi bisa dilihat di halaman pendaftaran Anda."
+    "examples": [
+      "cara daftar",
+      "registrasi event",
+      "bantu pendaftaran",
+      "daftar kategori",
+      "daftar peserta",
+      "join event",
+      "saya mau ikut lomba",
+      "cara mendaftar turnamen",
+      "langkah-langkah registrasi",
+      "pendaftaran dibuka kapan",
+      "biaya daftar berapa"
+    ],
+    "answer": "Untuk daftar event: buka detail event yang diinginkan, pilih kategori lomba, isi data peserta (seperti nama dan klub), lalu lanjutkan ke pembayaran. Setelah pembayaran diverifikasi, Anda akan terdaftar secara resmi dan bisa melihat detail pendaftaran di menu 'Pendaftaran Saya'."
   },
   {
     "name": "score_tracking",
-    "examples": ["cek skor", "lihat hasil", "track score", "hasil kualifikasi", "bracket eliminasi", "ranking kategori"],
-    "answer": "Untuk melihat skor, buka halaman hasil event lalu pilih kategori. Anda bisa melihat ranking kualifikasi, detail sesi, dan bracket eliminasi jika sudah dipublikasikan."
+    "examples": [
+      "cek skor",
+      "lihat hasil",
+      "track score",
+      "hasil kualifikasi",
+      "bracket eliminasi",
+      "ranking kategori",
+      "skor saya berapa",
+      "siapa yang menang",
+      "lihat papan skor",
+      "leaderboard sementara"
+    ],
+    "answer": "Hasil skor dan leaderboard tersedia secara real-time di halaman 'Result' pada tiap event. Anda bisa memantau ranking kualifikasi per sesi dan melihat perkembangan bracket eliminasi hingga babak final pertandingan."
   },
   {
     "name": "event_discovery",
-    "examples": ["cari event", "event berdasarkan kota", "event panahan jakarta", "temukan turnamen", "filter event"],
+    "examples": [
+      "cari event",
+      "event berdasarkan kota",
+      "event panahan jakarta",
+      "temukan turnamen",
+      "filter event"
+    ],
     "answer": "Gunakan halaman Event untuk mencari turnamen berdasarkan kota, tanggal, atau penyelenggara. Buka detail event untuk melihat kategori dan ketentuan pendaftaran."
   },
   {
     "name": "membership_package",
-    "examples": ["paket membership", "langganan klub", "upgrade paket", "perpanjang paket", "fitur paket"],
-    "answer": "Informasi paket membership tersedia di dashboard subscription. Anda bisa melihat status paket aktif, tanggal berakhir, dan opsi perpanjangan di sana."
+    "examples": [
+      "paket membership",
+      "langganan klub",
+      "upgrade paket",
+      "perpanjang paket",
+      "fitur paket",
+      "mau tanya soal package",
+      "harga langganan",
+      "biaya membership",
+      "paket pro",
+      "apa itu paket klub",
+      "keuntungan langganan",
+      "cara beli paket"
+    ],
+    "answer": "Archeryhub menyediakan berbagai pilihan Paket Membership (Club Management) mulai dari Basic hingga Pro. Fitur utamanya meliputi pengelolaan anggota tanpa batas, sistem iuran otomatis, pembuat form registrasi custom, hingga dashboard statistik lengkap. Anda bisa cek detail harga dan fitur di menu 'Subscription' pada dashboard klub Anda."
   },
   {
     "name": "invoice_help",
-    "examples": ["lihat invoice", "download invoice", "tagihan pendaftaran", "invoice pembayaran", "bukti bayar"],
-    "answer": "Invoice dan status pembayaran dapat dilihat pada detail pendaftaran/order. Jika perlu bukti bayar, buka halaman invoice lalu unduh dokumen yang tersedia."
+    "examples": [
+      "lihat invoice",
+      "download invoice",
+      "tagihan pendaftaran",
+      "invoice pembayaran",
+      "bukti bayar",
+      "di mana nota",
+      "minta kuitansi",
+      "invoice pending",
+      "cek tagihan saya"
+    ],
+    "answer": "Invoice dan status pembayaran dapat dilihat pada menu 'Pendaftaran Saya' atau detail order. Jika status sudah 'Paid', Anda bisa membuka halaman invoice tersebut dan menekan tombol 'Download PDF' untuk mengunduh bukti bayar resmi."
   },
   {
     "name": "club_profile_management",
-    "examples": ["edit profil klub", "atur halaman klub", "ubah informasi klub", "kelola anggota klub", "profil organisasi"],
-    "answer": "Kelola profil klub/organisasi dari dashboard, termasuk identitas, kontak, media sosial, deskripsi, dan pengaturan visibilitas section profil."
+    "examples": [
+      "edit profil klub",
+      "atur halaman klub",
+      "ubah informasi klub",
+      "kelola anggota klub",
+      "profil organisasi",
+      "cara ganti logo klub",
+      "ganti banner club",
+      "tambah pelatih",
+      "atur jadwal latihan"
+    ],
+    "answer": "Anda bisa mengelola profil klub sepenuhnya melalui dashboard admin klub. Di sana Anda dapat mengubah logo, banner, deskripsi, alamat, hingga mengatur jadwal latihan dan daftar pelatih yang akan tampil di halaman publik klub Anda."
   },
   {
     "name": "notification_help",
-    "examples": ["notifikasi event", "kenapa tidak ada notifikasi", "pengumuman lomba", "notifikasi pembayaran", "notif hasil"],
+    "examples": [
+      "notifikasi event",
+      "kenapa tidak ada notifikasi",
+      "pengumuman lomba",
+      "notifikasi pembayaran",
+      "notif hasil"
+    ],
     "answer": "Notifikasi terkait pendaftaran, pembayaran, dan update event tersedia di menu notifikasi akun. Pastikan Anda sudah login dan koneksi internet stabil."
   },
   {
     "name": "login_account_help",
-    "examples": ["lupa password", "tidak bisa login", "reset password", "akun terkunci", "verifikasi email"],
+    "examples": [
+      "lupa password",
+      "tidak bisa login",
+      "reset password",
+      "akun terkunci",
+      "verifikasi email"
+    ],
     "answer": "Jika tidak bisa login, gunakan fitur Lupa Password di halaman masuk. Cek email untuk tautan reset, lalu coba login kembali setelah password diperbarui."
   },
   {
     "name": "scorekeeper_help",
-    "examples": ["cara jadi scorekeeper", "input skor per end", "panel scorekeeper", "akses scorekeeper", "penjaga skor"],
+    "examples": [
+      "cara jadi scorekeeper",
+      "input skor per end",
+      "panel scorekeeper",
+      "akses scorekeeper",
+      "penjaga skor"
+    ],
     "answer": "Fitur scorekeeper tersedia pada event yang mengaktifkan scoring digital. Gunakan akun yang diberi akses oleh penyelenggara untuk input skor per end secara real-time."
   },
   {
     "name": "contact_support",
-    "examples": ["kontak admin", "hubungi archeryhub", "customer service", "email support", "butuh bantuan cepat"],
+    "examples": [
+      "kontak admin",
+      "hubungi archeryhub",
+      "customer service",
+      "email support",
+      "butuh bantuan cepat"
+    ],
     "answer": "Anda bisa hubungi tim Archeryhub lewat halaman Kontak atau email support@archeryhub.id. Sertakan nama event/akun dan kendala agar penanganan lebih cepat."
   }
 ]

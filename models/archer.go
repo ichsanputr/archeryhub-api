@@ -14,6 +14,7 @@ type Archer struct {
 	Email       *string    `json:"email" db:"email"`
 	Phone       *string    `json:"phone" db:"phone"`
 	AvatarURL   *string    `json:"avatar_url" db:"avatar_url"`
+	BannerURL   *string    `json:"banner_url" db:"banner_url"`
 	Address     *string    `json:"address" db:"address"`
 	Bio         *string    `json:"bio" db:"bio"`
 	Status      string     `json:"status" db:"status"` // active, inactive, suspended, pending
@@ -24,6 +25,8 @@ type Archer struct {
 	SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
 	SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
 	SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
+	SocialFacebook  *string `json:"social_facebook" db:"social_facebook"`
+	SocialTwitter   *string `json:"social_twitter" db:"social_twitter"`
 	Achievements    *string `json:"achievements" db:"achievements"`
 	Equipment       *string `json:"equipment" db:"equipment"`
 	PageSettings    *string `json:"page_settings" db:"page_settings"`
@@ -40,7 +43,9 @@ type ArcherWithStats struct {
 	TotalEvents     int        `json:"total_events" db:"total_events"`
 	CompletedEvents int        `json:"completed_events" db:"completed_events"`
 	LastEventDate   *time.Time `json:"last_event_date" db:"last_event_date"`
-	CoachNotes      *string    `json:"coach_notes" db:"coach_notes"`
+	CoachNotes       *string    `json:"coach_notes" db:"coach_notes"`
+	ClubMemberStatus *string    `json:"club_member_status" db:"club_member_status"`
+	ClubMemberUUID   *string    `json:"club_member_uuid" db:"club_member_uuid"`
 }
 
 // CreateArcherRequest represents the request payload for creating an archer
@@ -76,11 +81,14 @@ type UpdateArcherRequest struct {
 	Email       *string       `json:"email" binding:"omitempty,email"`
 	Phone       *string       `json:"phone"`
 	AvatarURL   *string       `json:"avatar_url"`
+	BannerURL   *string       `json:"banner_url"`
 	Address     *string       `json:"address"`
 	Bio         *string       `json:"bio"`
 	SocialInstagram *string    `json:"social_instagram"`
 	SocialTiktok    *string    `json:"social_tiktok"`
 	SocialWhatsapp  *string    `json:"social_whatsapp"`
+	SocialFacebook  *string    `json:"social_facebook"`
+	SocialTwitter   *string    `json:"social_twitter"`
 	Achievements    *string    `json:"achievements"`
 	Equipment       *string    `json:"equipment"`
 	PageSettings    *string    `json:"page_settings"`

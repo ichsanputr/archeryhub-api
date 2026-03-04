@@ -93,10 +93,16 @@ func GetRegistrationForm(db *sqlx.DB) gin.HandlerFunc {
 // GetPublicRegistrationForm returns the published form for a given club (for join page)
 func GetPublicRegistrationForm(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clubID := c.Param("slug")
+		slugOrID := c.Param("slug")
 
 		var form RegistrationForm
-		err := db.Get(&form, `SELECT * FROM club_registration_forms WHERE club_id = ? AND is_published = 1 LIMIT 1`, clubID)
+		err := db.Get(&form, `
+			SELECT rf.*
+			FROM club_registration_forms rf
+			JOIN clubs c ON c.uuid = rf.club_id
+			WHERE (c.slug = ? OR c.uuid = ?) AND rf.is_published = 1
+			LIMIT 1
+		`, slugOrID, slugOrID)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"data": nil})
 			return

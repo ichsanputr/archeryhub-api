@@ -399,6 +399,9 @@ func main() {
 		// Archer routes
 		archers := api.Group("/archers")
 		{
+			// Try to populate user context if token exists (for context-aware info in public endpoints)
+			archers.Use(middleware.OptionalAuthMiddleware())
+
 			// Public archer routes
 			archers.GET("", handler.GetArchers(db))
 			archers.GET("/:id", handler.GetArcherByID(db))
@@ -409,6 +412,7 @@ func main() {
 			protected := archers.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
+				protected.GET("/me/stats", handler.GetMyArcherStats(db))
 				protected.GET("/my/events", handler.GetMyArcherEvents(db))
 				protected.POST("", handler.CreateArcher(db))
 				protected.PUT("/:id", handler.UpdateArcher(db))
@@ -431,6 +435,7 @@ func main() {
 			// Public news routes
 			news.GET("", handler.GetNewsPublic(db))
 			news.GET("/:id", handler.GetNewsByID(db))
+			news.POST("/subscribe", handler.SubscribeNews(db))
 
 			// Protected news routes
 			protectedNews := news.Group("")
@@ -588,6 +593,7 @@ func main() {
 				protectedClubs.GET("/members/:clubId", handler.GetClubMembers(db))
 				protectedClubs.POST("/approve/:memberId", handler.ApproveClubMember(db))
 				protectedClubs.POST("/leave", handler.LeaveClub(db))
+				protectedClubs.POST("/cancel-application", handler.CancelClubApplication(db))
 				protectedClubs.POST("/invite", handler.InviteToClub(db))
 				protectedClubs.DELETE("/members/:archerId", handler.KickClubMember(db))
 				protectedClubs.PATCH("/members/:archerId/notes", handler.UpdateMemberNotes(db))

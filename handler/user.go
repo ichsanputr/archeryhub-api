@@ -409,6 +409,14 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", equipment = ?"
 			args = append(args, *req.Equipment)
 		}
+		if req.AvatarURL != nil {
+			query += ", avatar_url = ?"
+			args = append(args, utils.ExtractFilename(*req.AvatarURL))
+		}
+		if req.BannerURL != nil {
+			query += ", banner_url = ?"
+			args = append(args, utils.ExtractFilename(*req.BannerURL))
+		}
 		if req.PageSettings != nil {
 			query += ", page_settings = ?"
 			args = append(args, *req.PageSettings)

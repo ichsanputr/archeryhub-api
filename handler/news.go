@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -222,6 +224,16 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Notify subscribers if published
+		if req.Status == "published" {
+			article := News{
+				Title:   req.Title,
+				Slug:    slug,
+				Excerpt: &req.Excerpt,
+			}
+			notifySubscribers(db, article)
+		}
+
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "News created successfully",
 			"id":      newsID,
@@ -287,6 +299,19 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Notify subscribers if status changed to published
+		if article.Status != "published" && req.Status == "published" {
+			var slug string
+			err := db.Get(&slug, "SELECT slug FROM news WHERE uuid = ?", article.UUID)
+			if err == nil {
+				notifySubscribers(db, News{
+					Title:   req.Title,
+					Slug:    slug,
+					Excerpt: &req.Excerpt,
+				})
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "News updated successfully"})
 	}
 }
@@ -330,6 +355,76 @@ func DeleteNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "News deleted successfully"})
+	}
+}
+
+// SubscribeNews handles new email subscriptions
+func SubscribeNews(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email string `json:"email" binding:"required,email"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email address"})
+			return
+		}
+
+		_, err := db.Exec(`
+			INSERT INTO news_subscribers (email) 
+			VALUES (?) 
+			ON DUPLICATE KEY UPDATE is_active = 1
+		`, req.Email)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to subscribe"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Terima kasih telah berlangganan!"})
+	}
+}
+
+func notifySubscribers(db *sqlx.DB, article News) {
+	var subscribers []string
+	err := db.Select(&subscribers, "SELECT email FROM news_subscribers WHERE is_active = 1")
+	if err != nil {
+		return
+	}
+
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" {
+		appURL = "https://archeryhub.id"
+	}
+
+	subject := "Berita Baru: " + article.Title
+	
+	excerpt := ""
+	if article.Excerpt != nil {
+		excerpt = *article.Excerpt
+	}
+
+	body := fmt.Sprintf(`
+		<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+			<h2 style="color: #333;">%s</h2>
+			<p style="color: #666; line-height: 1.6;">%s</p>
+			<div style="margin-top: 30px;">
+				<a href="%s/news/%s" 
+				   style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+				   Baca Selengkapnya
+				</a>
+			</div>
+			<hr style="margin-top: 40px; border: 0; border-top: 1px solid #eee;">
+			<p style="font-size: 12px; color: #999;">
+				Anda menerima email ini karena Anda berlangganan berita di ArcheryHub.id.
+			</p>
+		</div>
+	`, article.Title, excerpt, appURL, article.Slug)
+
+	for _, email := range subscribers {
+		go func(to string) {
+			utils.SendEmail(to, subject, body)
+		}(email)
 	}
 }
 

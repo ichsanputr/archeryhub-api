@@ -140,32 +140,47 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
+		// Check for requesting user and type to possibly add membership info
+		reqUserID, _ := c.Get("user_id")
+		reqUserType, _ := c.Get("user_type")
+
 		query := `
 			SELECT 
 				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
-				a.gender, a.email, a.phone, a.avatar_url, a.address,
+				a.gender, a.email, a.phone, a.avatar_url, a.banner_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type, a.city, a.school,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
+				a.social_facebook, a.social_twitter,
 				a.achievements, a.equipment, a.page_settings,
 				c.name as club_name,
 				c.slug as club_slug,
 				cm.coach_notes,
+				cm.status as club_member_status,
+				cm.uuid as club_member_uuid,
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN club_members cm ON a.uuid = cm.archer_id AND a.club_id = cm.club_id
+			LEFT JOIN club_members cm ON a.uuid = cm.archer_id AND (
+				(a.club_id IS NOT NULL AND a.club_id = cm.club_id) 
+				OR (cm.club_id = ?)
+			)
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
-			GROUP BY a.uuid, cm.coach_notes
+			GROUP BY a.uuid, cm.coach_notes, cm.status, cm.uuid
 			LIMIT 1
 		`
 
+		var clubID string = ""
+		if reqUserType == "club" {
+			clubID = fmt.Sprintf("%v", reqUserID)
+		}
+
 		var archer models.ArcherWithStats
-		err := db.Get(&archer, query, id, id, id)
+		err := db.Get(&archer, query, clubID, id, id, id)
 		if err != nil {
 			logrus.WithError(err).Warnf("Archer not found: %s", id)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
@@ -176,6 +191,10 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 		if archer.AvatarURL != nil {
 			masked := utils.MaskMediaURL(*archer.AvatarURL)
 			archer.AvatarURL = &masked
+		}
+		if archer.BannerURL != nil {
+			masked := utils.MaskMediaURL(*archer.BannerURL)
+			archer.BannerURL = &masked
 		}
 
 		c.JSON(http.StatusOK, archer)
@@ -208,8 +227,8 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				e.name as name,
 				e.city,
 				e.start_date as start_date,
-				0 as qual_score,
-				0 as qual_rank,
+				COALESCE(ep.qual_score, 0) as qual_score,
+				COALESCE(ep.qual_rank, 0) as qual_rank,
 				COALESCE(d.name, '') as division_name,
 				COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name,
@@ -718,6 +737,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Username    *string `json:"username" db:"username"`
 			Email       *string `json:"email" db:"email"`
 			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL   *string `json:"banner_url" db:"banner_url"`
 			FullName    string  `json:"full_name" db:"full_name"`
 			Nickname    *string `json:"nickname" db:"nickname"`
 			DateOfBirth *string `json:"date_of_birth" db:"date_of_birth"`
@@ -734,6 +754,8 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
 			SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
 			SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
+			SocialFacebook  *string `json:"social_facebook" db:"social_facebook"`
+			SocialTwitter   *string `json:"social_twitter" db:"social_twitter"`
 			Achievements    *string `json:"achievements" db:"achievements"`
 			Equipment       *string `json:"equipment" db:"equipment"`
 			PageSettings    *string `json:"page_settings" db:"page_settings"`
@@ -741,7 +763,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		var pageSettings *string
 		err := db.Get(&archer, `
-		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, 
+		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, a.banner_url,
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
 		       a.phone, a.address, a.city, a.school, 
@@ -749,11 +771,12 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		       a.club_id, c.name as club_name,
 		       COALESCE(a.status, 'active') as status,
 		       a.bio, a.social_instagram, a.social_tiktok, a.social_whatsapp,
+		       a.social_facebook, a.social_twitter,
 		       a.achievements, a.equipment, a.page_settings
 		FROM archers a
 		LEFT JOIN clubs c ON a.club_id = c.uuid
 		WHERE a.uuid = ?
-	`, userID, userID)
+	`, userID)
 
 
 		if err != nil {
@@ -766,6 +789,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"username":      archer.Username,
 			"email":         archer.Email,
 			"avatar_url":    archer.AvatarURL,
+			"banner_url":    archer.BannerURL,
 			"full_name":     archer.FullName,
 			"nickname":      archer.Nickname,
 			"date_of_birth": archer.DateOfBirth,
@@ -782,10 +806,21 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"social_instagram": archer.SocialInstagram,
 			"social_tiktok":    archer.SocialTiktok,
 			"social_whatsapp":  archer.SocialWhatsapp,
+			"social_facebook":  archer.SocialFacebook,
+			"social_twitter":   archer.SocialTwitter,
 			"achievements":    archer.Achievements,
 			"equipment":       archer.Equipment,
 			"page_settings":    archer.PageSettings,
 			"user_type":     "archer",
+		}
+		// Mask URLs
+		if archer.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*archer.AvatarURL)
+			data["avatar_url"] = &masked
+		}
+		if archer.BannerURL != nil {
+			masked := utils.MaskMediaURL(*archer.BannerURL)
+			data["banner_url"] = &masked
 		}
 
 		if pageSettings != nil {
@@ -893,5 +928,51 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"avatar_url": avatar,
 		})
+	}
+}
+// GetMyArcherStats returns statistics for the authenticated archer
+func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var stats struct {
+			TotalEvents     int     `json:"total_events" db:"total_events"`
+			CompletedEvents int     `json:"completed_events" db:"completed_events"`
+			BestScore       *int    `json:"best_score" db:"best_score"`
+			PodiumCount     int     `json:"podium_count" db:"podium_count"`
+			LastEventDate   *string `json:"last_event_date" db:"last_event_date"`
+		}
+
+		query := `
+			SELECT 
+				COUNT(DISTINCT tp.uuid) as total_events,
+				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
+				MAX(t.end_date) as last_event_date,
+				(SELECT MAX(qual_score) FROM event_participants WHERE archer_id = ?) as best_score,
+				(SELECT COUNT(*) FROM event_participants WHERE archer_id = ? AND qual_rank <= 3) as podium_count
+			FROM event_participants tp
+			LEFT JOIN events t ON tp.event_id = t.uuid
+			WHERE tp.archer_id = ?
+		`
+
+		err := db.Get(&stats, query, userID, userID, userID)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to fetch archer stats")
+			// Return empty stats instead of 404 if no records found
+			c.JSON(http.StatusOK, gin.H{
+				"total_events":     0,
+				"completed_events": 0,
+				"best_score":       nil,
+				"podium_count":     0,
+				"last_event_date":   nil,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, stats)
 	}
 }

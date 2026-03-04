@@ -946,23 +946,69 @@ func LeaveClub(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 
-		result, err := db.Exec(`
-			UPDATE club_members SET status = 'left', updated_at = NOW() 
-			WHERE archer_id = ? AND status = 'active'
-		`, userID)
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
 
+		// Get the club ID before leaving
+		var clubID string
+		err = tx.Get(&clubID, "SELECT club_id FROM club_members WHERE archer_id = ? AND status = 'active'", userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No active membership found"})
+			return
+		}
+
+		// Update membership status
+		_, err = tx.Exec(`
+			UPDATE club_members SET status = 'left', updated_at = NOW() 
+			WHERE archer_id = ? AND club_id = ? AND status = 'active'
+		`, userID, clubID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to leave club"})
 			return
 		}
 
-		rows, _ := result.RowsAffected()
-		if rows == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "No active membership found"})
+		// Clear club_id in archers table
+		_, err = tx.Exec(`UPDATE archers SET club_id = NULL WHERE uuid = ? AND club_id = ?`, userID, clubID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update archer record"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Successfully left the club"})
+	}
+}
+
+// CancelClubApplication allows an archer to cancel their pending membership request
+func CancelClubApplication(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		result, err := db.Exec(`
+			DELETE FROM club_members 
+			WHERE archer_id = ? AND status = 'pending'
+		`, userID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel application"})
+			return
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No pending application found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Application cancelled successfully"})
 	}
 }
 
