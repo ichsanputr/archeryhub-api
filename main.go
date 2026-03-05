@@ -487,7 +487,18 @@ func main() {
 			protected := root.Group("/dashboard")
 			protected.Use(middleware.AuthMiddleware(), middleware.RequireRole("root"))
 			{
+				// Account management
 				protected.GET("/users", handler.GetAllUsers(db))
+				protected.POST("/users", handler.RootCreateAccount(db))
+				protected.PATCH("/users/:type/:uuid/terminate", handler.TerminateUser(db))
+
+				// Subscription management
+				protected.GET("/subscriptions", handler.GetAllSubscriptions(db))
+				protected.PUT("/subscriptions/:type/:uuid", handler.UpdateUserSubscription(db))
+				protected.POST("/subscriptions/:type/:uuid/addon", handler.AddSubscriptionAddon(db))
+
+				// Plans
+				protected.GET("/plans", handler.GetSubscriptionPlans(db))
 			}
 		}
 
@@ -593,20 +604,20 @@ func main() {
 				protectedClubs.GET("/my/invitations", handler.GetMyClubInvitations(db))
 				protectedClubs.POST("/invitations/:memberId/respond", handler.RespondToInvitation(db))
 				protectedClubs.GET("/members/:clubId", handler.GetClubMembers(db))
-				protectedClubs.POST("/approve/:memberId", handler.ApproveClubMember(db))
+				protectedClubs.POST("/approve/:memberId", middleware.RequireActivePlan(db), handler.ApproveClubMember(db))
 				protectedClubs.POST("/leave", handler.LeaveClub(db))
 				protectedClubs.POST("/cancel-application", handler.CancelClubApplication(db))
-				protectedClubs.POST("/invite", handler.InviteToClub(db))
+				protectedClubs.POST("/invite", middleware.RequireActivePlan(db), handler.InviteToClub(db))
 				protectedClubs.DELETE("/members/:archerId", handler.KickClubMember(db))
 				protectedClubs.PATCH("/members/:archerId/notes", handler.UpdateMemberNotes(db))
 
 				// Registration Form Builder routes
 				protectedClubs.GET("/forms", handler.GetRegistrationForm(db))
-				protectedClubs.POST("/forms", handler.CreateRegistrationForm(db))
+				protectedClubs.POST("/forms", middleware.RequireActivePlan(db), handler.CreateRegistrationForm(db))
 				protectedClubs.GET("/forms/:formId", handler.GetRegistrationForm(db))
-				protectedClubs.PUT("/forms/:formId", handler.UpdateRegistrationForm(db))
+				protectedClubs.PUT("/forms/:formId", middleware.RequireActivePlan(db), handler.UpdateRegistrationForm(db))
 				protectedClubs.DELETE("/forms/:formId", handler.DeleteRegistrationForm(db))
-				protectedClubs.POST("/forms/:formId/publish", handler.PublishRegistrationForm(db))
+				protectedClubs.POST("/forms/:formId/publish", middleware.RequireActivePlan(db), handler.PublishRegistrationForm(db))
 				protectedClubs.PUT("/forms/:formId/reorder", handler.ReorderFormItems(db))
 
 				// Section routes
@@ -627,13 +638,13 @@ func main() {
 
 					// Packages (paket buatan club)
 					membership.GET("/packages", handler.GetMembershipPackages(db))
-					membership.POST("/packages", handler.CreateMembershipPackage(db))
-					membership.PUT("/packages/:packageId", handler.UpdateMembershipPackage(db))
+					membership.POST("/packages", middleware.RequireActivePlan(db), handler.CreateMembershipPackage(db))
+					membership.PUT("/packages/:packageId", middleware.RequireActivePlan(db), handler.UpdateMembershipPackage(db))
 					membership.DELETE("/packages/:packageId", handler.DeleteMembershipPackage(db))
 
 					// Subscriptions
 					membership.GET("/subscriptions", handler.GetMembershipSubscriptions(db))
-					membership.POST("/subscriptions", handler.AssignMembershipPackage(db))
+					membership.POST("/subscriptions", middleware.RequireActivePlan(db), handler.AssignMembershipPackage(db))
 					membership.POST("/subscriptions/:subscriptionId/pay", handler.RecordMembershipPayment(db))
 					membership.GET("/subscriptions/archer/:archerId", handler.GetArcherSubscriptionHistory(db))
 					membership.GET("/payments", handler.GetMembershipPayments(db))
