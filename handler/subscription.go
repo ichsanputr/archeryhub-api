@@ -1,8 +1,12 @@
-package handler
-
 import (
+	"archeryhub-api/models"
 	"database/sql"
+	"encoding/csv"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -124,5 +128,70 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 			"plans":    plans,
 			"invoices": invoices,
 		})
+	}
+}
+// ExportInvoicesCSV exports transaction history to CSV
+func ExportInvoicesCSV(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		type Invoice struct {
+			Date        string `db:"date"`
+			Description string `db:"description"`
+			Amount      int    `db:"amount"`
+			Status      string `db:"status"`
+			Method      string `db:"payment_method"`
+			Reference   string `db:"reference"`
+		}
+
+		var invoices []Invoice
+		err := db.Select(&invoices, `
+			SELECT 
+				DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as date,
+				CASE 
+					WHEN subscription_plan_id IS NOT NULL THEN 'Pembayaran Langganan'
+					WHEN event_id IS NOT NULL THEN 'Pembayaran Layanan Event'
+					ELSE 'Transaksi Lainnya'
+				END as description,
+				amount,
+				status,
+				COALESCE(payment_method, '-') as payment_method,
+				reference
+			FROM payment_transactions 
+			WHERE user_id = ? 
+			ORDER BY created_at DESC`, userID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch invoices", "details": err.Error()})
+			return
+		}
+
+		// Set response headers
+		fileName := fmt.Sprintf("billing-history-%s.csv", time.Now().Format("20060102"))
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+		c.Header("Content-Type", "text/csv")
+
+		writer := csv.NewWriter(c.Writer)
+		defer writer.Flush()
+
+		// Write header
+		writer.Write([]string{"No", "Tanggal", "Deskripsi", "Jumlah", "Status", "Metode Pembayaran", "Referensi"})
+
+		for i, v := range invoices {
+			writer.Write([]string{
+				strconv.Itoa(i + 1),
+				v.Date,
+				v.Description,
+				strconv.Itoa(v.Amount),
+				v.Status,
+				v.Method,
+				v.Reference,
+			})
+		}
 	}
 }

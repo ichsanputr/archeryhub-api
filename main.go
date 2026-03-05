@@ -264,6 +264,7 @@ func main() {
 			user.GET("/settings", handler.GetUserSettings(db))
 			user.PUT("/settings", handler.UpdateUserSettings(db))
 			user.GET("/subscription", handler.GetMySubscription(db))
+			user.GET("/subscription/export", handler.ExportInvoicesCSV(db))
 		}
 
 		// Event routes
