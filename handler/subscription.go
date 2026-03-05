@@ -1,11 +1,10 @@
+package handler
 import (
-	"archeryhub-api/models"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"

@@ -278,7 +278,7 @@ func main() {
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
 			events.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
 			events.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
-			events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.UpdateEventParticipant(db))
+			events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateEventParticipant(db))
 			events.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
@@ -297,11 +297,11 @@ func main() {
 			protected.Use(middleware.AuthMiddleware())
 			{
 				protected.GET("/my", handler.GetMyEvents(db))
-				protected.POST("", handler.CreateEvent(db))
+				protected.POST("", middleware.RequireActivePlan(db), handler.CreateEvent(db))
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))
-				protected.POST("/:id/publish", handler.PublishEvent(db))
-				protected.GET("/:id/participants/export", handler.ExportParticipantsCSV(db))
+				protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
+				protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
 				protected.POST("/:id/categories", handler.CreateEventCategory(db))
 				protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
 				protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
@@ -444,7 +444,7 @@ func main() {
 			protectedNews.Use(middleware.AuthMiddleware())
 			{
 				protectedNews.GET("/my", handler.GetNews(db))
-				protectedNews.POST("", handler.CreateNews(db))
+				protectedNews.POST("", middleware.RequireActivePlan(db), handler.CreateNews(db))
 				protectedNews.PUT("/:id", handler.UpdateNews(db))
 				protectedNews.DELETE("/:id", handler.DeleteNews(db))
 			}
@@ -564,9 +564,9 @@ func main() {
 				scorekeepers := protectedOrgs.Group("/scorekeepers")
 				{
 					scorekeepers.GET("", handler.GetOrganizationScorekeepers(db))
-					scorekeepers.POST("", handler.CreateScorekeeper(db))
-					scorekeepers.PUT("/:id", handler.UpdateScorekeeper(db))
-					scorekeepers.DELETE("/:id", handler.DeleteScorekeeper(db))
+					scorekeepers.POST("", middleware.RequireActivePlan(db), handler.CreateScorekeeper(db))
+					scorekeepers.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateScorekeeper(db))
+					scorekeepers.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteScorekeeper(db))
 				}
 			}
 		}

@@ -260,7 +260,11 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var org Organization
+		var org struct {
+			Organization
+			SubscriptionStatus    string  `db:"subscription_status" json:"subscription_status"`
+			SubscriptionExpiresAt *string `db:"subscription_expires_at" json:"subscription_expires_at"`
+		}
 		var pageSettings *string
 		err := db.Get(&org, `
 			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
@@ -269,7 +273,9 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
 				   verification_status, status, created_at, updated_at,
-				   vision, mission, history, faq
+				   vision, mission, history, faq,
+				   COALESCE(subscription_status, 'trial') as subscription_status,
+				   subscription_expires_at
 			FROM organizations
 			WHERE uuid = ?
 		`, userID)
@@ -323,10 +329,12 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			"history":             org.History,
 			"faq":                 org.FAQ,
 			"verification_status": org.VerificationStatus,
-			"status":              org.Status,
-			"created_at":          org.CreatedAt,
-			"updated_at":          org.UpdatedAt,
-			"user_type":           "organization",
+			"status":                org.Status,
+			"created_at":            org.CreatedAt,
+			"updated_at":            org.UpdatedAt,
+			"subscription_status":    org.SubscriptionStatus,
+			"subscription_expires_at": org.SubscriptionExpiresAt,
+			"user_type":             "organization",
 		}
 
 		if pageSettings != nil {

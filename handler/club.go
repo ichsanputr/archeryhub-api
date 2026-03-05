@@ -81,10 +81,13 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			SocialMedia      *string `json:"social_media" db:"social_media"`
 			PageSettings     *string `json:"page_settings" db:"page_settings"`
 			RegistrationConfig *string `json:"registration_config" db:"registration_config"`
+			SubscriptionStatus string  `json:"subscription_status" db:"subscription_status"`
+			SubscriptionExpiresAt *string `json:"subscription_expires_at" db:"subscription_expires_at"`
 		}
 
 		err := db.Get(&club, `
-			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, social_tiktok, social_twitter, social_whatsapp, established_date, facilities, training_schedule, social_media, page_settings, registration_config 
+			SELECT uuid, name, slug, COALESCE(slug_changed, 0) as slug_changed, description, avatar_url, banner_url, logo_url, address, city, province, phone, email, website, social_facebook, social_instagram, social_tiktok, social_twitter, social_whatsapp, established_date, facilities, training_schedule, social_media, page_settings, registration_config,
+                   COALESCE(subscription_status, 'trial') as subscription_status, subscription_expires_at
 			FROM clubs 
 			WHERE uuid = ?`, userID)
 		if err != nil {
@@ -133,6 +136,8 @@ func GetClubMe(db *sqlx.DB) gin.HandlerFunc {
 			"social_media":  club.SocialMedia,
 			"page_settings": club.PageSettings,
 			"registration_config": club.RegistrationConfig,
+			"subscription_status": club.SubscriptionStatus,
+			"subscription_expires_at": club.SubscriptionExpiresAt,
 			"user_type":     "club",
 		}
 

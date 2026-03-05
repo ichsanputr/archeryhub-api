@@ -92,7 +92,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		type ScorekeeperResult struct {
+		var sk struct {
 			UUID             string  `db:"uuid"`
 			OrganizationUUID string  `db:"organization_uuid"`
 			Code             string  `db:"code"`
@@ -100,12 +100,16 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			Email            string  `db:"email"`
 			AvatarURL        *string `db:"avatar_url"`
 			Status           string  `db:"status"`
+			OrgSubStatus     *string `db:"org_sub_status"`
 		}
 
-		var sk ScorekeeperResult
 		err := db.Get(&sk, `
-			SELECT uuid, organization_uuid, code, name, IFNULL(email, '') as email, avatar_url, COALESCE(status, '') as status
-			FROM scorekeepers WHERE code = ?`, req.Code)
+			SELECT sk.uuid, sk.organization_uuid, sk.code, sk.name, IFNULL(sk.email, '') as email, sk.avatar_url, COALESCE(sk.status, '') as status,
+                   o.subscription_status as org_sub_status
+			FROM scorekeepers sk 
+            JOIN organizations o ON sk.organization_uuid = o.uuid
+            WHERE sk.code = ?`, req.Code)
+
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid scorekeeper code", "code": "invalid_code"})
 			return
@@ -113,6 +117,21 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 
 		if sk.Status != "active" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Scorekeeper account is not active", "code": "account_inactive"})
+			return
+		}
+
+		// Check Organization Subscription
+		orgSub := "trial"
+		if sk.OrgSubStatus != nil {
+			orgSub = *sk.OrgSubStatus
+		}
+
+		if orgSub != "active" && orgSub != "trial" {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error": "Organization subscription expired",
+				"code": "subscription_expired",
+				"message": "Layanan scoring dihentikan sementara karena masa berlaku langganan organisasi telah berakhir. Silakan hubungi admin organisasi Anda.",
+			})
 			return
 		}
 

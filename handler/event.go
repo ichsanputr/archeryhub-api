@@ -1571,7 +1571,27 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
+
 		actualEventID := event.UUID
+		organizerID := event.OrganizerID
+
+		// Verification sub status organizer (Organization or Club)
+		var orgStatus string
+		db.Get(&orgStatus, `
+			SELECT COALESCE(s, 'trial') FROM (
+				SELECT subscription_status as s FROM organizations WHERE uuid = ?
+				UNION ALL
+				SELECT subscription_status as s FROM clubs WHERE uuid = ?
+			) combined LIMIT 1`, organizerID, organizerID)
+
+		if orgStatus != "" && orgStatus != "active" && orgStatus != "trial" {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error": "Pendaftaran ditutup sementara",
+				"code": "organizer_subscription_expired",
+				"message": "Pendaftaran peserta untuk event ini ditutup sementara oleh sistem karena masa berlaku layanan penyelenggara telah berakhir.",
+			})
+			return
+		}
 
 		var archerUUID string
 		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
