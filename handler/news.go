@@ -24,6 +24,7 @@ type News struct {
 	Content         *string `db:"content" json:"content,omitempty"`
 	ImageURL        *string `db:"image_url" json:"image_url,omitempty"`
 	Category        string  `db:"category" json:"category"`
+	Tags            *string `db:"tags" json:"tags,omitempty"`
 	Status          string  `db:"status" json:"status"`
 	Views           int     `db:"views" json:"views"`
 	AuthorName      *string `db:"author_name" json:"author_name,omitempty"`
@@ -42,6 +43,7 @@ type CreateNewsRequest struct {
 	Content         string  `json:"content"`
 	ImageURL        string  `json:"image_url"`
 	Category        string  `json:"category"`
+	Tags            string  `json:"tags"`
 	Status          string  `json:"status"`
 	MetaTitle       string  `json:"meta_title"`
 	MetaDescription string  `json:"meta_description"`
@@ -60,7 +62,7 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 		if userType == "organization" {
 			err = db.Select(&news, `
 				SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
-				       category, status, views, author_name, published_at, created_at, updated_at
+				       category, tags, status, views, author_name, published_at, created_at, updated_at
 				FROM news 
 				WHERE organization_id = (SELECT uuid FROM organizations WHERE uuid = ?)
 				ORDER BY created_at DESC
@@ -68,7 +70,7 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 		} else if userType == "club" {
 			err = db.Select(&news, `
 				SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
-				       category, status, views, author_name, published_at, created_at, updated_at
+				       category, tags, status, views, author_name, published_at, created_at, updated_at
 				FROM news 
 				WHERE club_id = (SELECT uuid FROM clubs WHERE uuid = ?)
 				ORDER BY created_at DESC
@@ -106,7 +108,7 @@ func GetNewsPublic(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Select(&news, `
 			SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
-			       category, status, views, author_name, published_at, created_at
+			       category, tags, status, views, author_name, published_at, created_at
 			FROM news 
 			WHERE status = 'published'
 			ORDER BY published_at DESC
@@ -142,7 +144,7 @@ func GetNewsByID(db *sqlx.DB) gin.HandlerFunc {
 		var article News
 		err := db.Get(&article, `
 			SELECT uuid, organization_id, club_id, title, slug, excerpt, content, image_url, 
-			       category, status, views, author_name, author_id, meta_title, meta_description,
+			       category, tags, status, views, author_name, author_id, meta_title, meta_description,
 			       published_at, created_at, updated_at
 			FROM news 
 			WHERE uuid = ? OR slug = ?
@@ -214,10 +216,10 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec(`
 			INSERT INTO news (uuid, organization_id, club_id, title, slug, excerpt, content, image_url, 
-			                  category, status, author_name, author_id, meta_title, meta_description, published_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			                  category, tags, status, author_name, author_id, meta_title, meta_description, published_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, newsID, orgID, clubID, req.Title, slug, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
-			req.Category, req.Status, authorName, userID, req.MetaTitle, req.MetaDescription, publishedAt)
+			req.Category, req.Tags, req.Status, authorName, userID, req.MetaTitle, req.MetaDescription, publishedAt)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create news: " + err.Error()})
@@ -289,10 +291,10 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 		_, err = db.Exec(`
 			UPDATE news SET 
 				title = ?, excerpt = ?, content = ?, image_url = ?, 
-				category = ?, status = ?, meta_title = ?, meta_description = ?`+publishedAtUpdate+`
+				category = ?, tags = ?, status = ?, meta_title = ?, meta_description = ?`+publishedAtUpdate+`
 			WHERE uuid = ?
 		`, req.Title, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
-			req.Category, req.Status, req.MetaTitle, req.MetaDescription, article.UUID)
+			req.Category, req.Tags, req.Status, req.MetaTitle, req.MetaDescription, article.UUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update news: " + err.Error()})
