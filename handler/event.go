@@ -11,6 +11,7 @@ import (
 
 	"archeryhub-api/utils"
 
+	"encoding/csv"
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
@@ -1171,14 +1172,14 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 		// Resolve event slug to UUID
 		var actualEventID string
 		if err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
 		// Get archer UUID for this user (if any)
 		var archerID string
-		if err := db.Get(&archerID, `SELECT uuid FROM archers WHERE user_id = ? LIMIT 1`, userID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found for this user"})
+		if err := db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? LIMIT 1`, userID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan untuk pengguna ini"})
 			return
 		}
 
@@ -1229,7 +1230,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 		`, actualEventID, archerID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found for this event"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
 			return
 		}
 
@@ -2147,6 +2148,13 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Payment status triggers QR generation if paid
+		// Check if proof URLs are provided to auto-set status
+		hasProof := (req.PaymentProofURLs != nil && len(*req.PaymentProofURLs) > 0)
+		if hasProof && (req.PaymentStatus == nil || *req.PaymentStatus == "menunggu acc") {
+			statusLunas := "lunas"
+			req.PaymentStatus = &statusLunas
+		}
+
 		if req.PaymentStatus != nil {
 			query += ", payment_status = ?"
 			args = append(args, *req.PaymentStatus)
@@ -3034,5 +3042,80 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				"event_name":    participant.EventName,
 			},
 		})
+	}
+}
+// ExportParticipantsCSV exports all participants of an event to a CSV file
+func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		// Resolve event
+		var event struct {
+			UUID string `db:"uuid"`
+			Name string `db:"name"`
+		}
+		err := db.Get(&event, `SELECT uuid, name FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		type Participant struct {
+			FullName     string  `db:"full_name"`
+			Email        string  `db:"email"`
+			ClubName     *string `db:"club_name"`
+			City         *string `db:"city"`
+			PaymentStatus string `db:"payment_status"`
+			Categories   string  `db:"categories"`
+		}
+
+		var participants []Participant
+		query := `
+			SELECT 
+				a.full_name,
+				COALESCE(a.email, '') as email,
+				COALESCE(cl.name, '') as club_name,
+				a.city as city,
+				MAX(tp.payment_status) as payment_status,
+				GROUP_CONCAT(DISTINCT CONCAT(d.name, ' ', COALESCE(te.category_name_custom, c.name, '')) SEPARATOR ', ') as categories
+			FROM event_participants tp
+			JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			WHERE tp.event_id = ?
+			GROUP BY a.uuid, a.full_name, a.email, cl.name, a.city
+			ORDER BY a.full_name ASC
+		`
+		err = db.Select(&participants, query, event.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
+			return
+		}
+
+		// Set response headers
+		fileName := fmt.Sprintf("participants-%s-%s.csv", strings.ReplaceAll(strings.ToLower(event.Name), " ", "-"), time.Now().Format("20060102"))
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+		c.Header("Content-Type", "text/csv")
+
+		writer := csv.NewWriter(c.Writer)
+		defer writer.Flush()
+
+		// Write header
+		writer.Write([]string{"No", "Nama Lengkap", "Email", "Klub", "Kota", "Status Pembayaran", "Kategori"})
+
+		for i, p := range participants {
+			writer.Write([]string{
+				strconv.Itoa(i + 1),
+				p.FullName,
+				p.Email,
+				models.FromPtr(p.ClubName),
+				models.FromPtr(p.City),
+				p.PaymentStatus,
+				p.Categories,
+			})
+		}
 	}
 }

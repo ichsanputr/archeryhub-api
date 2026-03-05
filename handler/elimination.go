@@ -8,11 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
-
-	"math/rand"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -199,6 +199,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
 			TargetName      *string    `json:"target_name" db:"target_name"`
+			BoardCode       *string    `json:"board_code" db:"board_code"`
 			TotalScoreA     int        `json:"total_score_a" db:"total_score_a"`
 			TotalScoreB     int        `json:"total_score_b" db:"total_score_b"`
 			TotalPointsA    int        `json:"total_points_a" db:"total_points_a"`
@@ -222,7 +223,8 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				eeA.seed as entry_a_seed,
 				eeB.seed as entry_b_seed,
 				em.winner_entry_uuid, em.status, em.is_bye, em.scheduled_at,
-				em.target_uuid, et.target_name,
+				em.target_uuid, COALESCE(et.target_name, '') as target_name,
+				COALESCE(tbe.code, '') as board_code,
 				COALESCE(em.total_score_a, 0) as total_score_a,
 				COALESCE(em.total_score_b, 0) as total_score_b,
 				COALESCE(em.total_points_a, 0) as total_points_a,
@@ -235,6 +237,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
 			LEFT JOIN teams tB ON eeB.participant_type = 'team' AND eeB.participant_uuid = tB.uuid
 			LEFT JOIN event_targets et ON em.target_uuid = et.uuid
+			LEFT JOIN target_board_elimination tbe ON em.bracket_uuid = tbe.bracket_uuid AND et.board_number = tbe.board_number
 			WHERE em.bracket_uuid = ?
 			ORDER BY em.round_no ASC, em.match_no ASC
 		`, bracketUUID)
@@ -989,7 +992,8 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			Assignments []struct {
-				BoardNumber int    `json:"board_number" binding:"required"`
+				MatchID     string `json:"match_id"`
+				BoardNumber int    `json:"board_number"`
 				TargetID    string `json:"target_id"`
 				Code        string `json:"code"`
 			} `json:"assignments" binding:"required"`
@@ -1020,13 +1024,23 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 
 		updated := 0
 		for _, assignment := range req.Assignments {
-			// New: Assign target to bracket node (not match)
-			if assignment.BoardNumber > 0 {
+			if assignment.MatchID != "" {
+				// Update by Match UUID or Human-Readable Match ID
+				res, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, updated_at = NOW() WHERE (uuid = ? OR match_id = ?) AND bracket_uuid = ?`,
+					assignment.TargetID, assignment.MatchID, assignment.MatchID, bracket.UUID)
+				if err != nil {
+					logrus.WithError(err).WithField("match_id", assignment.MatchID).Error("Failed to update match target")
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match target"})
+					return
+				}
+				count, _ := res.RowsAffected()
+				updated += int(count)
+			} else if assignment.BoardNumber > 0 {
 				_, err := tx.Exec(`REPLACE INTO event_target_boards (uuid, event_uuid, bracket_uuid, board_number, target_uuid, code, is_active, updated_at)
 					VALUES (UUID(), ?, ?, ?, ?, ?, 1, NOW())`,
 					bracket.EventUUID, bracket.UUID, assignment.BoardNumber, assignment.TargetID, assignment.Code)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign target to bracket node"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign target to board"})
 					return
 				}
 				updated++
@@ -1039,7 +1053,7 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Targets updated successfully",
+			"message": fmt.Sprintf("Berhasil memperbarui %d target", updated),
 			"updated": updated,
 		})
 	}
@@ -1049,9 +1063,15 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
-		roundNo := c.Query("round")
-		if roundNo == "" {
+		roundNoStr := c.Query("round")
+		if roundNoStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "round parameter is required"})
+			return
+		}
+
+		roundNo, err := strconv.Atoi(roundNoStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid round number"})
 			return
 		}
 
@@ -1060,19 +1080,96 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			UUID      string `db:"uuid"`
 			EventUUID string `db:"event_uuid"`
 		}
-		err := db.Get(&bracket, `SELECT uuid, event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		err = db.Get(&bracket, `SELECT uuid, event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
-		// New: Auto-assign available targets to bracket nodes (not matches)
-		// (Implementation here should assign targets to event_target_boards for each bracket node)
+		// Get active matches in this round that are not BYEs
+		type MatchInfo struct {
+			UUID    string `db:"uuid"`
+			MatchNo int    `db:"match_no"`
+		}
+		var matches []MatchInfo
+		err = db.Select(&matches, `
+			SELECT uuid, match_no 
+			FROM elimination_matches 
+			WHERE bracket_uuid = ? AND round_no = ? AND is_bye = 0 
+			ORDER BY match_no ASC`,
+			bracket.UUID, roundNo)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch matches", "details": err.Error()})
+			return
+		}
+
+		if len(matches) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"message": fmt.Sprintf("Tidak ada pertandingan aktif (non-bye) yang ditemukan pada babak %d", roundNo),
+				"updated": 0,
+			})
+			return
+		}
+
+		// Get available targets for the event
+		type TargetInfo struct {
+			UUID string `db:"uuid"`
+		}
+		var targets []TargetInfo
+		err = db.Select(&targets, `
+			SELECT uuid 
+			FROM event_targets 
+			WHERE event_uuid = ? 
+			ORDER BY board_number ASC, target_name ASC`,
+			bracket.EventUUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
+			return
+		}
+
+		if len(targets) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada target (bantalan) yang tersedia untuk event ini. Silakan buat target terlebih dahulu di menu Targets."})
+			return
+		}
+
+		// Update matches with targets
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
 		updated := 0
+		for i, match := range matches {
+			if i >= len(targets) {
+				break // Not enough targets
+			}
+
+			res, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, updated_at = NOW() WHERE uuid = ?`,
+				targets[i].UUID, match.UUID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match target", "details": err.Error()})
+				return
+			}
+			count, _ := res.RowsAffected()
+			updated += int(count)
+		}
+
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		logrus.Infof("AutoAssignMatchTargets: bracket=%s, round=%d, matches_found=%d, targets_found=%d, updated=%d", bracket.UUID, roundNo, len(matches), len(targets), updated)
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": fmt.Sprintf("Berhasil melakukan auto-assign pada %d match", updated),
+			"message": fmt.Sprintf("Berhasil melakukan auto-assign pada %d match dari %d match yang ditemukan di babak %d", updated, len(matches), roundNo),
 			"updated": updated,
+			"total":   len(matches),
+			"targets": len(targets),
 		})
 	}
 }

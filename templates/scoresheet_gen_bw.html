@@ -512,15 +512,18 @@
     <div class="page-header">
       <div class="header-main">
         <div class="event-name">{{if $.EventName}}{{$.EventName}}{{else}}-{{end}}</div>
-        <div class="event-sub">{{if $.EventOrg}}{{$.EventOrg}}{{else}}-{{end}}{{if $.Location}} &bull; {{$.Location}}{{end}}</div>
+        <div class="event-sub">{{if $.EventOrg}}{{$.EventOrg}}{{else}}-{{end}}{{if $.Location}} &bull;
+          {{$.Location}}{{end}}</div>
         <div class="session-meta">
           <div class="meta-item">
             <span class="meta-label">Sesi</span>
-            <span class="meta-val">{{if $.SessionName}}{{$.SessionName}}{{else}}-{{end}} &mdash; {{if $.SessionCode}}{{$.SessionCode}}{{else}}-{{end}}</span>
+            <span class="meta-val">{{if $.SessionName}}{{$.SessionName}}{{else}}-{{end}} &mdash; {{if
+              $.SessionCode}}{{$.SessionCode}}{{else}}-{{end}}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Tanggal</span>
-            <span class="meta-val">{{if $.SessionDate}}{{$.SessionDate}}{{if $.SessionDayName}}, {{$.SessionDayName}}{{end}}{{else}}-{{end}}</span>
+            <span class="meta-val">{{if $.SessionDate}}{{$.SessionDate}}{{if $.SessionDayName}},
+              {{$.SessionDayName}}{{end}}{{else}}-{{end}}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Format</span>
@@ -547,7 +550,8 @@
         <div class="qr-info">
           <div class="qr-label">Bantalan</div>
           <div class="qr-code">{{if $board.Code}}{{$board.Code}}{{else}}-{{end}}</div>
-          <div class="qr-session">{{if $.SessionCode}}{{$.SessionCode}}{{else}}-{{end}} &bull; {{if $.SessionDate}}{{$.SessionDate}}{{else}}-{{end}}</div>
+          <div class="qr-session">{{if $.SessionCode}}{{$.SessionCode}}{{else}}-{{end}} &bull; {{if
+            $.SessionDate}}{{$.SessionDate}}{{else}}-{{end}}</div>
         </div>
       </div>
       {{end}}
@@ -586,7 +590,7 @@
                   <td></td>
                 </tr>{{end}}
                 <tr class="total-row">
-                  <td colspan="{{len $L.ArrowRange | add 1}}" class="td-total-all">Jumlah Total</td>
+                  <td colspan="{{len $L.ArrowRange | add 1}}" class="td-total-all">Total</td>
                   <td></td>
                   <td></td>
                   <td></td>
@@ -642,7 +646,7 @@
                   <td></td>
                 </tr>{{end}}
                 <tr class="total-row">
-                  <td colspan="{{len $R.ArrowRange | add 1}}" class="td-total-all">Jumlah Total</td>
+                  <td colspan="{{len $R.ArrowRange | add 1}}" class="td-total-all">Total</td>
                   <td></td>
                   <td></td>
                   <td></td>
@@ -679,7 +683,8 @@
         <div class="event-name">{{if .EventName}}{{.EventName}}{{else}}-{{end}}</div>
         <div class="event-sub">{{if .EventOrg}}{{.EventOrg}}{{else}}-{{end}}</div>
         <div class="session-meta">
-          <div class="meta-item"><span class="meta-val">{{if .SessionName}}{{.SessionName}}{{else}}-{{end}} ({{if .SessionCode}}{{.SessionCode}}{{else}}-{{end}}) &bull;
+          <div class="meta-item"><span class="meta-val">{{if .SessionName}}{{.SessionName}}{{else}}-{{end}} ({{if
+              .SessionCode}}{{.SessionCode}}{{else}}-{{end}}) &bull;
               {{if .SessionDate}}{{.SessionDate}}{{else}}-{{end}}</span></div>
         </div>
       </div>

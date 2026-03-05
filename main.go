@@ -300,6 +300,7 @@ func main() {
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))
 				protected.POST("/:id/publish", handler.PublishEvent(db))
+				protected.GET("/:id/participants/export", handler.ExportParticipantsCSV(db))
 				protected.POST("/:id/categories", handler.CreateEventCategory(db))
 				protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
 				protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
