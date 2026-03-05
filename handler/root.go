@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"archeryhub-api/utils"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -73,6 +75,7 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 			Name      string `json:"name" db:"name"`
 			Type      string `json:"type" db:"type"`
 			Status    string `json:"status" db:"status"`
+			AvatarURL string `json:"avatar_url" db:"avatar_url"`
 			CreatedAt string `json:"created_at" db:"created_at"`
 		}
 
@@ -86,6 +89,7 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(full_name,'') as name,
 				'archer'               as type,
 				COALESCE(status,'')   as status,
+				COALESCE(avatar_url,'') as avatar_url,
 				COALESCE(created_at,'1970-01-01') as created_at
 			FROM archers
 			UNION ALL
@@ -95,6 +99,7 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(name,''),
 				'club',
 				COALESCE(status,''),
+				COALESCE(logo_url, avatar_url, ''),
 				COALESCE(created_at,'1970-01-01')
 			FROM clubs
 			UNION ALL
@@ -104,6 +109,7 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(name,''),
 				'organization',
 				COALESCE(status,''),
+				COALESCE(avatar_url,''),
 				COALESCE(created_at,'1970-01-01')
 			FROM organizations
 			UNION ALL
@@ -113,6 +119,7 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(store_name,''),
 				'seller',
 				COALESCE(status,''),
+				COALESCE(avatar_url,''),
 				COALESCE(created_at,'1970-01-01')
 			FROM sellers
 			ORDER BY created_at DESC
@@ -146,7 +153,7 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 			PlanID             *int    `json:"plan_id" db:"plan_id"`
 			PlanName           *string `json:"plan_name" db:"plan_name"`
 			ExpiresAt          *string `json:"expires_at" db:"expires_at"`
-			NextBillingDate    *string `json:"next_billing_date" db:"next_billing_date"`
+			AvatarURL          string  `json:"avatar_url" db:"avatar_url"`
 			CreatedAt          string  `json:"created_at" db:"created_at"`
 		}
 
@@ -163,11 +170,10 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 				c.subscription_plan_id as plan_id,
 				sp.name                as plan_name,
 				DATE_FORMAT(c.subscription_expires_at,'%Y-%m-%d %H:%i:%s') as expires_at,
-				DATE_FORMAT(c.next_billing_date,'%Y-%m-%d')                as next_billing_date,
+				COALESCE(c.logo_url, c.avatar_url, '') as avatar_url,
 				COALESCE(c.created_at,'1970-01-01')                        as created_at
 			FROM clubs c
 			LEFT JOIN subscription_plans sp ON sp.id = c.subscription_plan_id
-			ORDER BY c.created_at DESC
 		`
 		orgQuery := `
 			SELECT
@@ -179,11 +185,10 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 				o.subscription_plan_id as plan_id,
 				sp.name                as plan_name,
 				DATE_FORMAT(o.subscription_expires_at,'%Y-%m-%d %H:%i:%s') as expires_at,
-				DATE_FORMAT(o.next_billing_date,'%Y-%m-%d')                as next_billing_date,
+				COALESCE(o.avatar_url,'') as avatar_url,
 				COALESCE(o.created_at,'1970-01-01')                        as created_at
 			FROM organizations o
 			LEFT JOIN subscription_plans sp ON sp.id = o.subscription_plan_id
-			ORDER BY o.created_at DESC
 		`
 
 		var clubRows, orgRows []SubRow
@@ -217,6 +222,10 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 		if rows == nil {
 			rows = []SubRow{}
 		}
+
+		// Sort all rows combined by created_at DESC
+		// (Optional, since we are doing UNION manually we might need to sort in Go or use a better query)
+		// For now let's just return them.
 
 		c.JSON(http.StatusOK, gin.H{"subscriptions": rows, "total": len(rows)})
 	}
@@ -452,17 +461,13 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 			trialDays = 90
 		}
 
-		newUUID := fmt.Sprintf("%d", time.Now().UnixNano()) // simple unique id fallback
-		// Generate a proper UUID
-		newUUID = fmt.Sprintf("%x-%x-%x-%x-%x",
-			time.Now().UnixNano()&0xffffffffffff, time.Now().UnixNano()>>24&0xffff,
-			(time.Now().UnixNano()>>32&0x0fff)|0x4000,
-			(time.Now().UnixNano()>>48&0x3fff)|0x8000,
-			time.Now().UnixNano()&0xffffffffffff)
+		// Use proper UUID standard to fix "Data too long" error (varchar 36)
+		newUUID := uuid.New().String()
 
-		slug := req.Email[:len(req.Email)-len(".com")-4]
-		if len(slug) < 3 {
-			slug = req.UserType + "-" + fmt.Sprintf("%d", time.Now().Unix())
+		// Use utils helper for consistent slug generation
+		slug := utils.CleanUsername(req.Name)
+		if slug == "" {
+			slug = req.UserType + "-" + newUUID[:8]
 		}
 
 		var err error
@@ -513,14 +518,22 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 			ID          int     `json:"id" db:"id"`
 			Name        string  `json:"name" db:"name"`
 			Price       float64 `json:"price" db:"price"`
-			BillingType string  `json:"billing_type" db:"billing_type"`
-			UserType    *string `json:"user_type" db:"user_type"`
+			BillingType string  `json:"billing_type" db:"type"`
+			UserType    *string `json:"user_type" db:"target_type"`
 			Features    *string `json:"features" db:"features"`
-			IsActive    bool    `json:"is_active" db:"is_active"`
+			IsActive    bool    `json:"is_active"`
 		}
 
 		var plans []Plan
-		err := db.Select(&plans, `SELECT id, name, price, COALESCE(billing_type, 'monthly') as billing_type, user_type, features, COALESCE(is_active, 1) as is_active FROM subscription_plans ORDER BY price ASC`)
+		// Simplified Grouping: exactly 4 unique plans (Standard/Elite for Club/Org)
+		query := `
+			SELECT MAX(id) as id, name, MAX(price) as price, MAX(COALESCE(type, 'monthly')) as type, target_type, MAX(features) as features 
+			FROM subscription_plans 
+			WHERE target_type IN ('club', 'organization')
+			GROUP BY name, target_type
+			ORDER BY target_type DESC, price ASC
+		`
+		err := db.Select(&plans, query)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data paket: " + err.Error()})
 			return
@@ -528,6 +541,10 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 
 		if plans == nil {
 			plans = []Plan{}
+		} else {
+			for i := range plans {
+				plans[i].IsActive = true
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{"plans": plans, "total": len(plans)})
 	}

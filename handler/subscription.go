@@ -33,9 +33,18 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 				Current int `json:"current"`
 				Limit   int `json:"limit"`
 			} `json:"usage"`
+			MediaUsage struct {
+				Current int64 `json:"current"`
+				Limit   int64 `json:"limit"`
+			} `json:"media_usage"`
 		}
+		
+		// Set default media limit (1 GB in bytes)
+		subscription.MediaUsage.Limit = 1024 * 1024 * 1024
 
 		var err error
+		// Get actual media usage
+		db.Get(&subscription.MediaUsage.Current, "SELECT COALESCE(SUM(size), 0) FROM media WHERE user_id = ?", userID)
 		if userType == "club" {
 			err = db.Get(&subscription, `
 				SELECT c.subscription_plan_id, COALESCE(c.subscription_status, 'trial') as subscription_status,
@@ -90,6 +99,9 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		db.Select(&plans, "SELECT id, name, price, type, features FROM subscription_plans WHERE target_type = ?", targetType)
+		
+		// Auto-expire pending transactions older than 1 day
+		db.Exec("UPDATE payment_transactions SET status = 'expired' WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")
 
 		// Get transaction history (invoices)
 		var invoices []struct {
