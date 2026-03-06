@@ -444,7 +444,7 @@ func main() {
 			protectedNews.Use(middleware.AuthMiddleware())
 			{
 				protectedNews.GET("/my", handler.GetNews(db))
-				protectedNews.POST("", middleware.RequireActivePlan(db), handler.CreateNews(db))
+				protectedNews.POST("", handler.CreateNews(db))
 				protectedNews.PUT("/:id", handler.UpdateNews(db))
 				protectedNews.DELETE("/:id", handler.DeleteNews(db))
 			}
