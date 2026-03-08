@@ -285,6 +285,7 @@ func main() {
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))
 			events.GET("/:id/target-names", handler.GetTargetNames(db))
 			events.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
+			events.GET("/:id/payments", handler.GetEventPayments(db))
 			events.POST("/participants/reregister", handler.ReregisterParticipant(db))
 
 			// Public Results endpoints
@@ -476,6 +477,7 @@ func main() {
 			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
+			payment.GET("/simulate-success/:reference", handler.SimulatePaymentSuccess(db))
 		}
 
 		// Root/Admin routes
@@ -578,6 +580,25 @@ func main() {
 					scorekeepers.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateScorekeeper(db))
 					scorekeepers.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteScorekeeper(db))
 				}
+
+				// Bank accounts
+				bankAccounts := protectedOrgs.Group("/bank-accounts")
+				{
+					bankAccounts.GET("", handler.GetBankAccounts(db))
+					bankAccounts.POST("", handler.CreateBankAccount(db))
+					bankAccounts.DELETE("/:id", handler.DeleteBankAccount(db))
+				}
+
+				// Wallet & Withdrawals
+				wallet := protectedOrgs.Group("/wallet")
+				{
+					wallet.GET("", handler.GetMyWallet(db))
+					wallet.GET("/withdrawals", handler.GetWithdrawals(db))
+					wallet.POST("/withdrawals", handler.CreateWithdrawal(db))
+				}
+
+				// Earnings
+				protectedOrgs.GET("/earnings", handler.GetOrganizationEarningsSummary(db))
 			}
 		}
 

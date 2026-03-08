@@ -1522,6 +1522,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			PaymentProofURLs   []string `json:"payment_proof_urls"`
 			PaymentStatus      string   `json:"payment_status"`
 			RegistrationSource string   `json:"registration_source"`
+			PaymentType        string   `json:"payment_type"` // manual or gateway
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1616,6 +1617,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Determine payment status
 		paymentStatus := "menunggu acc"
+		if req.PaymentType == "gateway" {
+			paymentStatus = "unpaid"
+		}
 		userID, _ := c.Get("user_id")
 		userRole, _ := c.Get("role")
 		orgID, _ := c.Get("org_id")
@@ -1700,9 +1704,10 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"message":    "Participant registered successfully",
-			"categories": registeredCategoryIDs,
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Pendaftaran berhasil",
+			"registration_id": registeredCategoryIDs[0], // We'll use the IDs as references
+			"category_ids": registeredCategoryIDs,
 		})
 	}
 }

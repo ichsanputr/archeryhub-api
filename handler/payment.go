@@ -230,35 +230,42 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
-			var reg models.EventRegistration
-			err := db.Get(&reg, "SELECT * FROM event_registrations WHERE id = ? AND user_id = ?", *req.RegistrationID, userID.(string))
+			// Get participant info. Note: multiple records might exist for the same archer+event.
+			// We take one to get the archer info and total amount.
+			type ParticipantReg struct {
+				UUID          string  `db:"uuid"`
+				EventID       string  `db:"event_id"`
+				ArcherID      string  `db:"archer_id"`
+				PaymentAmount float64 `db:"payment_amount"`
+				FullName      string  `db:"full_name"`
+				Email         *string `db:"email"`
+				Phone         *string `db:"phone"`
+			}
+			var reg ParticipantReg
+			err := db.Get(&reg, `
+				SELECT ep.uuid, ep.event_id, ep.archer_id, ep.payment_amount,
+				       a.full_name, a.email, a.phone
+				FROM event_participants ep
+				JOIN archers a ON ep.archer_id = a.uuid
+				WHERE ep.uuid = ? AND a.user_id = ?
+			`, *req.RegistrationID, userID.(string))
+
 			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
 				return
 			}
 
-			if reg.PaymentStatus == "paid" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Already paid"})
-				return
-			}
-
-			amount = int(reg.TotalFee)
-			customerName = reg.AthleteName
-			customerEmail = utils.StringValue(reg.AthleteEmail, "user@archeryhub.id")
-			customerPhone = utils.StringValue(reg.AthletePhone, "")
+			amount = int(reg.PaymentAmount)
+			customerName = reg.FullName
+			customerEmail = utils.StringValue(reg.Email, "user@archeryhub.id")
+			customerPhone = utils.StringValue(reg.Phone, "")
 			registrationID = req.RegistrationID
 
 			orderItems = []gin.H{
 				{
-					"sku":      "EVENT-ENTRY",
-					"name":     fmt.Sprintf("Event Entry Fee - %s", reg.Division),
-					"price":    int(reg.EntryFee),
-					"quantity": 1,
-				},
-				{
-					"sku":      "ADMIN-FEE",
-					"name":     "Platform Admin Fee",
-					"price":    int(reg.AdminFee),
+					"sku":      "EVENT-REG",
+					"name":     fmt.Sprintf("Event Registration - %s", reg.FullName),
+					"price":    amount,
 					"quantity": 1,
 				},
 			}
@@ -353,12 +360,11 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update registration if applicable
+		// Update participant registration with payment_id
 		if registrationID != nil {
-			_, err = db.Exec("UPDATE event_registrations SET payment_id = ?, payment_status = ? WHERE id = ?", transactionID, "pending", *registrationID)
+			_, err = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
 			if err != nil {
-				// Log error but don't fail response
-				fmt.Printf("Warning: Failed to update registration: %v\n", err)
+				fmt.Printf("Warning: Failed to update participant: %v\n", err)
 			}
 		}
 
@@ -430,16 +436,12 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		eventID := transaction.EventID
 
 		status := "pending"
-		regPaymentStatus := "pending"
 		if payload.Status == "PAID" {
 			status = "paid"
-			regPaymentStatus = "paid"
 		} else if payload.Status == "EXPIRED" {
 			status = "expired"
-			regPaymentStatus = "unpaid"
 		} else if payload.Status == "FAILED" {
 			status = "failed"
-			regPaymentStatus = "unpaid"
 		}
 
 		tx, err := db.Beginx()
@@ -457,12 +459,27 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Update registration if applicable
 		if registrationID != nil {
-			_, err = tx.Exec("UPDATE event_registrations SET payment_status = ? WHERE id = ?", regPaymentStatus, *registrationID)
+			statusMap := map[string]string{
+				"paid":    "lunas",
+				"expired": "expired",
+				"failed":  "failed",
+			}
+			regStatus := statusMap[status]
+			if regStatus == "" {
+				regStatus = "menunggu acc" // fallback or keep as is
+			}
+
+			// Update event_participants using payment_id or uuid
+			_, err = tx.Exec("UPDATE event_participants SET payment_status = ? WHERE payment_id = ? OR uuid = ?", regStatus, transactionID, *registrationID)
 			if err != nil {
 				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update registration"})
+				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update participant registration"})
 				return
 			}
+
+			// If paid, maybe generate QR codes here too?
+			// The RegisterParticipant handler already has logic for QR if status is Lunas.
+			// We should probably trigger it or just ensure it happens.
 		}
 
 		// Update event status if platform fee is paid
@@ -555,19 +572,23 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				CASE 
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
-					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', r.division, ' - ', r.athlete_name)
+					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
 					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
 					ELSE 'Transaksi Archeryhub'
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
-				r.athlete_name as athlete_name,
-				r.division as division,
-				r.category as category
+				a.full_name as athlete_name,
+				rbt.name as division,
+				COALESCE(ec.category_name_custom, rag.name) as category
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
-			LEFT JOIN event_registrations r ON t.registration_id = r.id
+			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN events e ON t.event_id = e.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			WHERE t.reference = ?
 		`
 		err := db.Get(&transaction, query, reference)
@@ -579,6 +600,91 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, transaction)
 	}
 }
+
+// GetEventPayments returns all paid transactions for a specific event
+func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var actualEventID string
+		err := db.Get(&actualEventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		type PaymentItem struct {
+			Reference     string    `json:"reference" db:"reference"`
+			PayMethod     *string   `json:"payment_method" db:"payment_method"`
+			Amount        float64   `json:"amount" db:"amount"`
+			Fee           float64   `json:"fee_amount" db:"fee_amount"`
+			Total         float64   `json:"total_amount" db:"total_amount"`
+			Status        string    `json:"status" db:"status"`
+			PaidAt        *time.Time `json:"paid_at" db:"paid_at"`
+			CreatedAt     time.Time `json:"created_at" db:"created_at"`
+			AthleteName   *string   `json:"athlete_name" db:"athlete_name"`
+		}
+
+		var payments []PaymentItem
+		query := `
+			SELECT 
+				t.reference, t.payment_method, t.amount, t.fee_amount, t.total_amount, 
+				t.status, t.paid_at, t.created_at,
+				a.full_name as athlete_name
+			FROM payment_transactions t
+			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			WHERE t.event_id = ? AND t.status = 'paid'
+			ORDER BY t.paid_at DESC
+		`
+		err = db.Select(&payments, query, actualEventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event payments"})
+			return
+		}
+
+		c.JSON(http.StatusOK, payments)
+	}
+}
+
+// GetOrganizationEarningsSummary returns aggregated earnings per event for an organization
+func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		type EventSummary struct {
+			UUID         string  `json:"id" db:"uuid"`
+			EventName    string  `json:"eventName" db:"name"`
+			Category     string  `json:"category" db:"category_label"`
+			EndDate      string  `json:"date" db:"end_date"`
+			Participants int     `json:"participants" db:"participant_count"`
+			TotalAmount  float64 `json:"amount" db:"total_amount"`
+		}
+
+		var summaries []EventSummary
+		query := `
+			SELECT 
+				e.uuid, e.name, COALESCE(e.category_label, 'Event') as category_label, 
+				e.end_date,
+				COUNT(DISTINCT ep.uuid) as participant_count,
+				COALESCE(SUM(t.amount), 0) as total_amount
+			FROM events e
+			LEFT JOIN event_participants ep ON e.uuid = ep.event_id
+			LEFT JOIN payment_transactions t ON ep.uuid = t.registration_id AND t.status = 'paid'
+			WHERE e.organizer_id = ?
+			GROUP BY e.uuid
+			ORDER BY e.created_at DESC
+		`
+		err := db.Select(&summaries, query, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch earnings summary", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, summaries)
+	}
+}
+
 
 // GetPaymentChannels returns available Tripay payment channels
 func GetPaymentChannels(db *sqlx.DB) gin.HandlerFunc {
@@ -613,9 +719,9 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
-		// Check if it's a slug or UUID, get event UUID if it's a slug
-		var actualEventID string
-		err := db.Get(&actualEventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		// Check if it's a slug or UUID, get event organizer_id
+		var organizerID string
+		err := db.Get(&organizerID, "SELECT organizer_id FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -623,16 +729,27 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 
 		var methods []EventPaymentMethod
 		err = db.Select(&methods, `
-			SELECT uuid, event_id, payment_method, account_name, account_number, 
-			       instructions, is_active, display_order, created_at, updated_at
-			FROM event_payment_methods
-			WHERE event_id = ? AND is_active = TRUE
-			ORDER BY display_order ASC, created_at ASC
-		`, actualEventID)
+			SELECT uuid, user_id as event_id, bank_name as payment_method, account_name, account_number, 
+			       '' as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
+			FROM bank_accounts
+			WHERE user_id = ? AND status = 'verified'
+			ORDER BY is_primary DESC, created_at ASC
+		`, organizerID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment methods"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment methods", "details": err.Error()})
 			return
+		}
+
+		if len(methods) == 0 {
+			// If no verified bank accounts, fetch all bank accounts (fallback/for testing)
+			err = db.Select(&methods, `
+				SELECT uuid, user_id as event_id, bank_name as payment_method, account_name, account_number, 
+				       '' as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
+				FROM bank_accounts
+				WHERE user_id = ?
+				ORDER BY is_primary DESC, created_at ASC
+			`, organizerID)
 		}
 
 		if methods == nil {
@@ -732,5 +849,52 @@ func DeleteEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Payment method deleted successfully"})
+	}
+}
+// SimulatePaymentSuccess simulates a successful payment for testing
+func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		reference := c.Param("reference")
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		var transaction models.PaymentTransaction
+		err = tx.Get(&transaction, "SELECT * FROM payment_transactions WHERE reference = ?", reference)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+			return
+		}
+
+		if transaction.Status == "paid" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Already paid"})
+			return
+		}
+
+		now := time.Now()
+		_, err = tx.Exec("UPDATE payment_transactions SET status = 'paid', paid_at = ? WHERE reference = ?", now, reference)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
+			return
+		}
+
+		if transaction.RegistrationID != nil {
+			_, err = tx.Exec("UPDATE event_participants SET payment_status = 'lunas' WHERE payment_id = ? OR uuid = ?", transaction.UUID, *transaction.RegistrationID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update participant status"})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Payment simulation successful", "reference": reference})
 	}
 }
