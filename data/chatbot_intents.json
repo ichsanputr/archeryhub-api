@@ -10,19 +10,7 @@
       "permisi",
       "hello admin"
     ],
-    "answer": "Halo! Saya asisten Archeryhub. Saya bisa bantu soal event, pendaftaran, hasil skor, klub, pembayaran, dan paket membership."
-  },
-  {
-    "name": "daftar_klub",
-    "examples": [
-      "cara daftar klub",
-      "mendaftarkan klub",
-      "registrasi akun klub",
-      "buat akun klub",
-      "buat akun organisasi",
-      "daftar sebagai klub"
-    ],
-    "answer": "Daftar melalui halaman registrasi lalu pilih tipe akun Klub/Organisasi. Setelah verifikasi email, lengkapi profil lalu mulai kelola anggota, event, dan publikasi klub."
+    "answer": "Halo! Saya asisten Archeryhub. Saya bisa bantu soal event, pendaftaran, hasil skor, organisasi, pembayaran, dan paket membership."
   },
   {
     "name": "scoring_offline",
@@ -55,10 +43,9 @@
       "keamanan data atlet",
       "apakah data terenkripsi",
       "privasi data",
-      "data klub aman tidak",
       "akun saya aman"
     ],
-    "answer": "Kami menerapkan kontrol keamanan untuk melindungi data pengguna, atlet, dan klub. Gunakan juga password kuat serta jangan bagikan OTP/kode verifikasi kepada siapa pun."
+    "answer": "Kami menerapkan kontrol keamanan untuk melindungi data pengguna dan atlet. Gunakan juga password kuat serta jangan bagikan OTP/kode verifikasi kepada siapa pun."
   },
   {
     "name": "bantuan_teknis",
@@ -99,7 +86,7 @@
       "pendaftaran dibuka kapan",
       "biaya daftar berapa"
     ],
-    "answer": "Untuk daftar event: buka detail event yang diinginkan, pilih kategori lomba, isi data peserta (seperti nama dan klub), lalu lanjutkan ke pembayaran. Setelah pembayaran diverifikasi, Anda akan terdaftar secara resmi dan bisa melihat detail pendaftaran di menu 'Pendaftaran Saya'."
+    "answer": "Untuk daftar event: buka detail event yang diinginkan, pilih kategori lomba, isi data peserta (seperti nama dan asal klub/instansi), lalu lanjutkan ke pembayaran. Setelah pembayaran diverifikasi, Anda akan terdaftar secara resmi dan bisa melihat detail pendaftaran di menu 'Pendaftaran Saya'."
   },
   {
     "name": "score_tracking",
@@ -132,7 +119,7 @@
     "name": "membership_package",
     "examples": [
       "paket membership",
-      "langganan klub",
+      "langganan organisasi",
       "upgrade paket",
       "perpanjang paket",
       "fitur paket",
@@ -140,11 +127,11 @@
       "harga langganan",
       "biaya membership",
       "paket pro",
-      "apa itu paket klub",
+      "apa itu paket penyelenggara",
       "keuntungan langganan",
       "cara beli paket"
     ],
-    "answer": "Archeryhub menyediakan berbagai pilihan Paket Membership (Club Management) mulai dari Basic hingga Pro. Fitur utamanya meliputi pengelolaan anggota tanpa batas, sistem iuran otomatis, pembuat form registrasi custom, hingga dashboard statistik lengkap. Anda bisa cek detail harga dan fitur di menu 'Subscription' pada dashboard klub Anda."
+    "answer": "Archeryhub menyediakan berbagai pilihan Paket Membership (Event Management) untuk organisasi penyelenggara. Fitur utamanya meliputi pendaftaran online terintegrasi, sistem iuran/pembayaran otomatis, hingga dashboard statistik event yang lengkap. Anda bisa cek detail harga dan fitur di menu 'Subscription' pada dashboard organisasi Anda."
   },
   {
     "name": "invoice_help",
@@ -162,21 +149,6 @@
     "answer": "Invoice dan status pembayaran dapat dilihat pada menu 'Pendaftaran Saya' atau detail order. Jika status sudah 'Paid', Anda bisa membuka halaman invoice tersebut dan menekan tombol 'Download PDF' untuk mengunduh bukti bayar resmi."
   },
   {
-    "name": "club_profile_management",
-    "examples": [
-      "edit profil klub",
-      "atur halaman klub",
-      "ubah informasi klub",
-      "kelola anggota klub",
-      "profil organisasi",
-      "cara ganti logo klub",
-      "ganti banner club",
-      "tambah pelatih",
-      "atur jadwal latihan"
-    ],
-    "answer": "Anda bisa mengelola profil klub sepenuhnya melalui dashboard admin klub. Di sana Anda dapat mengubah logo, banner, deskripsi, alamat, hingga mengatur jadwal latihan dan daftar pelatih yang akan tampil di halaman publik klub Anda."
-  },
-  {
     "name": "notification_help",
     "examples": [
       "notifikasi event",
@@ -185,7 +157,7 @@
       "notifikasi pembayaran",
       "notif hasil"
     ],
-    "answer": "Notifikasi terkait pendaftaran, pembayaran, dan update event tersedia di menu notifikasi akun. Pastikan Anda sudah login dan koneksi internet stabil."
+    "answer": "Notifikasi terkait pendaftaran, pembayaran, and update event tersedia di menu notifikasi akun. Pastikan Anda sudah login and koneksi internet stabil."
   },
   {
     "name": "login_account_help",
@@ -218,6 +190,6 @@
       "email support",
       "butuh bantuan cepat"
     ],
-    "answer": "Anda bisa hubungi tim Archeryhub lewat halaman Kontak atau email support@archeryhub.id. Sertakan nama event/akun dan kendala agar penanganan lebih cepat."
+    "answer": "Anda bisa hubungi tim Archeryhub lewat halaman Kontak atau email support@archeryhub.id. Sertakan nama event/akun and kendala agar penanganan lebih cepat."
   }
 ]

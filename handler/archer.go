@@ -140,9 +140,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		// Check for requesting user and type to possibly add membership info
-		reqUserID, _ := c.Get("user_id")
-		reqUserType, _ := c.Get("user_type")
+
 
 		query := `
 			SELECT 
@@ -163,10 +161,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				MAX(t.end_date) as last_event_date
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN club_members cm ON a.uuid = cm.archer_id AND (
-				(a.club_id IS NOT NULL AND a.club_id = cm.club_id) 
-				OR (cm.club_id = ?)
-			)
+			LEFT JOIN club_members cm ON a.uuid = cm.archer_id AND a.club_id = cm.club_id
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
@@ -174,13 +169,10 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT 1
 		`
 
-		var clubID string = ""
-		if reqUserType == "club" {
-			clubID = fmt.Sprintf("%v", reqUserID)
-		}
+
 
 		var archer models.ArcherWithStats
-		err := db.Get(&archer, query, clubID, id, id, id)
+		err := db.Get(&archer, query, id, id, id)
 		if err != nil {
 			logrus.WithError(err).Warnf("Archer not found: %s", id)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
@@ -399,6 +391,8 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		userID, _ := c.Get("user_id")
+
 		// Truncate string fields to DB limits to avoid "Data too long" errors
 		truncateStr(req.Phone, archerPhoneLen)
 		truncateStr(req.Email, archerEmailLen)
@@ -445,17 +439,9 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Get club_id from request or from logged-in user if user is a club
 		var clubID *string
-		userID, _ := c.Get("user_id")
 		if req.ClubID != nil {
 			clubID = req.ClubID
-		} else {
-			userType, _ := c.Get("user_type")
-			if userType == "club" && userID != nil {
-				clubIDStr := userID.(string)
-				clubID = &clubIDStr
-			}
 		}
 
 		// Generate id (ARC-XXXX)
@@ -543,18 +529,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// If created by a club, create club_members entry
-		if clubID != nil {
-			memberID := uuid.New().String()
-			_, err = db.Exec(`
-				INSERT INTO club_members (uuid, club_id, archer_id, status, role, created_at)
-				VALUES (?, ?, ?, 'active', 'member', NOW())
-			`, memberID, *clubID, archerID)
-			if err != nil {
-				// Log error but don't fail the request
-				utils.LogActivity(db, userID.(string), "", "club_member_link_failed", "archer", archerID, "Failed to link archer to club: "+err.Error(), c.ClientIP(), c.Request.UserAgent())
-			}
-		}
+
 
 		// Log activity
 		if userID != nil {

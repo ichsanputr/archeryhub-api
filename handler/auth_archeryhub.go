@@ -43,7 +43,7 @@ type RegisterRequest struct {
 	Password    string `json:"password" binding:"required,min=6"`
 	FullName    string `json:"full_name"`
 	Phone       string `json:"phone"`
-	UserType    string `json:"user_type" binding:"required"` // archer, organization, club, seller
+	UserType    string `json:"user_type" binding:"required"` // archer, organization, seller
 	Gender      string `json:"gender"`
 	DateOfBirth string `json:"date_of_birth"`
 	City        string `json:"city"`
@@ -83,9 +83,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		case "organization":
 			table = "organizations"
 			role = "organization"
-		case "club":
-			table = "clubs"
-			role = "club"
+
 		case "seller":
 			table = "sellers"
 			role = "seller"
@@ -113,7 +111,6 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			if err == nil {
 				found = true
 			} else {
-				// Check clubs (uses slug)
 				err = db.Get(&existingUser, `SELECT uuid, 'club' as source, true as is_verified FROM clubs WHERE email = ? LIMIT 1`, req.Email)
 				if err == nil {
 					found = true
@@ -175,18 +172,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 5, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY))
 				`
 				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
-			} else if table == "clubs" {
-				cleanUsername := utils.CleanUsername(req.Username)
-				if cleanUsername == "" {
-					cleanUsername = "club-" + userID[:8]
-				}
 
-				// For clubs, add 3 months free trial on package (Standard)
-				insertQuery := `
-					INSERT INTO clubs (uuid, user_id, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
-					VALUES (?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY))
-				`
-				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName)
 			} else if table != "archers" {
 				// For other tables (sellers, organizations, clubs)
 				// Clean the username/slug
@@ -291,9 +277,7 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 		case "organization":
 			table = "organizations"
 			column = "name"
-		case "club":
-			table = "clubs"
-			column = "name"
+
 		case "seller":
 			table = "sellers"
 			column = "store_name"

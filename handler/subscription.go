@@ -45,22 +45,8 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 		var err error
 		// Get actual media usage
 		db.Get(&subscription.MediaUsage.Current, "SELECT COALESCE(SUM(size), 0) FROM media WHERE user_id = ?", userID)
-		if userType == "club" {
-			err = db.Get(&subscription, `
-				SELECT c.subscription_plan_id, COALESCE(c.subscription_status, 'trial') as subscription_status,
-				       p.name as plan_name, p.price as plan_price, p.type as billing_type,
-				       DATE_FORMAT(c.subscription_expires_at, '%d %b %Y') as next_billing_date
-				FROM clubs c
-				LEFT JOIN subscription_plans p ON c.subscription_plan_id = p.id
-				WHERE c.user_id = ?`, userID)
-			
-			if err == nil {
-				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM club_members WHERE club_id = (SELECT uuid FROM clubs WHERE user_id = ?) AND status = 'active'", userID)
-				subscription.Usage.Label = "Anggota Aktif"
-				subscription.Usage.Limit = 1000 // Default limit for display
-				if subscription.PlanID != nil && *subscription.PlanID == 1 { subscription.Usage.Limit = 15 }
-			}
-		} else if userType == "organization" {
+
+		if userType == "organization" {
 			err = db.Get(&subscription, `
 				SELECT o.subscription_plan_id, COALESCE(o.subscription_status, 'trial') as subscription_status,
 				       p.name as plan_name, p.price as plan_price, p.type as billing_type,
@@ -68,14 +54,14 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 				FROM organizations o
 				LEFT JOIN subscription_plans p ON o.subscription_plan_id = p.id
 				WHERE o.user_id = ?`, userID)
-			
+
 			if err == nil {
 				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM event_participants WHERE event_id IN (SELECT uuid FROM events WHERE organization_id = (SELECT uuid FROM organizations WHERE user_id = ?))", userID)
 				subscription.Usage.Label = "Total Atlet"
 				subscription.Usage.Limit = 5000
 			}
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Layanan berlangganan hanya tersedia untuk Klub dan Organisasi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Layanan berlangganan hanya tersedia untuk Organisasi"})
 			return
 		}
 
@@ -93,10 +79,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 			Features string  `json:"features"`
 		}
 		
-		targetType := "club"
-		if userType == "organization" {
-			targetType = "organization"
-		}
+		targetType := "organization"
 
 		db.Select(&plans, "SELECT id, name, price, type, features FROM subscription_plans WHERE target_type = ?", targetType)
 		

@@ -211,7 +211,6 @@ func main() {
 
 		api.GET("/archer/me", middleware.AuthMiddleware(), handler.GetArcherProfile(db))
 		api.GET("/organization/me", middleware.AuthMiddleware(), handler.GetOrganizationProfile(db))
-		api.GET("/club/me", middleware.AuthMiddleware(), handler.GetClubMe(db))
 		api.GET("/seller/me", middleware.AuthMiddleware(), handler.GetSellerProfile(db))
 
 		// Project Task Management
@@ -582,80 +581,13 @@ func main() {
 			}
 		}
 
-		// Club routes
-		clubs := api.Group("/clubs")
+
+
+		// Club routes (Data Master)
+		cbr := api.Group("/clubs")
 		{
-			// Public club routes (specific paths MUST come before wildcard)
-			clubs.GET("", handler.GetClubs(db))
-			clubs.GET("/availability", handler.CheckSlugAvailability(db))
-			clubs.GET("/profile/:slug", handler.GetClubProfile(db))
-
-			// Protected club routes (prefixed to avoid wildcard collision)
-			protectedClubs := clubs.Group("")
-			protectedClubs.Use(middleware.AuthMiddleware())
-			{
-				protectedClubs.PUT("/me", handler.UpdateClubMe(db))
-				protectedClubs.GET("/dashboard/stats", handler.GetClubDashboardStats(db))
-				protectedClubs.PUT("/profile", handler.UpdateMyClubProfile(db))
-
-				// Membership & Admin routes
-				protectedClubs.POST("/join/:clubId", handler.JoinClub(db))
-				protectedClubs.GET("/my/membership", handler.GetMyClubMembership(db))
-				protectedClubs.GET("/my/invitations", handler.GetMyClubInvitations(db))
-				protectedClubs.POST("/invitations/:memberId/respond", handler.RespondToInvitation(db))
-				protectedClubs.GET("/members/:clubId", handler.GetClubMembers(db))
-				protectedClubs.POST("/approve/:memberId", middleware.RequireActivePlan(db), handler.ApproveClubMember(db))
-				protectedClubs.POST("/leave", handler.LeaveClub(db))
-				protectedClubs.POST("/cancel-application", handler.CancelClubApplication(db))
-				protectedClubs.POST("/invite", middleware.RequireActivePlan(db), handler.InviteToClub(db))
-				protectedClubs.DELETE("/members/:archerId", handler.KickClubMember(db))
-				protectedClubs.PATCH("/members/:archerId/notes", handler.UpdateMemberNotes(db))
-
-				// Registration Form Builder routes
-				protectedClubs.GET("/forms", handler.GetRegistrationForm(db))
-				protectedClubs.POST("/forms", middleware.RequireActivePlan(db), handler.CreateRegistrationForm(db))
-				protectedClubs.GET("/forms/:formId", handler.GetRegistrationForm(db))
-				protectedClubs.PUT("/forms/:formId", middleware.RequireActivePlan(db), handler.UpdateRegistrationForm(db))
-				protectedClubs.DELETE("/forms/:formId", handler.DeleteRegistrationForm(db))
-				protectedClubs.POST("/forms/:formId/publish", middleware.RequireActivePlan(db), handler.PublishRegistrationForm(db))
-				protectedClubs.PUT("/forms/:formId/reorder", handler.ReorderFormItems(db))
-
-				// Section routes
-				protectedClubs.POST("/forms/:formId/sections", handler.CreateFormSection(db))
-				protectedClubs.PUT("/forms/:formId/sections/:sectionId", handler.UpdateFormSection(db))
-				protectedClubs.DELETE("/forms/:formId/sections/:sectionId", handler.DeleteFormSection(db))
-
-				// Field routes
-				protectedClubs.POST("/forms/:formId/sections/:sectionId/fields", handler.CreateFormField(db))
-				protectedClubs.PUT("/forms/:formId/fields/:fieldId", handler.UpdateFormField(db))
-				protectedClubs.DELETE("/forms/:formId/fields/:fieldId", handler.DeleteFormField(db))
-
-				// Membership Management routes
-				membership := protectedClubs.Group("/membership")
-				{
-					// Stats
-					membership.GET("/stats", handler.GetMembershipStats(db))
-
-					// Packages (paket buatan club)
-					membership.GET("/packages", handler.GetMembershipPackages(db))
-					membership.POST("/packages", middleware.RequireActivePlan(db), handler.CreateMembershipPackage(db))
-					membership.PUT("/packages/:packageId", middleware.RequireActivePlan(db), handler.UpdateMembershipPackage(db))
-					membership.DELETE("/packages/:packageId", handler.DeleteMembershipPackage(db))
-
-					// Subscriptions
-					membership.GET("/subscriptions", handler.GetMembershipSubscriptions(db))
-					membership.POST("/subscriptions", middleware.RequireActivePlan(db), handler.AssignMembershipPackage(db))
-					membership.POST("/subscriptions/:subscriptionId/pay", handler.RecordMembershipPayment(db))
-					membership.GET("/subscriptions/archer/:archerId", handler.GetArcherSubscriptionHistory(db))
-					membership.GET("/payments", handler.GetMembershipPayments(db))
-					membership.GET("/payments/:id", handler.GetMembershipPaymentDetail(db))
-					membership.GET("/subscribers/unpaid", handler.GetUnpaidSubscribers(db))
-				}
-			}
-
-			// Public endpoints — wildcard MUST be last to avoid shadowing named routes above
-			clubs.GET("/:slug/registration-form", handler.GetPublicRegistrationForm(db))
-			clubs.GET("/:slug", handler.GetClubBySlug(db))
+			cbr.GET("", handler.GetClubs(db))
+			cbr.GET("/:id", handler.GetClubByID(db))
 		}
 
 		// Seller routes

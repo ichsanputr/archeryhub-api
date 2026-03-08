@@ -26,8 +26,8 @@ func RequireActivePlan(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Only Organizations (EO) and Clubs require subscription gating for certain features
-		if userType != "organization" && userType != "club" {
+		// Only Organizations (EO) require subscription gating for certain features
+		if userType != "organization" {
 			c.Next()
 			return
 		}
@@ -35,11 +35,7 @@ func RequireActivePlan(db *sqlx.DB) gin.HandlerFunc {
 		var status string
 		var err error
 
-		if userType == "organization" {
-			err = db.Get(&status, "SELECT COALESCE(subscription_status, 'trial') FROM organizations WHERE user_id = ?", userID)
-		} else {
-			err = db.Get(&status, "SELECT COALESCE(subscription_status, 'trial') FROM clubs WHERE user_id = ?", userID)
-		}
+		err = db.Get(&status, "SELECT COALESCE(subscription_status, 'trial') FROM organizations WHERE user_id = ?", userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify subscription status"})

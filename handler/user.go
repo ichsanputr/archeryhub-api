@@ -41,8 +41,6 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "organization":
 			table = "organizations"
-		case "club":
-			table = "clubs"
 		case "seller":
 			table = "sellers"
 		}
@@ -87,9 +85,6 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		case "organization":
 			table = "organizations"
 			nameField = "name"
-		case "club":
-			table = "clubs"
-			nameField = "name"
 		case "seller":
 			table = "sellers"
 			nameField = "store_name"
@@ -107,7 +102,7 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		logoField := "NULL as logo_url"
-		if userType == "club" || userType == "organization" {
+		if userType == "organization" {
 			logoField = "avatar_url as logo_url"
 		}
 
@@ -146,114 +141,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
 
-		if userType == "club" {
-			var req models.UpdateClubRequest
-			if err := c.ShouldBindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
-				return
-			}
 
-			query := "UPDATE clubs SET updated_at = NOW()"
-			args := []interface{}{}
-
-			if req.Name != nil {
-				query += ", name = ?"
-				args = append(args, *req.Name)
-			}
-			if req.Slug != nil {
-				un := utils.CleanUsername(*req.Slug)
-				if un != "" {
-					query += ", slug = ?"
-					args = append(args, un)
-				}
-			}
-			if req.Abbreviation != nil {
-				query += ", abbreviation = ?"
-				args = append(args, *req.Abbreviation)
-			}
-			if req.Description != nil {
-				query += ", description = ?"
-				args = append(args, *req.Description)
-			}
-			if req.Address != nil {
-				query += ", address = ?"
-				args = append(args, *req.Address)
-			}
-			if req.City != nil {
-				query += ", city = ?"
-				args = append(args, *req.City)
-			}
-			if req.Province != nil {
-				query += ", province = ?"
-				args = append(args, *req.Province)
-			}
-			if req.Phone != nil {
-				query += ", phone = ?"
-				args = append(args, *req.Phone)
-			}
-			if req.Email != nil {
-				query += ", email = ?"
-				args = append(args, *req.Email)
-			}
-			if req.Website != nil {
-				query += ", website = ?"
-				args = append(args, *req.Website)
-			}
-			if req.SocialFacebook != nil {
-				query += ", social_facebook = ?"
-				args = append(args, *req.SocialFacebook)
-			}
-			if req.SocialInstagram != nil {
-				query += ", social_instagram = ?"
-				args = append(args, *req.SocialInstagram)
-			}
-			if req.TrainingSchedule != nil {
-				query += ", training_schedule = ?"
-				args = append(args, *req.TrainingSchedule)
-			}
-			if req.HeadCoachName != nil {
-				query += ", head_coach_name = ?"
-				args = append(args, *req.HeadCoachName)
-			}
-			if req.HeadCoachPhone != nil {
-				query += ", head_coach_phone = ?"
-				args = append(args, *req.HeadCoachPhone)
-			}
-			if req.AvatarURL != nil {
-				query += ", avatar_url = ?"
-				args = append(args, utils.ExtractFilename(*req.AvatarURL))
-			}
-			if req.BannerURL != nil {
-				query += ", banner_url = ?"
-				args = append(args, utils.ExtractFilename(*req.BannerURL))
-			}
-			if req.EstablishedDate != nil && *req.EstablishedDate != "" {
-				// Try to parse year from date string
-				t, err := time.Parse("2006-01-02", *req.EstablishedDate)
-				if err == nil {
-					year := t.Year()
-					query += ", established_year = ?"
-					args = append(args, year)
-				}
-			}
-
-			if len(args) == 0 {
-				c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
-				return
-			}
-
-			query += " WHERE uuid = ?"
-			args = append(args, userID)
-
-			_, err := db.Exec(query, args...)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update club profile: " + err.Error()})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{"message": "Profil klub berhasil diperbarui"})
-			return
-		}
 
 		if userType == "seller" {
 			var req models.UpdateSellerRequest
@@ -456,7 +344,7 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if new email already exists in any table (archers, organizations, clubs, sellers)
 		var exists bool
-		tables := []string{"archers", "organizations", "clubs", "sellers"}
+		tables := []string{"archers", "organizations", "sellers"}
 		for _, t := range tables {
 			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM "+t+" WHERE email = ?)", req.NewEmail)
 			if err == nil && exists {
@@ -470,7 +358,6 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		table := "archers"
 		switch userType {
 		case "organization": table = "organizations"
-		case "club": table = "clubs"
 		case "seller": table = "sellers"
 		}
 		
@@ -573,7 +460,6 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		table := "archers"
 		switch otpRecord.UserType {
 		case "organization": table = "organizations"
-		case "club": table = "clubs"
 		case "seller": table = "sellers"
 		}
 
