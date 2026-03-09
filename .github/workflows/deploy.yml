@@ -62,6 +62,9 @@ jobs:
           # Copy .env.production as .env to the server
           rsync -avz -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
           ./.env.production root@151.243.222.93:/root/archeryhub-api/.env
+          # Sync printout directory
+          rsync -avz --delete -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
+          ./printout/ root@151.243.222.93:/home/ichsan/archeryhub.id/api/printout/
 
       # 7️⃣ Verify deployment and restart the systemd service on VPS
       - name: Verify deployment and restart archeryhub-api service
@@ -74,10 +77,13 @@ jobs:
             head -3 /root/archeryhub-api/.env || echo ".env file not found"
             
             # Pull latest changes
-          cd /home/ichsan/archeryhub.id/api
-          git pull
+            cd /home/ichsan/archeryhub.id/api
+            git pull
 
-          # Restart the service
+            # Kill any PHP instance running on port 8002
+            fuser -k 8002/tcp || echo "No process found on port 8002"
+
+            # Restart the service
             systemctl stop archeryhub-api
             systemctl start archeryhub-api
             systemctl status archeryhub-api --no-pager
