@@ -62,9 +62,6 @@ jobs:
           # Copy .env.production as .env to the server
           rsync -avz -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
           ./.env.production root@151.243.222.93:/root/archeryhub-api/.env
-          # Sync printout directory
-          rsync -avz --delete -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
-          ./printout/ root@151.243.222.93:/home/ichsan/archeryhub.id/api/printout/
 
       # 7️⃣ Verify deployment and restart the systemd service on VPS
       - name: Verify deployment and restart archeryhub-api service
