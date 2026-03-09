@@ -91,29 +91,45 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user struct {
-			UUID        string  `json:"uuid" db:"uuid"`
-			Email       string  `json:"email" db:"email"`
-			FullName    *string `json:"full_name" db:"full_name"`
-			UserType    string  `json:"user_type" db:"user_type"`
-			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-			LogoURL     *string `json:"logo_url" db:"logo_url"`
-			HasPassword bool    `json:"has_password" db:"has_password"`
-			GoogleID    *string `json:"google_id" db:"google_id"`
+			UUID            string  `json:"uuid" db:"uuid"`
+			Email           string  `json:"email" db:"email"`
+			FullName        *string `json:"full_name" db:"full_name"`
+			Username        *string `json:"username" db:"username"`
+			UserType        string  `json:"user_type" db:"user_type"`
+			AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
+			LogoURL         *string `json:"logo_url" db:"logo_url"`
+			HasPassword     bool    `json:"has_password" db:"has_password"`
+			GoogleID        *string `json:"google_id" db:"google_id"`
+			ClubID          *string `json:"club_id" db:"club_id"`
+			Phone           *string `json:"phone" db:"phone"`
+			City            *string `json:"city" db:"city"`
+			Address         *string `json:"address" db:"address"`
+			Bio             *string `json:"bio" db:"bio"`
+			School          *string `json:"school" db:"school"`
+			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
+			SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
+			SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
 		}
 
-		logoField := "NULL as logo_url"
-		if userType == "organization" {
-			logoField = "avatar_url as logo_url"
-		}
-
-		roleField := "'" + userType.(string) + "'"
-
-		query := `
-			SELECT uuid, email, ` + nameField + ` as full_name, ` + roleField + ` as user_type, avatar_url, ` + logoField + `,
+		nameField = nameField // Already set above
+		
+		var selectFields string
+		if userType == "archer" {
+			selectFields = `uuid, email, full_name, username, 'archer' as user_type, avatar_url, NULL as logo_url,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
-				google_id
-			FROM ` + table + ` WHERE uuid = ?
-		`
+				google_id, club_id, phone, city, address, bio, school, social_instagram, social_tiktok, social_whatsapp`
+		} else if userType == "organization" {
+			selectFields = `uuid, email, name as full_name, slug as username, 'organization' as user_type, avatar_url, avatar_url as logo_url,
+				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
+				google_id, NULL as club_id, whatsapp_no as phone, city, address, description as bio, NULL as school, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp`
+		} else {
+			// seller
+			selectFields = `uuid, email, store_name as full_name, slug as username, 'seller' as user_type, avatar_url, NULL as logo_url,
+				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
+				google_id, NULL as club_id, phone, city, address, description as bio, NULL as school, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp`
+		}
+
+		query := `SELECT ` + selectFields + ` FROM ` + table + ` WHERE uuid = ?`
 		err := db.Get(&user, query, userID)
 
 		if err != nil {
@@ -254,7 +270,11 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		if req.Phone != nil {
-			query += ", phone = ?"
+			field := "phone"
+			if userType == "organization" {
+				field = "whatsapp_no"
+			}
+			query += ", " + field + " = ?"
 			args = append(args, *req.Phone)
 		}
 		if req.Address != nil {
@@ -262,10 +282,14 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.Address)
 		}
 		if req.Bio != nil {
-			query += ", bio = ?"
+			field := "bio"
+			if userType == "organization" || userType == "seller" {
+				field = "description"
+			}
+			query += ", " + field + " = ?"
 			args = append(args, *req.Bio)
 		}
-		if req.ClubID != nil {
+		if req.ClubID != nil && userType == "archer" {
 			query += ", club_id = ?"
 			args = append(args, *req.ClubID)
 		}

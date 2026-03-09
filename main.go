@@ -268,6 +268,7 @@ func main() {
 			events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateEventParticipant(db))
 			events.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
+			events.POST("/participants/:participantId/payment", middleware.AuthMiddleware(), handler.CreateParticipantPayment(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
 			events.GET("/:id/images", handler.GetEventImages(db))
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))

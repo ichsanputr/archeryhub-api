@@ -1205,15 +1205,17 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			PaymentProofURLs    []string `json:"payment_proof_urls"`
 			RegistrationDate    string   `db:"registration_date" json:"registration_date"`
 			DivisionName        string   `db:"division_name" json:"division_name"`
+			CategoryUUID        string   `db:"category_id" json:"category_id"`
 			CategoryName        string   `db:"category_name" json:"category_name"`
 			EventTypeName       *string  `db:"event_type_name" json:"event_type_name"`
 			GenderDivisionName  *string  `db:"gender_division_name" json:"gender_division_name"`
+			Transaction         *models.PaymentTransaction `json:"transaction"`
 		}
 
 		var reg MyRegistration
 		err := db.Get(&reg, `
 			SELECT 
-				tp.uuid as id, tp.event_id, tp.archer_id, tp.target_name,
+				tp.uuid as id, tp.event_id, tp.archer_id, tp.target_name, tp.category_id,
 				tp.payment_status, tp.payment_amount, tp.payment_proof_urls, tp.registration_date,
 				a.id as athlete_code,
 				a.full_name,
@@ -1244,6 +1246,13 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			reg.PaymentProofURLs = strings.Split(*reg.PaymentProofURLsRaw, ",")
 		} else {
 			reg.PaymentProofURLs = []string{}
+		}
+
+		// Fetch payment transaction if exists
+		var transaction models.PaymentTransaction
+		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, reg.ID)
+		if errTx == nil {
+			reg.Transaction = &transaction
 		}
 
 		c.JSON(http.StatusOK, reg)
