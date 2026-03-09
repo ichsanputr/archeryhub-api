@@ -1,10 +1,17 @@
 <?php
+$startTime = microtime(true);
 require_once(__DIR__ . '/db.php');
 require_once(__DIR__ . '/ScorePDF.php');
 require_once(__DIR__ . '/ListPDF.php');
 
 $requestUri = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];
+
+function logExecutionTime($action) {
+    global $startTime;
+    $executionTime = round((microtime(true) - $startTime) * 1000, 2);
+    error_log(sprintf("[Printout] %s completed in %s ms", $action, $executionTime));
+}
 
 /**
  * Acronym helper for bow divisions
@@ -172,10 +179,12 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/qualification\/sessions\/([^\/]+)\
         }
 
         if ($autoPrint) $pdf->IncludeJS("print(true);");
+        logExecutionTime("Scoresheet: $sessionCode");
         $pdf->Output('scoresheet_' . $sessionCode . '.pdf', 'I');
         exit;
 
     } catch (Exception $e) {
+        logExecutionTime("Scoresheet Error: " . rtrim(str_replace("\n", " ", $e->getMessage())));
         header('Content-Type: application/json');
         die(json_encode(['error' => 'Error: ' . $e->getMessage()]));
     }
@@ -282,10 +291,12 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/participants\/printout/', $request
         }
 
         if (isset($_GET['autoprint']) && $_GET['autoprint'] == '1') $pdf->IncludeJS("print(true);");
+        logExecutionTime("Participant List: $type");
         $pdf->Output('participants_list.pdf', 'I');
         exit;
 
     } catch (Exception $e) {
+        logExecutionTime("Participant List Error: " . rtrim(str_replace("\n", " ", $e->getMessage())));
         header('Content-Type: application/json');
         die(json_encode(['error' => 'Error: ' . $e->getMessage()]));
     }
@@ -384,10 +395,12 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/participants\/statistics\-classes/
         }
 
         $pdf->StyledTable($header, $data, $colWidths, array_fill(1, count($header)-1, 'C'));
+        logExecutionTime("Stat Classes");
         $pdf->Output('statistics_classes.pdf', 'I');
         exit;
 
     } catch (Exception $e) {
+        logExecutionTime("Stat Classes Error: " . rtrim(str_replace("\n", " ", $e->getMessage())));
         header('Content-Type: application/json');
         die(json_encode(['error' => 'Error: ' . $e->getMessage()]));
     }
@@ -446,10 +459,12 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/participants\/statistics\-clubs/',
         }
 
         $pdf->StyledTable($header, $data, $colWidths, ['C', 'L', 'C']);
+        logExecutionTime("Stat Clubs");
         $pdf->Output('statistics_clubs.pdf', 'I');
         exit;
 
     } catch (Exception $e) {
+        logExecutionTime("Stat Clubs Error: " . rtrim(str_replace("\n", " ", $e->getMessage())));
         header('Content-Type: application/json');
         die(json_encode(['error' => 'Error: ' . $e->getMessage()]));
     }
