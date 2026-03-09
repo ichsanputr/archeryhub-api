@@ -4,7 +4,6 @@ import (
 	"archeryhub-api/models"
 	"archeryhub-api/utils"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -922,6 +921,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID       string `json:"category_id" binding:"required"`
 			StartTargetName  string `json:"start_target"`
 			ArchersPerTarget int    `json:"archers_per_target"`
+			DrawType         string `json:"draw_type"` // "standard" or "field"
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -931,6 +931,9 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		if req.ArchersPerTarget == 0 {
 			req.ArchersPerTarget = 4
+		}
+		if req.DrawType == "" {
+			req.DrawType = "standard"
 		}
 
 		// Get session details
@@ -958,10 +961,8 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 1. Clear all existing assignments for this category in this session first,
-		// so auto-assign always does a clean full re-assignment from scratch.
-		// Also clean up any associated scores so there's no orphaned data.
-		_, err = db.Exec(`
+		// 1. Clear all existing assignments for this category in this session first
+		if _, err = db.Exec(`
 			DELETE FROM qualification_arrow_scores
 			WHERE end_score_uuid IN (
 			  SELECT uuid FROM qualification_end_scores
@@ -970,46 +971,59 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			      SELECT uuid FROM event_participants WHERE category_id = ?
 			    )
 			)
-		`, sessionID, req.CategoryID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear arrow scores", "details": err.Error()})
+		`, sessionID, req.CategoryID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear scores", "details": err.Error()})
 			return
 		}
-		_, err = db.Exec(`
+		if _, err = db.Exec(`
 			DELETE FROM qualification_end_scores
 			WHERE session_uuid = ?
 			  AND participant_uuid IN (
 			    SELECT uuid FROM event_participants WHERE category_id = ?
 			  )
-		`, sessionID, req.CategoryID)
-		if err != nil {
+		`, sessionID, req.CategoryID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear end scores", "details": err.Error()})
 			return
 		}
-		_, err = db.Exec(`
+		if _, err = db.Exec(`
 			DELETE FROM qualification_target_assignments
 			WHERE session_uuid = ?
 			  AND participant_uuid IN (
 			    SELECT uuid FROM event_participants WHERE category_id = ?
 			  )
-		`, sessionID, req.CategoryID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear existing assignments", "details": err.Error()})
+		`, sessionID, req.CategoryID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear assignments", "details": err.Error()})
 			return
 		}
 
-		// 2. Natural sort targets: 1A, 1B, 1C, 1D, 2A, 2B... (target number first, then letter)
-		sort.Slice(allTargets, func(i, j int) bool {
-			ni, _ := strconv.Atoi(strings.TrimRight(allTargets[i].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-			nj, _ := strconv.Atoi(strings.TrimRight(allTargets[j].TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-			if ni != nj {
-				return ni < nj
-			}
-			return allTargets[i].TargetName < allTargets[j].TargetName
-		})
+		// 2. Build map of targets grouped by number
+		type TargetGroup struct {
+			Number int
+			Slots  map[string]Target
+		}
+		targetGroupsMap := make(map[int]*TargetGroup)
+		for _, t := range allTargets {
+			numPart := strings.TrimRight(t.TargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+			num, _ := strconv.Atoi(numPart)
+			letter := strings.TrimPrefix(t.TargetName, numPart)
 
-		// 3. Build available slots. "Taken" now only reflects OTHER categories' assignments
-		// (this category was fully cleared in step 1).
+			if targetGroupsMap[num] == nil {
+				targetGroupsMap[num] = &TargetGroup{
+					Number: num,
+					Slots:  make(map[string]Target),
+				}
+			}
+			targetGroupsMap[num].Slots[letter] = t
+		}
+
+		// Get sorted target numbers
+		var targetNumbers []int
+		for num := range targetGroupsMap {
+			targetNumbers = append(targetNumbers, num)
+		}
+		sort.Ints(targetNumbers)
+
+		// 3. Build available slots based on Draw Type
 		var existing []string
 		db.Select(&existing, `
 			SELECT qta.target_uuid
@@ -1022,37 +1036,48 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			isTaken[e] = true
 		}
 
-		letterOrder := []string{"A", "B", "C", "D", "E", "F", "G", "H"}
-		availableSlots := []Target{}
-		startFound := (req.StartTargetName == "")
+		// Sequence for Standard Draw (A-C-B-D style)
+		letterSequence := []string{"A", "C", "B", "D", "E", "F", "G", "H"}
+		if req.ArchersPerTarget <= 2 {
+			letterSequence = []string{"A", "B"}
+		}
 
-		for _, t := range allTargets {
-			if !startFound {
-				if t.TargetName == req.StartTargetName {
-					startFound = true
-				} else {
+		availableSlots := []Target{}
+		startTargetNum := 0
+		if req.StartTargetName != "" {
+			numPart := strings.TrimRight(req.StartTargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+			startTargetNum, _ = strconv.Atoi(numPart)
+		}
+
+		step := 1
+		if req.DrawType == "field" {
+			step = 2
+		}
+
+		for i := 0; i < len(targetNumbers); i += step {
+			num := targetNumbers[i]
+			if num < startTargetNum {
+				continue
+			}
+
+			group := targetGroupsMap[num]
+			// Fill in specific letter sequence
+			for _, letter := range letterSequence {
+				target, exists := group.Slots[letter]
+				if !exists {
 					continue
 				}
-			}
+				
+				// Ensure index of letter < ArchersPerTarget
+				idxInAlphabet := int(letter[0] - 'A')
+				if idxInAlphabet >= req.ArchersPerTarget {
+					continue
+				}
 
-			letter := ""
-			if len(t.TargetName) > 0 {
-				letter = string(t.TargetName[len(t.TargetName)-1])
-			}
-			letterIdx := -1
-			for i, l := range letterOrder {
-				if l == letter {
-					letterIdx = i
-					break
+				if !isTaken[target.UUID] {
+					availableSlots = append(availableSlots, target)
 				}
 			}
-			if letterIdx >= req.ArchersPerTarget {
-				continue
-			}
-			if isTaken[t.UUID] {
-				continue
-			}
-			availableSlots = append(availableSlots, t)
 		}
 
 		// 4. Get ALL participants for this category (assignments were cleared in step 1)
@@ -1662,246 +1687,35 @@ func makeRange(start, end int) []int {
 	return result
 }
 
-// GetQualificationScoresheet generates a printable HTML scoresheet for a qualification session.
-// Route: GET /api/v1/events/:id/qualification/sessions/:sessionCode/scoresheet
 func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		sessionCode := c.Param("sessionCode")
+		autoprint := c.Query("autoprint")
 
-		// ── 1. Fetch event ────────────────────────────────────────────────────
-		type EventRow struct {
-			UUID      string         `db:"uuid"`
-			Name      string         `db:"name"`
-			ShortName sql.NullString `db:"short_name"`
-			Venue     sql.NullString `db:"venue"`
-			Location  sql.NullString `db:"location"`
-			City      sql.NullString `db:"city"`
-			StartDate sql.NullTime   `db:"start_date"`
-			EndDate   sql.NullTime   `db:"end_date"`
-			OrgName   sql.NullString `db:"org_name"`
+		// Internal PHP Printout Service URL
+		printoutURL := fmt.Sprintf("http://localhost:8002/api/v1/events/%s/qualification/sessions/%s/scoresheet", eventID, sessionCode)
+		if autoprint != "" {
+			printoutURL += "?autoprint=" + autoprint
 		}
-		var ev EventRow
-		err := db.Get(&ev, `
-			SELECT e.uuid, e.name, e.short_name, e.venue, e.location, e.city,
-			       e.start_date, e.end_date,
-			       o.name as org_name
-			FROM events e
-			LEFT JOIN organizations o ON e.organizer_id = o.uuid
-			WHERE (e.uuid = ? OR e.slug = ?)`, eventID, eventID)
+
+		// Forward the request to the PHP service
+		resp, err := http.Get(printoutURL)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungi layanan cetak internal", "details": err.Error()})
 			return
 		}
+		defer resp.Body.Close()
 
-		// Build event date string
-		eventDates := ""
-		if ev.StartDate.Valid {
-			sd := ev.StartDate.Time.Format("02 Jan 2006")
-			if ev.EndDate.Valid && ev.EndDate.Time.Format("2006-01-02") != ev.StartDate.Time.Format("2006-01-02") {
-				eventDates = sd + " – " + ev.EndDate.Time.Format("02 Jan 2006")
-			} else {
-				eventDates = sd
+		// Set headers from the PHP service response (like Content-Type: application/pdf)
+		for k, v := range resp.Header {
+			for _, val := range v {
+				c.Header(k, val)
 			}
 		}
+		c.Status(resp.StatusCode)
 
-		location := ""
-		if ev.Venue.Valid && ev.Venue.String != "" {
-			location = ev.Venue.String
-		} else if ev.Location.Valid && ev.Location.String != "" {
-			location = ev.Location.String
-		} else if ev.City.Valid && ev.City.String != "" {
-			location = ev.City.String
-		}
-
-		// ── 2. Fetch session ──────────────────────────────────────────────────
-		type SessionRow struct {
-			UUID         string       `db:"uuid"`
-			Name         string       `db:"name"`
-			Code         string       `db:"session_code"`
-			SessionDate  sql.NullTime `db:"session_date"`
-			StartTime    sql.NullTime `db:"start_time"`
-			TotalEnds    int          `db:"total_ends"`
-			ArrowsPerEnd int          `db:"arrows_per_end"`
-		}
-		var sess SessionRow
-		err = db.Get(&sess, `
-			SELECT uuid, name, session_code, session_date, start_time, total_ends, arrows_per_end
-			FROM qualification_sessions
-			WHERE event_uuid = ? AND session_code = ?`, ev.UUID, sessionCode)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi tidak ditemukan"})
-			return
-		}
-
-		sessionDateStr := ""
-		sessionDayName := ""
-		if sess.SessionDate.Valid {
-			months := map[string]string{
-				"January": "Januari", "February": "Februari", "March": "Maret", "April": "April",
-				"May": "Mei", "June": "Juni", "July": "Juli", "August": "Agustus",
-				"September": "September", "October": "Oktober", "November": "November", "December": "Desember",
-			}
-			days := map[string]string{
-				"Monday": "Senin", "Tuesday": "Selasa", "Wednesday": "Rabu", "Thursday": "Kamis",
-				"Friday": "Jumat", "Saturday": "Sabtu", "Sunday": "Minggu",
-			}
-
-			engMonth := sess.SessionDate.Time.Format("January")
-			engDay := sess.SessionDate.Time.Format("Monday")
-			
-			sessionDateStr = fmt.Sprintf("%02d %s %d", sess.SessionDate.Time.Day(), months[engMonth], sess.SessionDate.Time.Year())
-			sessionDayName = days[engDay]
-		}
-
-		// ── 3. Fetch assignments ──────────────────────────────────────────────
-		type AssignmentRow struct {
-			BoardNumber int            `db:"board_number"`
-			TargetName  string         `db:"target_name"`
-			ArcherName  sql.NullString `db:"archer_name"`
-			ClubName    sql.NullString `db:"club_name"`
-			BowType     sql.NullString `db:"bow_type"`
-			AgeGroup    sql.NullString `db:"age_group"`
-			BoardCode   sql.NullString `db:"board_code"`
-		}
-		var rows []AssignmentRow
-		err = db.Select(&rows, `
-			SELECT
-				et.board_number,
-				et.target_name,
-				COALESCE(a.full_name, '') AS archer_name,
-				COALESCE(c.name, '') AS club_name,
-				COALESCE(rbt.name, '') AS bow_type,
-				COALESCE(rag.name, '') AS age_group,
-				tbq.code AS board_code
-			FROM qualification_target_assignments qta
-			JOIN event_targets et ON qta.target_uuid = et.uuid
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
-			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
-			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
-			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-			LEFT JOIN target_board_qualification tbq ON qta.target_board_id = tbq.uuid
-			WHERE qta.session_uuid = ?
-			ORDER BY et.board_number ASC, et.target_name ASC`, sess.UUID)
-		if err != nil && err != sql.ErrNoRows {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data"})
-			return
-		}
-
-		// ── 4. Build boards ───────────────────────────────────────────────────
-		arrowRange := makeRange(1, sess.ArrowsPerEnd)
-		endRange := makeRange(1, sess.TotalEnds)
-
-		// Group by board_number → ordered list of positions
-		type boardEntry struct {
-			boardNumber int
-			code        string
-			positions   []*ScoresheetPosition
-		}
-		boardMap := make(map[int]*boardEntry)
-		boardOrder := []int{}
-
-		for _, r := range rows {
-			bf, ok := boardMap[r.BoardNumber]
-			if !ok {
-				bf = &boardEntry{boardNumber: r.BoardNumber}
-				if r.BoardCode.Valid && r.BoardCode.String != "" {
-					bf.code = r.BoardCode.String
-				}
-				boardMap[r.BoardNumber] = bf
-				boardOrder = append(boardOrder, r.BoardNumber)
-			}
-
-			category := strings.TrimSpace(r.BowType.String + " " + r.AgeGroup.String)
-			code := r.TargetName
-			if r.BoardCode.Valid && r.BoardCode.String != "" {
-				code = r.BoardCode.String + "-" + string(r.TargetName[len(r.TargetName)-1])
-			}
-
-			pos := &ScoresheetPosition{
-				TargetName: r.TargetName,
-				ArcherName: r.ArcherName.String,
-				ClubName:   r.ClubName.String,
-				Category:   category,
-				Code:       strings.ToUpper(code),
-				ArrowRange: arrowRange,
-				EndRange:   endRange,
-			}
-			bf.positions = append(bf.positions, pos)
-		}
-
-		// Build ScoresheetBoard slices with rows of 2
-		boards := make([]ScoresheetBoard, 0, len(boardOrder))
-		for _, bn := range boardOrder {
-			bf := boardMap[bn]
-			positions := bf.positions
-
-			// Ensure at least 2 positions per row (fill up to 4 for a nice grid)
-			for len(positions)%2 != 0 {
-				positions = append(positions, &ScoresheetPosition{Empty: true, ArrowRange: arrowRange, EndRange: endRange})
-			}
-
-			// Always ensure there is a display code for the barcode; fall back to zero-padded board number
-			displayCode := bf.code
-			if displayCode == "" {
-				displayCode = fmt.Sprintf("%02d", bn)
-			}
-
-			// Generate QR code as base64 PNG
-			qrBase64 := ""
-			if qrBytes, err := utils.GenerateQRCode(displayCode, 128); err == nil {
-				qrBase64 = base64.StdEncoding.EncodeToString(qrBytes)
-			}
-
-			sb := ScoresheetBoard{BoardNumber: bn, Code: displayCode, QRCodeBase64: qrBase64}
-			for i := 0; i < len(positions); i += 2 {
-				row := ScoresheetRow{Left: positions[i], Right: positions[i+1]}
-				sb.Rows = append(sb.Rows, row)
-			}
-			boards = append(boards, sb)
-		}
-
-		// ── 5. Render ─────────────────────────────────────────────────────────
-		if c.Query("download") == "1" {
-			fileName := "scoresheet-" + sessionCode + ".html"
-			c.Header("Content-Disposition", "attachment; filename=\""+fileName+"\"")
-		}
-		data := ScoresheetData{
-			EventName:      ev.Name,
-			EventOrg:       ev.OrgName.String,
-			Location:       location,
-			EventDates:     eventDates,
-			SessionName:    sess.Name,
-			SessionCode:    sess.Code,
-			SessionDate:    sessionDateStr,
-			SessionDayName: sessionDayName,
-			TotalEnds:      sess.TotalEnds,
-			ArrowsPerEnd:   sess.ArrowsPerEnd,
-			PrintDate:      time.Now().Format("02 Jan 2006 15:04"),
-			Boards:         boards,
-		}
-		templateName := "scoresheet_gen_bw.html"
-		c.HTML(http.StatusOK, templateName, data)
-	}
-}
-
-// PreviewScoresheet renders the scoresheet template with mock data
-func PreviewScoresheet() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		data := gin.H{
-			"EventName":       "ArcheryHub Open Championship 2024",
-			"EventDate":       "26 - 28 Feb 2024",
-			"Location":        "Stadion Mandala Krida, Yogyakarta",
-			"ParticipantName": "FAJAR ADI NUGROHO",
-			"Target":          "14A",
-			"Category":        "Recurve Men Open",
-			"ClubName":        "Jogja Archery School",
-			"SessionName":     "Kualifikasi Sesi 1",
-			"TotalEnds":       6,
-			"ArrowsPerEnd":    6,
-		}
-		c.HTML(http.StatusOK, "scoresheet.html", data)
+		// Stream the PDF response
+		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	}
 }

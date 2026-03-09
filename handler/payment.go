@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -664,7 +665,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 		var summaries []EventSummary
 		query := `
 			SELECT 
-				e.uuid, e.name, COALESCE(e.category_label, 'Event') as category_label, 
+				e.uuid, e.name, COALESCE(e.location_type, 'Event') as category_label, 
 				e.end_date,
 				COUNT(DISTINCT ep.uuid) as participant_count,
 				COALESCE(SUM(t.amount), 0) as total_amount
@@ -896,5 +897,56 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Payment simulation successful", "reference": reference})
+	}
+}
+// GetMyPayments returns the authenticated user's payment history
+func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		limit := c.DefaultQuery("limit", "10")
+		offset := c.DefaultQuery("offset", "0")
+
+		limitInt, _ := strconv.Atoi(limit)
+		offsetInt, _ := strconv.Atoi(offset)
+
+		query := `
+			SELECT 
+				pt.*,
+				e.name as event_name,
+				sp.name as plan_name
+			FROM payment_transactions pt
+			LEFT JOIN events e ON pt.event_id = e.uuid
+			LEFT JOIN subscription_plans sp ON pt.subscription_plan_id = sp.id
+			WHERE pt.user_id = ?
+			ORDER BY pt.created_at DESC
+			LIMIT ? OFFSET ?
+		`
+
+		type PaymentWithExtra struct {
+			models.PaymentTransaction
+			EventName *string `json:"event_name" db:"event_name"`
+			PlanName  *string `json:"plan_name" db:"plan_name"`
+		}
+
+		var payments []PaymentWithExtra
+		err := db.Select(&payments, query, userID, limitInt, offsetInt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payments", "details": err.Error()})
+			return
+		}
+
+		// Count total for pagination
+		var total int
+		db.Get(&total, "SELECT COUNT(*) FROM payment_transactions WHERE user_id = ?", userID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"payments": payments,
+			"total":    total,
+		})
 	}
 }

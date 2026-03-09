@@ -1054,6 +1054,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			IsVerified                  bool          `db:"is_verified" json:"is_verified"`
 			RegistrationSource          string        `db:"registration_source" json:"registration_source"`
 			QualificationAssignmentUUID *string       `db:"qualification_assignment_uuid" json:"qualification_assignment_uuid"`
+			InElimination               bool          `db:"in_elimination" json:"in_elimination"`
 		}
 
 		var participant Participant
@@ -1075,6 +1076,11 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
 				COALESCE(a.is_verified, 0) as is_verified,
 				(SELECT uuid FROM qualification_target_assignments WHERE participant_uuid = tp.uuid LIMIT 1) as qualification_assignment_uuid,
+				EXISTS(
+					SELECT 1 FROM elimination_matches 
+					WHERE entry_a_uuid IN (SELECT uuid FROM elimination_entries WHERE participant_uuid = tp.uuid)
+					   OR entry_b_uuid IN (SELECT uuid FROM elimination_entries WHERE participant_uuid = tp.uuid)
+				) as in_elimination,
 				(
 					SELECT JSON_ARRAYAGG(JSON_OBJECT(
 						'participant_id', tp2.uuid,
@@ -1656,8 +1662,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		var firstParticipantUUID string
 		registeredCategoryIDs := []string{}
-		for _, catID := range allCategoryIDs {
+		for i, catID := range allCategoryIDs {
 			// Check if already registered for THIS category
 			var exists bool
 			err = tx.Get(&exists, `
@@ -1675,6 +1682,10 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			participantUUID := uuid.New().String()
+			if i == 0 || firstParticipantUUID == "" {
+				firstParticipantUUID = participantUUID
+			}
+
 			_, err = tx.Exec(`
 				INSERT INTO event_participants (
 					uuid, event_id, archer_id, category_id, 
@@ -1705,9 +1716,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Pendaftaran berhasil",
-			"registration_id": registeredCategoryIDs[0], // We'll use the IDs as references
-			"category_ids": registeredCategoryIDs,
+			"message":         "Pendaftaran berhasil",
+			"registration_id": firstParticipantUUID,
+			"category_ids":    registeredCategoryIDs,
 		})
 	}
 }
@@ -1948,17 +1959,45 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Resolve participant (support UUID or Username)
-		var actualParticipantID string
-		err = db.Get(&actualParticipantID, `
-			SELECT tp.uuid FROM event_participants tp
+		// Resolve participant (support UUID, Username, or Athlete Code)
+		var pInfo struct {
+			UUID     string `db:"uuid"`
+			ArcherID string `db:"archer_id"`
+			FullName string `db:"full_name"`
+		}
+
+		err = db.Get(&pInfo, `
+			SELECT tp.uuid, tp.archer_id, a.full_name FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.event_id = ? AND (tp.uuid = ? OR a.username = ?)
+			WHERE tp.event_id = ? AND (tp.uuid = ? OR a.username = ? OR a.id = ?)
 			LIMIT 1
-		`, actualEventID, participantID, participantID)
+		`, actualEventID, participantID, participantID, participantID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found"})
+			fmt.Printf("[DEBUG] Delete lookup failed for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found", "details": err.Error()})
+			return
+		}
+
+		actualParticipantID := pInfo.UUID
+		archerID := pInfo.ArcherID
+
+		fmt.Printf("[DEBUG] Found participant to delete: %s (Registration: %s, Archer: %s)\n", pInfo.FullName, actualParticipantID, archerID)
+
+		// Check if participant is in any elimination match
+		var inMatch bool
+		err = db.Get(&inMatch, `
+			SELECT EXISTS(
+				SELECT 1 FROM elimination_matches em
+				JOIN elimination_entries ee ON (em.entry_a_uuid = ee.uuid OR em.entry_b_uuid = ee.uuid)
+				WHERE ee.participant_uuid = ? OR ee.participant_uuid = ?
+			)
+		`, actualParticipantID, archerID)
+
+		if err == nil && inMatch {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Tidak dapat mengeluarkan peserta: Peserta sudah terdaftar dalam babak eliminasi. Silakan hapus mereka dari bracket eliminasi terlebih dahulu.",
+			})
 			return
 		}
 
@@ -3142,5 +3181,38 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				p.Categories,
 			})
 		}
+	}
+}
+
+func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		listType := c.Query("type") // alphabetical or by-club
+		autoprint := c.Query("autoprint")
+
+		// Internal PHP Printout Service URL
+		printoutURL := fmt.Sprintf("http://localhost:8002/api/v1/events/%s/participants/printout?type=%s", eventID, listType)
+		if autoprint != "" {
+			printoutURL += "&autoprint=" + autoprint
+		}
+
+		// Forward the request to the PHP service
+		resp, err := http.Get(printoutURL)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungi layanan cetak internal", "details": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Set headers from the PHP service response
+		for k, v := range resp.Header {
+			for _, val := range v {
+				c.Header(k, val)
+			}
+		}
+		c.Status(resp.StatusCode)
+
+		// Stream the PDF response
+		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	}
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"html/template"
 	"net/http"
 	"os"
 
@@ -120,15 +119,6 @@ func main() {
 	// Initialize Gin router
 	r := gin.Default()
 
-	// Register custom template functions
-	r.SetFuncMap(template.FuncMap{
-		"add": func(a, b int) int { return a + b },
-		"not": func(v bool) bool { return !v },
-	})
-
-	// Load HTML templates
-	r.LoadHTMLGlob("templates/*")
-
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
@@ -187,8 +177,6 @@ func main() {
 			"status":  "running",
 		})
 	})
-
-	r.GET("/preview/scoresheet", handler.PreviewScoresheet())
 
 	// Serve static media files
 	r.Static("/media", "./media")
@@ -287,6 +275,7 @@ func main() {
 			events.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
 			events.GET("/:id/payments", handler.GetEventPayments(db))
 			events.POST("/participants/reregister", handler.ReregisterParticipant(db))
+			events.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
 
 			// Public Results endpoints
 			events.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
@@ -478,6 +467,7 @@ func main() {
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
 			payment.GET("/simulate-success/:reference", handler.SimulatePaymentSuccess(db))
+			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
 		}
 
 		// Root/Admin routes
