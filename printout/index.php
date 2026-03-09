@@ -27,6 +27,36 @@ function getAcronym($name) {
 }
 
 // ---------------------------------------------------------
+// HEALTH CHECK
+// ---------------------------------------------------------
+if ($requestUri == '/' || $requestUri == '/index.php' || preg_match('/\/api\/v1\/printout\/?$/', $requestUri)) {
+    header('Content-Type: text/html');
+    echo "<h1>ArcheryHub Printout Server</h1>";
+    echo "<p style='font-size: 1.2em; color: green;'>System working</p>";
+
+    echo "<h3>Extensions Check:</h3><ul>";
+    $extensions = ['pdo_mysql', 'mbstring', 'gd', 'curl', 'xml'];
+    foreach ($extensions as $ext) {
+        $loaded = extension_loaded($ext) ? "<strong style='color:green;'>Loaded</strong>" : "<strong style='color:red;'>Missing</strong>";
+        echo "<li>{$ext}: {$loaded}</li>";
+    }
+    echo "</ul>";
+
+    echo "<h3>Database Check:</h3>";
+    try {
+        // db.php is required at the very top, so $pdo should already exist
+        if (isset($pdo) && $pdo) {
+            echo "<p style='color:green;'>MySQL connection successful.</p>";
+        } else {
+            echo "<p style='color:red;'>MySQL connection variable not found.</p>";
+        }
+    } catch (Exception $e) {
+        echo "<p style='color:red;'>MySQL connection error: " . htmlspecialchars($e->getMessage()) . "</p>";
+    }
+    exit;
+}
+
+// ---------------------------------------------------------
 // QUALIFICATION SCORESHEET HANDLER
 // ---------------------------------------------------------
 if (preg_match('/\/api\/v1\/events\/([^\/]+)\/qualification\/sessions\/([^\/]+)\/scoresheet/', $requestUri, $matches)) {
