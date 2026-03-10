@@ -605,15 +605,41 @@ func main() {
 			cbr.GET("/:id", handler.GetClubByID(db))
 		}
 
-		// Seller routes
-		sellers := api.Group("/sellers")
+		// Product routes — /my must be registered BEFORE /:id to avoid wildcard conflict
+		products := api.Group("/products")
 		{
-			protectedSellers := sellers.Group("")
-			protectedSellers.Use(middleware.AuthMiddleware())
-			{
+			products.GET("", handler.GetProducts(db))
 
-				protectedSellers.PUT("/me", handler.UpdateSellerProfile(db))
+			// Protected product routes (specific paths before wildcard)
+			protectedProducts := products.Group("")
+			protectedProducts.Use(middleware.AuthMiddleware())
+			{
+				protectedProducts.GET("/my", handler.GetMyProducts(db))
+				protectedProducts.POST("", handler.CreateProduct(db))
 			}
+
+			// Wildcard routes - must come after static ones
+			products.GET("/:id", handler.GetProductByID(db))
+			products.PUT("/:id", middleware.AuthMiddleware(), handler.UpdateProduct(db))
+			products.DELETE("/:id", middleware.AuthMiddleware(), handler.DeleteProduct(db))
+		}
+
+		// Seller routes (protected)
+		sellersProtected := api.Group("/sellers")
+		sellersProtected.Use(middleware.AuthMiddleware())
+		{
+			sellersProtected.GET("/me", handler.GetSellerProfile(db))
+			sellersProtected.PUT("/me", handler.UpdateSellerProfileBasic(db))
+			sellersProtected.PUT("/me/page", handler.UpdateSellerProfile(db))
+		}
+
+		// Order routes (seller) — also accessible as /api/v1/orders
+		ordersGroup := api.Group("/orders")
+		ordersGroup.Use(middleware.AuthMiddleware())
+		{
+			ordersGroup.GET("", handler.GetSellerOrders(db))
+			ordersGroup.GET("/stats", handler.GetSellerStats(db))
+			ordersGroup.PUT("/:id/status", handler.UpdateOrderStatus(db))
 		}
 
 		// Media routes

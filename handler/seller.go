@@ -153,3 +153,79 @@ func UpdateSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
 	}
 }
+
+// UpdateSellerProfileBasic updates basic seller profile info (name, contact, location)
+func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetString("user_id")
+
+		var req struct {
+			StoreName   *string `json:"store_name"`
+			Email       *string `json:"email"`
+			Phone       *string `json:"phone"`
+			City        *string `json:"city"`
+			Province    *string `json:"province"`
+			Address     *string `json:"address"`
+			Description *string `json:"description"`
+			AvatarURL   *string `json:"avatar_url"`
+			BannerURL   *string `json:"banner_url"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		query := "UPDATE sellers SET updated_at = NOW()"
+		args := []interface{}{}
+
+		if req.StoreName != nil {
+			query += ", store_name = ?"
+			args = append(args, *req.StoreName)
+		}
+		if req.Email != nil {
+			query += ", email = ?"
+			args = append(args, *req.Email)
+		}
+		if req.Phone != nil {
+			query += ", phone = ?"
+			args = append(args, *req.Phone)
+		}
+		if req.City != nil {
+			query += ", city = ?"
+			args = append(args, *req.City)
+		}
+		if req.Province != nil {
+			query += ", province = ?"
+			args = append(args, *req.Province)
+		}
+		if req.Address != nil {
+			query += ", address = ?"
+			args = append(args, *req.Address)
+		}
+		if req.Description != nil {
+			query += ", description = ?"
+			args = append(args, *req.Description)
+		}
+		if req.AvatarURL != nil {
+			query += ", avatar_url = ?"
+			args = append(args, *req.AvatarURL)
+		}
+		if req.BannerURL != nil {
+			query += ", banner_url = ?"
+			args = append(args, *req.BannerURL)
+		}
+
+		query += " WHERE uuid = ? OR user_id = ?"
+		args = append(args, userID, userID)
+
+		_, err := db.Exec(query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seller profile: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Profil toko berhasil diperbarui"})
+	}
+}
+
