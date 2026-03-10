@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -389,6 +390,18 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Failed to read body"})
 			return
+		}
+
+		// Log callback to a dedicated file
+		f, errLog := os.OpenFile("logs/tripay-callback.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if errLog == nil {
+			defer f.Close()
+			logEntry := fmt.Sprintf("[%s] Event: %s, Signature: %s, Body: %s\n",
+				time.Now().Format("2006-01-02 15:04:05"),
+				c.GetHeader("X-Callback-Event"),
+				c.GetHeader("X-Callback-Signature"),
+				string(body))
+			f.WriteString(logEntry)
 		}
 
 		// 2. Verify Signature
