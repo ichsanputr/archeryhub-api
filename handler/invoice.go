@@ -32,22 +32,32 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				CASE 
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
-					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', r.division, ' - ', r.athlete_name)
+					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
 					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
 					ELSE 'Transaksi Archeryhub'
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
-				r.athlete_name as athlete_name,
-				r.division as division,
-				r.category as category,
+				a.full_name as athlete_name,
+				rbt.name as division,
+				COALESCE(ec.category_name_custom, rag.name) as category,
 				u.email as user_email,
 				COALESCE(u.full_name, u.username) as user_name
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
-			LEFT JOIN event_registrations r ON t.registration_id = r.id
+			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN events e ON t.event_id = e.uuid
-			LEFT JOIN users u ON t.user_id = u.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN (
+				SELECT uuid, email, full_name, username FROM archers
+				UNION ALL
+				SELECT uuid, email, name as full_name, slug as username FROM organizations
+				UNION ALL
+				SELECT uuid, email, store_name as full_name, slug as username FROM sellers
+			) u ON t.user_id = u.uuid
 			WHERE t.reference = ?
 		`
 		err := db.Get(&t, query, reference)
