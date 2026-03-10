@@ -451,7 +451,11 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = tx.Exec("UPDATE payment_transactions SET status = ?, callback_data = ?, paid_at = ? WHERE uuid = ?", status, body, time.Now(), transactionID)
+		var paidAt interface{}
+		if status == "paid" {
+			paidAt = time.Now()
+		}
+		_, err = tx.Exec("UPDATE payment_transactions SET status = ?, callback_data = ?, paid_at = ? WHERE uuid = ?", status, body, paidAt, transactionID)
 		if err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update transaction"})
@@ -467,20 +471,34 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 			regStatus := statusMap[status]
 			if regStatus == "" {
-				regStatus = "menunggu acc" // fallback or keep as is
+				regStatus = "menunggu acc"
 			}
 
-			// Update event_participants using payment_id or uuid
-			_, err = tx.Exec("UPDATE event_participants SET payment_status = ? WHERE payment_id = ? OR uuid = ?", regStatus, transactionID, *registrationID)
+			// Get the archer_id and event_id from this registration so we can
+			// update ALL of the archer's categories in the same event (multi-category support)
+			var regInfo struct {
+				ArcherID string `db:"archer_id"`
+				EventID  string `db:"event_id"`
+			}
+			errInfo := db.Get(&regInfo, `SELECT archer_id, event_id FROM event_participants WHERE uuid = ?`, *registrationID)
+			if errInfo == nil && regInfo.ArcherID != "" {
+				// Update ALL registrations for this archer in this event
+				_, err = tx.Exec(
+					"UPDATE event_participants SET payment_status = ? WHERE archer_id = ? AND event_id = ?",
+					regStatus, regInfo.ArcherID, regInfo.EventID,
+				)
+			} else {
+				// Fallback: update by payment_id or uuid only
+				_, err = tx.Exec(
+					"UPDATE event_participants SET payment_status = ? WHERE payment_id = ? OR uuid = ?",
+					regStatus, transactionID, *registrationID,
+				)
+			}
 			if err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update participant registration"})
 				return
 			}
-
-			// If paid, maybe generate QR codes here too?
-			// The RegisterParticipant handler already has logic for QR if status is Lunas.
-			// We should probably trigger it or just ensure it happens.
 		}
 
 		// Update event status if platform fee is paid
@@ -933,7 +951,22 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if transaction.RegistrationID != nil {
-			_, err = tx.Exec("UPDATE event_participants SET payment_status = 'lunas' WHERE payment_id = ? OR uuid = ?", transaction.UUID, *transaction.RegistrationID)
+			var regInfo struct {
+				ArcherID string `db:"archer_id"`
+				EventID  string `db:"event_id"`
+			}
+			errInfo := db.Get(&regInfo, `SELECT archer_id, event_id FROM event_participants WHERE uuid = ?`, *transaction.RegistrationID)
+			if errInfo == nil && regInfo.ArcherID != "" {
+				_, err = tx.Exec(
+					"UPDATE event_participants SET payment_status = 'lunas' WHERE archer_id = ? AND event_id = ?",
+					regInfo.ArcherID, regInfo.EventID,
+				)
+			} else {
+				_, err = tx.Exec(
+					"UPDATE event_participants SET payment_status = 'lunas' WHERE payment_id = ? OR uuid = ?",
+					transaction.UUID, *transaction.RegistrationID,
+				)
+			}
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update participant status"})
 				return
@@ -963,6 +996,8 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 		limitInt, _ := strconv.Atoi(limit)
 		offsetInt, _ := strconv.Atoi(offset)
 
+		// Build query that matches both: direct user_id match AND
+		// payments made by an archer whose UUID matches this user's ID
 		query := `
 			SELECT 
 				pt.*,
@@ -982,8 +1017,9 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 			PlanName  *string `json:"plan_name" db:"plan_name"`
 		}
 
+		uid := userID.(string)
 		var payments []PaymentWithExtra
-		err := db.Select(&payments, query, userID, limitInt, offsetInt)
+		err := db.Select(&payments, query, uid, limitInt, offsetInt)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payments", "details": err.Error()})
 			return
@@ -991,7 +1027,7 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 
 		// Count total for pagination
 		var total int
-		db.Get(&total, "SELECT COUNT(*) FROM payment_transactions WHERE user_id = ?", userID)
+		db.Get(&total, `SELECT COUNT(*) FROM payment_transactions WHERE user_id = ?`, uid)
 
 		c.JSON(http.StatusOK, gin.H{
 			"payments": payments,

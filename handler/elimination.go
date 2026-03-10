@@ -1277,6 +1277,8 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
 			TargetUUID      *string    `json:"target_id" db:"target_uuid"`
 			Format          string     `json:"format" db:"format"`
+			ArrowsPerEnd    int        `json:"arrows_per_end" db:"arrows_per_end"`
+			EndsPerMatch    int        `json:"ends_per_match" db:"ends_per_match"`
 			TotalScoreA     int        `json:"total_score_a" db:"total_score_a"`
 			TotalScoreB     int        `json:"total_score_b" db:"total_score_b"`
 			TotalPointsA    int        `json:"total_points_a" db:"total_points_a"`
@@ -1288,7 +1290,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		var match Match
 		err := db.Unsafe().Get(&match, `
-			SELECT em.*, eb.format,
+			SELECT em.*, eb.format, eb.arrows_per_end, eb.ends_per_match,
 				CASE 
 					WHEN eeA.participant_type = 'archer' THEN aA.full_name
 					WHEN eeA.participant_type = 'team' THEN tA.team_name
@@ -1318,6 +1320,12 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 		// Use the actual UUID for subsequent queries
 		matchID = match.UUID
+
+		// Default arrows_per_end if not set
+		arrowsPerEnd := match.ArrowsPerEnd
+		if arrowsPerEnd == 0 {
+			arrowsPerEnd = 3
+		}
 
 		// Map to participant objects for frontend legacy compatibility
 		type Participant struct {
@@ -1389,14 +1397,28 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			}
 			db.Select(&arrowScores, `SELECT score, is_x FROM elimination_match_arrow_scores WHERE match_end_uuid = ? ORDER BY arrow_no ASC`, ends[i].UUID)
 
-			ends[i].Arrows = make([]string, len(arrowScores))
-			for j, as := range arrowScores {
-				if as.IsX {
-					ends[i].Arrows[j] = "X"
-				} else if as.Score == 0 {
-					ends[i].Arrows[j] = "M"
-				} else {
-					ends[i].Arrows[j] = fmt.Sprintf("%d", as.Score)
+			if len(arrowScores) > 0 {
+				// We have real per-arrow data
+				ends[i].Arrows = make([]string, len(arrowScores))
+				for j, as := range arrowScores {
+					if as.IsX {
+						ends[i].Arrows[j] = "X"
+					} else if as.Score == 0 {
+						ends[i].Arrows[j] = "M"
+					} else {
+						ends[i].Arrows[j] = fmt.Sprintf("%d", as.Score)
+					}
+				}
+			} else {
+				// No per-arrow records: fill with empty placeholders so the
+				// frontend knows how many arrow slots to render.
+				slotCount := arrowsPerEnd
+				if ends[i].EndNo == 99 {
+					slotCount = 1 // shoot-off is always 1 arrow
+				}
+				ends[i].Arrows = make([]string, slotCount)
+				for j := range ends[i].Arrows {
+					ends[i].Arrows[j] = "" // empty = no data
 				}
 			}
 		}

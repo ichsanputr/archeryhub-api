@@ -263,26 +263,33 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get all matches for this bracket
+		type MatchEndScore struct {
+			EndNo  int `json:"end_no"`
+			ScoreA int `json:"score_a"`
+			ScoreB int `json:"score_b"`
+		}
+
 		type Match struct {
-			UUID            string  `db:"uuid" json:"uuid"`
-			MatchID         string  `db:"match_id" json:"id"`
-			RoundNo         int     `db:"round_no" json:"round_no"`
-			MatchNo         int     `db:"match_no" json:"match_no"`
-			EntryAUUID      *string `db:"entry_a_uuid" json:"entry_a_id"`
-			EntryAName      *string `db:"entry_a_name" json:"entry_a_name"`
-			EntryASeed      *int    `db:"entry_a_seed" json:"entry_a_seed"`
-			EntryBUUID      *string `db:"entry_b_uuid" json:"entry_b_id"`
-			EntryBName      *string `db:"entry_b_name" json:"entry_b_name"`
-			EntryBSeed      *int    `db:"entry_b_seed" json:"entry_b_seed"`
-			WinnerEntryUUID *string `db:"winner_entry_uuid" json:"winner_entry_id"`
-			Status          string  `db:"status" json:"status"`
-			IsBye           bool    `db:"is_bye" json:"is_bye"`
-			TotalScoreA     int     `json:"total_score_a"`
-			TotalScoreB     int     `json:"total_score_b"`
-			SetPointsA      int     `json:"set_points_a"`
-			SetPointsB      int     `json:"set_points_b"`
-			ShootOffA       *string `json:"shoot_off_a"`
-			ShootOffB       *string `json:"shoot_off_b"`
+			UUID            string          `db:"uuid" json:"uuid"`
+			MatchID         string          `db:"match_id" json:"id"`
+			RoundNo         int             `db:"round_no" json:"round_no"`
+			MatchNo         int             `db:"match_no" json:"match_no"`
+			EntryAUUID      *string         `db:"entry_a_uuid" json:"entry_a_id"`
+			EntryAName      *string         `db:"entry_a_name" json:"entry_a_name"`
+			EntryASeed      *int            `db:"entry_a_seed" json:"entry_a_seed"`
+			EntryBUUID      *string         `db:"entry_b_uuid" json:"entry_b_id"`
+			EntryBName      *string         `db:"entry_b_name" json:"entry_b_name"`
+			EntryBSeed      *int            `db:"entry_b_seed" json:"entry_b_seed"`
+			WinnerEntryUUID *string         `db:"winner_entry_uuid" json:"winner_entry_id"`
+			Status          string          `db:"status" json:"status"`
+			IsBye           bool            `db:"is_bye" json:"is_bye"`
+			TotalScoreA     int             `json:"total_score_a"`
+			TotalScoreB     int             `json:"total_score_b"`
+			SetPointsA      int             `json:"set_points_a"`
+			SetPointsB      int             `json:"set_points_b"`
+			ShootOffA       *string         `json:"shoot_off_a"`
+			ShootOffB       *string         `json:"shoot_off_b"`
+			Ends            []MatchEndScore `json:"ends"`
 		}
 
 		var matches []Match
@@ -304,8 +311,10 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries ee1 ON em.entry_a_uuid = ee1.uuid
 			LEFT JOIN elimination_entries ee2 ON em.entry_b_uuid = ee2.uuid
-			LEFT JOIN archers a1 ON ee1.participant_uuid = a1.uuid AND ee1.participant_type = 'archer'
-			LEFT JOIN archers a2 ON ee2.participant_uuid = a2.uuid AND ee2.participant_type = 'archer'
+			LEFT JOIN event_participants ep1 ON ee1.participant_uuid = ep1.uuid AND ee1.participant_type = 'archer'
+			LEFT JOIN event_participants ep2 ON ee2.participant_uuid = ep2.uuid AND ee2.participant_type = 'archer'
+			LEFT JOIN archers a1 ON ep1.archer_id = a1.uuid
+			LEFT JOIN archers a2 ON ep2.archer_id = a2.uuid
 			LEFT JOIN teams t1 ON ee1.participant_uuid = t1.uuid AND ee1.participant_type = 'team'
 			LEFT JOIN teams t2 ON ee2.participant_uuid = t2.uuid AND ee2.participant_type = 'team'
 			WHERE em.bracket_uuid = ?
@@ -390,6 +399,13 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 					}
 					scA := mEnds[en]["A"]
 					scB := mEnds[en]["B"]
+					
+					matches[i].Ends = append(matches[i].Ends, MatchEndScore{
+						EndNo:  en,
+						ScoreA: scA,
+						ScoreB: scB,
+					})
+
 					tSA += scA
 					tSB += scB
 
