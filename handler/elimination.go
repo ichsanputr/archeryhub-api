@@ -171,7 +171,8 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				END as participant_name,
 				ee.seed, ee.qual_total_score, ee.qual_total_x, ee.qual_total_10
 			FROM elimination_entries ee
-			LEFT JOIN archers a ON ee.participant_type = 'archer' AND ee.participant_uuid = a.uuid
+			LEFT JOIN event_participants ep ON ee.participant_type = 'archer' AND ee.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN teams t ON ee.participant_type = 'team' AND ee.participant_uuid = t.uuid
 			WHERE ee.bracket_uuid = ?
 			ORDER BY ee.seed ASC
@@ -232,8 +233,10 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
-			LEFT JOIN archers aA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = aA.uuid
-			LEFT JOIN archers aB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = aB.uuid
+			LEFT JOIN event_participants epA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = epA.uuid
+			LEFT JOIN event_participants epB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = epB.uuid
+			LEFT JOIN archers aA ON epA.archer_id = aA.uuid
+			LEFT JOIN archers aB ON epB.archer_id = aB.uuid
 			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
 			LEFT JOIN teams tB ON eeB.participant_type = 'team' AND eeB.participant_uuid = tB.uuid
 			LEFT JOIN event_targets et ON em.target_uuid = et.uuid
@@ -615,7 +618,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		if req.BracketType == "individual" {
 			err = tx.Select(&entries, `
-				SELECT a.uuid as participant_uuid,
+				SELECT ep.uuid as participant_uuid,
 					COALESCE(SUM(qes.total_score_end), 0) as total_score,
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
@@ -623,7 +626,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE ep.category_id = ?
-				GROUP BY a.uuid
+				GROUP BY ep.uuid
 				ORDER BY total_score DESC, total_x DESC, total_10 DESC
 				LIMIT ?
 			`, req.CategoryID, req.BracketSize)
@@ -666,6 +669,8 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		numRounds := int(math.Log2(float64(req.BracketSize)))
 		firstRoundMatchups := generateBracketSeeding(req.BracketSize)
 
+		// globalMatchCounter ensures matches are numbered 1 to N
+		globalMatchCounter := 1
 		for roundNo := 1; roundNo <= numRounds; roundNo++ {
 			matchesInRound := req.BracketSize / int(math.Pow(2, float64(roundNo)))
 			for matchNo := 1; matchNo <= matchesInRound; matchNo++ {
@@ -693,7 +698,8 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 				tx.Exec(`
 					INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				`, matchUUID, matchID, bracketUUID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
+				`, matchUUID, matchID, bracketUUID, roundNo, globalMatchCounter, entryAUUID, entryBUUID, isBye)
+				globalMatchCounter++
 			}
 		}
 		if req.BracketSize >= 4 {
@@ -702,7 +708,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			tx.Exec(`
 				INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-			`, bronzeMatchUUID, bronzeMatchID, bracketUUID, numRounds, 2, nil, nil, false)
+			`, bronzeMatchUUID, bronzeMatchID, bracketUUID, numRounds, globalMatchCounter, nil, nil, false)
 		}
 
 		// Update generated_at
@@ -830,7 +836,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 		if bracket.BracketType == "individual" {
 			// Get top archers from qualification scores
 			err = tx.Select(&entries, `
-				SELECT a.uuid as participant_uuid,
+				SELECT ep.uuid as participant_uuid,
 					COALESCE(SUM(qes.total_score_end), 0) as total_score,
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
@@ -838,7 +844,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE ep.category_id = ?
-				GROUP BY a.uuid
+				GROUP BY ep.uuid
 				ORDER BY total_score DESC, total_x DESC, total_10 DESC
 				LIMIT ?
 			`, bracket.CategoryUUID, bracket.BracketSize)
@@ -892,11 +898,15 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 		// Generate first round matches using proper bracket seeding
 		firstRoundMatchups := generateBracketSeeding(bracket.BracketSize)
 
+		// globalMatchCounter will ensure matches are numbered 1 to N-1
+		globalMatchCounter := 1
+
 		for roundNo := 1; roundNo <= numRounds; roundNo++ {
 			matchesInRound := bracket.BracketSize / int(math.Pow(2, float64(roundNo)))
 
 			for matchNo := 1; matchNo <= matchesInRound; matchNo++ {
 				matchUUID := uuid.New().String()
+				matchID := strings.ToUpper(uuid.New().String()[:5])
 
 				var entryAUUID, entryBUUID *string
 				isBye := false
@@ -914,33 +924,32 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 						entryBUUID = &entryUUIDs[seedB-1]
 					}
 
-					// If one side has no participant, it's a BYE
 					if (entryAUUID == nil || entryBUUID == nil) && !(entryAUUID == nil && entryBUUID == nil) {
 						isBye = true
 					}
 				}
-				// Later rounds will be filled as matches complete
 
 				_, err = tx.Exec(`
-					INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye)
-					VALUES (?, ?, ?, ?, ?, ?, ?)
-				`, matchUUID, bracketUUID, roundNo, matchNo, entryAUUID, entryBUUID, isBye)
+					INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`, matchUUID, matchID, bracketUUID, roundNo, globalMatchCounter, entryAUUID, entryBUUID, isBye)
 
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create matches", "details": err.Error()})
 					return
 				}
+				globalMatchCounter++
 			}
 		}
 
-		// Create 3rd Place Match (Bronze Match) if bracket size >= 4
+		// Create 3rd Place Match (Bronze Match)
 		if bracket.BracketSize >= 4 {
-			numRounds := int(math.Log2(float64(bracket.BracketSize)))
 			bronzeMatchUUID := uuid.New().String()
+			bronzeMatchID := strings.ToUpper(uuid.New().String()[:5])
 			_, err = tx.Exec(`
-				INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
-				VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
-			`, bronzeMatchUUID, bracketUUID, numRounds, 2, nil, nil, false)
+				INSERT INTO elimination_matches (uuid, match_id, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, is_bye, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+			`, bronzeMatchUUID, bronzeMatchID, bracketUUID, numRounds, globalMatchCounter, nil, nil, false)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to create bronze match")
 			}
@@ -983,6 +992,15 @@ func generateBracketSeeding(size int) []int {
 	}
 
 	return result
+}
+
+// getMatchNoOffset returns the total number of matches in all rounds prior to 'targetRound'
+func getMatchNoOffset(size int, targetRound int) int {
+	offset := 0
+	for r := 1; r < targetRound; r++ {
+		offset += size / int(math.Pow(2, float64(r)))
+	}
+	return offset
 }
 
 // UpdateMatchTargets assigns targets to matches in a bracket
@@ -1249,6 +1267,10 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			MatchNo         int        `json:"match_no" db:"match_no"`
 			EntryAUUID      *string    `json:"entry_a_id" db:"entry_a_uuid"`
 			EntryBUUID      *string    `json:"entry_b_id" db:"entry_b_uuid"`
+			EntryAName      *string    `json:"entry_a_name" db:"entry_a_name"`
+			EntryBName      *string    `json:"entry_b_name" db:"entry_b_name"`
+			EntryASeed      *int       `json:"entry_a_seed" db:"entry_a_seed"`
+			EntryBSeed      *int       `json:"entry_b_seed" db:"entry_b_seed"`
 			WinnerEntryUUID *string    `json:"winner_entry_id" db:"winner_entry_uuid"`
 			Status          string     `json:"status" db:"status"`
 			IsBye           bool       `json:"is_bye" db:"is_bye"`
@@ -1266,9 +1288,27 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		var match Match
 		err := db.Unsafe().Get(&match, `
-			SELECT em.*, eb.format 
+			SELECT em.*, eb.format,
+				CASE 
+					WHEN eeA.participant_type = 'archer' THEN aA.full_name
+					WHEN eeA.participant_type = 'team' THEN tA.team_name
+				END as entry_a_name,
+				CASE 
+					WHEN eeB.participant_type = 'archer' THEN aB.full_name
+					WHEN eeB.participant_type = 'team' THEN tB.team_name
+				END as entry_b_name,
+				eeA.seed as entry_a_seed,
+				eeB.seed as entry_b_seed
 			FROM elimination_matches em
 			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
+			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
+			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
+			LEFT JOIN event_participants epA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = epA.uuid
+			LEFT JOIN event_participants epB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = epB.uuid
+			LEFT JOIN archers aA ON epA.archer_id = aA.uuid
+			LEFT JOIN archers aB ON epB.archer_id = aB.uuid
+			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
+			LEFT JOIN teams tB ON eeB.participant_type = 'team' AND eeB.participant_uuid = tB.uuid
 			WHERE em.uuid = ? OR em.match_id = ?
 		`, matchID, matchID)
 		if err != nil {
@@ -1279,45 +1319,43 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 		// Use the actual UUID for subsequent queries
 		matchID = match.UUID
 
-		// Get participant names
+		// Map to participant objects for frontend legacy compatibility
 		type Participant struct {
-			EntryUUID string `json:"entry_id" db:"entry_uuid"`
-			Name      string `json:"name" db:"name"`
-			Seed      int    `json:"seed" db:"seed"`
+			EntryUUID string `json:"entry_id"`
+			Name      string `json:"name"`
+			Seed      int    `json:"seed"`
 		}
 
 		var participantA, participantB *Participant
 		if match.EntryAUUID != nil {
-			var p Participant
-			db.Get(&p, `
-				SELECT ee.uuid as entry_uuid, 
-					CASE 
-						WHEN ee.participant_type = 'archer' THEN a.full_name
-						WHEN ee.participant_type = 'team' THEN t.team_name
-					END as name,
-					ee.seed
-				FROM elimination_entries ee
-				LEFT JOIN archers a ON ee.participant_type = 'archer' AND ee.participant_uuid = a.uuid
-				LEFT JOIN teams t ON ee.participant_type = 'team' AND ee.participant_uuid = t.uuid
-				WHERE ee.uuid = ?
-			`, *match.EntryAUUID)
-			participantA = &p
+			name := "TBD"
+			if match.EntryAName != nil {
+				name = *match.EntryAName
+			}
+			seed := 0
+			if match.EntryASeed != nil {
+				seed = *match.EntryASeed
+			}
+			participantA = &Participant{
+				EntryUUID: *match.EntryAUUID,
+				Name:      name,
+				Seed:      seed,
+			}
 		}
 		if match.EntryBUUID != nil {
-			var p Participant
-			db.Get(&p, `
-				SELECT ee.uuid as entry_uuid, 
-					CASE 
-						WHEN ee.participant_type = 'archer' THEN a.full_name
-						WHEN ee.participant_type = 'team' THEN t.team_name
-					END as name,
-					ee.seed
-				FROM elimination_entries ee
-				LEFT JOIN archers a ON ee.participant_type = 'archer' AND ee.participant_uuid = a.uuid
-				LEFT JOIN teams t ON ee.participant_type = 'team' AND ee.participant_uuid = t.uuid
-				WHERE ee.uuid = ?
-			`, *match.EntryBUUID)
-			participantB = &p
+			name := "TBD"
+			if match.EntryBName != nil {
+				name = *match.EntryBName
+			}
+			seed := 0
+			if match.EntryBSeed != nil {
+				seed = *match.EntryBSeed
+			}
+			participantB = &Participant{
+				EntryUUID: *match.EntryBUUID,
+				Name:      name,
+				Seed:      seed,
+			}
 		}
 
 		// Get scoring ends
@@ -1797,25 +1835,31 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		// Only advance if not the final round
 		if match.RoundNo < numRounds {
-			// Calculate next match position
-			nextMatchNo := (match.MatchNo + 1) / 2
-			nextRound := match.RoundNo + 1
+			// Calculate relative match number in CURRENT round
+			offset := getMatchNoOffset(bracketSize, match.RoundNo)
+			relativeMatchNo := match.MatchNo - offset
 
-			// Determine if winner goes to slot A or B (odd match = A, even match = B)
+			// Calculate next match position
+			relativeNextMatchNo := (relativeMatchNo + 1) / 2
+			nextRound := match.RoundNo + 1
+			nextOffset := getMatchNoOffset(bracketSize, nextRound)
+			globalNextMatchNo := nextOffset + relativeNextMatchNo
+
+			// Determine if winner goes to slot A or B (odd relative match = A, even relative match = B)
 			slot := "entry_a_uuid"
-			if match.MatchNo%2 == 0 {
+			if relativeMatchNo%2 == 0 {
 				slot = "entry_b_uuid"
 			}
 
 			// Check if the next round match exists
 			var nextMatchExists int
 			tx.Get(&nextMatchExists, `SELECT COUNT(*) FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
-				match.BracketUUID, nextRound, nextMatchNo)
+				match.BracketUUID, nextRound, globalNextMatchNo)
 
 			if nextMatchExists > 0 {
 				// Update existing next round match
 				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
-					req.WinnerEntryID, match.BracketUUID, nextRound, nextMatchNo)
+					req.WinnerEntryID, match.BracketUUID, nextRound, globalNextMatchNo)
 				if err != nil {
 					logrus.WithError(err).Error("Failed to advance winner to existing match")
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to advance winner"})
@@ -1833,11 +1877,17 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 			if loserID != nil {
 				bronzeSlot := "entry_a_uuid"
-				if match.MatchNo%2 == 0 {
+				offset := getMatchNoOffset(bracketSize, match.RoundNo)
+				relativeMatchNo := match.MatchNo - offset
+				if relativeMatchNo%2 == 0 {
 					bronzeSlot = "entry_b_uuid"
 				}
+				// Bronze match is always the second match of the final tournament sequence (Finals is offset+1, Bronze is offset+2)
+				finalRoundOffset := getMatchNoOffset(bracketSize, numRounds)
+				globalBronzeMatchNo := finalRoundOffset + 2
+
 				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, bronzeSlot),
-					*loserID, match.BracketUUID, numRounds, 2)
+					*loserID, match.BracketUUID, numRounds, globalBronzeMatchNo)
 				if err != nil {
 					logrus.WithError(err).Error("Failed to advance loser to bronze match")
 				}
@@ -2093,21 +2143,26 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		numRounds := int(math.Log2(float64(bracketSize)))
 		if match.RoundNo < numRounds {
-			nextMatchNo := (match.MatchNo + 1) / 2
+			offset := getMatchNoOffset(bracketSize, match.RoundNo)
+			relativeMatchNo := match.MatchNo - offset
+
+			relativeNextMatchNo := (relativeMatchNo + 1) / 2
 			nextRound := match.RoundNo + 1
+			nextOffset := getMatchNoOffset(bracketSize, nextRound)
+			globalNextMatchNo := nextOffset + relativeNextMatchNo
 
 			slot := "entry_a_uuid"
-			if match.MatchNo%2 == 0 {
+			if relativeMatchNo%2 == 0 {
 				slot = "entry_b_uuid"
 			}
 
 			var nextMatchExists int
 			tx.Get(&nextMatchExists, `SELECT COUNT(*) FROM elimination_matches WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`,
-				match.BracketUUID, nextRound, nextMatchNo)
+				match.BracketUUID, nextRound, globalNextMatchNo)
 
 			if nextMatchExists > 0 {
 				_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, slot),
-					winnerID, match.BracketUUID, nextRound, nextMatchNo)
+					winnerID, match.BracketUUID, nextRound, globalNextMatchNo)
 				if err != nil {
 					logrus.WithError(err).Error("Failed to advance winner")
 				}
@@ -2139,12 +2194,12 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 
 					nextMatchUUID := uuid.New().String()
 					tx.Exec(`INSERT INTO elimination_matches (uuid, bracket_uuid, round_no, match_no, entry_a_uuid, entry_b_uuid, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-						nextMatchUUID, match.BracketUUID, nextRound, nextMatchNo, entryA, entryB)
+						nextMatchUUID, match.BracketUUID, nextRound, globalNextMatchNo, entryA, entryB)
 
 					logrus.WithFields(logrus.Fields{
 						"next_match_uuid": nextMatchUUID,
 						"round":           nextRound,
-						"match_no":        nextMatchNo,
+						"match_no":        globalNextMatchNo,
 					}).Info("Created next round match from EndMatch")
 				}
 			}
@@ -2158,11 +2213,15 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 
 				if loserID != nil {
 					bronzeSlot := "entry_a_uuid"
-					if match.MatchNo%2 == 0 {
+					offset := getMatchNoOffset(bracketSize, match.RoundNo)
+					relativeMatchNo := match.MatchNo - offset
+					if relativeMatchNo%2 == 0 {
 						bronzeSlot = "entry_b_uuid"
 					}
+					finalRoundOffset := getMatchNoOffset(bracketSize, numRounds)
+					globalBronzeMatchNo := finalRoundOffset + 2
 					_, err = tx.Exec(fmt.Sprintf(`UPDATE elimination_matches SET %s = ? WHERE bracket_uuid = ? AND round_no = ? AND match_no = ?`, bronzeSlot),
-						*loserID, match.BracketUUID, numRounds, 2)
+						*loserID, match.BracketUUID, numRounds, globalBronzeMatchNo)
 					if err != nil {
 						logrus.WithError(err).Error("Failed to advance loser to bronze match in EndMatch")
 					}
@@ -2670,21 +2729,28 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		endRange := makeRange(1, bracket.EndsPerMatch)
 		isSet := bracket.Format == "recurve_set"
 
-		// helper: compute round label from bracket_size and round_no
-		roundLabel := func(roundNo int) string {
-			// In typical bracket, round_no=1 is the first match round (largest).
-			// Matches per round = bracket_size / 2^roundNo
-			// round_no=1 → bracket_size/2 matches; last round → 1 match (Final)
+		// helper: compute round label from bracket_size and global match_no
+		roundLabel := func(roundNo int, matchNo int) string {
 			totalRounds := 0
 			n := bracket.BracketSize
 			for n > 1 {
 				n /= 2
 				totalRounds++
 			}
+
+			// In our sequential scheme, Bronze match is always the LAST match (size)
+			// Finals is size-1
+			if matchNo == bracket.BracketSize {
+				return "Perebutan Juara 3 (Bronze)"
+			}
+			if matchNo == bracket.BracketSize-1 {
+				return "Final (Gold)"
+			}
+
 			roundsFromFinal := totalRounds - roundNo
 			switch roundsFromFinal {
 			case 0:
-				return "Final"
+				return "Final" // Should be handled by matchNo check above, but as fallback
 			case 1:
 				return "Semifinal"
 			case 2:
@@ -2699,7 +2765,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			card := &ElimMatchCard{
 				RoundNo:    r.RoundNo,
 				MatchNo:    r.MatchNo,
-				RoundLabel: roundLabel(r.RoundNo),
+				RoundLabel: roundLabel(r.RoundNo, r.MatchNo),
 				TargetName: r.TargetName.String,
 				BoardCode:  r.BoardCode.String,
 				NameA:      r.NameA.String,
