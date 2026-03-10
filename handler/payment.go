@@ -686,6 +686,55 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetOrganizationEarningsDetail returns detailed payments for a specific event
+func GetOrganizationEarningsDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		eventID := c.Param("id")
+
+		// Verify event belongs to organizer
+		var eventName string
+		err := db.Get(&eventName, "SELECT name FROM events WHERE uuid = ? AND organizer_id = ?", eventID, userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found or unauthorized"})
+			return
+		}
+
+		type PaymentDetail struct {
+			UUID          string    `json:"id" db:"uuid"`
+			ArcherName    string    `json:"archerName" db:"full_name"`
+			ArcherEmail   string    `json:"archerEmail" db:"email"`
+			Amount        float64   `json:"amount" db:"amount"`
+			Status        string    `json:"status" db:"status"`
+			CreatedAt     time.Time `json:"createdAt" db:"created_at"`
+			PaymentMethod string    `json:"method" db:"payment_method"`
+			Reference     string    `json:"reference" db:"reference"`
+		}
+
+		var details []PaymentDetail
+		query := `
+			SELECT 
+				pt.uuid, a.full_name, COALESCE(a.email, '-') as email, pt.amount, pt.status, pt.created_at, 
+				COALESCE(pt.payment_method, '-') as payment_method, pt.reference
+			FROM payment_transactions pt
+			JOIN event_participants ep ON pt.registration_id = ep.uuid
+			JOIN archers a ON ep.archer_id = a.uuid
+			WHERE ep.event_id = ? AND pt.status = 'paid'
+			ORDER BY pt.created_at DESC
+		`
+		err = db.Select(&details, query, eventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment details", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"eventName": eventName,
+			"payments":  details,
+		})
+	}
+}
+
 
 // GetPaymentChannels returns available Tripay payment channels
 func GetPaymentChannels(db *sqlx.DB) gin.HandlerFunc {

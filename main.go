@@ -562,6 +562,7 @@ func main() {
 			{
 
 				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
+				protectedOrgs.GET("/stats", handler.GetOrganizationDashboardStats(db))
 
 				// Scorekeeper management
 				scorekeepers := protectedOrgs.Group("/scorekeepers")
@@ -577,6 +578,7 @@ func main() {
 				{
 					bankAccounts.GET("", handler.GetBankAccounts(db))
 					bankAccounts.POST("", handler.CreateBankAccount(db))
+					bankAccounts.PUT("/:id", handler.UpdateBankAccount(db))
 					bankAccounts.DELETE("/:id", handler.DeleteBankAccount(db))
 				}
 
@@ -590,6 +592,7 @@ func main() {
 
 				// Earnings
 				protectedOrgs.GET("/earnings", handler.GetOrganizationEarningsSummary(db))
+				protectedOrgs.GET("/earnings/:id", handler.GetOrganizationEarningsDetail(db))
 			}
 		}
 

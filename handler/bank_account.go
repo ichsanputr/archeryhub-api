@@ -12,7 +12,7 @@ import (
 type BankAccount struct {
 	UUID          string    `json:"id" db:"uuid"`
 	UserID        string    `json:"user_id" db:"user_id"`
-BankName      string    `json:"bank_name" db:"bank_name"`
+	BankName      string    `json:"bank_name" db:"bank_name"`
 	AccountNumber string    `json:"account_number" db:"account_number"`
 	AccountName   string    `json:"account_name" db:"account_name"`
 	IsPrimary     bool      `json:"is_primary" db:"is_primary"`
@@ -86,6 +86,58 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "Bank account added successfully", "id": accountID})
+	}
+}
+
+func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		accountID := c.Param("id")
+
+		var req struct {
+			BankName      string `json:"bank_name" binding:"required"`
+			AccountNumber string `json:"account_number" binding:"required"`
+			AccountName   string `json:"account_name" binding:"required"`
+			IsPrimary     bool   `json:"is_primary"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		if req.IsPrimary {
+			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ?", userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset primary status"})
+				return
+			}
+		}
+
+		_, err = tx.Exec(`
+			UPDATE bank_accounts 
+			SET bank_name = ?, account_number = ?, account_name = ?, is_primary = ?, updated_at = NOW()
+			WHERE uuid = ? AND user_id = ?
+		`, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary, accountID, userID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bank account"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Bank account updated successfully"})
 	}
 }
 

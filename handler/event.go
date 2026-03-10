@@ -754,6 +754,11 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				args = append(args, searchTerm, searchTerm, searchTerm)
 			}
 
+			if paymentStatus := c.Query("payment_status"); paymentStatus != "" && paymentStatus != "Semua" {
+				whereClause += " AND tp.payment_status = ?"
+				args = append(args, paymentStatus)
+			}
+
 			// Count unique archers
 			var total int
 			countQuery := "SELECT COUNT(DISTINCT archer_id) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
@@ -876,6 +881,12 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ?)"
 			args = append(args, searchTerm, searchTerm)
 			countArgs = append(countArgs, searchTerm, searchTerm)
+		}
+
+		if paymentStatus := c.Query("payment_status"); paymentStatus != "" && paymentStatus != "Semua" {
+			whereClause += " AND tp.payment_status = ?"
+			args = append(args, paymentStatus)
+			countArgs = append(countArgs, paymentStatus)
 		}
 
 		// Get total count with filters
@@ -1189,39 +1200,62 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		type MyRegistration struct {
-			ID                  string   `db:"id" json:"id"`
-			EventID             string   `db:"event_id" json:"event_id"`
-			ArcherID            string   `db:"archer_id" json:"archer_id"`
-			AthleteCode         *string  `db:"athlete_code" json:"athlete_code"`
-			FullName            string   `db:"full_name" json:"full_name"`
-			Email               string   `db:"email" json:"email"`
-			ClubName            *string  `db:"club_name" json:"club_name"`
-			City                *string  `db:"city" json:"city"`
-			TargetName          *string  `db:"target_name" json:"target_name"`
-			PaymentStatus       string   `db:"payment_status" json:"payment_status"`
-			PaymentAmount       float64  `db:"payment_amount" json:"payment_amount"`
-			PaymentProofURLsRaw *string  `db:"payment_proof_urls" json:"-"`
-			PaymentProofURLs    []string `json:"payment_proof_urls"`
-			RegistrationDate    string   `db:"registration_date" json:"registration_date"`
-			DivisionName        string   `db:"division_name" json:"division_name"`
-			CategoryUUID        string   `db:"category_id" json:"category_id"`
-			CategoryName        string   `db:"category_name" json:"category_name"`
-			EventTypeName       *string  `db:"event_type_name" json:"event_type_name"`
-			GenderDivisionName  *string  `db:"gender_division_name" json:"gender_division_name"`
-			Transaction         *models.PaymentTransaction `json:"transaction"`
+		type MyRegistrationCategory struct {
+			ID                 string  `json:"id"`
+			CategoryUUID       string  `json:"category_id"`
+			DivisionName       string  `json:"division_name"`
+			CategoryName       string  `json:"category_name"`
+			EventTypeName      *string `json:"event_type_name"`
+			GenderDivisionName *string `json:"gender_division_name"`
+			TargetName         *string `json:"target_name"`
+			PaymentStatus      string  `json:"payment_status"`
+			PaymentAmount      float64 `json:"payment_amount"`
+			RegistrationDate   string  `json:"registration_date"`
 		}
 
-		var reg MyRegistration
-		err := db.Get(&reg, `
+		type MyRegistrationResponse struct {
+			ArcherID            string                   `json:"archer_id"`
+			AthleteCode         *string                  `json:"athlete_code"`
+			FullName            string                   `json:"full_name"`
+			Email               string                   `json:"email"`
+			ClubName            *string                  `json:"club_name"`
+			City                *string                  `json:"city"`
+			AvatarURL           *string                  `json:"avatar_url"`
+			PaymentStatus       string                   `json:"payment_status"` // Combined or latest
+			PaymentAmount       float64                  `json:"payment_amount"` // Total
+			PaymentProofURLs    []string                 `json:"payment_proof_urls"`
+			Categories          []MyRegistrationCategory `json:"categories"`
+			Transaction         *models.PaymentTransaction `json:"transaction"`
+			PaymentMethodManual *string                  `json:"payment_method_manual"`
+		}
+
+		type Row struct {
+			ID                  string   `db:"id"`
+			TargetName          *string  `db:"target_name"`
+			PaymentStatus        string   `db:"payment_status"`
+			PaymentAmount       float64  `db:"payment_amount"`
+			PaymentProofURLsRaw *string  `db:"payment_proof_urls"`
+			RegistrationDate    string   `db:"registration_date"`
+			DivisionName        string   `db:"division_name"`
+			CategoryUUID        string   `db:"category_id"`
+			CategoryName        string   `db:"category_name"`
+			EventTypeName       *string  `db:"event_type_name"`
+			GenderDivisionName  *string  `db:"gender_division_name"`
+			AthleteCode         *string  `db:"athlete_code"`
+			FullName            string   `db:"full_name"`
+			Email               string   `db:"email"`
+			City                *string  `db:"city"`
+			AvatarURL           *string  `db:"avatar_url"`
+			ClubName            *string  `db:"club_name"`
+		}
+
+		var rows []Row
+		err := db.Select(&rows, `
 			SELECT 
-				tp.uuid as id, tp.event_id, tp.archer_id, tp.target_name, tp.category_id,
+				tp.uuid as id, tp.target_name, tp.category_id,
 				tp.payment_status, tp.payment_amount, tp.payment_proof_urls, tp.registration_date,
-				a.id as athlete_code,
-				a.full_name,
-				COALESCE(a.email, '') as email,
-				a.city as city,
-				COALESCE(cl.name, '') as club_name,
+				a.id as athlete_code, a.full_name, COALESCE(a.email, '') as email,
+				a.city as city, a.avatar_url, COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
 			FROM event_participants tp
@@ -1234,28 +1268,70 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE tp.event_id = ? AND tp.archer_id = ?
 			ORDER BY tp.created_at ASC
-			LIMIT 1
 		`, actualEventID, archerID)
 
-		if err != nil {
+		if err != nil || len(rows) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
 			return
 		}
 
-		if reg.PaymentProofURLsRaw != nil && *reg.PaymentProofURLsRaw != "" {
-			reg.PaymentProofURLs = strings.Split(*reg.PaymentProofURLsRaw, ",")
-		} else {
-			reg.PaymentProofURLs = []string{}
+		firstRow := rows[0]
+		resp := MyRegistrationResponse{
+			ArcherID:     archerID,
+			AthleteCode:  firstRow.AthleteCode,
+			FullName:     firstRow.FullName,
+			Email:        firstRow.Email,
+			ClubName:     firstRow.ClubName,
+			City:         firstRow.City,
+			AvatarURL:    firstRow.AvatarURL,
+			Categories:   []MyRegistrationCategory{},
 		}
 
-		// Fetch payment transaction if exists
+		// Combined status logic: if any is "lunas", show lunas? 
+		// Or if any is "menunggu acc", show that?
+		// Let's just use the first one for the global chip if we have to, 
+		// but we'll show per category anyway.
+		resp.PaymentStatus = firstRow.PaymentStatus
+
+		allProofs := make(map[string]bool)
+		for _, row := range rows {
+			resp.Categories = append(resp.Categories, MyRegistrationCategory{
+				ID:                 row.ID,
+				CategoryUUID:       row.CategoryUUID,
+				DivisionName:       row.DivisionName,
+				CategoryName:       row.CategoryName,
+				EventTypeName:      row.EventTypeName,
+				GenderDivisionName: row.GenderDivisionName,
+				TargetName:         row.TargetName,
+				PaymentStatus:      row.PaymentStatus,
+				PaymentAmount:      row.PaymentAmount,
+				RegistrationDate:   row.RegistrationDate,
+			})
+			resp.PaymentAmount += row.PaymentAmount
+
+			if row.PaymentProofURLsRaw != nil && *row.PaymentProofURLsRaw != "" {
+				urls := strings.Split(*row.PaymentProofURLsRaw, ",")
+				for _, u := range urls {
+					allProofs[strings.TrimSpace(u)] = true
+				}
+			}
+		}
+
+		for u := range allProofs {
+			resp.PaymentProofURLs = append(resp.PaymentProofURLs, u)
+		}
+
+		// Fetch payment transaction for the first registration row (most common)
 		var transaction models.PaymentTransaction
-		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, reg.ID)
+		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, firstRow.ID)
 		if errTx == nil {
-			reg.Transaction = &transaction
+			resp.Transaction = &transaction
+		} else if len(resp.PaymentProofURLs) > 0 {
+			manual := "Manual Transfer"
+			resp.PaymentMethodManual = &manual
 		}
 
-		c.JSON(http.StatusOK, reg)
+		c.JSON(http.StatusOK, resp)
 	}
 }
 

@@ -533,3 +533,91 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Organization updated successfully"})
 	}
 }
+
+// GetOrganizationDashboardStats returns aggregated statistics for the organization's dashboard
+func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var stats struct {
+			TotalArchers       int     `json:"totalArchers"`
+			ActiveTargets      int     `json:"activeTargets"`
+			ActiveTotalTargets int     `json:"activeTotalTargets"`
+			CompletionRate     float64 `json:"completionRate"`
+			TimeLeft           string  `json:"timeLeft"`
+			RecentActiveEvent  *string `json:"recentActiveEvent"`
+		}
+
+		// 1. Total Unique Archers managed by this organization
+		// These are archers who have participated in any event organized by this organization
+		_ = db.Get(&stats.TotalArchers, `
+			SELECT COUNT(DISTINCT ep.archer_id) 
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			WHERE e.organizer_id = ?
+		`, userID)
+
+		// 2. Active Stats (from ongoing events)
+		var ongoingEventID string
+		err := db.Get(&ongoingEventID, `
+			SELECT uuid FROM events 
+			WHERE organizer_id = ? AND status = 'ongoing' 
+			ORDER BY updated_at DESC LIMIT 1
+		`, userID)
+
+		if err == nil && ongoingEventID != "" {
+			stats.RecentActiveEvent = &ongoingEventID
+
+			// Total targets in this event
+			_ = db.Get(&stats.ActiveTotalTargets, "SELECT COUNT(*) FROM event_targets WHERE event_uuid = ?", ongoingEventID)
+
+			// Occupied targets (targets with assignments)
+			_ = db.Get(&stats.ActiveTargets, `
+				SELECT COUNT(DISTINCT et.uuid) 
+				FROM event_targets et
+				JOIN qualification_target_assignments qta ON et.uuid = qta.target_uuid
+				WHERE et.event_uuid = ?
+			`, ongoingEventID)
+
+			// Completion calculation (Qualification ends)
+			var totalParticipants int
+			_ = db.Get(&totalParticipants, "SELECT COUNT(*) FROM event_participants WHERE event_id = ?", ongoingEventID)
+
+			var totalEndsForEvent int = 12 // Default
+			var qualificationArrows int
+			_ = db.Get(&qualificationArrows, "SELECT qualification_arrows FROM events WHERE uuid = ?", ongoingEventID)
+			if qualificationArrows > 0 {
+				totalEndsForEvent = (qualificationArrows + 5) / 6
+			}
+
+			if totalParticipants > 0 {
+				var completedEnds int
+				_ = db.Get(&completedEnds, `
+					SELECT COUNT(*) FROM qualification_end_scores qes
+					JOIN event_participants ep ON qes.participant_uuid = ep.uuid
+					WHERE ep.event_id = ?
+				`, ongoingEventID)
+
+				totalExpectedEnds := totalParticipants * totalEndsForEvent
+				if totalExpectedEnds > 0 {
+					stats.CompletionRate = (float64(completedEnds) / float64(totalExpectedEnds)) * 100
+				}
+			}
+
+			// Estimated Time Left (Stub for now, or based on ends)
+			stats.TimeLeft = "Ongoing"
+		} else {
+			// If no ongoing event, return 0s
+			stats.ActiveTargets = 0
+			stats.ActiveTotalTargets = 0
+			stats.CompletionRate = 0
+			stats.TimeLeft = "-"
+		}
+
+		c.JSON(http.StatusOK, stats)
+	}
+}
