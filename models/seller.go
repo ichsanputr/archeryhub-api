@@ -20,11 +20,16 @@ type Seller struct {
 	Province    *string   `json:"province" db:"province"`
 	Role        string    `json:"role" db:"role"`
 	IsVerified  bool      `json:"is_verified" db:"is_verified"`
-	Rating      float64   `json:"rating" db:"rating"`
-	TotalSales  int       `json:"total_sales" db:"total_sales"`
-	Status      string    `json:"status" db:"status"` // pending, active, suspended
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	Rating           float64    `json:"rating" db:"rating"`
+	TotalSales       int        `json:"total_sales" db:"total_sales"`
+	FollowersCount   int        `json:"followers_count" db:"followers_count"`
+	ProductCount     int        `json:"product_count" db:"product_count"`
+	ChatResponseRate string     `json:"chat_response_rate" db:"chat_response_rate"`
+	ChatResponseTime string     `json:"chat_response_time" db:"chat_response_time"`
+	LastActiveAt     *time.Time `json:"last_active_at" db:"last_active_at"`
+	Status           string     `json:"status" db:"status"` // pending, active, suspended
+	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // UpdateSellerRequest represents the payload to update a seller's profile

@@ -17,7 +17,7 @@ func GetCart(db *sqlx.DB) gin.HandlerFunc {
 		var items []models.CartItem
 		query := `
 			SELECT 
-				c.uuid, c.user_id, c.product_id, c.quantity, c.created_at, c.updated_at,
+				c.uuid, c.user_id, c.product_id, c.quantity, c.color, c.created_at, c.updated_at,
 				p.name as product_name, 
 				p.price as product_price, 
 				p.sale_price as product_sale_price, 
@@ -70,17 +70,21 @@ func AddToCart(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if item already in cart
+		// Check if item already in cart with SAME color
 		var existingID string
-		err = db.Get(&existingID, "SELECT uuid FROM cart_items WHERE user_id = ? AND product_id = ?", userID, req.ProductID)
+		err = db.Get(&existingID, "SELECT uuid FROM cart_items WHERE user_id = ? AND product_id = ? AND (color = ? OR (? = '' AND color IS NULL))", userID, req.ProductID, req.Color, req.Color)
 
 		if err == nil {
 			// Update quantity
-			_, err = db.Exec("UPDATE cart_items SET quantity = quantity + ? WHERE user_id = ? AND product_id = ?", req.Quantity, userID, req.ProductID)
+			_, err = db.Exec("UPDATE cart_items SET quantity = quantity + ? WHERE user_id = ? AND product_id = ? AND (color = ? OR (? = '' AND color IS NULL))", req.Quantity, userID, req.ProductID, req.Color, req.Color)
 		} else {
 			// Insert new item
 			cartID := uuid.New().String()
-			_, err = db.Exec("INSERT INTO cart_items (uuid, user_id, product_id, quantity) VALUES (?, ?, ?, ?)", cartID, userID, req.ProductID, req.Quantity)
+			colorPtr := &req.Color
+			if req.Color == "" {
+				colorPtr = nil
+			}
+			_, err = db.Exec("INSERT INTO cart_items (uuid, user_id, product_id, quantity, color) VALUES (?, ?, ?, ?, ?)", cartID, userID, req.ProductID, req.Quantity, colorPtr)
 		}
 
 		if err != nil {

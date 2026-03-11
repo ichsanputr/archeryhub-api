@@ -406,20 +406,7 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get team size for the category
-		var teamSize int
-		err := db.Get(&teamSize, `
-			SELECT CASE 
-				WHEN ret.code = 'mixed_team' THEN 2 
-				WHEN ret.code = 'team' THEN 3 
-				ELSE 1 
-			END as team_size
-			FROM event_categories ec
-			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
-			WHERE ec.uuid = ?`, categoryID)
-		if err != nil {
-			teamSize = 3 // Fallback
-		}
+		// limit := c.DefaultQuery("limit", "16")
 
 		type TeamRankingEntry struct {
 			Rank           int    `json:"rank"`
@@ -432,7 +419,7 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 			ParticipantIDs string `json:"participant_ids" db:"participant_ids"`
 		}
 
-		// SQL for Multi-Team and Partial Team support
+		// SQL to get top 3 archers per club and sum them
 		query := `
 			SELECT 
 				ROW_NUMBER() OVER(ORDER BY SUM(individual_score) DESC, SUM(individual_x) DESC) as rank,
@@ -459,14 +446,14 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 				WHERE ep.category_id = ?
 				GROUP BY ep.uuid, cl.uuid, cl.name
 			) ranked
-			WHERE club_id IS NOT NULL
-			GROUP BY club_id, club_name, CEIL(club_rank / ?)
-			HAVING member_count >= 2
+			WHERE club_rank <= 3 AND club_id IS NOT NULL
+			GROUP BY club_id, club_name
+			HAVING member_count >= 3
 			ORDER BY total_score DESC, total_x DESC
 		`
 
 		var rankings []TeamRankingEntry
-		err = db.Select(&rankings, query, categoryID, teamSize)
+		err := db.Select(&rankings, query, categoryID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate team rankings", "details": err.Error()})
 			return
@@ -537,7 +524,7 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 			TotalX      int    `json:"total_x" db:"total_x"`
 		}
 
-		// SQL to get all potential M and F pairs per club
+		// SQL to get top 1 M and top 1 F per club
 		query := `
 			SELECT 
 				ROW_NUMBER() OVER(ORDER BY (male_score + female_score) DESC, (male_x + female_x) DESC) as rank,
@@ -555,7 +542,6 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 				SELECT 
 					cl.uuid as club_id,
 					cl.name as club_name,
-					ep.rank_in_club,
 					MAX(CASE WHEN ep.category_id = ? THEN archer_name ELSE '' END) as male_name,
 					MAX(CASE WHEN ep.category_id = ? THEN archer_name ELSE '' END) as female_name,
 					MAX(CASE WHEN ep.category_id = ? THEN archer_id ELSE '' END) as male_id,
@@ -589,7 +575,8 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 					) a
 				) ep
 				JOIN clubs cl ON ep.club_id = cl.uuid
-				GROUP BY cl.uuid, cl.name, ep.rank_in_club
+				WHERE ep.rank_in_club = 1
+				GROUP BY cl.uuid, cl.name
 				HAVING male_score > 0 AND female_score > 0
 			) mixed
 			ORDER BY total_score DESC, total_x DESC
@@ -812,7 +799,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				SELECT club_id, club_name, male_id, female_id, male_score, female_score, (male_score + female_score) as total_score, (male_x + female_x) as total_x
 				FROM (
 					SELECT 
-						cl.uuid as club_id, cl.name as club_name, ep.rank_in_club,
+						cl.uuid as club_id, cl.name as club_name,
 						MAX(CASE WHEN ep.category_id = ? THEN archer_id ELSE '' END) as male_id,
 						MAX(CASE WHEN ep.category_id = ? THEN archer_id ELSE '' END) as female_id,
 						MAX(CASE WHEN ep.category_id = ? THEN individual_score ELSE 0 END) as male_score,
@@ -820,36 +807,29 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 						MAX(CASE WHEN ep.category_id = ? THEN individual_x ELSE 0 END) as male_x,
 						MAX(CASE WHEN ep.category_id = ? THEN individual_x ELSE 0 END) as female_x
 					FROM (
-						SELECT ep.archer_id, a.club_id, ep.category_id, individual_score, individual_x,
+						SELECT a.archer_id, a.club_id, ep.category_id, individual_score, individual_x,
 							ROW_NUMBER() OVER(PARTITION BY a.club_id, a.category_id ORDER BY individual_score DESC, individual_x DESC) as rank_in_club
 						FROM (
 							SELECT ep.archer_id, a.club_id, ep.category_id, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x
 							FROM event_participants ep
 							JOIN archers a ON ep.archer_id = a.uuid
-							LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
+							LEFT JOIN qualification_end_scores s ON s.archer_uuid = a.uuid
 							WHERE ep.category_id IN (?, ?)
 							GROUP BY ep.archer_id, a.club_id, ep.category_id
 						) a
 					) ep
 					JOIN clubs cl ON ep.club_id = cl.uuid
-					GROUP BY cl.uuid, cl.name, ep.rank_in_club
+					WHERE ep.rank_in_club = 1
+					GROUP BY cl.uuid, cl.name
 					HAVING male_score > 0 AND female_score > 0
 				) mixed ORDER BY total_score DESC, total_x DESC`
 			
-			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID)
+			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID)
 			if err == nil {
-				clubCounter := make(map[string]int)
-				letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 				for i, r := range rankings {
-					clubCounter[r.ClubID]++
-					suffix := ""
-					if clubCounter[r.ClubID] <= len(letters) {
-						suffix = " " + string(letters[clubCounter[r.ClubID]-1])
-					}
-
 					teamUUID := uuid.New().String()
 					tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-						teamUUID, eventUUID, req.CategoryID, "Mixed " + r.ClubName + suffix, i+1, r.TotalScore, r.TotalX)
+						teamUUID, eventUUID, req.CategoryID, "Mixed "+r.ClubName, i+1, r.TotalScore, r.TotalX)
 					
 					pIDs := []string{r.MaleID, r.FemaleID}
 					for order, pID := range pIDs {
@@ -867,7 +847,6 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				TotalScore     int    `db:"total_score"`
 				TotalX         int    `db:"total_x"`
 				ParticipantIDs string `db:"participant_ids"`
-				MemberCount    int    `db:"member_count"`
 			}
 			teamSize := catInfo.TeamSize
 			if teamSize <= 0 {
@@ -875,36 +854,28 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			query := `
-				SELECT club_id, club_name, SUM(individual_score) as total_score, SUM(individual_x) as total_x, GROUP_CONCAT(archer_id ORDER BY individual_score DESC SEPARATOR ',') as participant_ids, COUNT(*) as member_count
+				SELECT club_id, club_name, SUM(individual_score) as total_score, SUM(individual_x) as total_x, GROUP_CONCAT(archer_id ORDER BY individual_score DESC SEPARATOR ',') as participant_ids
 				FROM (
 					SELECT a.uuid as archer_id, cl.uuid as club_id, COALESCE(cl.name, 'Independen') as club_name, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x,
 						ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as club_rank
 					FROM event_participants ep
 					JOIN archers a ON ep.archer_id = a.uuid
 					LEFT JOIN clubs cl ON a.club_id = cl.uuid
-					LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
+					LEFT JOIN qualification_end_scores s ON s.archer_uuid = a.uuid
 					WHERE ep.category_id = ?
-					GROUP BY ep.uuid, cl.uuid, cl.name
+					GROUP BY a.uuid, cl.uuid, cl.name
 				) ranked
-				WHERE club_id IS NOT NULL
-				GROUP BY club_id, club_name, CEIL(club_rank / ?)
-				HAVING member_count >= 2
+				WHERE club_rank <= ? AND club_id IS NOT NULL
+				GROUP BY club_id, club_name
+				HAVING COUNT(*) >= ?
 				ORDER BY total_score DESC, total_x DESC`
 			
-			err = tx.Select(&rankings, query, req.CategoryID, teamSize)
+			err = tx.Select(&rankings, query, req.CategoryID, teamSize, teamSize)
 			if err == nil {
-				clubCounter := make(map[string]int)
-				letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 				for i, r := range rankings {
-					clubCounter[r.ClubID]++
-					suffix := ""
-					if clubCounter[r.ClubID] <= len(letters) {
-						suffix = " " + string(letters[clubCounter[r.ClubID]-1])
-					}
-
 					teamUUID := uuid.New().String()
 					tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-						teamUUID, eventUUID, req.CategoryID, r.ClubName + suffix, i+1, r.TotalScore, r.TotalX)
+						teamUUID, eventUUID, req.CategoryID, r.ClubName + " ("+catInfo.DivisionName+")", i+1, r.TotalScore, r.TotalX)
 					
 					pIDs := strings.Split(r.ParticipantIDs, ",")
 					for order, pID := range pIDs {

@@ -41,6 +41,13 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 				maskedStr := string(maskedJSON)
 				products[i].Images = &maskedStr
 			}
+			if products[i].Colors != nil && *products[i].Colors != "" {
+				var colors []string
+				json.Unmarshal([]byte(*products[i].Colors), &colors)
+				maskedJSON, _ := json.Marshal(colors)
+				maskedStr := string(maskedJSON)
+				products[i].Colors = &maskedStr
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": products})
@@ -85,6 +92,13 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 				maskedStr := string(maskedJSON)
 				products[i].Images = &maskedStr
 			}
+			if products[i].Colors != nil && *products[i].Colors != "" {
+				var colors []string
+				json.Unmarshal([]byte(*products[i].Colors), &colors)
+				maskedJSON, _ := json.Marshal(colors)
+				maskedStr := string(maskedJSON)
+				products[i].Colors = &maskedStr
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": products})
@@ -119,8 +133,35 @@ func GetProductByID(db *sqlx.DB) gin.HandlerFunc {
 			maskedStr := string(maskedJSON)
 			product.Images = &maskedStr
 		}
+		if product.Colors != nil && *product.Colors != "" {
+			var colors []string
+			json.Unmarshal([]byte(*product.Colors), &colors)
+			maskedJSON, _ := json.Marshal(colors)
+			maskedStr := string(maskedJSON)
+			product.Colors = &maskedStr
+		}
 
-		c.JSON(http.StatusOK, gin.H{"data": product})
+		// Enrich with seller info
+		var enriched models.EnrichedProduct
+		enriched.Product = product
+
+		if product.SellerID != nil {
+			var seller models.Seller
+			err = db.Get(&seller, "SELECT * FROM sellers WHERE uuid = ?", *product.SellerID)
+			if err == nil {
+				if seller.AvatarURL != nil && *seller.AvatarURL != "" {
+					masked := utils.MaskMediaURL(*seller.AvatarURL)
+					seller.AvatarURL = &masked
+				}
+				if seller.BannerURL != nil && *seller.BannerURL != "" {
+					masked := utils.MaskMediaURL(*seller.BannerURL)
+					seller.BannerURL = &masked
+				}
+				enriched.Seller = &seller
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": enriched})
 	}
 }
 
@@ -146,6 +187,7 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		imagesJSON, _ := json.Marshal(req.Images)
+		colorsJSON, _ := json.Marshal(req.Colors)
 		specJSON, _ := json.Marshal(req.Specifications)
 
 		userIDStr := userID.(string)
@@ -156,9 +198,9 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			INSERT INTO products (uuid, seller_id, name, slug, description, price, sale_price, category, stock, status, image_url, images, specifications)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, productID, sellerID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(specJSON))
+			INSERT INTO products (uuid, seller_id, name, slug, description, price, sale_price, category, stock, status, image_url, images, colors, specifications)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, productID, sellerID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(colorsJSON), string(specJSON))
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product: " + err.Error()})
@@ -238,6 +280,11 @@ func UpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 			imagesJSON, _ := json.Marshal(req.Images)
 			query += ", images = ?"
 			args = append(args, string(imagesJSON))
+		}
+		if req.Colors != nil {
+			colorsJSON, _ := json.Marshal(req.Colors)
+			query += ", colors = ?"
+			args = append(args, string(colorsJSON))
 		}
 		if req.Specifications != nil {
 			specJSON, _ := json.Marshal(req.Specifications)

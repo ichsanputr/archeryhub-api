@@ -20,10 +20,16 @@ type Product struct {
 	Status         string    `json:"status" db:"status"` // draft, active, sold_out, archived
 	ImageURL       *string   `json:"image_url" db:"image_url"`
 	Images         *string   `json:"images" db:"images"`                 // JSON array
+	Colors         *string   `json:"colors" db:"colors"`                 // JSON array
 	Specifications *string   `json:"specifications" db:"specifications"` // JSON object
 	Views          int       `json:"views" db:"views"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type EnrichedProduct struct {
+	Product
+	Seller *Seller `json:"seller,omitempty"`
 }
 
 // CreateProductRequest represents the payload to create a new product
@@ -37,6 +43,7 @@ type CreateProductRequest struct {
 	Status         string   `json:"status"`
 	ImageURL       *string  `json:"image_url"`
 	Images         []string `json:"images"`
+	Colors         []string `json:"colors"`
 	Specifications any      `json:"specifications"`
 }
 
@@ -51,6 +58,7 @@ type UpdateProductRequest struct {
 	Status         *string  `json:"status"`
 	ImageURL       *string  `json:"image_url"`
 	Images         []string `json:"images"`
+	Colors         []string `json:"colors"`
 	Specifications any      `json:"specifications"`
 }
 
@@ -60,6 +68,7 @@ type CartItem struct {
 	UserID    string    `json:"user_id" db:"user_id"`
 	ProductID string    `json:"product_id" db:"product_id"`
 	Quantity  int       `json:"quantity" db:"quantity"`
+	Color     *string   `json:"color" db:"color"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
@@ -76,6 +85,7 @@ type CartItem struct {
 type AddToCartRequest struct {
 	ProductID string `json:"product_id" binding:"required"`
 	Quantity  int    `json:"quantity" binding:"required,min=1"`
+	Color     string `json:"color"`
 }
 
 // UpdateCartItemRequest represents the payload to update cart item quantity
