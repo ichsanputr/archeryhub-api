@@ -1234,6 +1234,58 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetBracketTeamMembers returns all team members for every entry in a bracket,
+// grouped by elimination entry UUID. Used by the scoring UI to display archer names.
+func GetBracketTeamMembers(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bracketID := c.Param("bracketId")
+
+		var bracketUUID string
+		if err := db.Get(&bracketUUID, `SELECT uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
+			return
+		}
+
+		type MemberRow struct {
+			EntryUUID   string  `db:"entry_uuid"`
+			FullName    string  `db:"full_name"`
+			AvatarURL   *string `db:"avatar_url"`
+			MemberOrder int     `db:"member_order"`
+		}
+		var rows []MemberRow
+		db.Select(&rows, `
+			SELECT
+				ee.uuid as entry_uuid,
+				COALESCE(a.full_name, '') as full_name,
+				a.avatar_url,
+				tm.member_order
+			FROM elimination_entries ee
+			JOIN teams t ON ee.participant_uuid = t.uuid AND ee.participant_type = 'team'
+			JOIN team_members tm ON tm.team_id = t.uuid
+			JOIN event_participants ep ON tm.participant_id = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			WHERE ee.bracket_uuid = ?
+			ORDER BY ee.uuid, tm.member_order ASC
+		`, bracketUUID)
+
+		result := make(map[string][]gin.H)
+		for _, row := range rows {
+			member := gin.H{
+				"full_name":    row.FullName,
+				"member_order": row.MemberOrder,
+				"avatar_url":   nil,
+			}
+			if row.AvatarURL != nil {
+				masked := utils.MaskMediaURL(*row.AvatarURL)
+				member["avatar_url"] = masked
+			}
+			result[row.EntryUUID] = append(result[row.EntryUUID], member)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"members": result})
+	}
+}
+
 // AutoAssignMatchTargets automatically assigns available targets to matches in a specific round
 func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

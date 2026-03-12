@@ -3,10 +3,13 @@ package handler
 import (
 	"archeryhub-api/utils"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -128,8 +131,8 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 
 		if orgSub != "active" && orgSub != "trial" {
 			c.JSON(http.StatusPaymentRequired, gin.H{
-				"error": "Organization subscription expired",
-				"code": "subscription_expired",
+				"error":   "Organization subscription expired",
+				"code":    "subscription_expired",
 				"message": "Layanan scoring dihentikan sementara karena masa berlaku langganan organisasi telah berakhir. Silakan hubungi admin organisasi Anda.",
 			})
 			return
@@ -383,8 +386,8 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 			type ArcherInfo struct {
 				AssignmentUUID  string  `db:"assignment_uuid" json:"assignment_uuid"`
 				ParticipantUUID string  `db:"participant_uuid" json:"participant_uuid"`
-				Position        string  `db:"position" json:"position"`         // e.g. "A"
-				TargetName      string  `db:"target_name" json:"target_name"`   // e.g. "003A"
+				Position        string  `db:"position" json:"position"`       // e.g. "A"
+				TargetName      string  `db:"target_name" json:"target_name"` // e.g. "003A"
 				Name            string  `db:"name" json:"name"`
 				Division        string  `db:"division" json:"division"`
 				AvatarURL       *string `db:"avatar_url" json:"avatar_url"`
@@ -849,5 +852,533 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 			},
 			"ends": ends,
 		})
+	}
+}
+
+// ─── Archer Auth ──────────────────────────────────────────────────────────────
+
+// MobileArcherLogin godoc
+// @Summary      Archer login
+// @Description  Login for archers using email and password
+// @Tags         Mobile - Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object{email=string,password=string}  true  "Login credentials"
+// @Success      200      {object}  MobileLoginResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      401      {object}  ErrorResponse
+// @Router       /mobile/auth/login [post]
+func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var archer struct {
+			UUID      string  `db:"uuid"`
+			ID        string  `db:"id"`
+			Username  string  `db:"username"`
+			Email     string  `db:"email"`
+			Password  string  `db:"password"`
+			FullName  string  `db:"full_name"`
+			AvatarURL *string `db:"avatar_url"`
+			Status    string  `db:"status"`
+		}
+		err := db.Get(&archer, `SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status FROM archers WHERE email = ?`, req.Email)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
+			return
+		}
+
+		if archer.Status != "active" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active", "code": "account_inactive"})
+			return
+		}
+		if archer.Password == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "This account uses Google sign-in. Please sign in with Google.", "code": "use_google_signin"})
+			return
+		}
+		if archer.Password != req.Password {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
+			return
+		}
+
+		avatar := ""
+		if archer.AvatarURL != nil {
+			avatar = utils.MaskMediaURL(*archer.AvatarURL)
+		}
+		token, err := generateJWT(archer.UUID, archer.Email, "archer", "archer", archer.FullName, avatar, "")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"token": token,
+			"user": gin.H{
+				"uuid":       archer.UUID,
+				"id":         archer.ID,
+				"username":   archer.Username,
+				"full_name":  archer.FullName,
+				"email":      archer.Email,
+				"avatar_url": avatar,
+				"role":       "archer",
+				"user_type":  "archer",
+			},
+		})
+	}
+}
+
+// MobileArcherRegister godoc
+// @Summary      Archer registration
+// @Description  Register a new archer account
+// @Tags         Mobile - Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  true  "Registration info"
+// @Success      201      {object}  MobileLoginResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      409      {object}  ErrorResponse
+// @Router       /mobile/auth/register [post]
+func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email       string `json:"email" binding:"required,email"`
+			Password    string `json:"password" binding:"required,min=6"`
+			FullName    string `json:"full_name" binding:"required"`
+			Phone       string `json:"phone"`
+			Gender      string `json:"gender"`
+			DateOfBirth string `json:"date_of_birth"`
+			City        string `json:"city"`
+			BowType     string `json:"bow_type"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var exists bool
+		db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM archers WHERE email = ?)`, req.Email)
+		if exists {
+			c.JSON(http.StatusConflict, gin.H{"error": "Email already registered", "code": "email_exists"})
+			return
+		}
+
+		userID := uuid.New().String()
+
+		var lastID string
+		_ = db.Get(&lastID, "SELECT id FROM archers WHERE id LIKE 'ARC-%' ORDER BY id DESC LIMIT 1")
+		nextIDNum := 1
+		if lastID != "" {
+			parts := strings.Split(lastID, "-")
+			if len(parts) == 2 {
+				fmt.Sscanf(parts[1], "%d", &nextIDNum)
+				nextIDNum++
+			}
+		}
+		athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
+
+		username := utils.CleanUsername(req.FullName)
+		if username == "" {
+			username = "archer"
+		}
+		username = username + "-" + userID[:8]
+
+		_, err := db.Exec(`
+			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, city, bow_type)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)
+		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, req.Gender, req.DateOfBirth, req.City, req.BowType)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create account: " + err.Error()})
+			return
+		}
+
+		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, "", "")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"token": token,
+			"user": gin.H{
+				"uuid":      userID,
+				"id":        athleteID,
+				"username":  username,
+				"full_name": req.FullName,
+				"email":     req.Email,
+				"role":      "archer",
+				"user_type": "archer",
+			},
+		})
+	}
+}
+
+// ─── Events (public) ──────────────────────────────────────────────────────────
+
+// MobileGetEventDetail godoc
+// @Summary      Event detail by slug
+// @Description  Get full event detail including categories and registration status
+// @Tags         Mobile - Events
+// @Produce      json
+// @Param        slug  path   string  true  "Event slug or UUID"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      404   {object}  ErrorResponse
+// @Router       /mobile/events/{slug} [get]
+func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Param("slug")
+
+		var event struct {
+			UUID             string  `db:"uuid" json:"uuid"`
+			Name             string  `db:"name" json:"name"`
+			Slug             string  `db:"slug" json:"slug"`
+			Location         string  `db:"location" json:"location"`
+			StartDate        string  `db:"start_date" json:"start_date"`
+			EndDate          string  `db:"end_date" json:"end_date"`
+			RegStartDate     *string `db:"registration_start" json:"registration_start"`
+			RegEndDate       *string `db:"registration_deadline" json:"registration_deadline"`
+			LogoURL          *string `db:"logo_url" json:"logo_url"`
+			BannerURL        *string `db:"banner_url" json:"banner_url"`
+			Description      *string `db:"description" json:"description"`
+			Status           string  `db:"status" json:"status"`
+			OrganizerName    string  `db:"organizer_name" json:"organizer_name"`
+			OrganizerAvatar  *string `db:"organizer_avatar" json:"organizer_avatar"`
+			ParticipantCount int     `db:"participant_count" json:"participant_count"`
+		}
+		err := db.Get(&event, `
+			SELECT e.uuid, e.name, e.slug, e.location, e.start_date, e.end_date,
+				e.registration_start, e.registration_deadline,
+				e.logo_url, e.banner_url, e.description, e.status,
+				COALESCE(o.full_name, '') as organizer_name,
+				o.avatar_url as organizer_avatar,
+				COUNT(DISTINCT ep.archer_id) as participant_count
+			FROM events e
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, avatar_url FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, avatar_url FROM clubs
+			) o ON e.organizer_id = o.id
+			LEFT JOIN event_participants ep ON e.uuid = ep.event_id
+			WHERE e.slug = ? OR e.uuid = ?
+			GROUP BY e.uuid
+		`, slug, slug)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		if event.LogoURL != nil {
+			masked := utils.MaskMediaURL(*event.LogoURL)
+			event.LogoURL = &masked
+		}
+		if event.BannerURL != nil {
+			masked := utils.MaskMediaURL(*event.BannerURL)
+			event.BannerURL = &masked
+		}
+		if event.OrganizerAvatar != nil {
+			masked := utils.MaskMediaURL(*event.OrganizerAvatar)
+			event.OrganizerAvatar = &masked
+		}
+
+		type Category struct {
+			UUID             string  `db:"uuid" json:"uuid"`
+			Name             string  `db:"name" json:"name"`
+			RegistrationFee  float64 `db:"registration_fee" json:"registration_fee"`
+			MaxParticipants  *int    `db:"max_participants" json:"max_participants"`
+			ParticipantCount int     `db:"participant_count" json:"participant_count"`
+		}
+		var categories []Category
+		db.Select(&categories, `
+			SELECT ec.uuid,
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as name,
+				COALESCE(ec.registration_fee, 0) as registration_fee,
+				ec.max_participants,
+				COUNT(DISTINCT ep.archer_id) as participant_count
+			FROM event_categories ec
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN event_participants ep ON ep.event_category_id = ec.uuid
+			WHERE ec.event_id = ?
+			GROUP BY ec.uuid
+			ORDER BY ec.sort_order ASC, ec.created_at ASC
+		`, event.UUID)
+		if categories == nil {
+			categories = []Category{}
+		}
+
+		// Check if authenticated archer is already registered
+		isRegistered := false
+		registrationStatus := ""
+		if userID, ok := c.Get("user_id"); ok && userID != nil {
+			var reg struct {
+				Status string `db:"payment_status"`
+			}
+			if regErr := db.Get(&reg, `SELECT payment_status FROM event_participants WHERE event_id = ? AND archer_id = ? LIMIT 1`, event.UUID, fmt.Sprintf("%v", userID)); regErr == nil {
+				isRegistered = true
+				registrationStatus = reg.Status
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"event":               event,
+			"categories":          categories,
+			"is_registered":       isRegistered,
+			"registration_status": registrationStatus,
+		})
+	}
+}
+
+// ─── Archer Account (requires auth) ──────────────────────────────────────────
+
+// MobileRegisterForEvent godoc
+// @Summary      Register archer for event
+// @Description  Authenticated archer self-registers for one or more event categories
+// @Tags         Mobile - Archer
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path  string  true  "Event UUID or slug"
+// @Param        request  body  object  true  "Category IDs and payment type"
+// @Success      201      {object}  map[string]interface{}
+// @Failure      400      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /mobile/archer/events/{id}/register [post]
+func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		var req struct {
+			EventCategoryIDs []string `json:"event_category_ids" binding:"required,min=1"`
+			PaymentType      string   `json:"payment_type"` // "manual" or "gateway"
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var archerUUID string
+		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Archer account not found"})
+			return
+		}
+
+		var event struct {
+			UUID        string `db:"uuid"`
+			OrganizerID string `db:"organizer_id"`
+		}
+		if err := db.Get(&event, `SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		var orgStatus string
+		db.Get(&orgStatus, `
+			SELECT COALESCE(s, 'trial') FROM (
+				SELECT subscription_status as s FROM organizations WHERE uuid = ?
+				UNION ALL
+				SELECT 'trial' as s FROM clubs WHERE uuid = ?
+			) combined LIMIT 1`, event.OrganizerID, event.OrganizerID)
+		if orgStatus != "" && orgStatus != "active" && orgStatus != "trial" {
+			c.JSON(http.StatusPaymentRequired, gin.H{"error": "Pendaftaran ditutup sementara oleh sistem", "code": "organizer_subscription_expired"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		paymentStatus := "menunggu acc"
+		if req.PaymentType == "gateway" {
+			paymentStatus = "unpaid"
+		}
+
+		var registeredCategories []string
+		for _, catID := range req.EventCategoryIDs {
+			var existingID string
+			if err := tx.Get(&existingID, `SELECT uuid FROM event_participants WHERE event_id = ? AND archer_id = ? AND event_category_id = ?`, event.UUID, archerUUID, catID); err == nil {
+				continue
+			}
+			participantID := uuid.New().String()
+			if _, err = tx.Exec(`
+				INSERT INTO event_participants (uuid, event_id, archer_id, event_category_id, payment_status, registration_source, registration_date)
+				VALUES (?, ?, ?, ?, ?, 'mobile_app', NOW())
+			`, participantID, event.UUID, archerUUID, catID, paymentStatus); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register: " + err.Error()})
+				return
+			}
+			registeredCategories = append(registeredCategories, catID)
+		}
+
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit"})
+			return
+		}
+
+		if registeredCategories == nil {
+			registeredCategories = []string{}
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":               "Pendaftaran berhasil",
+			"registered_categories": registeredCategories,
+			"payment_status":        paymentStatus,
+		})
+	}
+}
+
+// MobileGetMyRegistration godoc
+// @Summary      Get archer's registration for an event
+// @Description  Returns registration details including payment status and payment instructions
+// @Tags         Mobile - Archer
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "Event UUID or slug"
+// @Success      200 {object}  map[string]interface{}
+// @Failure      404 {object}  ErrorResponse
+// @Router       /mobile/archer/events/{id}/registration [get]
+func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		var archerUUID string
+		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Archer not found"})
+			return
+		}
+
+		var eventUUID string
+		if err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		type Registration struct {
+			ParticipantID    string  `db:"uuid" json:"id"`
+			CategoryName     string  `db:"category_name" json:"category_name"`
+			PaymentStatus    string  `db:"payment_status" json:"payment_status"`
+			PaymentAmount    float64 `db:"payment_amount" json:"payment_amount"`
+			PaymentMethod    *string `db:"payment_method" json:"payment_method"`
+			TripayRef        *string `db:"tripay_reference" json:"tripay_reference"`
+			CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
+			Instructions     *string `db:"instructions" json:"instructions"`
+			VANumber         *string `db:"va_number" json:"va_number"`
+			PayCode          *string `db:"pay_code" json:"pay_code"`
+			QRURL            *string `db:"qr_url" json:"qr_url"`
+			RegistrationDate string  `db:"registration_date" json:"registration_date"`
+		}
+		var registrations []Registration
+		err := db.Select(&registrations, `
+			SELECT
+				ep.uuid,
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
+				ep.payment_status,
+				COALESCE(ep.payment_amount, 0) as payment_amount,
+				pt.payment_method,
+				pt.tripay_reference,
+				pt.checkout_url,
+				pt.instructions,
+				pt.va_number,
+				pt.pay_code,
+				pt.qr_url,
+				ep.registration_date
+			FROM event_participants ep
+			LEFT JOIN event_categories ec ON ep.event_category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN payment_transactions pt ON pt.participant_id = ep.uuid AND pt.status = 'pending'
+			WHERE ep.event_id = ? AND ep.archer_id = ?
+			ORDER BY ep.registration_date DESC
+		`, eventUUID, archerUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch registration"})
+			return
+		}
+		if registrations == nil {
+			registrations = []Registration{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"event_id":      eventUUID,
+			"registrations": registrations,
+		})
+	}
+}
+
+// MobileGetMyEvents godoc
+// @Summary      List archer's registered events
+// @Description  Returns all events the authenticated archer has registered for
+// @Tags         Mobile - Archer
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{}
+// @Router       /mobile/archer/events [get]
+func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		var archerUUID string
+		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Archer not found"})
+			return
+		}
+
+		type MyEvent struct {
+			EventUUID        string  `db:"event_uuid" json:"event_uuid"`
+			EventName        string  `db:"event_name" json:"event_name"`
+			EventSlug        string  `db:"event_slug" json:"event_slug"`
+			Location         string  `db:"location" json:"location"`
+			StartDate        string  `db:"start_date" json:"start_date"`
+			EndDate          string  `db:"end_date" json:"end_date"`
+			LogoURL          *string `db:"logo_url" json:"logo_url"`
+			CategoryName     string  `db:"category_name" json:"category_name"`
+			PaymentStatus    string  `db:"payment_status" json:"payment_status"`
+			RegistrationDate string  `db:"registration_date" json:"registration_date"`
+		}
+		var events []MyEvent
+		err := db.Select(&events, `
+			SELECT
+				e.uuid as event_uuid, e.name as event_name, e.slug as event_slug,
+				e.location, e.start_date, e.end_date, e.logo_url,
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
+				ep.payment_status,
+				ep.registration_date
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			LEFT JOIN event_categories ec ON ep.event_category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			WHERE ep.archer_id = ?
+			ORDER BY e.start_date DESC
+		`, archerUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events"})
+			return
+		}
+		if events == nil {
+			events = []MyEvent{}
+		}
+
+		for i := range events {
+			if events[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*events[i].LogoURL)
+				events[i].LogoURL = &masked
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"events": events, "total": len(events)})
 	}
 }

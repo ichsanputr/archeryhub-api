@@ -265,7 +265,7 @@ func main() {
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
 			events.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
 			events.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
-				events.DELETE("/:id/participants/me", middleware.AuthMiddleware(), handler.UnregisterFromEvent(db))
+			events.DELETE("/:id/participants/me", middleware.AuthMiddleware(), handler.UnregisterFromEvent(db))
 			events.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateEventParticipant(db))
 			events.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
@@ -343,6 +343,7 @@ func main() {
 			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
 			elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
 			elimination.GET("/brackets/:bracketId/scoresheet", handler.GetEliminationScoresheet(db))
+			elimination.GET("/brackets/:bracketId/team-members", handler.GetBracketTeamMembers(db))
 			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), handler.UpdateMatchTargets(db))
 			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), handler.AutoAssignMatchTargets(db))
 			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
@@ -506,10 +507,13 @@ func main() {
 			auth := mobile.Group("/auth")
 			{
 				auth.POST("/scorekeeper/login", handler.MobileScorekeeperLogin(db))
+				auth.POST("/login", handler.MobileArcherLogin(db))
+				auth.POST("/register", handler.MobileArcherRegister(db))
 			}
 
 			// 2. Events (public)
 			mobile.GET("/events", handler.MobileListEvents(db))
+			mobile.GET("/events/:slug", handler.MobileGetEventDetail(db))
 
 			// 3. Target scan by QR/barcode code (requires auth)
 			mobileAuth := mobile.Group("")
@@ -518,6 +522,15 @@ func main() {
 				mobileAuth.GET("/scan", handler.MobileScanTarget(db))
 				mobileAuth.GET("/sessions/boards", handler.MobileGetSessionBoards(db))
 				mobileAuth.GET("/assignments/:assignmentId/detail", handler.MobileGetAssignmentScoreDetail(db))
+			}
+
+			// 4b. Archer account (requires auth)
+			mobileArcher := mobile.Group("/archer")
+			mobileArcher.Use(middleware.AuthMiddleware())
+			{
+				mobileArcher.GET("/events", handler.MobileGetMyEvents(db))
+				mobileArcher.POST("/events/:id/register", handler.MobileRegisterForEvent(db))
+				mobileArcher.GET("/events/:id/registration", handler.MobileGetMyRegistration(db))
 			}
 
 			// 4. Qualification Scoring
