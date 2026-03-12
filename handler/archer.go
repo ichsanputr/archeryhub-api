@@ -140,8 +140,6 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-
-
 		query := `
 			SELECT 
 				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
@@ -153,23 +151,17 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.achievements, a.equipment, a.page_settings,
 				c.name as club_name,
 				c.slug as club_slug,
-				cm.coach_notes,
-				cm.status as club_member_status,
-				cm.uuid as club_member_uuid,
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN club_members cm ON a.uuid = cm.archer_id AND a.club_id = cm.club_id
 			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
 			LEFT JOIN events t ON tp.event_id = t.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
-			GROUP BY a.uuid, cm.coach_notes, cm.status, cm.uuid
+			GROUP BY a.uuid
 			LIMIT 1
 		`
-
-
 
 		var archer models.ArcherWithStats
 		err := db.Get(&archer, query, id, id, id)
@@ -371,15 +363,15 @@ func truncateStr(s *string, maxLen int) {
 
 // archerFieldLimits holds DB column max lengths for archers (varchar/char).
 const (
-	archerPhoneLen    = 20
-	archerEmailLen    = 100
-	archerFullNameLen = 255
-	archerUsernameLen = 100
-	archerNicknameLen = 100
-	archerCityLen     = 100
-	archerSchoolLen   = 255
+	archerPhoneLen     = 20
+	archerEmailLen     = 100
+	archerFullNameLen  = 255
+	archerUsernameLen  = 100
+	archerNicknameLen  = 100
+	archerCityLen      = 100
+	archerSchoolLen    = 255
 	archerAvatarURLLen = 255
-	archerIDLen       = 20
+	archerIDLen        = 20
 )
 
 // CreateArcher creates a new archer
@@ -528,8 +520,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create archer", "details": err.Error()})
 			return
 		}
-
-
 
 		// Log activity
 		if userID != nil {
@@ -707,25 +697,25 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var archer struct {
-			UUID        string  `json:"uuid" db:"uuid"`
-			ID          string  `json:"id" db:"id"`
-			Username    *string `json:"username" db:"username"`
-			Email       *string `json:"email" db:"email"`
-			AvatarURL   *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL   *string `json:"banner_url" db:"banner_url"`
-			FullName    string  `json:"full_name" db:"full_name"`
-			Nickname    *string `json:"nickname" db:"nickname"`
-			DateOfBirth *string `json:"date_of_birth" db:"date_of_birth"`
-			Gender      string  `json:"gender" db:"gender"`
-			Phone       *string `json:"phone" db:"phone"`
-			Address     *string `json:"address" db:"address"`
-			City        *string `json:"city" db:"city"`
-			School      *string `json:"school" db:"school"`
-			BowType     string  `json:"bow_type" db:"bow_type"`
-			ClubID      *string `json:"club_id" db:"club_id"`
-			ClubName    *string `json:"club_name" db:"club_name"`
-			Status      string  `json:"status" db:"status"`
-			Bio         *string `json:"bio" db:"bio"`
+			UUID            string  `json:"uuid" db:"uuid"`
+			ID              string  `json:"id" db:"id"`
+			Username        *string `json:"username" db:"username"`
+			Email           *string `json:"email" db:"email"`
+			AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL       *string `json:"banner_url" db:"banner_url"`
+			FullName        string  `json:"full_name" db:"full_name"`
+			Nickname        *string `json:"nickname" db:"nickname"`
+			DateOfBirth     *string `json:"date_of_birth" db:"date_of_birth"`
+			Gender          string  `json:"gender" db:"gender"`
+			Phone           *string `json:"phone" db:"phone"`
+			Address         *string `json:"address" db:"address"`
+			City            *string `json:"city" db:"city"`
+			School          *string `json:"school" db:"school"`
+			BowType         string  `json:"bow_type" db:"bow_type"`
+			ClubID          *string `json:"club_id" db:"club_id"`
+			ClubName        *string `json:"club_name" db:"club_name"`
+			Status          string  `json:"status" db:"status"`
+			Bio             *string `json:"bio" db:"bio"`
 			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
 			SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
 			SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
@@ -753,40 +743,39 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		WHERE a.uuid = ?
 	`, userID)
 
-
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found"})
 			return
 		}
 		data := gin.H{
-			"uuid":          archer.UUID,
-			"id":            archer.ID,
-			"username":      archer.Username,
-			"email":         archer.Email,
-			"avatar_url":    archer.AvatarURL,
-			"banner_url":    archer.BannerURL,
-			"full_name":     archer.FullName,
-			"nickname":      archer.Nickname,
-			"date_of_birth": archer.DateOfBirth,
-			"gender":        archer.Gender,
-			"phone":         archer.Phone,
-			"address":       archer.Address,
-			"city":          archer.City,
-			"school":        archer.School,
-			"bow_type":      archer.BowType,
-			"club_id":       archer.ClubID,
-			"club_name":     archer.ClubName,
-			"status":        archer.Status,
-			"bio":           archer.Bio,
+			"uuid":             archer.UUID,
+			"id":               archer.ID,
+			"username":         archer.Username,
+			"email":            archer.Email,
+			"avatar_url":       archer.AvatarURL,
+			"banner_url":       archer.BannerURL,
+			"full_name":        archer.FullName,
+			"nickname":         archer.Nickname,
+			"date_of_birth":    archer.DateOfBirth,
+			"gender":           archer.Gender,
+			"phone":            archer.Phone,
+			"address":          archer.Address,
+			"city":             archer.City,
+			"school":           archer.School,
+			"bow_type":         archer.BowType,
+			"club_id":          archer.ClubID,
+			"club_name":        archer.ClubName,
+			"status":           archer.Status,
+			"bio":              archer.Bio,
 			"social_instagram": archer.SocialInstagram,
 			"social_tiktok":    archer.SocialTiktok,
 			"social_whatsapp":  archer.SocialWhatsapp,
 			"social_facebook":  archer.SocialFacebook,
 			"social_twitter":   archer.SocialTwitter,
-			"achievements":    archer.Achievements,
-			"equipment":       archer.Equipment,
+			"achievements":     archer.Achievements,
+			"equipment":        archer.Equipment,
 			"page_settings":    archer.PageSettings,
-			"user_type":     "archer",
+			"user_type":        "archer",
 		}
 		// Mask URLs
 		if archer.AvatarURL != nil {
@@ -905,6 +894,7 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+
 // GetMyArcherStats returns statistics for the authenticated archer
 func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -943,7 +933,7 @@ func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
 				"completed_events": 0,
 				"best_score":       nil,
 				"podium_count":     0,
-				"last_event_date":   nil,
+				"last_event_date":  nil,
 			})
 			return
 		}

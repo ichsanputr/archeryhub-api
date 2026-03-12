@@ -176,11 +176,9 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			Slug    string  `db:"slug" json:"slug"`
 			City    *string `db:"city" json:"city"`
 			LogoURL *string `db:"logo_url" json:"logo_url"`
-			MemberCount int `db:"member_count" json:"member_count"`
 		}
 		db.Select(&clubs, `
-			SELECT c.uuid, c.name, c.slug, c.city, c.logo_url,
-				   (SELECT COUNT(*) FROM club_members WHERE club_id = c.uuid AND status = 'active') as member_count
+			SELECT c.uuid, c.name, c.slug, c.city, c.logo_url
 			FROM clubs c
 			WHERE c.organization_id = ? AND c.status = 'active'
 			ORDER BY c.name ASC
@@ -220,7 +218,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"social_media":         org.SocialMedia,
 				"vision":               org.Vision,
 				"mission":              org.Mission,
-				"history":               org.History,
+				"history":              org.History,
 				"verification_status":  org.VerificationStatus,
 				"status":               org.Status,
 				"created_at":           org.CreatedAt,
@@ -301,40 +299,40 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		// Prepare response
 		data := gin.H{
-			"id":                  org.UUID,
-			"uuid":                org.UUID,
-			"slug":                org.Slug,
-			"name":                org.Name,
-			"acronym":             org.Acronym,
-			"description":         org.Description,
-			"website":             org.Website,
-			"email":               org.Email,
-			"whatsapp_no":         org.WhatsAppNo,
-			"avatar_url":          org.AvatarURL,
-			"banner_url":          org.BannerURL,
-			"address":             org.Address,
-			"city":                org.City,
-			"country":             org.Country,
-			"registration_number": org.RegistrationNumber,
-			"established_date":    org.EstablishedDate,
-			"contact_person_name": org.ContactPersonName,
-			"contact_person_email": org.ContactPersonEmail,
-			"contact_person_phone": org.ContactPersonPhone,
-			"social_facebook":     org.SocialFacebook,
-			"social_instagram":    org.SocialInstagram,
-			"social_twitter":      org.SocialTwitter,
-			"social_media":        org.SocialMedia,
-			"vision":              org.Vision,
-			"mission":             org.Mission,
-			"history":             org.History,
-			"faq":                 org.FAQ,
-			"verification_status": org.VerificationStatus,
-			"status":                org.Status,
-			"created_at":            org.CreatedAt,
-			"updated_at":            org.UpdatedAt,
-			"subscription_status":    org.SubscriptionStatus,
+			"id":                      org.UUID,
+			"uuid":                    org.UUID,
+			"slug":                    org.Slug,
+			"name":                    org.Name,
+			"acronym":                 org.Acronym,
+			"description":             org.Description,
+			"website":                 org.Website,
+			"email":                   org.Email,
+			"whatsapp_no":             org.WhatsAppNo,
+			"avatar_url":              org.AvatarURL,
+			"banner_url":              org.BannerURL,
+			"address":                 org.Address,
+			"city":                    org.City,
+			"country":                 org.Country,
+			"registration_number":     org.RegistrationNumber,
+			"established_date":        org.EstablishedDate,
+			"contact_person_name":     org.ContactPersonName,
+			"contact_person_email":    org.ContactPersonEmail,
+			"contact_person_phone":    org.ContactPersonPhone,
+			"social_facebook":         org.SocialFacebook,
+			"social_instagram":        org.SocialInstagram,
+			"social_twitter":          org.SocialTwitter,
+			"social_media":            org.SocialMedia,
+			"vision":                  org.Vision,
+			"mission":                 org.Mission,
+			"history":                 org.History,
+			"faq":                     org.FAQ,
+			"verification_status":     org.VerificationStatus,
+			"status":                  org.Status,
+			"created_at":              org.CreatedAt,
+			"updated_at":              org.UpdatedAt,
+			"subscription_status":     org.SubscriptionStatus,
 			"subscription_expires_at": org.SubscriptionExpiresAt,
-			"user_type":             "organization",
+			"user_type":               "organization",
 		}
 
 		if pageSettings != nil {

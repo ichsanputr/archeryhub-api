@@ -541,7 +541,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID   string  `json:"category_id" binding:"required"`
 			BracketType  string  `json:"bracket_type" binding:"required"`         // individual, team3, mixed2
 			Format       string  `json:"format" binding:"required"`               // recurve_set, compound_total
-			BracketSize  int     `json:"bracket_size" binding:"required"`         // 8, 16, 32, 64
+			BracketSize  int     `json:"bracket_size" binding:"required,min=4"`   // chosen by admin; must be power of 2 and ≤ max
 			EndsPerMatch int     `json:"ends_per_match" binding:"required,min=1"` // default 5
 			ArrowsPerEnd int     `json:"arrows_per_end" binding:"required,min=1"` // default 3
 			StartTime    *string `json:"start_time"`                              // ISO datetime, optional
@@ -553,40 +553,47 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate bracket size (must be power of 2)
-		validSizes := map[int]bool{4: true, 8: true, 16: true, 32: true, 64: true, 128: true}
-		if !validSizes[req.BracketSize] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bracket size. Must be 4, 8, 16, 32, 64, or 128"})
-			return
-		}
-
-		// Check participant count for the category
-		// event_participants.payment_status enum: 'menunggu acc', 'lunas'
+		// Count participants and auto-calculate bracket size (smallest power of 2 >= count)
 		var participantCount int
 		if req.BracketType == "individual" {
-			// Count archers in this category (menunggu acc + lunas)
 			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('lunas', 'menunggu acc')`, req.CategoryID)
 		} else {
-			// Count teams for this tournament/category
-			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE category_uuid = ?`, req.CategoryID)
+			// SyncTeams stores: tournament_id = eventUUID, event_id = categoryID
+			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE event_id = ? AND tournament_id = ?`, req.CategoryID, eventUUID)
+			if participantCount == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":             "Belum ada tim untuk kategori ini. Jalankan Sinkronisasi Tim terlebih dahulu.",
+					"participant_count": 0,
+				})
+				return
+			}
 		}
 
-		if participantCount < req.BracketSize {
+		if participantCount < 2 {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":             fmt.Sprintf("Jumlah peserta tidak mencukupi. Diperlukan minimal %d peserta, tersedia %d peserta.", req.BracketSize, participantCount),
+				"error":             "Peserta tidak mencukupi untuk membuat bracket eliminasi (minimal 2 peserta).",
 				"participant_count": participantCount,
-				"required":          req.BracketSize,
 			})
 			return
 		}
 
-		// Check if bracket already exists for this category
-		var existingCount int
-		db.Get(&existingCount, `SELECT COUNT(*) FROM elimination_brackets WHERE event_uuid = ? AND category_uuid = ?`, eventUUID, req.CategoryID)
-		if existingCount > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "A bracket already exists for this category"})
+		// Validate chosen bracket size: must be power of 2 and ≤ calcBracketSize(participantCount)
+		maxBracketSize := calcBracketSize(participantCount)
+		// Check power of 2
+		if req.BracketSize < 4 || (req.BracketSize&(req.BracketSize-1)) != 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Ukuran bracket harus berupa pangkat dua (4, 8, 16, 32, 64, ..."})
 			return
 		}
+		if req.BracketSize > maxBracketSize {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":             fmt.Sprintf("Ukuran bracket terlalu besar. Maksimal %d berdasarkan %d peserta.", maxBracketSize, participantCount),
+				"max_bracket_size":  maxBracketSize,
+				"participant_count": participantCount,
+			})
+			return
+		}
+
+		bracketSize := req.BracketSize
 
 		bracketUUID := uuid.New().String()
 		bracketID := fmt.Sprintf("BR-%s-%s", time.Now().Format("20060102"), bracketUUID[:8])
@@ -601,7 +608,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		_, err = tx.Exec(`
 			INSERT INTO elimination_brackets (uuid, bracket_id, event_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end, start_time, end_time, status)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated')
-		`, bracketUUID, bracketID, eventUUID, req.CategoryID, req.BracketType, req.Format, req.BracketSize, req.EndsPerMatch, req.ArrowsPerEnd, req.StartTime, req.EndTime)
+		`, bracketUUID, bracketID, eventUUID, req.CategoryID, req.BracketType, req.Format, bracketSize, req.EndsPerMatch, req.ArrowsPerEnd, req.StartTime, req.EndTime)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bracket", "details": err.Error()})
@@ -629,7 +636,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 				GROUP BY ep.uuid
 				ORDER BY total_score DESC, total_x DESC, total_10 DESC
 				LIMIT ?
-			`, req.CategoryID, req.BracketSize)
+			`, req.CategoryID, bracketSize)
 		} else {
 			err = tx.Select(&entries, `
 				SELECT t.uuid as participant_uuid,
@@ -640,7 +647,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 				WHERE t.event_id = ? AND t.tournament_id = ?
 				ORDER BY total_score DESC, total_x DESC
 				LIMIT ?
-			`, req.CategoryID, eventUUID, req.BracketSize)
+			`, req.CategoryID, eventUUID, bracketSize)
 		}
 
 		if err != nil {
@@ -653,8 +660,8 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			participantType = "team"
 		}
 
-		entryUUIDs := make([]string, req.BracketSize)
-		for i := 0; i < req.BracketSize; i++ {
+		entryUUIDs := make([]string, bracketSize)
+		for i := 0; i < bracketSize; i++ {
 			entryUUID := uuid.New().String()
 			entryUUIDs[i] = entryUUID
 			if i < len(entries) {
@@ -666,13 +673,13 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate matches
-		numRounds := int(math.Log2(float64(req.BracketSize)))
-		firstRoundMatchups := generateBracketSeeding(req.BracketSize)
+		numRounds := int(math.Log2(float64(bracketSize)))
+		firstRoundMatchups := generateBracketSeeding(bracketSize)
 
 		// globalMatchCounter ensures matches are numbered 1 to N
 		globalMatchCounter := 1
 		for roundNo := 1; roundNo <= numRounds; roundNo++ {
-			matchesInRound := req.BracketSize / int(math.Pow(2, float64(roundNo)))
+			matchesInRound := bracketSize / int(math.Pow(2, float64(roundNo)))
 			for matchNo := 1; matchNo <= matchesInRound; matchNo++ {
 				matchUUID := uuid.New().String()
 				var entryAUUID, entryBUUID *string
@@ -702,7 +709,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 				globalMatchCounter++
 			}
 		}
-		if req.BracketSize >= 4 {
+		if bracketSize >= 4 {
 			bronzeMatchUUID := uuid.New().String()
 			bronzeMatchID := strings.ToUpper(uuid.New().String()[:5])
 			tx.Exec(`
@@ -723,8 +730,11 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Bracket created and generated successfully",
 			"bracket": gin.H{
-				"id":   bracketID,
-				"uuid": bracketUUID,
+				"id":                bracketID,
+				"uuid":              bracketUUID,
+				"bracket_size":      bracketSize,
+				"participant_count": participantCount,
+				"byes":              bracketSize - participantCount,
 			},
 		})
 	}
@@ -739,7 +749,6 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID   string  `json:"category_id" binding:"required"`
 			BracketType  string  `json:"bracket_type" binding:"required"`
 			Format       string  `json:"format" binding:"required"`
-			BracketSize  int     `json:"bracket_size" binding:"required"`
 			EndsPerMatch int     `json:"ends_per_match" binding:"required,min=1"`
 			ArrowsPerEnd int     `json:"arrows_per_end" binding:"required,min=1"`
 			StartTime    *string `json:"start_time"`
@@ -759,18 +768,12 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate bracket size
-		validSizes := map[int]bool{4: true, 8: true, 16: true, 32: true, 64: true, 128: true}
-		if !validSizes[req.BracketSize] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bracket size"})
-			return
-		}
-
+		// bracket_size is intentionally NOT updated — it is fixed at creation based on participant count
 		_, err = db.Exec(`
 			UPDATE elimination_brackets 
-			SET category_uuid = ?, bracket_type = ?, format = ?, bracket_size = ?, ends_per_match = ?, arrows_per_end = ?, start_time = ?, end_time = ?
+			SET category_uuid = ?, bracket_type = ?, format = ?, ends_per_match = ?, arrows_per_end = ?, start_time = ?, end_time = ?
 			WHERE bracket_id = ? OR uuid = ?
-		`, req.CategoryID, req.BracketType, req.Format, req.BracketSize, req.EndsPerMatch, req.ArrowsPerEnd, req.StartTime, req.EndTime, bracketID, bracketID)
+		`, req.CategoryID, req.BracketType, req.Format, req.EndsPerMatch, req.ArrowsPerEnd, req.StartTime, req.EndTime, bracketID, bracketID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bracket", "details": err.Error()})
@@ -973,6 +976,160 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 			"entries_count": len(entries),
 			"rounds":        numRounds,
 		})
+	}
+}
+
+// calcBracketSize returns the smallest power of 2 that is >= n (per docs: Bracket Size = 2^⌈log₂(N)⌉)
+func calcBracketSize(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	size := 1
+	for size < n {
+		size *= 2
+	}
+	return size
+}
+
+// GetBracketSizeRecommendation returns the auto-calculated bracket size and bye count for a category.
+// For team brackets it calculates from BOTH synced teams (already in DB) and possible teams from
+// qualification results (same logic as SyncTeams), so admins can see the bracket size even before
+// SyncTeams has been run.
+func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		categoryID := c.Query("category_id")
+		bracketType := c.Query("bracket_type")
+
+		if categoryID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
+			return
+		}
+		if bracketType == "" {
+			bracketType = "individual"
+		}
+
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+
+		effectiveCount := 0
+		syncedTeams := 0
+		possibleTeams := 0
+		teamSize := 1
+
+		if bracketType == "individual" {
+			db.Get(&effectiveCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('lunas', 'menunggu acc')`, categoryID)
+		} else {
+			// Fetch category type info (same as SyncTeams does)
+			var catInfo struct {
+				TypeCode   string `db:"type_code"`
+				TeamSize   int    `db:"team_size"`
+				DivUUID    string `db:"division_uuid"`
+				AgeUUID    string `db:"age_uuid"`
+				GenderUUID string `db:"gender_division_uuid"`
+			}
+			db.Get(&catInfo, `
+				SELECT ret.code as type_code,
+					CASE WHEN ret.code = 'mixed_team' THEN 2 WHEN ret.code = 'team' THEN 3 ELSE 1 END as team_size,
+					ec.division_uuid, ec.category_uuid as age_uuid, ec.gender_division_uuid
+				FROM event_categories ec
+				JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+				WHERE ec.uuid = ?
+			`, categoryID)
+			teamSize = catInfo.TeamSize
+			if teamSize <= 0 {
+				teamSize = 3
+			}
+
+			// 1. Synced teams already in DB (SyncTeams stores event_id=categoryID, tournament_id=eventUUID)
+			db.Get(&syncedTeams, `SELECT COUNT(*) FROM teams WHERE event_id = ? AND tournament_id = ?`, categoryID, eventUUID)
+
+			isMixed := strings.Contains(catInfo.TypeCode, "mixed")
+
+			// 2. Possible teams from qualification (preview before SyncTeams is run)
+			if !isMixed {
+				// Participants register under the individual category, not the team category.
+				// Resolve the matching individual category (same event/division/age/gender).
+				participantCatID := categoryID
+				var indivCatID string
+				if err2 := db.Get(&indivCatID, `
+					SELECT ec.uuid
+					FROM event_categories ec
+					JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+					WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+					  AND ec.gender_division_uuid = ? AND ret.code = 'individual'
+				`, eventUUID, catInfo.DivUUID, catInfo.AgeUUID, catInfo.GenderUUID); err2 == nil && indivCatID != "" {
+					participantCatID = indivCatID
+				}
+
+				// Standard team: count eligible groups using the same grouping SyncTeams uses.
+				// One club can form multiple teams: groups are CEIL(rank / teamSize).
+				db.Get(&possibleTeams, `
+					SELECT COUNT(*) FROM (
+						SELECT club_id, COUNT(*) as mc
+						FROM (
+							SELECT a.uuid as archer_id, cl.uuid as club_id,
+								ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY COALESCE(SUM(s.total_score_end), 0) DESC) as club_rank
+							FROM event_participants ep
+							JOIN archers a ON ep.archer_id = a.uuid
+							LEFT JOIN clubs cl ON a.club_id = cl.uuid
+							LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
+							WHERE ep.category_id = ?
+							GROUP BY ep.uuid, cl.uuid
+						) ranked
+						WHERE club_id IS NOT NULL
+						GROUP BY club_id, CEIL(club_rank / ?)
+						HAVING mc >= ?
+					) eg
+				`, participantCatID, teamSize, teamSize)
+			} else {
+				// Mixed team: count clubs that have participants in BOTH male and female paired categories
+				// (same division + age group, same event)
+				db.Get(&possibleTeams, `
+					SELECT COUNT(*) FROM (
+						SELECT a.club_id
+						FROM event_participants ep
+						JOIN archers a ON ep.archer_id = a.uuid
+						JOIN event_categories ec ON ep.category_id = ec.uuid
+						JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+						WHERE ec.event_id = ?
+						  AND ec.division_uuid = ?
+						  AND ec.category_uuid = ?
+						  AND a.club_id IS NOT NULL
+						GROUP BY a.club_id
+						HAVING COUNT(DISTINCT rgd.code) >= 2
+					) eligible
+				`, eventUUID, catInfo.DivUUID, catInfo.AgeUUID)
+			}
+
+			// Use synced teams if available; fall back to possible teams for preview
+			effectiveCount = syncedTeams
+			if effectiveCount == 0 {
+				effectiveCount = possibleTeams
+			}
+		}
+
+		bracketSize := calcBracketSize(effectiveCount)
+		byes := 0
+		if bracketSize > 0 {
+			byes = bracketSize - effectiveCount
+		}
+
+		resp := gin.H{
+			"participant_count": effectiveCount,
+			"max_bracket_size":  bracketSize,
+			"byes":              byes,
+		}
+		if bracketType != "individual" {
+			resp["synced_teams"] = syncedTeams
+			resp["possible_teams"] = possibleTeams
+			resp["team_size"] = teamSize
+		}
+		c.JSON(http.StatusOK, resp)
 	}
 }
 
@@ -2608,7 +2765,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 
 			sd := ev.StartDate.Time.Format("02") + " " + months[ev.StartDate.Time.Format("January")] + " " + ev.StartDate.Time.Format("2006")
 			dayName := days[ev.StartDate.Time.Format("Monday")]
-			
+
 			if ev.EndDate.Valid && ev.EndDate.Time.Format("2006-01-02") != ev.StartDate.Time.Format("2006-01-02") {
 				ed := ev.EndDate.Time.Format("02") + " " + months[ev.EndDate.Time.Format("January")] + " " + ev.EndDate.Time.Format("2006")
 				eventDates = fmt.Sprintf("%s – %s", sd, ed)

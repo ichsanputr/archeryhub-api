@@ -333,6 +333,7 @@ func main() {
 		elimination.Use(middleware.OptionalAuthMiddleware())
 		{
 			elimination.GET("/brackets", handler.GetBrackets(db))
+			elimination.GET("/bracket-size", middleware.AuthMiddleware(), handler.GetBracketSizeRecommendation(db))
 			elimination.POST("/brackets", middleware.AuthMiddleware(), handler.CreateBracket(db))
 			elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
 			elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), handler.UpdateBracket(db))
@@ -595,8 +596,6 @@ func main() {
 				protectedOrgs.GET("/earnings/:id", handler.GetOrganizationEarningsDetail(db))
 			}
 		}
-
-
 
 		// Club routes (Data Master)
 		cbr := api.Group("/clubs")

@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"archeryhub-api/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"archeryhub-api/models"
 )
 
 // GetClubs returns a list of clubs (data master)
@@ -20,7 +21,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		var clubs []models.Club
 		var total int
 
-		query := `SELECT uuid, name, slug, logo_url, banner_url, city, address, description, status, created_at, updated_at 
+		query := `SELECT uuid, slug, name, abbreviation, description, banner_url, logo_url, phone, address, city, province, postal_code, established_date, registration_number, organization_id, head_coach_name, head_coach_phone, training_schedule, facilities, website, status, created_at, updated_at
 		          FROM clubs WHERE (status = 'active')`
 		countQuery := `SELECT COUNT(*) FROM clubs WHERE (status = 'active')`
 
@@ -28,7 +29,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 			query += ` AND (name LIKE ? OR city LIKE ?)`
 			countQuery += ` AND (name LIKE ? OR city LIKE ?)`
 			searchParam := "%" + search + "%"
-			
+
 			err := db.Get(&total, countQuery, searchParam, searchParam)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -57,9 +58,9 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"data": clubs,
 			"meta": gin.H{
-				"total": total,
-				"page":  offset/limit + 1,
-				"limit": limit,
+				"total":       total,
+				"page":        offset/limit + 1,
+				"limit":       limit,
 				"total_pages": math.Ceil(float64(total) / float64(limit)),
 			},
 		})

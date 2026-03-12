@@ -80,7 +80,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug, avatar_url, phone FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
@@ -110,7 +110,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug, avatar_url, phone FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
@@ -179,7 +179,7 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, avatar_url, slug, phone FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(DISTINCT archer_id) as participant_count
@@ -620,6 +620,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		limitStr := c.DefaultQuery("limit", "10")
 		offsetStr := c.DefaultQuery("offset", "0")
 		bowTypeFilter := c.Query("bow_type")
+		eventTypeFilter := c.Query("event_type")
 
 		limit, _ := strconv.Atoi(limitStr)
 		offset, _ := strconv.Atoi(offsetStr)
@@ -660,6 +661,11 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		if bowTypeFilter != "" && bowTypeFilter != "all" {
 			whereClause += " AND d.code = ?"
 			args = append(args, bowTypeFilter)
+		}
+
+		if eventTypeFilter != "" && eventTypeFilter != "all" {
+			whereClause += " AND te.event_type_uuid = ?"
+			args = append(args, eventTypeFilter)
 		}
 
 		// Get total count
@@ -852,6 +858,37 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		whereClause := "WHERE tp.event_id = ?"
 		args := []interface{}{actualEventID}
 		countArgs := []interface{}{actualEventID}
+
+		// If the supplied category is a team/mixed_team type, resolve to the matching
+		// individual category(ies) — participants register under the individual category.
+		if categoryIDFilter != "" {
+			var indivIDs []string
+			_ = db.Select(&indivIDs, `
+				SELECT i.uuid
+				FROM event_categories t
+				JOIN ref_event_types tt ON t.event_type_uuid = tt.uuid
+				JOIN event_categories i ON i.event_id = t.event_id
+					AND i.division_uuid = t.division_uuid
+					AND i.category_uuid = t.category_uuid
+				JOIN ref_event_types it ON i.event_type_uuid = it.uuid
+				WHERE t.uuid = ?
+				  AND tt.code IN ('team', 'mixed_team')
+				  AND it.code = 'individual'
+			`, categoryIDFilter)
+			if len(indivIDs) == 1 {
+				categoryIDFilter = indivIDs[0]
+			} else if len(indivIDs) > 1 {
+				// Mixed team: both male and female individual categories
+				placeholders := strings.Repeat(",?", len(indivIDs))[1:]
+				whereClause += " AND tp.category_id IN (" + placeholders + ")"
+				for _, id := range indivIDs {
+					args = append(args, id)
+					countArgs = append(countArgs, id)
+				}
+				categoryIDFilter = "" // already handled
+			}
+			// If indivIDs is empty it's already an individual category — fall through
+		}
 
 		// Filter by category_id
 		if categoryIDFilter != "" {
@@ -1214,39 +1251,39 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type MyRegistrationResponse struct {
-			ArcherID            string                   `json:"archer_id"`
-			AthleteCode         *string                  `json:"athlete_code"`
-			FullName            string                   `json:"full_name"`
-			Email               string                   `json:"email"`
-			ClubName            *string                  `json:"club_name"`
-			City                *string                  `json:"city"`
-			AvatarURL           *string                  `json:"avatar_url"`
-			PaymentStatus       string                   `json:"payment_status"` // Combined or latest
-			PaymentAmount       float64                  `json:"payment_amount"` // Total
-			PaymentProofURLs    []string                 `json:"payment_proof_urls"`
-			Categories          []MyRegistrationCategory `json:"categories"`
+			ArcherID            string                     `json:"archer_id"`
+			AthleteCode         *string                    `json:"athlete_code"`
+			FullName            string                     `json:"full_name"`
+			Email               string                     `json:"email"`
+			ClubName            *string                    `json:"club_name"`
+			City                *string                    `json:"city"`
+			AvatarURL           *string                    `json:"avatar_url"`
+			PaymentStatus       string                     `json:"payment_status"` // Combined or latest
+			PaymentAmount       float64                    `json:"payment_amount"` // Total
+			PaymentProofURLs    []string                   `json:"payment_proof_urls"`
+			Categories          []MyRegistrationCategory   `json:"categories"`
 			Transaction         *models.PaymentTransaction `json:"transaction"`
-			PaymentMethodManual *string                  `json:"payment_method_manual"`
+			PaymentMethodManual *string                    `json:"payment_method_manual"`
 		}
 
 		type Row struct {
-			ID                  string   `db:"id"`
-			TargetName          *string  `db:"target_name"`
-			PaymentStatus        string   `db:"payment_status"`
-			PaymentAmount       float64  `db:"payment_amount"`
-			PaymentProofURLsRaw *string  `db:"payment_proof_urls"`
-			RegistrationDate    string   `db:"registration_date"`
-			DivisionName        string   `db:"division_name"`
-			CategoryUUID        string   `db:"category_id"`
-			CategoryName        string   `db:"category_name"`
-			EventTypeName       *string  `db:"event_type_name"`
-			GenderDivisionName  *string  `db:"gender_division_name"`
-			AthleteCode         *string  `db:"athlete_code"`
-			FullName            string   `db:"full_name"`
-			Email               string   `db:"email"`
-			City                *string  `db:"city"`
-			AvatarURL           *string  `db:"avatar_url"`
-			ClubName            *string  `db:"club_name"`
+			ID                  string  `db:"id"`
+			TargetName          *string `db:"target_name"`
+			PaymentStatus       string  `db:"payment_status"`
+			PaymentAmount       float64 `db:"payment_amount"`
+			PaymentProofURLsRaw *string `db:"payment_proof_urls"`
+			RegistrationDate    string  `db:"registration_date"`
+			DivisionName        string  `db:"division_name"`
+			CategoryUUID        string  `db:"category_id"`
+			CategoryName        string  `db:"category_name"`
+			EventTypeName       *string `db:"event_type_name"`
+			GenderDivisionName  *string `db:"gender_division_name"`
+			AthleteCode         *string `db:"athlete_code"`
+			FullName            string  `db:"full_name"`
+			Email               string  `db:"email"`
+			City                *string `db:"city"`
+			AvatarURL           *string `db:"avatar_url"`
+			ClubName            *string `db:"club_name"`
 		}
 
 		var rows []Row
@@ -1277,19 +1314,19 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		firstRow := rows[0]
 		resp := MyRegistrationResponse{
-			ArcherID:     archerID,
-			AthleteCode:  firstRow.AthleteCode,
-			FullName:     firstRow.FullName,
-			Email:        firstRow.Email,
-			ClubName:     firstRow.ClubName,
-			City:         firstRow.City,
-			AvatarURL:    firstRow.AvatarURL,
-			Categories:   []MyRegistrationCategory{},
+			ArcherID:    archerID,
+			AthleteCode: firstRow.AthleteCode,
+			FullName:    firstRow.FullName,
+			Email:       firstRow.Email,
+			ClubName:    firstRow.ClubName,
+			City:        firstRow.City,
+			AvatarURL:   firstRow.AvatarURL,
+			Categories:  []MyRegistrationCategory{},
 		}
 
-		// Combined status logic: if any is "lunas", show lunas? 
+		// Combined status logic: if any is "lunas", show lunas?
 		// Or if any is "menunggu acc", show that?
-		// Let's just use the first one for the global chip if we have to, 
+		// Let's just use the first one for the global chip if we have to,
 		// but we'll show per category anyway.
 		resp.PaymentStatus = firstRow.PaymentStatus
 
@@ -1673,13 +1710,13 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			SELECT COALESCE(s, 'trial') FROM (
 				SELECT subscription_status as s FROM organizations WHERE uuid = ?
 				UNION ALL
-				SELECT subscription_status as s FROM clubs WHERE uuid = ?
+				SELECT 'trial' as s FROM clubs WHERE uuid = ?
 			) combined LIMIT 1`, organizerID, organizerID)
 
 		if orgStatus != "" && orgStatus != "active" && orgStatus != "trial" {
 			c.JSON(http.StatusPaymentRequired, gin.H{
-				"error": "Pendaftaran ditutup sementara",
-				"code": "organizer_subscription_expired",
+				"error":   "Pendaftaran ditutup sementara",
+				"code":    "organizer_subscription_expired",
 				"message": "Pendaftaran peserta untuk event ini ditutup sementara oleh sistem karena masa berlaku layanan penyelenggara telah berakhir.",
 			})
 			return
@@ -3053,7 +3090,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
@@ -3193,6 +3230,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+
 // ExportParticipantsCSV exports all participants of an event to a CSV file
 func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -3210,31 +3248,58 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type Participant struct {
-			FullName     string  `db:"full_name"`
-			Email        string  `db:"email"`
-			ClubName     *string `db:"club_name"`
-			City         *string `db:"city"`
-			PaymentStatus string `db:"payment_status"`
-			Categories   string  `db:"categories"`
+			AthleteCode        string `db:"athlete_code"`
+			FullName           string `db:"full_name"`
+			Email              string `db:"email"`
+			ClubName           string `db:"club_name"`
+			City               string `db:"city"`
+			PaymentStatus      string `db:"payment_status"`
+			RegistrationSource string `db:"registration_source"`
+			RegistrationDate   string `db:"registration_date"`
+			TargetNames        string `db:"target_names"`
+			Categories         string `db:"categories"`
+			TotalScore         int    `db:"total_score"`
+			TotalX             int    `db:"total_x"`
 		}
 
 		var participants []Participant
 		query := `
 			SELECT 
+				a.id as athlete_code,
 				a.full_name,
 				COALESCE(a.email, '') as email,
 				COALESCE(cl.name, '') as club_name,
-				a.city as city,
-				MAX(tp.payment_status) as payment_status,
-				GROUP_CONCAT(DISTINCT CONCAT(d.name, ' ', COALESCE(te.category_name_custom, c.name, '')) SEPARATOR ', ') as categories
+				COALESCE(a.city, '') as city,
+				COALESCE(MAX(tp.payment_status), 'menunggu acc') as payment_status,
+				COALESCE(MAX(tp.registration_source), 'self_register') as registration_source,
+				COALESCE(DATE_FORMAT(MIN(tp.registration_date), '%Y-%m-%d %H:%i:%s'), '') as registration_date,
+				GROUP_CONCAT(DISTINCT COALESCE(tp.target_name, '') ORDER BY tp.target_name SEPARATOR ', ') as target_names,
+				GROUP_CONCAT(
+					DISTINCT TRIM(CONCAT_WS(' - ',
+						NULLIF(COALESCE(d.name, ''), ''),
+						NULLIF(COALESCE(te.category_name_custom, c.name, ''), ''),
+						NULLIF(COALESCE(et.name, ''), ''),
+						NULLIF(COALESCE(gd.name, ''), '')
+					))
+					SEPARATOR '; '
+				) as categories,
+				COALESCE(SUM(scores.total_score), 0) as total_score,
+				COALESCE(SUM(scores.total_x), 0) as total_x
 			FROM event_participants tp
 			JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN event_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
+			LEFT JOIN (
+				SELECT participant_uuid, SUM(total_score_end) as total_score, SUM(x_count_end) as total_x
+				FROM qualification_end_scores
+				GROUP BY participant_uuid
+			) scores ON tp.uuid = scores.participant_uuid
 			WHERE tp.event_id = ?
-			GROUP BY a.uuid, a.full_name, a.email, cl.name, a.city
+			GROUP BY a.uuid, a.id, a.full_name, a.email, cl.name, a.city
 			ORDER BY a.full_name ASC
 		`
 		err = db.Select(&participants, query, event.UUID)
@@ -3252,18 +3317,81 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		writer := csv.NewWriter(c.Writer)
 		defer writer.Flush()
 
+		capitalizeWords := func(s string) string {
+			s = strings.TrimSpace(strings.ToLower(s))
+			if s == "" {
+				return ""
+			}
+			parts := strings.Fields(s)
+			for i, p := range parts {
+				if len(p) == 0 {
+					continue
+				}
+				parts[i] = strings.ToUpper(p[:1]) + p[1:]
+			}
+			return strings.Join(parts, " ")
+		}
+
+		formatPaymentStatus := func(s string) string {
+			s = strings.ToLower(strings.TrimSpace(s))
+			switch s {
+			case "lunas", "paid":
+				return "Lunas"
+			case "menunggu", "menunggu acc", "pending":
+				return "Menunggu ACC"
+			case "expired":
+				return "Kedaluwarsa"
+			default:
+				return capitalizeWords(s)
+			}
+		}
+
+		formatRegistrationSource := func(s string) string {
+			s = strings.ToLower(strings.TrimSpace(s))
+			switch s {
+			case "self_register":
+				return "Daftar Mandiri"
+			case "admin_created":
+				return "Ditambahkan Panitia"
+			case "invited":
+				return "Diundang"
+			default:
+				return capitalizeWords(strings.ReplaceAll(s, "_", " "))
+			}
+		}
+
 		// Write header
-		writer.Write([]string{"No", "Nama Lengkap", "Email", "Klub", "Kota", "Status Pembayaran", "Kategori"})
+		writer.Write([]string{
+			"No",
+			"Kode Atlet",
+			"Nama Peserta",
+			"Email",
+			"Klub",
+			"Kota",
+			"Status Pembayaran",
+			"Sumber Registrasi",
+			"Tanggal Pendaftaran",
+			"Target",
+			"Kategori",
+			"Total Skor",
+			"Total X",
+		})
 
 		for i, p := range participants {
 			writer.Write([]string{
 				strconv.Itoa(i + 1),
+				p.AthleteCode,
 				p.FullName,
 				p.Email,
-				models.FromPtr(p.ClubName),
-				models.FromPtr(p.City),
-				p.PaymentStatus,
-				p.Categories,
+				capitalizeWords(p.ClubName),
+				capitalizeWords(p.City),
+				formatPaymentStatus(p.PaymentStatus),
+				formatRegistrationSource(p.RegistrationSource),
+				p.RegistrationDate,
+				p.TargetNames,
+				capitalizeWords(p.Categories),
+				strconv.Itoa(p.TotalScore),
+				strconv.Itoa(p.TotalX),
 			})
 		}
 	}

@@ -6,33 +6,33 @@ import (
 
 // Archer represents an archer
 type Archer struct {
-	UUID        string     `json:"uuid" db:"uuid"`
-	Username    *string    `json:"username" db:"username"`
-	FullName    string     `json:"full_name" db:"full_name"`
-	DateOfBirth *time.Time `json:"date_of_birth" db:"date_of_birth"`
-	Gender      *string    `json:"gender" db:"gender"` // M, F, X
-	Email       *string    `json:"email" db:"email"`
-	Phone       *string    `json:"phone" db:"phone"`
-	AvatarURL   *string    `json:"avatar_url" db:"avatar_url"`
-	BannerURL   *string    `json:"banner_url" db:"banner_url"`
-	Address     *string    `json:"address" db:"address"`
-	Bio         *string    `json:"bio" db:"bio"`
-	Status      string     `json:"status" db:"status"` // active, inactive, suspended, pending
-	BowType     *string    `json:"bow_type" db:"bow_type"`
-	City        *string    `json:"city" db:"city"`
-	School      *string    `json:"school" db:"school"`
-	ClubID      *string    `json:"club_id" db:"club_id"`
-	SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
-	SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
-	SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
-	SocialFacebook  *string `json:"social_facebook" db:"social_facebook"`
-	SocialTwitter   *string `json:"social_twitter" db:"social_twitter"`
-	Achievements    *string `json:"achievements" db:"achievements"`
-	Equipment       *string `json:"equipment" db:"equipment"`
-	PageSettings    *string `json:"page_settings" db:"page_settings"`
-	ID          string     `json:"id" db:"id"`
-	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	UUID            string     `json:"uuid" db:"uuid"`
+	Username        *string    `json:"username" db:"username"`
+	FullName        string     `json:"full_name" db:"full_name"`
+	DateOfBirth     *time.Time `json:"date_of_birth" db:"date_of_birth"`
+	Gender          *string    `json:"gender" db:"gender"` // M, F, X
+	Email           *string    `json:"email" db:"email"`
+	Phone           *string    `json:"phone" db:"phone"`
+	AvatarURL       *string    `json:"avatar_url" db:"avatar_url"`
+	BannerURL       *string    `json:"banner_url" db:"banner_url"`
+	Address         *string    `json:"address" db:"address"`
+	Bio             *string    `json:"bio" db:"bio"`
+	Status          string     `json:"status" db:"status"` // active, inactive, suspended, pending
+	BowType         *string    `json:"bow_type" db:"bow_type"`
+	City            *string    `json:"city" db:"city"`
+	School          *string    `json:"school" db:"school"`
+	ClubID          *string    `json:"club_id" db:"club_id"`
+	SocialInstagram *string    `json:"social_instagram" db:"social_instagram"`
+	SocialTiktok    *string    `json:"social_tiktok" db:"social_tiktok"`
+	SocialWhatsapp  *string    `json:"social_whatsapp" db:"social_whatsapp"`
+	SocialFacebook  *string    `json:"social_facebook" db:"social_facebook"`
+	SocialTwitter   *string    `json:"social_twitter" db:"social_twitter"`
+	Achievements    *string    `json:"achievements" db:"achievements"`
+	Equipment       *string    `json:"equipment" db:"equipment"`
+	PageSettings    *string    `json:"page_settings" db:"page_settings"`
+	ID              string     `json:"id" db:"id"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // ArcherWithStats includes statistics
@@ -43,9 +43,6 @@ type ArcherWithStats struct {
 	TotalEvents     int        `json:"total_events" db:"total_events"`
 	CompletedEvents int        `json:"completed_events" db:"completed_events"`
 	LastEventDate   *time.Time `json:"last_event_date" db:"last_event_date"`
-	CoachNotes       *string    `json:"coach_notes" db:"coach_notes"`
-	ClubMemberStatus *string    `json:"club_member_status" db:"club_member_status"`
-	ClubMemberUUID   *string    `json:"club_member_uuid" db:"club_member_uuid"`
 }
 
 // CreateArcherRequest represents the request payload for creating an archer
@@ -70,29 +67,29 @@ type CreateArcherRequest struct {
 
 // UpdateArcherRequest represents the request payload for updating an archer
 type UpdateArcherRequest struct {
-	FullName    *string       `json:"full_name"`
-	Username    *string       `json:"username"`
-	DateOfBirth *FlexibleTime `json:"date_of_birth"`
-	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
-	BowType     *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
-	City        *string       `json:"city"`
-	School      *string       `json:"school"`
-	ClubID      *string       `json:"club_id"`
-	Email       *string       `json:"email" binding:"omitempty,email"`
-	Phone       *string       `json:"phone"`
-	AvatarURL   *string       `json:"avatar_url"`
-	BannerURL   *string       `json:"banner_url"`
-	Address     *string       `json:"address"`
-	Bio         *string       `json:"bio"`
-	SocialInstagram *string    `json:"social_instagram"`
-	SocialTiktok    *string    `json:"social_tiktok"`
-	SocialWhatsapp  *string    `json:"social_whatsapp"`
-	SocialFacebook  *string    `json:"social_facebook"`
-	SocialTwitter   *string    `json:"social_twitter"`
-	Achievements    *string    `json:"achievements"`
-	Equipment       *string    `json:"equipment"`
-	PageSettings    *string    `json:"page_settings"`
-	Status      *string       `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
+	FullName        *string       `json:"full_name"`
+	Username        *string       `json:"username"`
+	DateOfBirth     *FlexibleTime `json:"date_of_birth"`
+	Gender          *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
+	BowType         *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
+	City            *string       `json:"city"`
+	School          *string       `json:"school"`
+	ClubID          *string       `json:"club_id"`
+	Email           *string       `json:"email" binding:"omitempty,email"`
+	Phone           *string       `json:"phone"`
+	AvatarURL       *string       `json:"avatar_url"`
+	BannerURL       *string       `json:"banner_url"`
+	Address         *string       `json:"address"`
+	Bio             *string       `json:"bio"`
+	SocialInstagram *string       `json:"social_instagram"`
+	SocialTiktok    *string       `json:"social_tiktok"`
+	SocialWhatsapp  *string       `json:"social_whatsapp"`
+	SocialFacebook  *string       `json:"social_facebook"`
+	SocialTwitter   *string       `json:"social_twitter"`
+	Achievements    *string       `json:"achievements"`
+	Equipment       *string       `json:"equipment"`
+	PageSettings    *string       `json:"page_settings"`
+	Status          *string       `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 
 // EventParticipant represents an archer registered for an event
