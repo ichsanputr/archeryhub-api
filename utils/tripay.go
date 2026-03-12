@@ -157,7 +157,13 @@ func (t *TripayClient) GetTransactionDetail(reference string) (map[string]interf
 	return result.Data, nil
 }
 
-func (t *TripayClient) GetPaymentInstruction(code string) ([]interface{}, error) {
+// TripayInstruction represents a single instruction group from Tripay (e.g. "Internet Banking")
+type TripayInstruction struct {
+	Title string   `json:"title"`
+	Steps []string `json:"steps"`
+}
+
+func (t *TripayClient) GetPaymentInstruction(code string) ([]TripayInstruction, error) {
 	url := fmt.Sprintf("%s/payment/instruction?code=%s", t.BaseURL, code)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+t.APIKey)
@@ -169,9 +175,9 @@ func (t *TripayClient) GetPaymentInstruction(code string) ([]interface{}, error)
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool          `json:"success"`
-		Message string        `json:"message"`
-		Data    []interface{} `json:"data"`
+		Success bool                 `json:"success"`
+		Message string               `json:"message"`
+		Data    []TripayInstruction  `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

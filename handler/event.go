@@ -2022,6 +2022,70 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// UnregisterFromEvent allows an archer to cancel ALL their registrations from an event by event ID.
+// Uses DELETE /events/:id/participants/me
+func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+		uid := userID.(string)
+
+		// Resolve event slug/UUID
+		var actualEventID string
+		if err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		// Resolve archer UUID for this user
+		var archerID string
+		if err := db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? LIMIT 1`, uid); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan"})
+			return
+		}
+
+		// Find all registrations for this archer in this event
+		type RegInfo struct {
+			UUID          string `db:"uuid"`
+			PaymentStatus string `db:"payment_status"`
+		}
+		var regs []RegInfo
+		if err := db.Select(&regs, `SELECT uuid, payment_status FROM event_participants WHERE event_id = ? AND archer_id = ?`, actualEventID, archerID); err != nil || len(regs) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
+			return
+		}
+
+		// Block cancellation if any category is already paid
+		for _, r := range regs {
+			if r.PaymentStatus == "lunas" || r.PaymentStatus == "paid" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak dapat membatalkan pendaftaran yang sudah lunas. Hubungi panitia."})
+				return
+			}
+		}
+
+		// Block if already accredited/approved
+		var approvedCount int
+		_ = db.Get(&approvedCount, `SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND archer_id = ? AND accreditation_status = 'approved'`, actualEventID, archerID)
+		if approvedCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pendaftaran sudah disetujui. Hubungi panitia untuk pembatalan."})
+			return
+		}
+
+		// Delete all registrations for this archer in this event
+		if _, err := db.Exec(`DELETE FROM event_participants WHERE event_id = ? AND archer_id = ?`, actualEventID, archerID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membatalkan pendaftaran"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Pendaftaran berhasil dibatalkan"})
+	}
+}
+
 // CancelParticipantRegistration allows an archer to cancel their registration
 func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

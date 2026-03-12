@@ -257,8 +257,21 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-		whereClause := "WHERE ep.archer_id = ?"
-		args := []interface{}{userID}
+		// Match by archer UUID directly OR by any archer record sharing the same email.
+		// This handles the case where an organizer registered the archer under a
+		// different archer record (same email, different UUID) than the one in the JWT.
+		userEmailVal, _ := c.Get("email")
+		userEmailStr := fmt.Sprintf("%v", userEmailVal)
+
+		var whereClause string
+		var args []interface{}
+		if userEmailStr != "" && userEmailStr != "<nil>" {
+			whereClause = "WHERE (ep.archer_id = ? OR ep.archer_id IN (SELECT uuid FROM archers WHERE email = ? AND email != ''))"
+			args = []interface{}{userID, userEmailStr}
+		} else {
+			whereClause = "WHERE ep.archer_id = ?"
+			args = []interface{}{userID}
+		}
 
 		if status != "" {
 			whereClause += ` AND e.status = ?`
@@ -302,7 +315,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url FROM clubs
 			) o ON e.organizer_id = o.id
 			LEFT JOIN event_participants ep2 ON e.uuid = ep2.event_id
 			LEFT JOIN event_categories ec ON e.uuid = ec.event_id
@@ -873,7 +886,7 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 
 		// If still not found, try clubs
 		if !found {
-			err = db.Get(&avatarURL, "SELECT avatar_url FROM clubs WHERE email = ? OR slug = ?", identifier, identifier)
+			err = db.Get(&avatarURL, "SELECT logo_url FROM clubs WHERE slug = ?", identifier)
 			if err == nil {
 				found = true
 			}
