@@ -175,9 +175,9 @@ func (t *TripayClient) GetPaymentInstruction(code string) ([]TripayInstruction, 
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool                 `json:"success"`
-		Message string               `json:"message"`
-		Data    []TripayInstruction  `json:"data"`
+		Success bool                `json:"success"`
+		Message string              `json:"message"`
+		Data    []TripayInstruction `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
