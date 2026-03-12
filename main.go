@@ -464,6 +464,7 @@ func main() {
 		payment := api.Group("/payment")
 		{
 			payment.GET("/channels", handler.GetPaymentChannels(db))
+			payment.GET("/instruction", handler.GetPaymentInstruction(db))
 			payment.GET("/status/:reference", handler.GetPaymentStatus(db))
 			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))

@@ -128,7 +128,6 @@ func (t *TripayClient) CreateTransaction(payload interface{}) (map[string]interf
 	return result.Data, nil
 }
 
-
 func (t *TripayClient) GetTransactionDetail(reference string) (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/transaction/detail?reference=%s", t.BaseURL, reference)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -145,6 +144,34 @@ func (t *TripayClient) GetTransactionDetail(reference string) (map[string]interf
 		Success bool                   `json:"success"`
 		Message string                 `json:"message"`
 		Data    map[string]interface{} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	if !result.Success {
+		return nil, errors.New(result.Message)
+	}
+
+	return result.Data, nil
+}
+
+func (t *TripayClient) GetPaymentInstruction(code string) ([]interface{}, error) {
+	url := fmt.Sprintf("%s/payment/instruction?code=%s", t.BaseURL, code)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+t.APIKey)
+
+	resp, err := t.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool          `json:"success"`
+		Message string        `json:"message"`
+		Data    []interface{} `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

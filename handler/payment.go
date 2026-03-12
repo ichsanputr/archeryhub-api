@@ -320,9 +320,9 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		transaction := models.PaymentTransaction{
-			UUID:            transactionID,
-			Reference:       merchantRef,
-			TripayReference: &tripayRef,
+			UUID:               transactionID,
+			Reference:          merchantRef,
+			TripayReference:    &tripayRef,
 			UserID:             userID.(string),
 			EventID:            eventID,
 			RegistrationID:     registrationID,
@@ -582,7 +582,6 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-
 // GetPaymentStatus returns the status of a payment transaction with enriched details
 func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -646,15 +645,15 @@ func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type PaymentItem struct {
-			Reference     string    `json:"reference" db:"reference"`
-			PayMethod     *string   `json:"payment_method" db:"payment_method"`
-			Amount        float64   `json:"amount" db:"amount"`
-			Fee           float64   `json:"fee_amount" db:"fee_amount"`
-			Total         float64   `json:"total_amount" db:"total_amount"`
-			Status        string    `json:"status" db:"status"`
-			PaidAt        *time.Time `json:"paid_at" db:"paid_at"`
-			CreatedAt     time.Time `json:"created_at" db:"created_at"`
-			AthleteName   *string   `json:"athlete_name" db:"athlete_name"`
+			Reference   string     `json:"reference" db:"reference"`
+			PayMethod   *string    `json:"payment_method" db:"payment_method"`
+			Amount      float64    `json:"amount" db:"amount"`
+			Fee         float64    `json:"fee_amount" db:"fee_amount"`
+			Total       float64    `json:"total_amount" db:"total_amount"`
+			Status      string     `json:"status" db:"status"`
+			PaidAt      *time.Time `json:"paid_at" db:"paid_at"`
+			CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+			AthleteName *string    `json:"athlete_name" db:"athlete_name"`
 		}
 
 		var payments []PaymentItem
@@ -766,7 +765,6 @@ func GetOrganizationEarningsDetail(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-
 // GetPaymentChannels returns available Tripay payment channels
 func GetPaymentChannels(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -778,6 +776,25 @@ func GetPaymentChannels(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, channels)
+	}
+}
+
+func GetPaymentInstruction(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Query("code")
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			return
+		}
+
+		tripay := utils.NewTripayClient()
+		instructions, err := tripay.GetPaymentInstruction(code)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get instructions: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": instructions})
 	}
 }
 
@@ -932,6 +949,7 @@ func DeleteEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Payment method deleted successfully"})
 	}
 }
+
 // SimulatePaymentSuccess simulates a successful payment for testing
 func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -994,6 +1012,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Payment simulation successful", "reference": reference})
 	}
 }
+
 // GetMyPayments returns the authenticated user's payment history
 func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -1048,6 +1067,7 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+
 // CreateParticipantPayment handles creating a payment for a specific participant registration
 func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -1148,21 +1168,21 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			UUID:            transactionID,
 			Reference:       merchantRef,
 			TripayReference: &tripayRef,
-			UserID:             userID.(string),
-			EventID:            &reg.EventID,
-			RegistrationID:     &reg.UUID,
-			Amount:             float64(amount),
-			FeeAmount:          0,
-			TotalAmount:        float64(amount),
-			PaymentMethod:      utils.StringPtr(req.Method),
-			VANumber:           utils.InterfaceToStringPtr(tripayResult["pay_code"]),
-			QRURL:              utils.InterfaceToStringPtr(tripayResult["qr_url"]),
-			CheckoutURL:        utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
-			PayCode:            utils.InterfaceToStringPtr(tripayResult["pay_code"]),
-			Instructions:       instructionsJSON,
-			Months:             1,
-			Status:             "pending",
-			ExpiredAt:          expiredAt,
+			UserID:          userID.(string),
+			EventID:         &reg.EventID,
+			RegistrationID:  &reg.UUID,
+			Amount:          float64(amount),
+			FeeAmount:       0,
+			TotalAmount:     float64(amount),
+			PaymentMethod:   utils.StringPtr(req.Method),
+			VANumber:        utils.InterfaceToStringPtr(tripayResult["pay_code"]),
+			QRURL:           utils.InterfaceToStringPtr(tripayResult["qr_url"]),
+			CheckoutURL:     utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
+			PayCode:         utils.InterfaceToStringPtr(tripayResult["pay_code"]),
+			Instructions:    instructionsJSON,
+			Months:          1,
+			Status:          "pending",
+			ExpiredAt:       expiredAt,
 		}
 
 		query := `
