@@ -133,7 +133,7 @@ func GetProductByID(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Increment views
-		db.Exec("UPDATE products SET views = views + 1 WHERE uuid = ?", product.UUID)
+		db.Exec("UPDATE products SET views = COALESCE(views, 0) + 1 WHERE uuid = ?", product.UUID)
 
 		if product.ImageURL != nil && *product.ImageURL != "" {
 			masked := utils.MaskMediaURL(*product.ImageURL)
@@ -348,5 +348,18 @@ func DeleteProduct(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Produk berhasil dihapus"})
+	}
+}
+
+// IncrementProductViews increments the view count of a product
+func IncrementProductViews(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		_, err := db.Exec("UPDATE products SET views = COALESCE(views, 0) + 1 WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data analitik"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Analitik diperbarui"})
 	}
 }

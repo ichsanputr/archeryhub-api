@@ -155,6 +155,9 @@ func GetNewsByID(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Increment views
+		db.Exec("UPDATE news SET views = COALESCE(views, 0) + 1 WHERE uuid = ?", article.UUID)
+
 		// Mask URL
 		if article.ImageURL != nil {
 			masked := utils.MaskMediaURL(*article.ImageURL)
@@ -443,4 +446,17 @@ func generateSlug(title string) string {
 	}
 	// Add timestamp suffix for uniqueness
 	return result.String() + "-" + time.Now().Format("20060102")
+}
+
+// IncrementNewsViews increments the view count of a news article
+func IncrementNewsViews(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		_, err := db.Exec("UPDATE news SET views = COALESCE(views, 0) + 1 WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data analitik"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Analitik diperbarui"})
+	}
 }

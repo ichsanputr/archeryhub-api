@@ -224,3 +224,72 @@ func ExportSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 		}
 	}
 }
+// GetSellerOrderByID returns detailed information for a single order
+func GetSellerOrderByID(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		orderID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		type OrderDetail struct {
+			models.Order
+			BuyerName       string  `json:"customer_name" db:"buyer_name"`
+			BuyerEmail      string  `json:"customer_email" db:"buyer_email"`
+			BuyerPhone      string  `json:"customer_phone" db:"buyer_phone"`
+			ShippingAddress string  `json:"shipping_address" db:"shipping_address"`
+			Items           []struct {
+				ID          string  `json:"id" db:"uuid"`
+				ProductName string  `json:"product_name" db:"product_name"`
+				ProductImg  string  `json:"product_image" db:"product_image"`
+				Quantity    int     `json:"quantity" db:"quantity"`
+				Price       float64 `json:"price" db:"price"`
+			} `json:"items"`
+		}
+
+		var order OrderDetail
+		err := db.Get(&order, `
+			SELECT 
+				o.*, 
+				a.full_name as buyer_name, 
+				a.email as buyer_email,
+				a.phone as buyer_phone,
+				COALESCE(o.shipping_address, '') as shipping_address
+			FROM orders o
+			LEFT JOIN archers a ON o.buyer_id = a.uuid
+			WHERE o.uuid = ? AND o.seller_id = ?
+		`, orderID, userID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pesanan tidak ditemukan"})
+			return
+		}
+
+		err = db.Select(&order.Items, `
+			SELECT 
+				oi.uuid, 
+				p.name as product_name, 
+				p.image_url as product_image,
+				oi.quantity, 
+				oi.price
+			FROM order_items oi
+			JOIN products p ON oi.product_id = p.uuid
+			WHERE oi.order_id = ?
+		`, orderID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil item pesanan"})
+			return
+		}
+
+		if order.Items == nil {
+			order.Items = make([]struct {
+				ID          string  `json:"id" db:"uuid"`
+				ProductName string  `json:"product_name" db:"product_name"`
+				ProductImg  string  `json:"product_image" db:"product_image"`
+				Quantity    int     `json:"quantity" db:"quantity"`
+				Price       float64 `json:"price" db:"price"`
+			}, 0)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": order})
+	}
+}

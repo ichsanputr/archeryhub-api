@@ -573,6 +573,14 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Update orders if applicable
+		_, err = tx.Exec("UPDATE orders SET payment_status = ? WHERE payment_id = ?", status, transactionID)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memperbarui status pesanan"})
+			return
+		}
+
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menyimpan transaksi"})
 			return

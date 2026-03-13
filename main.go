@@ -430,6 +430,7 @@ func main() {
 			// Public news routes
 			news.GET("", handler.GetNewsPublic(db))
 			news.GET("/:id", handler.GetNewsByID(db))
+			news.POST("/:id/views", handler.IncrementNewsViews(db))
 			news.POST("/subscribe", handler.SubscribeNews(db))
 
 			// Protected news routes
@@ -634,6 +635,7 @@ func main() {
 
 			// Wildcard routes - must come after static ones
 			products.GET("/:id", handler.GetProductByID(db))
+			products.POST("/:id/views", handler.IncrementProductViews(db))
 			products.PUT("/:id", middleware.AuthMiddleware(), handler.UpdateProduct(db))
 			products.DELETE("/:id", middleware.AuthMiddleware(), handler.DeleteProduct(db))
 		}
@@ -646,6 +648,7 @@ func main() {
 			cart.POST("", handler.AddToCart(db))
 			cart.PUT("/:id", handler.UpdateCartItem(db))
 			cart.DELETE("/:id", handler.DeleteCartItem(db))
+			cart.POST("/checkout", handler.CheckoutCart(db))
 		}
 
 		// Seller routes (protected)
@@ -672,6 +675,7 @@ func main() {
 		ordersGroup.Use(middleware.AuthMiddleware())
 		{
 			ordersGroup.GET("", handler.GetSellerOrders(db))
+			ordersGroup.GET("/:id", handler.GetSellerOrderByID(db))
 			ordersGroup.GET("/export", handler.ExportSellerOrders(db))
 			ordersGroup.GET("/stats", handler.GetSellerStats(db))
 			ordersGroup.PUT("/:id/status", handler.UpdateOrderStatus(db))

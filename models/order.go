@@ -9,6 +9,7 @@ type Order struct {
 	TotalAmount     float64   `json:"total_amount" db:"total_amount"`
 	Status          string    `json:"status" db:"status"` // pending, processing, shipped, done, cancelled
 	PaymentStatus   string    `json:"payment_status" db:"payment_status"` // unpaid, paid, expired, failed
+	PaymentID       *string   `json:"payment_id" db:"payment_id"`
 	ShippingAddress *string   `json:"shipping_address" db:"shipping_address"`
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`

@@ -2,7 +2,11 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -158,5 +162,226 @@ func DeleteCartItem(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Barang dihapus dari keranjang"})
+	}
+}
+
+// CheckoutCart creates orders and a payment transaction from cart items
+func CheckoutCart(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userEmail, _ := c.Get("email")
+
+		var req models.CheckoutRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// 1. Get cart items with product details
+		var items []struct {
+			models.CartItem
+			SellerID      string   `db:"seller_id"`
+			Price         float64  `db:"product_price"`
+			SalePrice     *float64 `db:"product_sale_price"`
+			Stock         int      `db:"product_stock"`
+		}
+
+		query := `
+			SELECT 
+				c.uuid, c.user_id, c.product_id, c.quantity, c.color,
+				p.name as product_name, p.seller_id, p.price as product_price, p.sale_price as product_sale_price, p.stock as product_stock
+			FROM cart_items c
+			JOIN products p ON c.product_id = p.uuid
+			WHERE c.user_id = ?
+		`
+		err := db.Select(&items, query, userID)
+		if err != nil || len(items) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Keranjang kosong atau tidak ditemukan"})
+			return
+		}
+
+		// 2. Validate stock and calculate totals grouped by seller
+		totalAmount := 0.0
+		
+		// Map for grouping items by seller
+		type SellerGroup struct {
+			Items []struct {
+				ProductID string
+				Quantity  int
+				Price     float64
+				Color     *string
+			}
+			Total float64
+		}
+		groups := make(map[string]*SellerGroup)
+
+		for _, item := range items {
+			if item.Quantity > item.Stock {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Stok produk %s tidak mencukupi", item.ProductName)})
+				return
+			}
+
+			price := item.Price
+			if item.SalePrice != nil {
+				price = *item.SalePrice
+			}
+
+			if _, ok := groups[item.SellerID]; !ok {
+				groups[item.SellerID] = &SellerGroup{}
+			}
+			
+			groups[item.SellerID].Items = append(groups[item.SellerID].Items, struct {
+				ProductID string
+				Quantity  int
+				Price     float64
+				Color     *string
+			}{item.ProductID, item.Quantity, price, item.Color})
+			
+			itemTotal := price * float64(item.Quantity)
+			groups[item.SellerID].Total += itemTotal
+			totalAmount += itemTotal
+		}
+
+		// 3. Create Tripay transaction
+		tripay := utils.NewTripayClient()
+		merchantRef := fmt.Sprintf("ORD-%s", uuid.New().String()[:12])
+		
+		// Get buyer info (archer)
+		var archer struct {
+			FullName string `db:"full_name"`
+			Phone    string `db:"phone"`
+		}
+		err = db.Get(&archer, "SELECT full_name, COALESCE(phone, '') as phone FROM archers WHERE uuid = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data profil"})
+			return
+		}
+
+		customerEmail := userEmail.(string)
+		customerName := archer.FullName
+		customerPhone := archer.Phone
+		if customerPhone == "" {
+			customerPhone = "08123456789"
+		}
+
+		var tripayOrderItems []gin.H
+		for _, item := range items {
+			price := item.Price
+			if item.SalePrice != nil {
+				price = *item.SalePrice
+			}
+			tripayOrderItems = append(tripayOrderItems, gin.H{
+				"sku":      item.ProductID,
+				"name":     item.ProductName,
+				"price":    int(price),
+				"quantity": item.Quantity,
+			})
+		}
+
+		signature := tripay.GenerateSignature(merchantRef, int(totalAmount))
+		expiredTime := time.Now().Add(24 * time.Hour).Unix()
+
+		payload := gin.H{
+			"method":         req.Method,
+			"merchant_ref":   merchantRef,
+			"amount":         int(totalAmount),
+			"customer_name":  customerName,
+			"customer_email": customerEmail,
+			"customer_phone": customerPhone,
+			"order_items":    tripayOrderItems,
+			"signature":      signature,
+			"expired_time":   expiredTime,
+		}
+
+		tripayResult, err := tripay.CreateTransaction(payload)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran: " + err.Error()})
+			return
+		}
+
+		// 4. Create database records (Transaction)
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses pesanan"})
+			return
+		}
+		defer tx.Rollback()
+
+		// 4a. Create Payment Transaction
+		transactionID := uuid.New().String()
+		tripayRef := tripayResult["reference"].(string)
+		
+		// Instructions
+		var instructionsJSON *string
+		if inst, ok := tripayResult["instructions"]; ok {
+			instBytes, _ := json.Marshal(inst)
+			instStr := string(instBytes)
+			instructionsJSON = &instStr
+		}
+
+		_, err = tx.Exec(`
+			INSERT INTO payment_transactions (
+				uuid, reference, tripay_reference, user_id, amount, total_amount, 
+				payment_method, va_number, qr_url, checkout_url, pay_code, 
+				instructions, status, expired_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', FROM_UNIXTIME(?))
+		`, transactionID, merchantRef, tripayRef, userID, totalAmount, totalAmount,
+			req.Method, utils.InterfaceToStringPtr(tripayResult["pay_code"]), 
+			utils.InterfaceToStringPtr(tripayResult["qr_url"]),
+			utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
+			utils.InterfaceToStringPtr(tripayResult["pay_code"]),
+			instructionsJSON, expiredTime)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
+			return
+		}
+
+		// 4b. Create Orders and Order Items
+		for sellerID, group := range groups {
+			orderID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO orders (uuid, seller_id, buyer_id, total_amount, status, payment_status, payment_id, shipping_address)
+				VALUES (?, ?, ?, ?, 'pending', 'unpaid', ?, ?)
+			`, orderID, sellerID, userID, group.Total, transactionID, req.ShippingAddress)
+			
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data pesanan: " + err.Error()})
+				return
+			}
+
+			for _, item := range group.Items {
+				_, err = tx.Exec(`
+					INSERT INTO order_items (uuid, order_id, product_id, quantity, price)
+					VALUES (?, ?, ?, ?, ?)
+				`, uuid.New().String(), orderID, item.ProductID, item.Quantity, item.Price)
+				
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan item pesanan"})
+					return
+				}
+				
+				// Optional: Update stock
+				_, err = tx.Exec("UPDATE products SET stock = stock - ? WHERE uuid = ?", item.Quantity, item.ProductID)
+			}
+		}
+
+		// 4c. Clear cart
+		_, err = tx.Exec("DELETE FROM cart_items WHERE user_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan keranjang"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pesanan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Pesanan berhasil dibuat",
+			"reference": merchantRef,
+			"payment": tripayResult,
+		})
 	}
 }

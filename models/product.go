@@ -92,3 +92,9 @@ type AddToCartRequest struct {
 type UpdateCartItemRequest struct {
 	Quantity int `json:"quantity" binding:"required,min=1"`
 }
+
+// CheckoutRequest represents the payload to checkout a cart
+type CheckoutRequest struct {
+	Method          string `json:"method" binding:"required"`
+	ShippingAddress string `json:"shipping_address" binding:"required"`
+}
