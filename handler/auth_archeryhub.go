@@ -88,7 +88,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			table = "sellers"
 			role = "seller"
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return
 		}
 
@@ -128,7 +128,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				isUpdate = true
 			} else {
 				c.JSON(http.StatusConflict, gin.H{
-					"error": "User with this email or username already exists",
+					"error": "Email atau username sudah digunakan",
 					"type":  existingUser.Source,
 				})
 				return
@@ -218,7 +218,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
 		}
 
@@ -231,7 +231,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		}
 		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar, orgID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
 			return
 		}
 
@@ -263,7 +263,7 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 		userType := c.Query("type")
 
 		if name == "" || userType == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Name and type are required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nama dan tipe wajib diisi"})
 			return
 		}
 
@@ -282,7 +282,7 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 			table = "sellers"
 			column = "store_name"
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return
 		}
 
@@ -290,7 +290,7 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 		query := "SELECT EXISTS(SELECT 1 FROM " + table + " WHERE " + column + " = ?)"
 		err := db.Get(&exists, query, name)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database: " + err.Error()})
 			return
 		}
 
@@ -372,20 +372,20 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			if os.Getenv("ENV") == "development" {
 				log.Printf("[auth] login user not found email=%q", req.Email)
 			}
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah", "code": "invalid_credentials"})
 			return
 		}
 
 		// Check if account is active (NULL or empty status treated as inactive)
 		if user.Status != "active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active", "code": "account_inactive"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Akun tidak aktif", "code": "account_inactive"})
 			return
 		}
 
 		// Account created via Google has no password; tell user to use Google sign-in
 		if user.Password == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "This account uses Google sign-in. Please sign in with Google.",
+				"error": "Akun ini terdaftar melalui Google. Silakan login dengan Google.",
 				"code":  "use_google_signin",
 			})
 			return
@@ -396,7 +396,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			if os.Getenv("ENV") == "development" {
 				log.Printf("[auth] login password mismatch email=%q (db_len=%d req_len=%d)", req.Email, len(user.Password), len(req.Password))
 			}
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah", "code": "invalid_credentials"})
 			return
 		}
 
@@ -407,7 +407,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
 			return
 		}
 
@@ -442,7 +442,7 @@ func Logout() gin.HandlerFunc {
 		// Clear cookie using helper (-1 maxAge means delete)
 		setAuthCookie(c, "", -1)
 
-		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Berhasil logout"})
 	}
 }
 
@@ -451,7 +451,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -531,7 +531,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&user, query, userID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
 			return
 		}
 

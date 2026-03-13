@@ -34,7 +34,7 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 		`, teamID, eventID, req.CategoryID, req.TeamName)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create team"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat tim"})
 			return
 		}
 
@@ -62,7 +62,7 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 			`, memberID, teamID, participantID, i+1)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add team member"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan anggota tim"})
 				return
 			}
 		}
@@ -72,7 +72,7 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":      teamID,
-			"message": "Team created successfully",
+			"message": "Tim berhasil dibuat",
 		})
 	}
 }
@@ -87,7 +87,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -111,7 +111,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to fetch teams",
+				"error":   "Gagal mengambil data tim",
 				"details": err.Error(),
 			})
 			return
@@ -214,7 +214,7 @@ func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Select(&teams, query, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch your teams"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data tim Anda"})
 			return
 		}
 
@@ -233,7 +233,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 		var team models.Team
 		err := db.Get(&team, "SELECT * FROM teams WHERE uuid = ?", teamID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Team not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Tim tidak ditemukan"})
 			return
 		}
 
@@ -248,7 +248,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 		`, teamID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch team members"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data anggota tim"})
 			return
 		}
 
@@ -329,7 +329,7 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 			string(memberScoresJSON), endTotal, xCount, runningTotal, userID.(string))
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit team score"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim skor tim"})
 			return
 		}
 
@@ -351,7 +351,7 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 			"id":            scoreID,
 			"end_total":     endTotal,
 			"running_total": runningTotal,
-			"message":       "Team score submitted successfully",
+			"message":       "Skor tim berhasil dikirim",
 		})
 	}
 }
@@ -385,7 +385,7 @@ func GetTeamRankings(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&rankings, query, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch team rankings", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data peringkat tim", "details": err.Error()})
 			return
 		}
 
@@ -401,7 +401,7 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		categoryID := c.Query("category_id")
 		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id wajib diisi"})
 			return
 		}
 
@@ -467,7 +467,7 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		var rankings []TeamRankingEntry
 		err = db.Select(&rankings, query, categoryID, teamSize)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate team rankings", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat tim", "details": err.Error()})
 			return
 		}
 
@@ -486,7 +486,7 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		ageGroupID := c.Query("age_group_id") // u15, senior, u18, etc.
 
 		if divisionID == "" || ageGroupID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "division_id and age_group_id are required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "division_id dan age_group_id wajib diisi"})
 			return
 		}
 
@@ -503,7 +503,7 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		`, eventID, divisionID, ageGroupID)
 
 		if err != nil || len(catIDs) < 2 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Male and Female categories not found for this division/age group"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori putra dan putri tidak ditemukan untuk divisi/kelompok umur ini"})
 			return
 		}
 
@@ -518,7 +518,7 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if maleCatID == "" || femaleCatID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Could not identify both male and female categories"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal mengidentifikasi kategori putra dan putri"})
 			return
 		}
 
@@ -597,7 +597,7 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		var rankings []MixedTeamEntry
 		err = db.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate mixed team rankings", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat mixed team", "details": err.Error()})
 			return
 		}
 
@@ -632,7 +632,7 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -659,7 +659,7 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 			`, teamUUID, tournamentID, req.CategoryID, teamReq.TeamName, i+1, teamReq.TotalScore, teamReq.TotalX)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create team record", "details": err.Error(), "team": teamReq.TeamName})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data tim", "details": err.Error(), "team": teamReq.TeamName})
 				return
 			}
 
@@ -674,21 +674,21 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 				`, memberUUID, teamUUID, pID, order+1)
 
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add team member", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan anggota tim", "details": err.Error()})
 					return
 				}
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit teams"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data tim"})
 			return
 		}
 
 		utils.LogActivity(db, userID.(string), tournamentID, "teams_regenerated", "event", tournamentID,
 			fmt.Sprintf("Regenerated %d teams for category %s", len(req.Teams), req.CategoryID), c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Teams synchronized successfully", "count": len(req.Teams)})
+		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil disinkronisasi", "count": len(req.Teams)})
 	}
 }
 
@@ -702,7 +702,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -745,7 +745,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error":   "Category not found",
+				"error":   "Kategori tidak ditemukan",
 				"details": err.Error(),
 			})
 			return
@@ -755,7 +755,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to-start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -777,26 +777,21 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			"type_code":   catInfo.TypeCode,
 			"is_mixed":    isMixed,
 		}
+
 		if isMixed {
 			var maleParticipants int
 			_ = tx.Get(&maleParticipants, `
 				SELECT COUNT(DISTINCT ep.archer_id)
 				FROM event_participants ep
-				JOIN event_categories ec ON ep.category_id = ec.uuid
-				JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-				WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
-				AND (rgd.code = 'men' OR rgd.code = 'male')
-			`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID)
+				WHERE ep.category_id = ?
+			`, req.CategoryID)
 
 			var femaleParticipants int
 			_ = tx.Get(&femaleParticipants, `
 				SELECT COUNT(DISTINCT ep.archer_id)
 				FROM event_participants ep
-				JOIN event_categories ec ON ep.category_id = ec.uuid
-				JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-				WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
-				AND (rgd.code = 'women' OR rgd.code = 'female')
-			`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID)
+				WHERE ep.category_id = ?
+			`, req.CategoryID)
 
 			// Find male/female categories
 			var catIDs []struct {
@@ -807,16 +802,19 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				SELECT ec.uuid, rgd.code as gender_code
 				FROM event_categories ec
 				JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+				JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
 				WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+				  AND ret.code = 'individual'
 			`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID)
 
 			if err != nil || len(catIDs) < 2 {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Could not find pair categories for mixed team",
+					"error": "Kategori pasangan putra/putri (Individual) tidak ditemukan atau tidak lengkap",
 					"details": gin.H{
 						"male_participants":   maleParticipants,
 						"female_participants": femaleParticipants,
-						"reason":              "Kategori pasangan putra/putri untuk mixed team tidak lengkap",
+						"found_categories":    len(catIDs),
+						"reason":              "Mixed team membutuhkan kategori Individual Putra dan Individual Putri dengan divisi dan kelompok umur yang sama.",
 					},
 				})
 				return
@@ -833,7 +831,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if maleCatID == "" || femaleCatID == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Could not identify male/female categories"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal mengidentifikasi kategori putra/putri"})
 				return
 			}
 
@@ -853,33 +851,33 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				SELECT club_id, club_name, male_id, female_id, male_score, female_score, (male_score + female_score) as total_score, (male_x + female_x) as total_x
 				FROM (
 					SELECT 
-						cl.uuid as club_id, cl.name as club_name, ep.rank_in_club,
-						MAX(CASE WHEN ep.category_id = ? THEN participant_id ELSE '' END) as male_id,
-						MAX(CASE WHEN ep.category_id = ? THEN participant_id ELSE '' END) as female_id,
-						MAX(CASE WHEN ep.category_id = ? THEN individual_score ELSE 0 END) as male_score,
-						MAX(CASE WHEN ep.category_id = ? THEN individual_score ELSE 0 END) as female_score,
-						MAX(CASE WHEN ep.category_id = ? THEN individual_x ELSE 0 END) as male_x,
-						MAX(CASE WHEN ep.category_id = ? THEN individual_x ELSE 0 END) as female_x
+						cl.uuid as club_id, cl.name as club_name, ep_ranked.rank_in_club,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.participant_id ELSE '' END) as male_id,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.participant_id ELSE '' END) as female_id,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_score ELSE 0 END) as male_score,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_score ELSE 0 END) as female_score,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_x ELSE 0 END) as male_x,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_x ELSE 0 END) as female_x
 					FROM (
-						SELECT ep.participant_id, a.club_id, ep.category_id, individual_score, individual_x,
-							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep.category_id ORDER BY individual_score DESC, individual_x DESC) as rank_in_club
-						FROM (
-							SELECT ep.archer_id, ep.uuid as participant_id, a.club_id, ep.category_id, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x
-							FROM event_participants ep
-							JOIN archers a ON ep.archer_id = a.uuid
-							LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
-							WHERE ep.category_id IN (?, ?)
-							GROUP BY ep.archer_id, ep.uuid, a.club_id, ep.category_id
-						) a
-					) ep
-					JOIN clubs cl ON ep.club_id = cl.uuid
-					GROUP BY cl.uuid, cl.name, ep.rank_in_club
+						SELECT ep_team.archer_id, ep_team.uuid as participant_id, a.club_id, ep_indiv.category_id, 
+                               COALESCE(SUM(s.total_score_end), 0) as individual_score, 
+                               COALESCE(SUM(s.x_count_end), 0) as individual_x,
+							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep_indiv.category_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.x_count_end) DESC) as rank_in_club
+						FROM event_participants ep_team
+						JOIN archers a ON ep_team.archer_id = a.uuid
+						JOIN event_participants ep_indiv ON a.uuid = ep_indiv.archer_id
+						LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep_indiv.uuid
+						WHERE ep_team.category_id = ? AND ep_indiv.category_id IN (?, ?)
+						GROUP BY ep_team.archer_id, ep_team.uuid, a.club_id, ep_indiv.category_id
+					) ep_ranked
+					JOIN clubs cl ON ep_ranked.club_id = cl.uuid
+					GROUP BY cl.uuid, cl.name, ep_ranked.rank_in_club
 					HAVING male_score > 0 AND female_score > 0
 				) mixed ORDER BY total_score DESC, total_x DESC`
 
-			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID)
+			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, req.CategoryID, maleCatID, femaleCatID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate mixed team rankings", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat mixed team", "details": err.Error()})
 				return
 			}
 
@@ -899,7 +897,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				teamUUID := uuid.New().String()
 				if _, err = tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					teamUUID, eventUUID, req.CategoryID, "Mixed "+r.ClubName+suffix, i+1, r.TotalScore, r.TotalX); err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert mixed team", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan data mixed team", "details": err.Error()})
 					return
 				}
 
@@ -947,7 +945,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				SELECT COUNT(DISTINCT ep.archer_id)
 				FROM event_participants ep
 				WHERE ep.category_id = ?
-			`, participantCatID)
+			`, req.CategoryID)
 
 			var clubsWithParticipants int
 			_ = tx.Get(&clubsWithParticipants, `
@@ -955,28 +953,29 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				FROM event_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				WHERE ep.category_id = ? AND a.club_id IS NOT NULL AND a.club_id <> ''
-			`, participantCatID)
+			`, req.CategoryID)
 
 			query := `
 				SELECT club_id, club_name, SUM(individual_score) as total_score, SUM(individual_x) as total_x, GROUP_CONCAT(participant_id ORDER BY individual_score DESC SEPARATOR ',') as participant_ids, COUNT(*) as member_count
 				FROM (
-					SELECT ep.uuid as participant_id, cl.uuid as club_id, COALESCE(cl.name, 'Independen') as club_name, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x,
+					SELECT ep_team.uuid as participant_id, cl.uuid as club_id, COALESCE(cl.name, 'Independen') as club_name, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x,
 						ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as club_rank
-					FROM event_participants ep
-					JOIN archers a ON ep.archer_id = a.uuid
+					FROM event_participants ep_team
+					JOIN archers a ON ep_team.archer_id = a.uuid
+					JOIN event_participants ep_indiv ON a.uuid = ep_indiv.archer_id
 					LEFT JOIN clubs cl ON a.club_id = cl.uuid
-					LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
-					WHERE ep.category_id = ?
-					GROUP BY ep.uuid, cl.uuid, cl.name
+					LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep_indiv.uuid
+					WHERE ep_team.category_id = ? AND ep_indiv.category_id = ?
+					GROUP BY ep_team.uuid, cl.uuid, cl.name
 				) ranked
 				WHERE club_id IS NOT NULL
 				GROUP BY club_id, club_name, CEIL(club_rank / ?)
 				HAVING member_count >= ?
 				ORDER BY total_score DESC, total_x DESC`
 
-			err = tx.Select(&rankings, query, participantCatID, teamSize, teamSize)
+			err = tx.Select(&rankings, query, req.CategoryID, participantCatID, teamSize, teamSize)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate team rankings", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat tim", "details": err.Error()})
 				return
 			}
 
@@ -1046,7 +1045,7 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1093,20 +1092,20 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 			`, memberID, teamID, participantID, i+1)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add team member"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan anggota tim"})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit changes"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan"})
 			return
 		}
 
 		utils.LogActivity(db, userID.(string), "", "team_updated", "team", teamID,
-			fmt.Sprintf("Updated team: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
+			fmt.Sprintf("Memperbarui tim: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Team updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil diperbarui"})
 	}
 }
 
@@ -1118,7 +1117,7 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1126,25 +1125,25 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 		// 1. Delete members
 		_, err = tx.Exec("DELETE FROM team_members WHERE team_id = ?", teamID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete team members"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus anggota tim"})
 			return
 		}
 
 		// 2. Delete team
 		_, err = tx.Exec("DELETE FROM teams WHERE uuid = ?", teamID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete team"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus tim"})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit deletion"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan penghapusan"})
 			return
 		}
 
 		utils.LogActivity(db, userID.(string), "", "team_deleted", "team", teamID,
-			"Deleted a team", c.ClientIP(), c.Request.UserAgent())
+			"Menghapus tim", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Team deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil dihapus"})
 	}
 }

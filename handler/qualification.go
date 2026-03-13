@@ -23,7 +23,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		if eventID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId wajib diisi"})
 			return
 		}
 
@@ -31,7 +31,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -76,7 +76,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY qs.session_date ASC, qs.start_time ASC, qs.created_at ASC
 		`, eventUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sessions", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data sesi", "details": err.Error()})
 			return
 		}
 
@@ -88,7 +88,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sessions", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data sesi", "details": err.Error()})
 			return
 		}
 
@@ -105,7 +105,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -155,7 +155,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -166,7 +166,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			newUUID, eventUUID, sessionCode, req.SessionDate, req.Name, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data sesi", "details": err.Error()})
 			return
 		}
 
@@ -174,18 +174,18 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		for _, catID := range req.CategoryIDs {
 			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, newUUID, catID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add categories to session", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan kategori ke sesi", "details": err.Error()})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":      "Session created successfully",
+			"message":      "Sesi berhasil dibuat",
 			"session_uuid": newUUID,
 			"session_code": sessionCode,
 		})
@@ -230,7 +230,7 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -241,31 +241,31 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			WHERE uuid = ?`,
 			req.Name, req.SessionDate, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data sesi", "details": err.Error()})
 			return
 		}
 
 		// Update categories: Delete old and insert new
 		_, err = tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update categories", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui kategori", "details": err.Error()})
 			return
 		}
 
 		for _, catID := range req.CategoryIDs {
 			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, sessionUUID, catID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to re-add categories", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan kembali kategori", "details": err.Error()})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Session updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Sesi berhasil diperbarui"})
 	}
 }
 
@@ -281,7 +281,7 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -307,12 +307,12 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		// 6. Delete the session itself
 		_, err = tx.Exec(`DELETE FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete session record", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data sesi", "details": err.Error()})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -343,11 +343,11 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 
 		var sessionUUID, participantUUID string
 		if err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 		if err := db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 
@@ -369,13 +369,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			json.Unmarshal(data, &singleReq)
 			ends = []models.SingleEndScore{{EndNumber: singleReq.EndNumber, Arrows: singleReq.Arrows}}
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: 'ends' or 'end_number' required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format permintaan tidak valid: 'ends' atau 'end_number' wajib diisi"})
 			return
 		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -390,7 +390,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, end_number FROM qualification_end_scores 
 			WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, participantUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch existing scores"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data skor lama"})
 			return
 		}
 
@@ -419,7 +419,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 				_, err = tx.Exec(`UPDATE qualification_end_scores SET total_score_end = ?, x_count_end = ?, ten_count_end = ? WHERE uuid = ?`,
 					total, xCount, tenCount, currentEndScoreUUID)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update end score"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui skor babak"})
 					return
 				}
 			} else {
@@ -428,7 +428,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 				_, err = tx.Exec(`INSERT INTO qualification_end_scores (uuid, session_uuid, participant_uuid, end_number, total_score_end, x_count_end, ten_count_end) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					currentEndScoreUUID, sessionUUID, participantUUID, end.EndNumber, total, xCount, tenCount)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create new end score"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat skor babak baru"})
 					return
 				}
 			}
@@ -450,13 +450,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		if len(allEndScoreUUIDs) > 0 {
 			query, args, err := sqlx.In(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (?)`, allEndScoreUUIDs)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare arrow cleanup"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyiapkan pembersihan data anak panah"})
 				return
 			}
 			query = tx.Rebind(query)
 			_, err = tx.Exec(query, args...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear old arrow scores"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data anak panah lama"})
 				return
 			}
 		}
@@ -472,13 +472,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 
 			_, err = tx.Exec(bulkQuery, arrowValues...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow scores (bulk)"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan skor anak panah"})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit scores"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan skor"})
 			return
 		}
 
@@ -495,7 +495,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_qualification_score", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Scores updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Skor berhasil diperbarui"})
 	}
 }
 
@@ -504,7 +504,7 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")
 		if assignmentID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId wajib diisi"})
 			return
 		}
 
@@ -512,12 +512,12 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 
@@ -544,7 +544,7 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY end_number ASC
 		`, sessionUUID, participantUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data skor babak"})
 			return
 		}
 
@@ -592,7 +592,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			categoryID = c.Param("categoryId")
 		}
 		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "categoryId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "categoryId wajib diisi"})
 			return
 		}
 
@@ -670,7 +670,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			categoryID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch leaderboard", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data klasemen", "details": err.Error()})
 			return
 		}
 
@@ -733,7 +733,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		if sessionID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId wajib diisi"})
 			return
 		}
 
@@ -774,7 +774,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 		var endScores []EndScore
 		err := db.Select(&endScores, query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data skor babak", "details": err.Error()})
 			return
 		}
 
@@ -1145,12 +1145,12 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 
@@ -1183,7 +1183,7 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
 			return
 		}
 
@@ -1204,7 +1204,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -1238,7 +1238,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		// Start transaction
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1319,7 +1319,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		// Commit transaction
 		err = tx.Commit()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -1369,7 +1369,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1411,7 +1411,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -1448,7 +1448,7 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1514,7 +1514,7 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 

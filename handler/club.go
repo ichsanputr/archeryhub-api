@@ -74,7 +74,7 @@ func GetClubByID(db *sqlx.DB) gin.HandlerFunc {
 		var club models.Club
 		err := db.Get(&club, "SELECT * FROM clubs WHERE (uuid = ? OR slug = ?) AND (status = 'active')", id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Club not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Klub tidak ditemukan"})
 			return
 		}
 

@@ -645,6 +645,16 @@ func main() {
 			sellersProtected.GET("/me", handler.GetSellerProfile(db))
 			sellersProtected.PUT("/me", handler.UpdateSellerProfileBasic(db))
 			sellersProtected.PUT("/me/page", handler.UpdateSellerProfile(db))
+
+			// Seller finance
+			sellersProtected.GET("/bank-accounts", handler.GetBankAccounts(db))
+			sellersProtected.POST("/bank-accounts", handler.CreateBankAccount(db))
+			sellersProtected.PUT("/bank-accounts/:id", handler.UpdateBankAccount(db))
+			sellersProtected.DELETE("/bank-accounts/:id", handler.DeleteBankAccount(db))
+
+			sellersProtected.GET("/wallet", handler.GetMyWallet(db))
+			sellersProtected.GET("/wallet/withdrawals", handler.GetWithdrawals(db))
+			sellersProtected.POST("/wallet/withdrawals", handler.CreateWithdrawal(db))
 		}
 
 		// Order routes (seller) — also accessible as /api/v1/orders

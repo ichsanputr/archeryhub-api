@@ -22,7 +22,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -39,7 +39,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Get(&event, "SELECT uuid FROM events WHERE uuid = ?", eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -83,7 +83,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 		`
 		_, err = db.NamedExec(query, registration)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftar: " + err.Error()})
 			return
 		}
 
@@ -96,7 +96,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -116,7 +116,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			var event models.Event
 			err := db.Get(&event, "SELECT * FROM events WHERE uuid = ? AND organizer_id = ?", req.EventID, userID.(string))
 			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found or unauthorized"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan atau tidak diizinkan"})
 				return
 			}
 
@@ -162,7 +162,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			}
 		} else if req.Type == "subscription" {
 			if req.PlanID == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "PlanID is required for subscription type"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "PlanID wajib diisi untuk tipe langganan"})
 				return
 			}
 
@@ -184,7 +184,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			}
 			err = db.Get(&plan, "SELECT id, name, price FROM subscription_plans WHERE id = ?", *req.PlanID)
 			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Plan not found"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Paket tidak ditemukan"})
 				return
 			}
 
@@ -228,7 +228,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			// Default to registration
 			if req.RegistrationID == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID is required for registration type"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID wajib diisi untuk tipe registrasi"})
 				return
 			}
 
@@ -253,7 +253,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			`, *req.RegistrationID, userID.(string), userID.(string))
 
 			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan"})
 				return
 			}
 
@@ -294,7 +294,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		tripayResult, err := tripay.CreateTransaction(payload)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Tripay transaction: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran: " + err.Error()})
 			return
 		}
 
@@ -358,7 +358,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 		`
 		_, err = db.NamedExec(query, transaction)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save transaction: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
 			return
 		}
 
@@ -388,7 +388,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Failed to read body"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Gagal membaca isi permintaan"})
 			return
 		}
 
@@ -407,7 +407,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		// 2. Verify Signature
 		signature := c.GetHeader("X-Callback-Signature")
 		if !tripay.VerifyCallbackSignature(body, signature) {
-			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Invalid signature"})
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Tanda tangan tidak valid"})
 			return
 		}
 
@@ -419,7 +419,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := json.Unmarshal(body, &payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid payload"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Payload tidak valid"})
 			return
 		}
 
@@ -435,7 +435,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err = db.Get(&transaction, "SELECT uuid, user_id, event_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE reference = ?", payload.MerchantRef)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Transaction not found: " + payload.MerchantRef})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Transaksi tidak ditemukan: " + payload.MerchantRef})
 			return
 		}
 
@@ -460,7 +460,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memulai transaksi"})
 			return
 		}
 
@@ -471,7 +471,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		_, err = tx.Exec("UPDATE payment_transactions SET status = ?, callback_data = ?, paid_at = ? WHERE uuid = ?", status, body, paidAt, transactionID)
 		if err != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memperbarui transaksi"})
 			return
 		}
 
@@ -509,7 +509,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 			if err != nil {
 				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update participant registration"})
+				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memperbarui registrasi peserta"})
 				return
 			}
 		}
@@ -519,7 +519,7 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 			_, err = tx.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", *eventID)
 			if err != nil {
 				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update event status"})
+				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memperbarui status event"})
 				return
 			}
 		}
@@ -567,14 +567,14 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 				_, err = tx.Exec("UPDATE "+table+" SET subscription_plan_id = ?, subscription_status = 'active', subscription_expires_at = ? WHERE user_id = ?", *transaction.SubscriptionPlanID, newExpiry, transaction.UserID)
 				if err != nil {
 					tx.Rollback()
-					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update subscription"})
+					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memperbarui langganan"})
 					return
 				}
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -624,7 +624,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 		`
 		err := db.Get(&transaction, query, reference)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
 			return
 		}
 
@@ -640,7 +640,7 @@ func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		var actualEventID string
 		err := db.Get(&actualEventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -670,7 +670,7 @@ func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		`
 		err = db.Select(&payments, query, actualEventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event payments"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pembayaran event"})
 			return
 		}
 
@@ -708,7 +708,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 		`
 		err := db.Select(&summaries, query, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch earnings summary", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil ringkasan pendapatan", "details": err.Error()})
 			return
 		}
 
@@ -726,7 +726,7 @@ func GetOrganizationEarningsDetail(db *sqlx.DB) gin.HandlerFunc {
 		var eventName string
 		err := db.Get(&eventName, "SELECT name FROM events WHERE uuid = ? AND organizer_id = ?", eventID, userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found or unauthorized"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan atau tidak diizinkan"})
 			return
 		}
 
@@ -754,7 +754,7 @@ func GetOrganizationEarningsDetail(db *sqlx.DB) gin.HandlerFunc {
 		`
 		err = db.Select(&details, query, eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment details", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail pembayaran", "details": err.Error()})
 			return
 		}
 
@@ -783,7 +783,7 @@ func GetPaymentInstruction(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Query("code")
 		if code == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kode wajib diisi"})
 			return
 		}
 
@@ -821,7 +821,7 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		var organizerID string
 		err := db.Get(&organizerID, "SELECT organizer_id FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -957,7 +957,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -965,7 +965,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		var transaction models.PaymentTransaction
 		err = tx.Get(&transaction, "SELECT * FROM payment_transactions WHERE reference = ?", reference)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
 			return
 		}
 
@@ -977,7 +977,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		now := time.Now()
 		_, err = tx.Exec("UPDATE payment_transactions SET status = 'paid', paid_at = ? WHERE reference = ?", now, reference)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui transaksi"})
 			return
 		}
 
@@ -1005,7 +1005,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -1018,7 +1018,7 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -1074,7 +1074,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		participantID := c.Param("participantId")
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -1107,7 +1107,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil {
 			fmt.Printf("[DEBUG] CreateParticipantPayment error: %v, ID: %s, User: %s\n", err, participantID, userID)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan"})
 			return
 		}
 
@@ -1144,7 +1144,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		tripayResult, err := tripay.CreateTransaction(payload)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Tripay transaction: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran: " + err.Error()})
 			return
 		}
 
@@ -1198,7 +1198,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		`
 		_, err = db.NamedExec(query, transaction)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save transaction: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
 			return
 		}
 

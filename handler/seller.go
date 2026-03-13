@@ -94,7 +94,7 @@ func UpdateSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get current page_settings
 		var currentPageSettings *string
-		err := db.Get(&currentPageSettings, "SELECT page_settings FROM sellers WHERE user_id = ?", userID)
+		err := db.Get(&currentPageSettings, "SELECT page_settings FROM sellers WHERE uuid = ? OR user_id = ?", userID, userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Seller account not found"})
 			return
@@ -142,8 +142,8 @@ func UpdateSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(`
 			UPDATE sellers SET page_settings = ?, updated_at = NOW()
-			WHERE user_id = ?`,
-			string(pageSettingsJSON), userID)
+			WHERE uuid = ? OR user_id = ?`,
+			string(pageSettingsJSON), userID, userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -228,4 +228,3 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Profil toko berhasil diperbarui"})
 	}
 }
-

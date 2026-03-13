@@ -82,8 +82,8 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&archers, query, args...)
 
 		if err != nil {
-			logrus.WithError(err).Error("Failed to fetch archers")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archers", "details": err.Error()})
+			logrus.WithError(err).Error("Gagal mengambil data pemanah")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pemanah", "details": err.Error()})
 			return
 		}
 
@@ -115,7 +115,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		var total int
 		err = db.Get(&total, countQuery, countArgs...)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to count archers")
+			logrus.WithError(err).Error("Gagal menghitung jumlah pemanah")
 		}
 
 		// Mask URLs
@@ -166,8 +166,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 		var archer models.ArcherWithStats
 		err := db.Get(&archer, query, id, id, id)
 		if err != nil {
-			logrus.WithError(err).Warnf("Archer not found: %s", id)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
+			logrus.WithError(err).Warnf("Pemanah tidak ditemukan: %s", id)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pemanah tidak ditemukan"})
 			return
 		}
 
@@ -232,8 +232,8 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 		var events []ArcherEventHistory
 		err := db.Select(&events, query, id, id, id)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to fetch archer events")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archer events", "details": err.Error()})
+			logrus.WithError(err).Error("Gagal mengambil riwayat event pemanah")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil riwayat event pemanah", "details": err.Error()})
 			return
 		}
 
@@ -248,7 +248,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -292,8 +292,8 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			INNER JOIN event_participants ep ON e.uuid = ep.event_id
 			`+whereClause, args...)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to count archer events")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count events", "details": err.Error()})
+			logrus.WithError(err).Error("Gagal menghitung riwayat event pemanah")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung riwayat event pemanah", "details": err.Error()})
 			return
 		}
 
@@ -329,7 +329,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 		var events []models.EventWithDetails
 		err = db.Select(&events, query, args...)
 		if err != nil {
-			logrus.WithError(err).Error("Failed to fetch archer events")
+			logrus.WithError(err).Error("Gagal mengambil riwayat event pemanah")
 			c.JSON(http.StatusOK, gin.H{
 				"events": []interface{}{},
 				"total":  0,
@@ -392,7 +392,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req models.CreateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -417,7 +417,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			var exists bool
 			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE email = ?)", req.Email)
 			if err == nil && exists {
-				c.JSON(http.StatusConflict, gin.H{"error": "Email or username already exists"})
+				c.JSON(http.StatusConflict, gin.H{"error": "Email atau username sudah digunakan"})
 				return
 			}
 		}
@@ -521,16 +521,16 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 				switch mysqlErr.Number {
 				case 1406: // ER_DATA_TOO_LONG
 					c.JSON(http.StatusBadRequest, gin.H{
-						"error":   "Data too long for one or more fields",
+						"error":   "Data terlalu panjang untuk satu atau lebih kolom",
 						"details": "Check: phone (max 20), email (max 100), full_name (max 255), username (max 100), city (max 100), school (max 255).",
 					})
 					return
 				case 1062: // ER_DUP_ENTRY
-					c.JSON(http.StatusConflict, gin.H{"error": "Email or username already exists", "details": mysqlErr.Message})
+					c.JSON(http.StatusConflict, gin.H{"error": "Email atau username sudah digunakan", "details": mysqlErr.Message})
 					return
 				}
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create archer", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data pemanah", "details": err.Error()})
 			return
 		}
 
@@ -540,7 +540,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":   "Archer created successfully",
+			"message":   "Pemanah berhasil dibuat",
 			"archer_id": archerID,
 			"uuid":      archerID,
 			"id":        athleteID,
@@ -555,7 +555,7 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		var req models.UpdateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -563,7 +563,7 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 		var exists bool
 		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE uuid = ?)", id)
 		if err != nil || !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pemanah tidak ditemukan"})
 			return
 		}
 
@@ -641,16 +641,16 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 				switch mysqlErr.Number {
 				case 1406:
 					c.JSON(http.StatusBadRequest, gin.H{
-						"error":   "Data too long for one or more fields",
+						"error":   "Data terlalu panjang untuk satu atau lebih kolom",
 						"details": "Check: phone (max 20), email (max 100), full_name (max 255), city (max 100), school (max 255), avatar_url (max 255).",
 					})
 					return
 				case 1062:
-					c.JSON(http.StatusConflict, gin.H{"error": "Duplicate value (e.g. email already exists)", "details": mysqlErr.Message})
+					c.JSON(http.StatusConflict, gin.H{"error": "Nilai duplikat (misal email sudah terdaftar)", "details": mysqlErr.Message})
 					return
 				}
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update archer", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data pemanah", "details": err.Error()})
 			return
 		}
 
@@ -660,7 +660,7 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogActivity(db, userID.(string), "", "archer_updated", "archer", id, "Updated archer", c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Archer updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Pemanah berhasil diperbarui"})
 	}
 }
 
@@ -674,19 +674,19 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 		db.Get(&participationCount, "SELECT COUNT(*) FROM event_participants WHERE archer_id = ?", id)
 
 		if participationCount > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete archer with event participations"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pemanah tidak bisa dihapus karena sudah memiliki riwayat event"})
 			return
 		}
 
 		result, err := db.Exec("DELETE FROM archers WHERE uuid = ?", id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete archer", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data pemanah", "details": err.Error()})
 			return
 		}
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pemanah tidak ditemukan"})
 			return
 		}
 
@@ -696,7 +696,7 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogActivity(db, userID.(string), "", "archer_deleted", "archer", id, "Deleted archer", c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Archer deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Pemanah berhasil dihapus"})
 	}
 }
 
@@ -705,7 +705,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -757,7 +757,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 	`, userID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Archer profile not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan"})
 			return
 		}
 		data := gin.H{
@@ -850,7 +850,7 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&archer, query, uuid)
 		if err != nil {
 			logrus.WithError(err).Warnf("Archer registration profile not found: %s", uuid)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Archer not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pemanah tidak ditemukan"})
 			return
 		}
 
@@ -913,7 +913,7 @@ func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 

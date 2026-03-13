@@ -72,7 +72,7 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 		var orgs []Organization
 		err := db.Select(&orgs, query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organizations", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data organisasi", "details": err.Error()})
 			return
 		}
 
@@ -114,7 +114,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		`, slug, slug)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found", "details": err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Organisasi tidak ditemukan", "details": err.Error()})
 			return
 		}
 
@@ -254,7 +254,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -283,7 +283,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Organisasi tidak ditemukan"})
 			return
 		}
 
@@ -348,7 +348,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -381,7 +381,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -394,7 +394,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			var exists bool
 			db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)", *req.Slug, userID)
 			if exists {
-				c.JSON(http.StatusConflict, gin.H{"error": "Slug already taken"})
+				c.JSON(http.StatusConflict, gin.H{"error": "Slug sudah digunakan"})
 				return
 			}
 			query += ", slug = ?"
@@ -524,7 +524,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update organization", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data organisasi", "details": err.Error()})
 			return
 		}
 
@@ -537,7 +537,7 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 

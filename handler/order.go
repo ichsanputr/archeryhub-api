@@ -15,7 +15,7 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		if userType != "seller" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only sellers can view their orders"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya penjual yang bisa melihat pesanan mereka"})
 			return
 		}
 
@@ -27,7 +27,7 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 		`, userID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pesanan: " + err.Error()})
 			return
 		}
 
@@ -46,7 +46,7 @@ func GetSellerStats(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		if userType != "seller" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only sellers can view stats"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya penjual yang bisa melihat statistik"})
 			return
 		}
 
@@ -69,7 +69,7 @@ func GetSellerStats(db *sqlx.DB) gin.HandlerFunc {
 		`, userID, userID, userID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data statistik: " + err.Error()})
 			return
 		}
 
@@ -95,16 +95,16 @@ func UpdateOrderStatus(db *sqlx.DB) gin.HandlerFunc {
 		var count int
 		err := db.Get(&count, "SELECT COUNT(*) FROM orders WHERE uuid = ? AND seller_id = ?", orderID, userID)
 		if err != nil || count == 0 {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to update this order"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk mengubah pesanan ini"})
 			return
 		}
 
 		_, err = db.Exec("UPDATE orders SET status = ?, updated_at = NOW() WHERE uuid = ?", req.Status, orderID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status pesanan"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Order status updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Status pesanan berhasil diperbarui"})
 	}
 }

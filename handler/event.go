@@ -125,7 +125,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		var events []models.EventWithDetails
 		err = db.Select(&events, query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
 			return
 		}
 
@@ -220,9 +220,9 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			// Log the error for debugging
 			fmt.Printf("[GetEventByID] Error fetching event with id/slug '%s': %v\n", id, err)
 			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found", "id": id})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan", "id": id})
 			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
 			}
 			return
 		}
@@ -245,7 +245,7 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if !isAuthorized {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 				return
 			}
 		}
@@ -335,7 +335,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			var exists int
 			err = db.Get(&exists, `SELECT COUNT(1) FROM events WHERE slug = ?`, finalSlug)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate slug uniqueness", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memvalidasi keunikan slug", "details": err.Error()})
 				return
 			}
 			if exists == 0 {
@@ -391,7 +391,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Event", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat event", "details": err.Error()})
 			return
 		}
 
@@ -434,7 +434,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		utils.LogActivity(db, userID.(string), eventUUID, "Event_created", "Event", eventUUID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Event created successfully",
+			"message": "Event berhasil dibuat",
 			"id":      eventUUID,
 		})
 	}
@@ -651,6 +651,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			MaxParticipants    *int    `db:"max_participants" json:"max_participants"`
 			TeamSize           int     `db:"team_size" json:"team_size"`
 			ParticipantCount   int     `db:"participant_count" json:"participant_count"`
+			TeamCount          int     `db:"team_count" json:"team_count"`
 			Status             string  `db:"status" json:"status"`
 			CreatedAt          string  `db:"created_at" json:"created_at"`
 		}
@@ -695,7 +696,8 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(te.category_name_custom, c.name) as category_name, c.uuid as category_id,
 				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
 				COALESCE(gd.name, '') as gender_division_name, COALESCE(te.gender_division_uuid, '') as gender_division_id,
-				COALESCE(p.p_count, 0) as participant_count
+				COALESCE(p.p_count, 0) as participant_count,
+				COALESCE(t.t_count, 0) as team_count
 			FROM event_categories te
 			JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			JOIN ref_age_groups c ON te.category_uuid = c.uuid
@@ -706,6 +708,11 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 				FROM event_participants 
 				GROUP BY category_id
 			) p ON te.uuid = p.category_id
+			LEFT JOIN (
+				SELECT event_id as category_id, COUNT(*) as t_count 
+				FROM teams 
+				GROUP BY event_id
+			) t ON te.uuid = t.category_id
 			` + whereClause + `
 			ORDER BY d.name, c.name, et.name, gd.name
 			LIMIT ? OFFSET ?
@@ -735,6 +742,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		offsetStr := c.DefaultQuery("offset", "0")
 		categoryFilter := c.Query("category")
 		categoryIDFilter := c.Query("category_id")
+		categoryIDsFilter := c.Query("category_ids")
 		searchQuery := c.Query("search")
 		groupBy := c.Query("group_by")
 
@@ -749,10 +757,98 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Collect requested category IDs from category_id(s) and category_ids (CSV or repeated query params).
+		rawCategoryIDs := []string{}
+		for _, q := range c.QueryArray("category_id") {
+			for _, part := range strings.Split(q, ",") {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					rawCategoryIDs = append(rawCategoryIDs, part)
+				}
+			}
+		}
+		if len(rawCategoryIDs) == 0 && categoryIDFilter != "" {
+			for _, part := range strings.Split(categoryIDFilter, ",") {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					rawCategoryIDs = append(rawCategoryIDs, part)
+				}
+			}
+		}
+		for _, q := range c.QueryArray("category_ids") {
+			for _, part := range strings.Split(q, ",") {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					rawCategoryIDs = append(rawCategoryIDs, part)
+				}
+			}
+		}
+		if categoryIDsFilter != "" {
+			for _, part := range strings.Split(categoryIDsFilter, ",") {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					rawCategoryIDs = append(rawCategoryIDs, part)
+				}
+			}
+		}
+
+		resolveParticipantCategoryIDs := func(input []string) []string {
+			resolved := []string{}
+			seen := map[string]bool{}
+			for _, categoryID := range input {
+				categoryID = strings.TrimSpace(categoryID)
+				if categoryID == "" || seen[categoryID] {
+					continue
+				}
+
+				var indivIDs []string
+				_ = db.Select(&indivIDs, `
+					SELECT i.uuid
+					FROM event_categories t
+					JOIN ref_event_types tt ON t.event_type_uuid = tt.uuid
+					JOIN event_categories i ON i.event_id = t.event_id
+						AND i.division_uuid = t.division_uuid
+						AND i.category_uuid = t.category_uuid
+					JOIN ref_event_types it ON i.event_type_uuid = it.uuid
+					WHERE t.uuid = ?
+					  AND tt.code IN ('team', 'mixed_team')
+					  AND it.code = 'individual'
+				`, categoryID)
+
+				if len(indivIDs) > 0 {
+					for _, indivID := range indivIDs {
+						if indivID == "" || seen[indivID] {
+							continue
+						}
+						resolved = append(resolved, indivID)
+						seen[indivID] = true
+					}
+					continue
+				}
+
+				resolved = append(resolved, categoryID)
+				seen[categoryID] = true
+			}
+			return resolved
+		}
+
+		resolvedCategoryIDs := resolveParticipantCategoryIDs(rawCategoryIDs)
+
 		if groupBy == "archer" {
 			// Grouped by archer logic
 			whereClause := "WHERE tp.event_id = ?"
 			args := []interface{}{actualEventID}
+
+			if len(resolvedCategoryIDs) == 1 {
+				whereClause += " AND tp.category_id = ?"
+				args = append(args, resolvedCategoryIDs[0])
+			} else if len(resolvedCategoryIDs) > 1 {
+				placeholders := strings.Repeat(",?", len(resolvedCategoryIDs))[1:]
+				whereClause += " AND tp.category_id IN (" + placeholders + ")"
+				for _, id := range resolvedCategoryIDs {
+					args = append(args, id)
+				}
+			}
 
 			if searchQuery != "" {
 				searchTerm := "%" + searchQuery + "%"
@@ -845,11 +941,33 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 
+			// Get paid/pending counters aligned with active category filter.
+			statusWhere := "WHERE tp.event_id = ?"
+			statusArgs := []interface{}{actualEventID}
+			if len(resolvedCategoryIDs) == 1 {
+				statusWhere += " AND tp.category_id = ?"
+				statusArgs = append(statusArgs, resolvedCategoryIDs[0])
+			} else if len(resolvedCategoryIDs) > 1 {
+				placeholders := strings.Repeat(",?", len(resolvedCategoryIDs))[1:]
+				statusWhere += " AND tp.category_id IN (" + placeholders + ")"
+				for _, id := range resolvedCategoryIDs {
+					statusArgs = append(statusArgs, id)
+				}
+			}
+
+			var verifiedCount, pendingCount int
+			verifiedQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status = 'lunas'"
+			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status = 'menunggu acc'"
+			_ = db.Get(&verifiedCount, verifiedQuery, statusArgs...)
+			_ = db.Get(&pendingCount, pendingQuery, statusArgs...)
+
 			c.JSON(http.StatusOK, gin.H{
-				"participants": participants,
-				"total":        total,
-				"limit":        limit,
-				"offset":       offset,
+				"participants":   participants,
+				"total":          total,
+				"verified_count": verifiedCount,
+				"pending_count":  pendingCount,
+				"limit":          limit,
+				"offset":         offset,
 			})
 			return
 		}
@@ -859,42 +977,18 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{actualEventID}
 		countArgs := []interface{}{actualEventID}
 
-		// If the supplied category is a team/mixed_team type, resolve to the matching
-		// individual category(ies) — participants register under the individual category.
-		if categoryIDFilter != "" {
-			var indivIDs []string
-			_ = db.Select(&indivIDs, `
-				SELECT i.uuid
-				FROM event_categories t
-				JOIN ref_event_types tt ON t.event_type_uuid = tt.uuid
-				JOIN event_categories i ON i.event_id = t.event_id
-					AND i.division_uuid = t.division_uuid
-					AND i.category_uuid = t.category_uuid
-				JOIN ref_event_types it ON i.event_type_uuid = it.uuid
-				WHERE t.uuid = ?
-				  AND tt.code IN ('team', 'mixed_team')
-				  AND it.code = 'individual'
-			`, categoryIDFilter)
-			if len(indivIDs) == 1 {
-				categoryIDFilter = indivIDs[0]
-			} else if len(indivIDs) > 1 {
-				// Mixed team: both male and female individual categories
-				placeholders := strings.Repeat(",?", len(indivIDs))[1:]
-				whereClause += " AND tp.category_id IN (" + placeholders + ")"
-				for _, id := range indivIDs {
-					args = append(args, id)
-					countArgs = append(countArgs, id)
-				}
-				categoryIDFilter = "" // already handled
-			}
-			// If indivIDs is empty it's already an individual category — fall through
-		}
-
-		// Filter by category_id
-		if categoryIDFilter != "" {
+		// Filter by one or many category IDs.
+		if len(resolvedCategoryIDs) == 1 {
 			whereClause += " AND tp.category_id = ?"
-			args = append(args, categoryIDFilter)
-			countArgs = append(countArgs, categoryIDFilter)
+			args = append(args, resolvedCategoryIDs[0])
+			countArgs = append(countArgs, resolvedCategoryIDs[0])
+		} else if len(resolvedCategoryIDs) > 1 {
+			placeholders := strings.Repeat(",?", len(resolvedCategoryIDs))[1:]
+			whereClause += " AND tp.category_id IN (" + placeholders + ")"
+			for _, id := range resolvedCategoryIDs {
+				args = append(args, id)
+				countArgs = append(countArgs, id)
+			}
 		} else if categoryFilter != "" && categoryFilter != "Semua" {
 			// Filter by category name (Compatibility)
 			parts := strings.Fields(categoryFilter)
@@ -2502,7 +2596,11 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 		if eventTypeCode == "mixed_team" {
 			if req.GenderDivisionUUID == "" {
 				var mixedUUID string
-				db.Get(&mixedUUID, "SELECT uuid FROM ref_gender_divisions WHERE code = 'mixed'")
+				err = db.Get(&mixedUUID, "SELECT uuid FROM ref_gender_divisions WHERE code = 'mixed'")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Divisi gender mixed tidak ditemukan dalam sistem"})
+					return
+				}
 				req.GenderDivisionUUID = mixedUUID
 			}
 		}
@@ -2511,7 +2609,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 		var eventExists bool
 		err = db.Get(&eventExists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ?)`, eventID)
 		if err != nil || !eventExists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 

@@ -54,7 +54,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		if phase == "" || categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "phase and category_id are required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phase dan category_id wajib diisi"})
 			return
 		}
 
@@ -86,7 +86,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 				ORDER BY qs.created_at ASC, et.board_number ASC, et.target_name ASC
 			`, categoryID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring cards"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data kartu skor"})
 				return
 			}
 
@@ -94,7 +94,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported phase"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Fase tidak didukung"})
 	}
 }
 
@@ -118,14 +118,14 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		targetNameStr := c.Query("target_name")
 
 		if phase == "" || sessionID == "" || targetNameStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "phase, session_id, and target_name are required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phase, session_id, dan target_name wajib diisi"})
 			return
 		}
 
 		targetName := targetNameStr
 
 		if phase != "qualification" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported phase"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Fase tidak didukung"})
 			return
 		}
 
@@ -190,7 +190,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY et.board_number ASC, et.target_name ASC
 		`, sessionID, targetName)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scoring targets"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data target skor"})
 			return
 		}
 

@@ -53,7 +53,7 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clientID := os.Getenv("GOOGLE_CLIENT_ID")
 		if clientID == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Google OAuth not configured"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Google OAuth belum dikonfigurasi"})
 			return
 		}
 
@@ -87,7 +87,7 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 		// Generate state for CSRF protection
 		stateBytes := make([]byte, 16)
 		if _, err := rand.Read(stateBytes); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate state"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat state"})
 			return
 		}
 		state := hex.EncodeToString(stateBytes)
@@ -139,7 +139,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		if code == "" {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "No authorization code provided"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Kode otorisasi tidak ditemukan"})
 			} else {
 				c.Redirect(http.StatusTemporaryRedirect, os.Getenv("APP_URL")+"/auth/login?error=no_code")
 			}
@@ -185,7 +185,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		// Exchange code for token
 		tokenResponse, err := exchangeGoogleCode(code)
 		if err != nil {
-			msg := "token_exchange_failed"
+			msg := "Gagal menukar token"
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": msg, "details": err.Error()})
 			} else {
@@ -197,7 +197,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		// Get user info from Google
 		userInfo, err := getGoogleUserInfo(tokenResponse.AccessToken)
 		if err != nil {
-			msg := "user_info_failed"
+			msg := "Gagal mengambil info user"
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": msg, "details": err.Error()})
 			} else {
@@ -398,7 +398,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 			if insertErr != nil {
 				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "user_creation_failed", "details": insertErr.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat user baru", "details": insertErr.Error()})
 				} else {
 					c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=user_creation_failed")
 				}
@@ -413,7 +413,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture, record.OrgUUID)
 		if err != nil {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "token_generation_failed"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
 			} else {
 				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=token_generation_failed")
 			}

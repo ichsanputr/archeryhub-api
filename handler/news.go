@@ -76,7 +76,7 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 				ORDER BY created_at DESC
 			`, userID)
 		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to view news"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk melihat berita"})
 			return
 		}
 
@@ -116,7 +116,7 @@ func GetNewsPublic(db *sqlx.DB) gin.HandlerFunc {
 		`)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch news"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita"})
 			return
 		}
 
@@ -151,7 +151,7 @@ func GetNewsByID(db *sqlx.DB) gin.HandlerFunc {
 		`, id, id)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Berita tidak ditemukan"})
 			return
 		}
 
@@ -187,7 +187,7 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 		} else if userType == "club" {
 			db.Get(&authorName, "SELECT name FROM clubs WHERE uuid = ?", userID)
 		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only organizations and clubs can post news"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya organisasi dan klub yang bisa memposting berita"})
 			return
 		}
 
@@ -222,7 +222,7 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			req.Category, req.Tags, req.Status, authorName, userID, req.MetaTitle, req.MetaDescription, publishedAt)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create news: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat berita: " + err.Error()})
 			return
 		}
 
@@ -237,7 +237,7 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "News created successfully",
+			"message": "Berita berhasil dibuat",
 			"id":      newsID,
 		})
 	}
@@ -266,7 +266,7 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&article, "SELECT uuid, organization_id, club_id, status FROM news WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Berita tidak ditemukan"})
 			return
 		}
 
@@ -278,7 +278,7 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if !isOwner {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to update this news"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk mengubah berita ini"})
 			return
 		}
 
@@ -297,7 +297,7 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 			req.Category, req.Tags, req.Status, req.MetaTitle, req.MetaDescription, article.UUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update news: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui berita: " + err.Error()})
 			return
 		}
 
@@ -314,7 +314,7 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "News updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Berita berhasil diperbarui"})
 	}
 }
 
@@ -334,7 +334,7 @@ func DeleteNews(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&article, "SELECT uuid, organization_id, club_id FROM news WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Berita tidak ditemukan"})
 			return
 		}
 
@@ -346,17 +346,17 @@ func DeleteNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if !isOwner {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this news"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk menghapus berita ini"})
 			return
 		}
 
 		_, err = db.Exec("DELETE FROM news WHERE uuid = ?", article.UUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete news"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus berita"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "News deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Berita berhasil dihapus"})
 	}
 }
 
@@ -368,7 +368,7 @@ func SubscribeNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email address"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Alamat email tidak valid"})
 			return
 		}
 
@@ -379,7 +379,7 @@ func SubscribeNews(db *sqlx.DB) gin.HandlerFunc {
 		`, req.Email)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to subscribe"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal berlangganan"})
 			return
 		}
 

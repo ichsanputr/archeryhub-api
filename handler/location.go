@@ -23,14 +23,14 @@ func GetCities() gin.HandlerFunc {
 			path = filepath.Join("api", "data", "cities.json")
 			file, err = os.ReadFile(path)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load cities data", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat data kota", "details": err.Error()})
 				return
 			}
 		}
 
 		var cities []interface{}
 		if err := json.Unmarshal(file, &cities); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse cities data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses data kota"})
 			return
 		}
 

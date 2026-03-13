@@ -18,7 +18,7 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 		var products []models.Product
 		err := db.Select(&products, "SELECT * FROM products WHERE status = 'active' ORDER BY created_at DESC")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk"})
 			return
 		}
 
@@ -61,7 +61,7 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		if userType != "seller" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only sellers can view their products"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya penjual yang bisa melihat produk mereka"})
 			return
 		}
 
@@ -69,7 +69,7 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&products, "SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC", userID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk"})
 			return
 		}
 
@@ -112,7 +112,7 @@ func GetProductByID(db *sqlx.DB) gin.HandlerFunc {
 		var product models.Product
 		err := db.Get(&product, "SELECT * FROM products WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
 			return
 		}
 
@@ -182,7 +182,7 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		slug = strings.ReplaceAll(slug, " ", "-") + "-" + uuid.New().String()[:8]
 
 		if userType != "seller" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only sellers can create products"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya penjual yang bisa membuat produk"})
 			return
 		}
 
@@ -203,12 +203,12 @@ func CreateProduct(db *sqlx.DB) gin.HandlerFunc {
 		`, productID, sellerID, req.Name, slug, req.Description, req.Price, req.SalePrice, req.Category, req.Stock, req.Status, req.ImageURL, string(imagesJSON), string(colorsJSON), string(specJSON))
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat produk: " + err.Error()})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Product created successfully",
+			"message": "Produk berhasil dibuat",
 			"id":      productID,
 		})
 	}
@@ -231,12 +231,12 @@ func UpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 		var product models.Product
 		err := db.Get(&product, "SELECT * FROM products WHERE uuid = ?", id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
 			return
 		}
 
 		if userType != "seller" || product.SellerID == nil || *product.SellerID != userID.(string) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to update this product"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk mengubah produk ini"})
 			return
 		}
 
@@ -297,11 +297,11 @@ func UpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui produk"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Product updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Produk berhasil diperbarui"})
 	}
 }
 
@@ -316,21 +316,21 @@ func DeleteProduct(db *sqlx.DB) gin.HandlerFunc {
 		var product models.Product
 		err := db.Get(&product, "SELECT * FROM products WHERE uuid = ?", id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
 			return
 		}
 
 		if userType != "seller" || product.SellerID == nil || *product.SellerID != userID.(string) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this product"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk menghapus produk ini"})
 			return
 		}
 
 		_, err = db.Exec("DELETE FROM products WHERE uuid = ?", id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus produk"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Product deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Produk berhasil dihapus"})
 	}
 }

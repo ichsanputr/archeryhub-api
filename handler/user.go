@@ -54,7 +54,7 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 		query := "SELECT password, CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password FROM " + table + " WHERE uuid = ?"
 		err := db.Get(&user, query, userID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found in " + table})
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan di " + table})
 			return
 		}
 
@@ -62,7 +62,7 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 		updateQuery := "UPDATE " + table + " SET password = ?, updated_at = NOW() WHERE uuid = ?"
 		_, err = db.Exec(updateQuery, req.NewPassword, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui password"})
 			return
 		}
 
@@ -133,7 +133,7 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&user, query, userID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
 			return
 		}
 
@@ -214,7 +214,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if len(args) == 0 {
-				c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+				c.JSON(http.StatusOK, gin.H{"message": "Tidak ada perubahan untuk disimpan"})
 				return
 			}
 
@@ -223,7 +223,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 
 			_, err := db.Exec(query, args...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seller profile: " + err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui profil seller: " + err.Error()})
 				return
 			}
 
@@ -335,7 +335,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if len(args) == 0 {
-			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada perubahan untuk disimpan"})
 			return
 		}
 
@@ -344,7 +344,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui profil: " + err.Error()})
 			return
 		}
 
