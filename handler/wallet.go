@@ -40,7 +40,7 @@ func GetMyWallet(db *sqlx.DB) gin.HandlerFunc {
 			newID := uuid.New().String()
 			_, err = db.Exec("INSERT INTO wallets (uuid, user_id, balance) VALUES (?, ?, 0)", newID, userID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create wallet"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat dompet"})
 				return
 			}
 			wallet = Wallet{
@@ -61,7 +61,7 @@ func GetWithdrawals(db *sqlx.DB) gin.HandlerFunc {
 		var withdrawals []Withdrawal
 		err := db.Select(&withdrawals, "SELECT * FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC", userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch withdrawals"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data penarikan"})
 			return
 		}
 
@@ -86,7 +86,7 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -95,19 +95,19 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 		var balance float64
 		err = tx.Get(&balance, "SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE", userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch balance"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil saldo"})
 			return
 		}
 
 		if balance < req.Amount {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient balance"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi"})
 			return
 		}
 
 		// Deduct balance
 		_, err = tx.Exec("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", req.Amount, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update balance"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui saldo"})
 			return
 		}
 
@@ -120,15 +120,15 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 		`, withdrawalID, userID, req.BankAccountID, req.Amount, refNo, req.Notes)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create withdrawal record"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat catatan penarikan"})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"message": "Withdrawal request submitted", "id": withdrawalID, "reference_no": refNo})
+		c.JSON(http.StatusCreated, gin.H{"message": "Permintaan penarikan berhasil diajukan", "id": withdrawalID, "reference_no": refNo})
 	}
 }

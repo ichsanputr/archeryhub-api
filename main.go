@@ -638,6 +638,16 @@ func main() {
 			products.DELETE("/:id", middleware.AuthMiddleware(), handler.DeleteProduct(db))
 		}
 
+		// Cart routes
+		cart := api.Group("/cart")
+		cart.Use(middleware.AuthMiddleware()) // Archers only
+		{
+			cart.GET("", handler.GetCart(db))
+			cart.POST("", handler.AddToCart(db))
+			cart.PUT("/:id", handler.UpdateCartItem(db))
+			cart.DELETE("/:id", handler.DeleteCartItem(db))
+		}
+
 		// Seller routes (protected)
 		sellersProtected := api.Group("/sellers")
 		sellersProtected.Use(middleware.AuthMiddleware())
@@ -662,6 +672,7 @@ func main() {
 		ordersGroup.Use(middleware.AuthMiddleware())
 		{
 			ordersGroup.GET("", handler.GetSellerOrders(db))
+			ordersGroup.GET("/export", handler.ExportSellerOrders(db))
 			ordersGroup.GET("/stats", handler.GetSellerStats(db))
 			ordersGroup.PUT("/:id/status", handler.UpdateOrderStatus(db))
 		}

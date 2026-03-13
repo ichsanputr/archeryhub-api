@@ -2,6 +2,8 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"encoding/csv"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,12 +21,45 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var orders []models.Order
-		err := db.Select(&orders, `
-			SELECT o.* FROM orders o
+		type DetailedOrder struct {
+			models.Order
+			BuyerName  string `json:"customer_name" db:"buyer_name"`
+			BuyerEmail string `json:"customer_email" db:"buyer_email"`
+			TotalItems int    `json:"total_items" db:"total_items"`
+		}
+
+		var orders []DetailedOrder
+		status := c.Query("status")
+		startDate := c.Query("start_date")
+		endDate := c.Query("end_date")
+
+		query := `
+			SELECT 
+				o.*, 
+				a.full_name as buyer_name, 
+				a.email as buyer_email,
+				(SELECT SUM(quantity) FROM order_items WHERE order_id = o.uuid) as total_items
+			FROM orders o
+			LEFT JOIN archers a ON o.buyer_id = a.uuid
 			WHERE o.seller_id = ?
-			ORDER BY o.created_at DESC
-		`, userID)
+		`
+		args := []interface{}{userID}
+
+		if status != "" && status != "all" {
+			query += " AND o.status = ?"
+			args = append(args, status)
+		}
+		if startDate != "" {
+			query += " AND o.created_at >= ?"
+			args = append(args, startDate)
+		}
+		if endDate != "" {
+			query += " AND o.created_at <= ?"
+			args = append(args, endDate)
+		}
+		query += " ORDER BY o.created_at DESC"
+
+		err := db.Select(&orders, query, args...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pesanan: " + err.Error()})
@@ -32,7 +67,7 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if orders == nil {
-			orders = []models.Order{}
+			orders = []DetailedOrder{}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": orders})
@@ -106,5 +141,86 @@ func UpdateOrderStatus(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Status pesanan berhasil diperbarui"})
+	}
+}
+
+// ExportSellerOrders exports seller orders as CSV
+func ExportSellerOrders(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		if userType != "seller" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		type DetailedOrder struct {
+			models.Order
+			BuyerName  string `db:"buyer_name"`
+			BuyerEmail string `db:"buyer_email"`
+			TotalItems int    `db:"total_items"`
+		}
+
+		status := c.Query("status")
+		startDate := c.Query("start_date")
+		endDate := c.Query("end_date")
+
+		query := `
+			SELECT 
+				o.*, 
+				a.full_name as buyer_name, 
+				a.email as buyer_email,
+				(SELECT SUM(quantity) FROM order_items WHERE order_id = o.uuid) as total_items
+			FROM orders o
+			LEFT JOIN archers a ON o.buyer_id = a.uuid
+			WHERE o.seller_id = ?
+		`
+		args := []interface{}{userID}
+
+		if status != "" && status != "all" {
+			query += " AND o.status = ?"
+			args = append(args, status)
+		}
+		if startDate != "" {
+			query += " AND o.created_at >= ?"
+			args = append(args, startDate)
+		}
+		if endDate != "" {
+			query += " AND o.created_at <= ?"
+			args = append(args, endDate)
+		}
+		query += " ORDER BY o.created_at DESC"
+
+		var orders []DetailedOrder
+		err := db.Select(&orders, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data untuk ekspor: " + err.Error()})
+			return
+		}
+
+		// Set headers for CSV download
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", "attachment; filename=orders_report.csv")
+		c.Header("Content-Type", "text/csv")
+
+		// Create CSV writer
+		writer := csv.NewWriter(c.Writer)
+		defer writer.Flush()
+
+		// Write header
+		writer.Write([]string{"Order ID", "Tanggal", "Pelanggan", "Email", "Status", "Total Item", "Total Harga"})
+
+		for _, o := range orders {
+			writer.Write([]string{
+				o.UUID,
+				o.CreatedAt.Format("2006-01-02 15:04:05"),
+				o.BuyerName,
+				o.BuyerEmail,
+				o.Status,
+				fmt.Sprintf("%d", o.TotalItems),
+				fmt.Sprintf("%.2f", o.TotalAmount),
+			})
+		}
 	}
 }

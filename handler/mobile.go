@@ -65,7 +65,7 @@ type MessageResponse struct {
 func MobileHello() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Welcome to ArcheryHub Mobile API",
+			"message": "Selamat datang di API Mobile ArcheryHub",
 			"status":  "active",
 		})
 	}
@@ -91,7 +91,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileScorekeeperLoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Code is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kode wajib diisi"})
 			return
 		}
 
@@ -114,12 +114,12 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
             WHERE sk.code = ?`, req.Code)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid scorekeeper code", "code": "invalid_code"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode scorekeeper tidak valid", "code": "invalid_code"})
 			return
 		}
 
 		if sk.Status != "active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Scorekeeper account is not active", "code": "account_inactive"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Akun scorekeeper tidak aktif", "code": "account_inactive"})
 			return
 		}
 
@@ -131,7 +131,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 
 		if orgSub != "active" && orgSub != "trial" {
 			c.JSON(http.StatusPaymentRequired, gin.H{
-				"error":   "Organization subscription expired",
+				"error":   "Langganan organisasi telah berakhir",
 				"code":    "subscription_expired",
 				"message": "Layanan scoring dihentikan sementara karena masa berlaku langganan organisasi telah berakhir. Silakan hubungi admin organisasi Anda.",
 			})
@@ -145,7 +145,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 
 		token, err := generateJWT(sk.UUID, sk.Email, "scorekeeper", "scorekeeper", sk.Name, avatar, sk.OrganizationUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
 		}
 
@@ -186,7 +186,7 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		if userType != "scorekeeper" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only scorekeepers can access this"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya scorekeeper yang bisa mengakses ini"})
 			return
 		}
 
@@ -208,7 +208,7 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 			WHERE sk.uuid = ?`, userID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Scorekeeper not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Scorekeeper tidak ditemukan"})
 			return
 		}
 
@@ -228,7 +228,7 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		if userType != "scorekeeper" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only scorekeepers can access this"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya scorekeeper yang bisa mengakses ini"})
 			return
 		}
 
@@ -245,7 +245,7 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY t.start_date DESC`, orgID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
 			return
 		}
 
@@ -309,7 +309,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 		var events []MobileEvent
 		err := db.Select(&events, query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
 			return
 		}
 
@@ -353,7 +353,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Query("code")
 		if code == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kode wajib diisi"})
 			return
 		}
 
@@ -423,7 +423,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 				ORDER BY et.target_name ASC
 			`, board.UUID, board.SessionUUID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archers", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data atlet", "details": err.Error()})
 				return
 			}
 
@@ -582,7 +582,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusNotFound, gin.H{"error": "Code not found", "code": "not_found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Kode tidak ditemukan", "code": "not_found"})
 	}
 }
 
@@ -603,7 +603,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Query("session_id")
 		if sessionID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "session_id wajib diisi"})
 			return
 		}
 
@@ -624,7 +624,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 			WHERE qs.uuid = ?
 		`, sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi tidak ditemukan"})
 			return
 		}
 
@@ -676,7 +676,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY et.board_number ASC, et.target_name ASC
 		`, sessionID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch boards", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data bantalan", "details": err.Error()})
 			return
 		}
 
@@ -720,7 +720,7 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")
 		if assignmentID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId wajib diisi"})
 			return
 		}
 
@@ -765,7 +765,7 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT 1
 		`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data pendaftaran tidak ditemukan"})
 			return
 		}
 
@@ -803,7 +803,7 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY qes.end_number ASC
 		`, meta.ParticipantUUID, meta.SessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil skor babak"})
 			return
 		}
 
@@ -891,20 +891,20 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Get(&archer, `SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status FROM archers WHERE email = ?`, req.Email)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau kata sandi tidak valid", "code": "invalid_credentials"})
 			return
 		}
 
 		if archer.Status != "active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active", "code": "account_inactive"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Akun tidak aktif", "code": "account_inactive"})
 			return
 		}
 		if archer.Password == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "This account uses Google sign-in. Please sign in with Google.", "code": "use_google_signin"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Akun ini menggunakan Google sign-in. Silakan masuk menggunakan Google.", "code": "use_google_signin"})
 			return
 		}
 		if archer.Password != req.Password {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password", "code": "invalid_credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau kata sandi tidak valid", "code": "invalid_credentials"})
 			return
 		}
 
@@ -914,7 +914,7 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 		}
 		token, err := generateJWT(archer.UUID, archer.Email, "archer", "archer", archer.FullName, avatar, "")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
 		}
 
@@ -965,7 +965,7 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 		var exists bool
 		db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM archers WHERE email = ?)`, req.Email)
 		if exists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Email already registered", "code": "email_exists"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar", "code": "email_exists"})
 			return
 		}
 
@@ -994,13 +994,13 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)
 		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, req.Gender, req.DateOfBirth, req.City, req.BowType)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create account: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
 		}
 
 		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, "", "")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
 		}
 
@@ -1069,7 +1069,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			GROUP BY e.uuid
 		`, slug, slug)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -1166,7 +1166,7 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		var archerUUID string
 		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Archer account not found"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Akun atlet tidak ditemukan"})
 			return
 		}
 
@@ -1175,7 +1175,7 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 			OrganizerID string `db:"organizer_id"`
 		}
 		if err := db.Get(&event, `SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -1193,7 +1193,7 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1214,14 +1214,14 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 				INSERT INTO event_participants (uuid, event_id, archer_id, event_category_id, payment_status, registration_source, registration_date)
 				VALUES (?, ?, ?, ?, ?, 'mobile_app', NOW())
 			`, participantID, event.UUID, archerUUID, catID, paymentStatus); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register: " + err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftar: " + err.Error()})
 				return
 			}
 			registeredCategories = append(registeredCategories, catID)
 		}
 
 		if err = tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data"})
 			return
 		}
 
@@ -1254,13 +1254,13 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		var archerUUID string
 		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Archer not found"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Atlet tidak ditemukan"})
 			return
 		}
 
 		var eventUUID string
 		if err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -1303,7 +1303,7 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY ep.registration_date DESC
 		`, eventUUID, archerUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch registration"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pendaftaran"})
 			return
 		}
 		if registrations == nil {
@@ -1331,7 +1331,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		var archerUUID string
 		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Archer not found"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Atlet tidak ditemukan"})
 			return
 		}
 
@@ -1365,7 +1365,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY e.start_date DESC
 		`, archerUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event"})
 			return
 		}
 		if events == nil {

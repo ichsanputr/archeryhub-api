@@ -20,13 +20,13 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 		sessionID := c.Query("session_id")
 
 		if phase == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "phase is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phase wajib diisi"})
 			return
 		}
 
 		if phase == "qualification" {
 			if sessionID == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required for qualification phase"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "session_id wajib diisi untuk fase kualifikasi"})
 				return
 			}
 
@@ -73,7 +73,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				sessionID)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data target"})
 				return
 			}
 
@@ -121,7 +121,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phase"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Fase tidak valid"})
 	}
 }
 
@@ -134,7 +134,7 @@ func GetTargetNames(db *sqlx.DB) gin.HandlerFunc {
 		var eventExists bool
 		err := db.Get(&eventExists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ? OR slug = ?)`, eventID, eventID)
 		if err != nil || !eventExists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -200,7 +200,7 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		`, req.SessionUUID, req.TargetUUID, req.AssignmentUUID)
 
 		if err == nil && existingAssignment != "" {
-			c.JSON(http.StatusConflict, gin.H{"error": "Target position already assigned to another archer"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Posisi target sudah diberikan ke pemanah lain"})
 			return
 		}
 
@@ -229,12 +229,12 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 					WHERE uuid = ? AND session_uuid = ?
 				`, req.TargetUUID, targetBoardUUID, existingParticipantAssignment, req.SessionUUID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui penempatan"})
 				return
 			}
 
 			c.JSON(http.StatusOK, gin.H{
-				"message":       "Assignment updated successfully",
+				"message":       "Penempatan berhasil diperbarui",
 				"assignment_id": existingParticipantAssignment,
 			})
 			return
@@ -259,12 +259,12 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			`, req.TargetUUID, targetBoardUUID, *req.AssignmentUUID, req.SessionUUID)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update assignment"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui penempatan"})
 				return
 			}
 
 			c.JSON(http.StatusOK, gin.H{
-				"message":       "Assignment updated successfully",
+				"message":       "Penempatan berhasil diperbarui",
 				"assignment_id": *req.AssignmentUUID,
 			})
 		} else {
@@ -286,12 +286,12 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			`, newUUID, req.SessionUUID, req.ParticipantUUID, req.TargetUUID, targetBoardUUID)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat penempatan"})
 				return
 			}
 
 			c.JSON(http.StatusCreated, gin.H{
-				"message":       "Assignment created successfully",
+				"message":       "Penempatan berhasil dibuat",
 				"assignment_id": newUUID,
 			})
 		}
@@ -327,7 +327,7 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -367,7 +367,7 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 		`, orderDir, limitInt, offset), eventUUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data target", "details": err.Error()})
 			return
 		}
 
@@ -403,7 +403,7 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -420,14 +420,14 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				continue
 			}
 			if !allowedLetters[val] {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid target letter: %s. Only A, B, C, D are allowed.", val)})
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Huruf target tidak valid: %s. Hanya A, B, C, D yang diizinkan.", val)})
 				return
 			}
 			seen[val] = true
 			clean = append(clean, val)
 		}
 		if len(clean) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "target_numbers is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "target_numbers wajib diisi"})
 			return
 		}
 
@@ -445,13 +445,13 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		if len(dup) > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Target name(s) already exist: %s", strings.Join(dup, ", ")), "duplicates": dup})
+			c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Nama target sudah ada: %s", strings.Join(dup, ", ")), "duplicates": dup})
 			return
 		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -477,18 +477,18 @@ func CreateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				) VALUES (?, ?, ?, ?, NOW(), NOW())
 			`, newUUID, eventUUID, fullName, boardNum)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create target", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat target", "details": err.Error()})
 				return
 			}
 			createdIDs = append(createdIDs, newUUID)
 		}
 		if err = tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":        "Targets created successfully",
+			"message":        "Target berhasil dibuat",
 			"created_count":  len(createdIDs),
 			"target_numbers": clean,
 		})
@@ -513,7 +513,7 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT event_uuid FROM event_targets WHERE uuid = ?`, targetID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Target not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target tidak ditemukan"})
 			return
 		}
 
@@ -521,13 +521,13 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		if req.TargetName != nil {
 			name := *req.TargetName
 			if len(name) < 2 {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target name format"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Format nama target tidak valid"})
 				return
 			}
 			letter := strings.ToUpper(name[len(name)-1:])
 			allowedLetters := map[string]bool{"A": true, "B": true, "C": true, "D": true}
 			if !allowedLetters[letter] {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target letter. Only A, B, C, D are allowed."})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Huruf target tidak valid. Hanya A, B, C, D yang diizinkan."})
 				return
 			}
 
@@ -538,7 +538,7 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			`, eventUUID, *req.TargetName, targetID)
 
 			if err == nil && existingTarget != "" {
-				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Target name '%s' already exists in this event", *req.TargetName)})
+				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Nama target '%s' sudah ada di event ini", *req.TargetName)})
 				return
 			}
 		}
@@ -564,7 +564,7 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if len(updateFields) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada bidang untuk diperbarui"})
 			return
 		}
 
@@ -576,11 +576,11 @@ func UpdateEventTarget(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, updateValues...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui target", "details": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Target updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Target berhasil diperbarui"})
 	}
 }
 
@@ -598,7 +598,7 @@ func DeleteEventTarget(db *sqlx.DB) gin.HandlerFunc {
 
 		if err == nil && assignmentCount > 0 {
 			c.JSON(http.StatusConflict, gin.H{
-				"error":          "Cannot delete target with existing archer assignments",
+				"error":          "Tidak dapat menghapus target yang sudah memiliki penempatan pemanah",
 				"assigned_count": assignmentCount,
 			})
 			return
@@ -606,11 +606,11 @@ func DeleteEventTarget(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(`DELETE FROM event_targets WHERE uuid = ?`, targetID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete target"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus target"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Target deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Target berhasil dihapus"})
 	}
 }
 
@@ -639,9 +639,9 @@ func GetTargetDetails(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil {
 			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Target not found"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Target tidak ditemukan"})
 			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch target details"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail target"})
 			}
 			return
 		}
@@ -696,13 +696,13 @@ func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -712,7 +712,7 @@ func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
 			tempName := fmt.Sprintf("__tmp_%s", update.UUID)
 			_, err = tx.Exec(`UPDATE event_targets SET target_name = ?, updated_at = NOW() WHERE uuid = ? AND event_uuid = ?`, tempName, update.UUID, eventUUID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set temporary names", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengatur nama sementara", "details": err.Error()})
 				return
 			}
 		}
@@ -722,13 +722,13 @@ func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
 			// Check if new target name conflicts and validate A-D
 			name := update.TargetName
 			if len(name) < 2 {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid target name format: %s", name)})
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Format nama target tidak valid: %s", name)})
 				return
 			}
 			letter := strings.ToUpper(name[len(name)-1:])
 			allowedLetters := map[string]bool{"A": true, "B": true, "C": true, "D": true}
 			if !allowedLetters[letter] {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid target letter in '%s'. Only A, B, C, D are allowed.", name)})
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Huruf target tidak valid pada '%s'. Hanya A, B, C, D yang diizinkan.", name)})
 				return
 			}
 
@@ -741,7 +741,7 @@ func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
 			`, eventUUID, update.TargetName, update.UUID)
 
 			if err == nil && existingTarget != "" {
-				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Target name '%s' already exists in this event", update.TargetName)})
+				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Nama target '%s' sudah ada di event ini", update.TargetName)})
 				return
 			}
 
@@ -756,13 +756,13 @@ func BatchUpdateTargets(db *sqlx.DB) gin.HandlerFunc {
 
 			_, err = tx.Exec(`UPDATE event_targets SET target_name = ?, board_number = ?, updated_at = NOW() WHERE uuid = ? AND event_uuid = ?`, update.TargetName, boardNum, update.UUID, eventUUID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update target", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui target", "details": err.Error()})
 				return
 			}
 		}
 
 		if err = tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -792,7 +792,7 @@ func GetTargetOptions(db *sqlx.DB) gin.HandlerFunc {
 		`, eventID, eventID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch target options"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil opsi target"})
 			return
 		}
 

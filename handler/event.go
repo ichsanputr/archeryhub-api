@@ -58,7 +58,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		countQuery := `SELECT COUNT(*) FROM events t ` + whereClause
 		err := db.Get(&total, countQuery, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count events", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah event", "details": err.Error()})
 			return
 		}
 
@@ -277,14 +277,14 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req models.CreateEventRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
 		// Get user ID from context (set by auth middleware)
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -447,7 +447,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		var req models.UpdateEventRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -455,7 +455,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		var actualID string
 		err := db.Get(&actualID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 		id = actualID
@@ -566,7 +566,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update Event", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data event", "details": err.Error()})
 			return
 		}
 
@@ -574,7 +574,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		utils.LogActivity(db, userID.(string), id, "Event_updated", "Event", id, "Updated Event", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Event updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Data event berhasil diperbarui"})
 	}
 }
 
@@ -587,19 +587,19 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 		var actualID string
 		err := db.Get(&actualID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
 		result, err := db.Exec("DELETE FROM events WHERE uuid = ?", actualID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete Event", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data event", "details": err.Error()})
 			return
 		}
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -607,7 +607,7 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		utils.LogActivity(db, userID.(string), "", "Event_deleted", "Event", id, "Deleted Event", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Data event berhasil dihapus"})
 	}
 }
 
@@ -632,7 +632,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		`, eventID, eventID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -678,7 +678,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			`+whereClause, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count event categories", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung kategori event", "details": err.Error()})
 			return
 		}
 
@@ -721,7 +721,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&events, query, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event categories", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil kategori event", "details": err.Error()})
 			return
 		}
 
@@ -753,7 +753,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var actualEventID string
 		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -866,7 +866,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			countQuery := "SELECT COUNT(DISTINCT archer_id) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
 			err = db.Get(&total, countQuery, args...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count archers", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah atlet", "details": err.Error()})
 				return
 			}
 
@@ -923,7 +923,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			fetchArgs := append(args, limit, offset)
 			err = db.Select(&participants, query, fetchArgs...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch grouped participants", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data peserta berkelompok", "details": err.Error()})
 				return
 			}
 
@@ -1025,7 +1025,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var total int
 		err = db.Get(&total, countQuery, countArgs...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count participants", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah peserta", "details": err.Error()})
 			return
 		}
 
@@ -1270,7 +1270,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			fmt.Printf("[DEBUG] Participant not found in DB for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
 			c.JSON(http.StatusNotFound, gin.H{
-				"error":          "Participant not found",
+				"error":          "Peserta tidak ditemukan",
 				"details":        err.Error(),
 				"participant_id": participantID,
 				"event_id":       actualEventID,
@@ -1491,7 +1491,7 @@ func GetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 		`, eventID, eventID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedule", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil jadwal event", "details": err.Error()})
 			return
 		}
 
@@ -1536,7 +1536,7 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 		// Delete existing schedules
 		_, err = db.Exec("DELETE FROM event_schedule WHERE event_id = ?", actualEventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete existing schedules", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus jadwal lama", "details": err.Error()})
 			return
 		}
 
@@ -1581,13 +1581,13 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`, scheduleID, actualEventID, s.Title, s.Description, formattedStartTime, formattedEndTime, dayOrder, sortOrder, s.Location)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save schedule", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan jadwal", "details": err.Error()})
 				return
 			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Event schedules updated successfully",
+			"message": "Jadwal event berhasil diperbarui",
 			"count":   len(req.Schedules),
 		})
 	}
@@ -1612,7 +1612,7 @@ func ListEventCategoryRefs(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY bt.name, ag.name, ecr.name
 		`)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event categories", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil kategori event", "details": err.Error()})
 			return
 		}
 
@@ -1634,7 +1634,7 @@ func CreateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -1670,13 +1670,13 @@ func UpdateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
 		var exists bool
 		if err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM event_category_refs WHERE uuid = ?)`, id); err != nil || !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
 			return
 		}
 
@@ -1708,7 +1708,7 @@ func UpdateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Category updated"})
+		c.JSON(http.StatusOK, gin.H{"message": "Kategori berhasil diperbarui"})
 	}
 }
 
@@ -1719,7 +1719,7 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish event"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mempublikasikan event"})
 			return
 		}
 
@@ -1727,7 +1727,7 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		utils.LogActivity(db, userID.(string), eventID, "event_published", "event", eventID, "Published event", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Event published successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Event berhasil dipublikasikan"})
 	}
 }
 
@@ -1750,7 +1750,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			msg := err.Error()
 			if strings.Contains(msg, "AthleteID") || strings.Contains(msg, "athlete_id") {
-				msg = "athlete_id is required"
+				msg = "athlete_id wajib diisi"
 			}
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg, "details": err.Error()})
 			return
@@ -1780,7 +1780,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if req.AthleteID == "" || len(allCategoryIDs) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields", "details": "athlete_id and at least one event_category_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data yang diperlukan tidak lengkap", "details": "athlete_id dan setidaknya satu event_category_id diperlukan"})
 			return
 		}
 
@@ -1826,7 +1826,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Use transaction to ensure all registrations succeed or none
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -1889,7 +1889,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			`, actualEventID, archerUUID, catID)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengecek status pendaftaran", "details": err.Error()})
 				return
 			}
 
@@ -1911,7 +1911,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofURLs, qrRaw, registrationSource)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan peserta", "details": err.Error()})
 				return
 			}
 
@@ -1927,7 +1927,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit registration"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pendaftaran"})
 			return
 		}
 
@@ -2035,7 +2035,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if len(archerUUIDs) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No valid archers found"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data pemanah yang valid"})
 			return
 		}
 
@@ -2051,7 +2051,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -2094,7 +2094,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofURLs, qrRaw, registrationSource)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register participant", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan peserta", "details": err.Error()})
 					return
 				}
 
@@ -2109,7 +2109,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message":    "Batch registration complete",
+			"message":    "Pendaftaran massal selesai",
 			"registered": registeredCount,
 			"skipped":    skippedCount,
 		})
@@ -2202,7 +2202,7 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 		var userArcherID string
 		err = db.Get(&userArcherID, "SELECT uuid FROM archers WHERE uuid = ? OR user_id = ?", userID, userID)
 		if err != nil || userArcherID != archerID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You can only cancel your own registration"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda hanya dapat membatalkan pendaftaran sendiri"})
 			return
 		}
 
@@ -2221,7 +2221,7 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Registration cancelled successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Pendaftaran berhasil dibatalkan"})
 	}
 }
 
@@ -2284,7 +2284,7 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Start transaction for cleanup
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -2325,7 +2325,7 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogActivity(db, userID.(string), actualEventID, "participant_kicked", "event", actualEventID, "Kicked participant: "+actualParticipantID, c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Participant removed from event successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Peserta berhasil dikeluarkan dari event"})
 	}
 }
 
@@ -2399,7 +2399,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if req.CategoryID != nil || len(req.CategoryIDs) > 0 {
 			archerID := pInfo.ArcherID
 			if archerID == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Archer not found for this participant"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Pemanah tidak ditemukan untuk peserta ini"})
 				return
 			}
 
@@ -2553,7 +2553,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err = db.Exec(query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update participant", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data peserta", "details": err.Error()})
 			return
 		}
 
@@ -2563,7 +2563,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogActivity(db, userID.(string), actualEventID, "participant_updated", "event_participant", actualParticipantID, "Updated participant", c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Participant updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Data peserta berhasil diperbarui"})
 	}
 }
 
@@ -2589,7 +2589,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 		var eventTypeCode string
 		err := db.Get(&eventTypeCode, "SELECT code FROM ref_event_types WHERE uuid = ?", req.EventTypeUUID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event type"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe event tidak valid"})
 			return
 		}
 
@@ -2646,7 +2646,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 		utils.LogActivity(db, userID.(string), eventID, "categories_created", "event", eventID, fmt.Sprintf("Created %d categories in batch", count), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message": fmt.Sprintf("Successfully created %d categories", count),
+			"message": fmt.Sprintf("Berhasil membuat %d kategori", count),
 			"count":   count,
 		})
 	}
@@ -2676,7 +2676,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		var eventTypeCode string
 		err := db.Get(&eventTypeCode, "SELECT code FROM ref_event_types WHERE uuid = ?", req.EventTypeUUID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event type"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe event tidak valid"})
 			return
 		}
 
@@ -2688,14 +2688,14 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			if err == nil {
 				req.GenderDivisionUUID = mixedUUID
 			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Mixed gender division not found in system"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Divisi gender mixed tidak ditemukan"})
 				return
 			}
 		} else {
 
 			// Individual or Team must have a specific gender (Men/Women)
 			if req.GenderDivisionUUID == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Gender division is required for this category type"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Divisi gender wajib diisi untuk tipe kategori ini"})
 				return
 			}
 
@@ -2703,7 +2703,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			var genderCode string
 			db.Get(&genderCode, "SELECT code FROM ref_gender_divisions WHERE uuid = ?", req.GenderDivisionUUID)
 			if genderCode == "mixed" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Only mixed teams can use the 'Mixed' gender division"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Hanya mixed team yang dapat menggunakan divisi gender 'Mixed'"})
 				return
 			}
 		}
@@ -2729,7 +2729,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if catExists {
-			c.JSON(http.StatusConflict, gin.H{"error": "Category already exists for this event"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Kategori sudah ada di event ini"})
 			return
 		}
 
@@ -2757,7 +2757,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":      catEventID,
-			"message": "Category created successfully",
+			"message": "Kategori berhasil dibuat",
 		})
 	}
 }
@@ -2816,7 +2816,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		`, categoryID, actualEventID)
 
 		if err != nil || !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
 			return
 		}
 
@@ -2866,7 +2866,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		utils.LogActivity(db, userID.(string), eventID, "category_updated", "event_category", categoryID, "Updated event category", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Category updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Kategori berhasil diperbarui"})
 	}
 }
 
@@ -2906,7 +2906,7 @@ func GetEventCategoryDetails(db *sqlx.DB) gin.HandlerFunc {
 		`, categoryID, actualEventID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
 			return
 		}
 
@@ -2963,7 +2963,7 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		var exists bool
 		err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_categories WHERE uuid = ? AND event_id = ?)", categoryID, actualEventID)
 		if err != nil || !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
 			return
 		}
 
@@ -3071,7 +3071,7 @@ func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 		`, eventID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event images", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil gambar event", "details": err.Error()})
 			return
 		}
 
@@ -3106,7 +3106,7 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 		// Delete existing images
 		_, err := db.Exec("DELETE FROM event_images WHERE event_id = ?", eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete existing images", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus gambar lama", "details": err.Error()})
 			return
 		}
 
@@ -3122,7 +3122,7 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`, imageID, eventID, img.URL, img.Caption, img.AltText, displayOrder, img.IsPrimary)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save event image", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar event", "details": err.Error()})
 				return
 			}
 		}
@@ -3131,7 +3131,7 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 		utils.LogActivity(db, userID.(string), eventID, "event_images_updated", "event", eventID, fmt.Sprintf("Updated %d event images", len(req.Images)), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Event images updated successfully",
+			"message": "Gambar event berhasil diperbarui",
 			"count":   len(req.Images),
 		})
 	}
@@ -3191,7 +3191,7 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&teams, query, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch teams", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data tim", "details": err.Error()})
 			return
 		}
 
@@ -3207,7 +3207,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -3235,7 +3235,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 		var total int
 		err := db.Get(&total, `SELECT COUNT(*) FROM events t `+whereClause, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count events", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah event", "details": err.Error()})
 			return
 		}
 
@@ -3310,7 +3310,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "QR code is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "QR code wajib diisi"})
 			return
 		}
 
@@ -3353,7 +3353,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Peserta tidak ditemukan. QR Code tidak valid."})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database", "details": err.Error()})
 			return
 		}
 
@@ -3373,7 +3373,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		`, participant.UUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update registration", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui pendaftaran", "details": err.Error()})
 			return
 		}
 

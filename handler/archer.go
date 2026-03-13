@@ -817,7 +817,7 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 		uuid := c.Param("uuid")
 
 		if uuid == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "UUID is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "UUID wajib diisi"})
 			return
 		}
 
@@ -863,7 +863,7 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		identifier := c.Param("identifier")
 		if identifier == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Identifier is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Identifier wajib diisi"})
 			return
 		}
 
@@ -893,7 +893,7 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if !found {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
 			return
 		}
 

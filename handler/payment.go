@@ -835,7 +835,7 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		`, organizerID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment methods", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil metode pembayaran", "details": err.Error()})
 			return
 		}
 
@@ -884,13 +884,13 @@ func CreateEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		`, methodID, eventID, req.PaymentMethod, req.AccountName, req.AccountNumber, req.Instructions, req.DisplayOrder)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment method"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat metode pembayaran"})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
 			"uuid":    methodID,
-			"message": "Payment method created successfully",
+			"message": "Metode pembayaran berhasil dibuat",
 		})
 	}
 }
@@ -927,11 +927,11 @@ func UpdateEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		`, req.PaymentMethod, req.AccountName, req.AccountNumber, req.Instructions, req.IsActive, req.DisplayOrder, methodID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment method"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui metode pembayaran"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Payment method updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Metode pembayaran berhasil diperbarui"})
 	}
 }
 
@@ -942,11 +942,11 @@ func DeleteEventPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec("DELETE FROM event_payment_methods WHERE uuid = ?", methodID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete payment method"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus metode pembayaran"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Payment method deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Metode pembayaran berhasil dihapus"})
 	}
 }
 
@@ -970,7 +970,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if transaction.Status == "paid" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Already paid"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Sudah dibayar"})
 			return
 		}
 
@@ -999,7 +999,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 				)
 			}
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update participant status"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status peserta"})
 				return
 			}
 		}
@@ -1009,7 +1009,7 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Payment simulation successful", "reference": reference})
+		c.JSON(http.StatusOK, gin.H{"message": "Simulasi pembayaran berhasil", "reference": reference})
 	}
 }
 
@@ -1053,7 +1053,7 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 		var payments []PaymentWithExtra
 		err := db.Select(&payments, query, uid, limitInt, offsetInt)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payments", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pembayaran", "details": err.Error()})
 			return
 		}
 

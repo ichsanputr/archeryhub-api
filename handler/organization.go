@@ -515,7 +515,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if len(args) == 0 {
-			c.JSON(http.StatusOK, gin.H{"message": "No changes to save"})
+			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada perubahan untuk disimpan"})
 			return
 		}
 
@@ -528,7 +528,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Organization updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Data organisasi berhasil diperbarui"})
 	}
 }
 

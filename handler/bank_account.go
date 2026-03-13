@@ -28,7 +28,7 @@ func GetBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 		var accounts []BankAccount
 		err := db.Select(&accounts, "SELECT * FROM bank_accounts WHERE user_id = ? ORDER BY is_primary DESC, created_at DESC", userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch bank accounts"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekening bank"})
 			return
 		}
 
@@ -56,7 +56,7 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -65,7 +65,7 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		if req.IsPrimary {
 			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ?", userID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset primary status"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status utama"})
 				return
 			}
 		}
@@ -76,16 +76,16 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		`, accountID, userID, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bank account"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat rekening bank"})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"message": "Bank account added successfully", "id": accountID})
+		c.JSON(http.StatusCreated, gin.H{"message": "Rekening bank berhasil ditambahkan", "id": accountID})
 	}
 }
 
@@ -108,7 +108,7 @@ func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 			return
 		}
 		defer tx.Rollback()
@@ -116,7 +116,7 @@ func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		if req.IsPrimary {
 			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ?", userID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset primary status"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status utama"})
 				return
 			}
 		}
@@ -128,16 +128,16 @@ func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		`, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary, accountID, userID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bank account"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui rekening bank"})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Bank account updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Rekening bank berhasil diperbarui"})
 	}
 }
 
@@ -148,10 +148,10 @@ func DeleteBankAccount(db *sqlx.DB) gin.HandlerFunc {
 
 		_, err := db.Exec("DELETE FROM bank_accounts WHERE uuid = ? AND user_id = ?", accountID, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete bank account"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus rekening bank"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Bank account deleted successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Rekening bank berhasil dihapus"})
 	}
 }

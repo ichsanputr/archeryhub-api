@@ -81,7 +81,7 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch news: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita: " + err.Error()})
 			return
 		}
 

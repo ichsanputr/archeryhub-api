@@ -17,12 +17,12 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		if eventID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId wajib diisi"})
 			return
 		}
 
 		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id wajib diisi"})
 			return
 		}
 
@@ -30,7 +30,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -126,7 +126,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			categoryID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch results", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil hasil", "details": err.Error()})
 			return
 		}
 
@@ -206,12 +206,12 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		if eventID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId wajib diisi"})
 			return
 		}
 
 		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id wajib diisi"})
 			return
 		}
 
@@ -219,7 +219,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -258,7 +258,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusOK, gin.H{"bracket": nil})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch bracket", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil bracket", "details": err.Error()})
 			return
 		}
 
@@ -322,7 +322,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		`, bracket.UUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch matches", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil pertandingan", "details": err.Error()})
 			return
 		}
 

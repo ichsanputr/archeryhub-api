@@ -162,7 +162,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if userType == "seller" {
 			var req models.UpdateSellerRequest
 			if err := c.ShouldBindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 				return
 			}
 
@@ -234,7 +234,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		// Default to Archer update if not club (or implement others if needed)
 		var req models.UpdateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -468,7 +468,7 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		// Begin transaction
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database"})
 			return
 		}
 		defer tx.Rollback()
@@ -495,7 +495,7 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 
 		err = tx.Commit()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 

@@ -13,7 +13,7 @@ func GetNotifications(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, exists := c.Get("user")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -42,7 +42,7 @@ func GetNotifications(db *sqlx.DB) gin.HandlerFunc {
 		var notifications []models.Notification
 		err := db.Select(&notifications, query, userID, userRole, limit, offset)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch notifications"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil notifikasi"})
 			return
 		}
 
@@ -65,7 +65,7 @@ func MarkNotificationAsRead(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, exists := c.Get("user")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -79,17 +79,17 @@ func MarkNotificationAsRead(db *sqlx.DB) gin.HandlerFunc {
 			notificationID, userID, userRole,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update notification"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui notifikasi"})
 			return
 		}
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Notifikasi tidak ditemukan"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Notification marked as read"})
+		c.JSON(http.StatusOK, gin.H{"message": "Notifikasi ditandai sebagai sudah dibaca"})
 	}
 }
 
@@ -98,7 +98,7 @@ func MarkAllNotificationsAsRead(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, exists := c.Get("user")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -111,13 +111,13 @@ func MarkAllNotificationsAsRead(db *sqlx.DB) gin.HandlerFunc {
 			userID, userRole,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update notifications"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui notifikasi"})
 			return
 		}
 
 		rowsAffected, _ := result.RowsAffected()
 		c.JSON(http.StatusOK, gin.H{
-			"message": "All notifications marked as read",
+			"message": "Semua notifikasi ditandai sebagai sudah dibaca",
 			"count":   rowsAffected,
 		})
 	}
@@ -128,7 +128,7 @@ func CreateNotification(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, exists := c.Get("user")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -136,7 +136,7 @@ func CreateNotification(db *sqlx.DB) gin.HandlerFunc {
 		role := claims["role"].(string)
 
 		if role != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can create notifications"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya admin yang dapat membuat notifikasi"})
 			return
 		}
 
@@ -156,10 +156,10 @@ func CreateNotification(db *sqlx.DB) gin.HandlerFunc {
 			req.UserID, req.UserRole, req.Type, req.Title, req.Message, req.Link,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create notification"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat notifikasi"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"message": "Notification created"})
+		c.JSON(http.StatusCreated, gin.H{"message": "Notifikasi dibuat"})
 	}
 }

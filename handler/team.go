@@ -905,7 +905,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				for order, pID := range pIDs {
 					if _, err = tx.Exec(`INSERT INTO team_members (uuid, team_id, participant_id, member_order) VALUES (?, ?, ?, ?)`,
 						uuid.New().String(), teamUUID, pID, order+1); err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert mixed team member", "details": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan anggota mixed team", "details": err.Error()})
 						return
 					}
 				}
@@ -995,7 +995,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				teamUUID := uuid.New().String()
 				if _, err = tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					teamUUID, eventUUID, req.CategoryID, r.ClubName+suffix, i+1, r.TotalScore, r.TotalX); err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert team", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan data tim", "details": err.Error()})
 					return
 				}
 
@@ -1003,7 +1003,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				for order, pID := range pIDs {
 					if _, err = tx.Exec(`INSERT INTO team_members (uuid, team_id, participant_id, member_order) VALUES (?, ?, ?, ?)`,
 						uuid.New().String(), teamUUID, pID, order+1); err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert team member", "details": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan anggota tim", "details": err.Error()})
 						return
 					}
 				}
@@ -1020,14 +1020,14 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit sync results"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan hasil sinkronisasi"})
 			return
 		}
 
 		utils.LogActivity(db, userID.(string), eventUUID, "teams_synced_directly", "event", eventUUID,
 			fmt.Sprintf("Directly synced %d teams for category %s", syncCount, req.CategoryID), c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Sync completed", "count": syncCount, "details": syncDetails})
+		c.JSON(http.StatusOK, gin.H{"message": "Sinkronisasi selesai", "count": syncCount, "details": syncDetails})
 	}
 }
 
@@ -1057,14 +1057,14 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 		`, req.TeamName, req.CategoryID, teamID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update team info"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui info tim"})
 			return
 		}
 
 		// 2. Delete existing members
 		_, err = tx.Exec("DELETE FROM team_members WHERE team_id = ?", teamID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset team members"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset anggota tim"})
 			return
 		}
 

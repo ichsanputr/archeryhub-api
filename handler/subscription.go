@@ -15,7 +15,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -129,7 +129,7 @@ func ExportInvoicesCSV(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
 
@@ -160,7 +160,7 @@ func ExportInvoicesCSV(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY created_at DESC`, userID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch invoices", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data invoice", "details": err.Error()})
 			return
 		}
 

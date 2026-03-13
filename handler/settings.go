@@ -28,7 +28,7 @@ func GetUserSettings(db *sqlx.DB) gin.HandlerFunc {
 				})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch settings"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil pengaturan"})
 			return
 		}
 
@@ -45,7 +45,7 @@ func UpdateUserSettings(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid"})
 			return
 		}
 
@@ -56,10 +56,10 @@ func UpdateUserSettings(db *sqlx.DB) gin.HandlerFunc {
 		`, userID, req.DashboardTheme, req.DashboardTheme)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui pengaturan"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Settings updated successfully", "dashboard_theme": req.DashboardTheme})
+		c.JSON(http.StatusOK, gin.H{"message": "Pengaturan berhasil diperbarui", "dashboard_theme": req.DashboardTheme})
 	}
 }

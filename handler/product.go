@@ -66,7 +66,23 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var products []models.Product
-		err := db.Select(&products, "SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC", userID)
+		status := c.Query("status")
+		category := c.Query("category")
+
+		query := "SELECT * FROM products WHERE seller_id = ?"
+		args := []interface{}{userID}
+
+		if status != "" && status != "all" {
+			query += " AND status = ?"
+			args = append(args, status)
+		}
+		if category != "" && category != "all" {
+			query += " AND category = ?"
+			args = append(args, category)
+		}
+		query += " ORDER BY created_at DESC"
+
+		err := db.Select(&products, query, args...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk"})

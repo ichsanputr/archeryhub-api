@@ -32,7 +32,7 @@ func GetCart(db *sqlx.DB) gin.HandlerFunc {
 		`
 		err := db.Select(&items, query, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart items"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil isi keranjang"})
 			return
 		}
 
@@ -47,7 +47,7 @@ func AddToCart(db *sqlx.DB) gin.HandlerFunc {
 		userType, _ := c.Get("user_type")
 
 		if userType != "archer" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only archers can add items to cart"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya pemanah yang dapat menambah barang ke keranjang"})
 			return
 		}
 
@@ -61,12 +61,12 @@ func AddToCart(db *sqlx.DB) gin.HandlerFunc {
 		var product models.Product
 		err := db.Get(&product, "SELECT uuid, stock FROM products WHERE uuid = ?", req.ProductID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
 			return
 		}
 
 		if product.Stock < req.Quantity {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Stok tidak mencukupi"})
 			return
 		}
 
@@ -88,11 +88,11 @@ func AddToCart(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui keranjang"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Product added to cart"})
+		c.JSON(http.StatusOK, gin.H{"message": "Produk berhasil ditambah ke keranjang"})
 	}
 }
 
@@ -120,22 +120,22 @@ func UpdateCartItem(db *sqlx.DB) gin.HandlerFunc {
 		`, id, userID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Cart item not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Barang di keranjang tidak ditemukan"})
 			return
 		}
 
 		if stockCheck.Stock < req.Quantity {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Stok tidak mencukupi"})
 			return
 		}
 
 		_, err = db.Exec("UPDATE cart_items SET quantity = ? WHERE uuid = ? AND user_id = ?", req.Quantity, id, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart item"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui barang di keranjang"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Cart updated"})
+		c.JSON(http.StatusOK, gin.H{"message": "Keranjang diperbarui"})
 	}
 }
 
@@ -147,16 +147,16 @@ func DeleteCartItem(db *sqlx.DB) gin.HandlerFunc {
 
 		res, err := db.Exec("DELETE FROM cart_items WHERE uuid = ? AND user_id = ?", id, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove item"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus barang"})
 			return
 		}
 
 		rows, _ := res.RowsAffected()
 		if rows == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Cart item not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Barang di keranjang tidak ditemukan"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Item removed from cart"})
+		c.JSON(http.StatusOK, gin.H{"message": "Barang dihapus dari keranjang"})
 	}
 }

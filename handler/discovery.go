@@ -23,14 +23,14 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 		// Fetch Event slugs - include anything that isn't a draft
 		err := db.Select(&data.Events, "SELECT slug FROM events WHERE slug IS NOT NULL AND slug != '' AND status != 'draft'")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event slugs: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug event: " + err.Error()})
 			return
 		}
 
 		// Fetch Archer usernames
 		err = db.Select(&data.Archers, "SELECT username FROM archers WHERE username IS NOT NULL AND username != ''")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch archer usernames: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil username atlet: " + err.Error()})
 			return
 		}
 
@@ -39,21 +39,21 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 		// Fetch Organization slugs
 		err = db.Select(&data.Organizations, "SELECT slug FROM organizations WHERE slug IS NOT NULL AND slug != '' AND verification_status = 'verified'")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organization slugs: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug organisasi: " + err.Error()})
 			return
 		}
 
 		// Fetch Product slugs
 		err = db.Select(&data.Products, "SELECT slug FROM products WHERE slug IS NOT NULL AND slug != '' AND status = 'active'")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product slugs: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug produk: " + err.Error()})
 			return
 		}
 
 		// Fetch News slugs
 		err = db.Select(&data.News, "SELECT slug FROM news WHERE slug IS NOT NULL AND slug != '' AND status = 'published'")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch news slugs: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug berita: " + err.Error()})
 			return
 		}
 
