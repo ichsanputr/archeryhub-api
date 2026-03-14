@@ -164,9 +164,15 @@ func GetProductByID(db *sqlx.DB) gin.HandlerFunc {
 		if product.SellerID != nil && *product.SellerID != "" {
 			var seller models.Seller
 			err = db.Get(&seller, `
-				SELECT uuid, user_id, slug, email, store_name, description, avatar_url, banner_url,
-				       phone, address, city, province, is_verified, rating, total_sales, followers_count,
-				       product_count, chat_response_rate, chat_response_time, last_active_at, status,
+				SELECT uuid, user_id,
+				       COALESCE(slug, '') AS slug, COALESCE(email, '') AS email,
+				       store_name, description, avatar_url, banner_url,
+				       phone, address, city, province, COALESCE(is_verified, 0) AS is_verified,
+				       COALESCE(rating, 0) AS rating, COALESCE(total_sales, 0) AS total_sales,
+				       COALESCE(followers_count, 0) AS followers_count, COALESCE(product_count, 0) AS product_count,
+				       COALESCE(chat_response_rate, '') AS chat_response_rate,
+				       COALESCE(chat_response_time, '') AS chat_response_time,
+				       last_active_at, COALESCE(status, '') AS status,
 				       created_at, updated_at
 				FROM sellers WHERE uuid = ?`, *product.SellerID)
 			if err == nil {
