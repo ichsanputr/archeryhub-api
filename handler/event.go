@@ -2259,20 +2259,19 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		actualParticipantID := pInfo.UUID
 		archerID := pInfo.ArcherID
 
-		fmt.Printf("[DEBUG] Found participant to delete: %s (Registration: %s, Archer: %s)\n", pInfo.FullName, actualParticipantID, archerID)
+		fmt.Printf("[DEBUG] Found participant to delete: %s (Archer: %s) - removing ALL registrations for this archer in event\n", pInfo.FullName, archerID)
 
-		// Check if participant is in any elimination match
+		// Check if this archer (any of their participant rows) is in any elimination match
 		var inMatch bool
 		err = db.Get(&inMatch, `
 			SELECT EXISTS(
 				SELECT 1 FROM elimination_matches em
 				JOIN elimination_entries ee ON (em.entry_a_uuid = ee.uuid OR em.entry_b_uuid = ee.uuid)
-				WHERE ee.participant_uuid = ? OR ee.participant_uuid = ?
+				WHERE ee.participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
 			)
-		`, actualParticipantID, archerID)
+		`, archerID, actualEventID)
 
 		if err == nil && inMatch {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -2289,26 +2288,36 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 1. Cleanup qualification data
+		// 1. Cleanup qualification data for ALL participant rows of this archer in this event
 		// Arrows first (child table)
 		tx.Exec(`
 			DELETE FROM qualification_arrow_scores 
 			WHERE end_score_uuid IN (
-				SELECT uuid FROM qualification_end_scores WHERE participant_uuid = ?
+				SELECT uuid FROM qualification_end_scores 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
 			)
-		`, actualParticipantID)
+		`, archerID, actualEventID)
 
 		// End scores
-		tx.Exec("DELETE FROM qualification_end_scores WHERE participant_uuid = ?", actualParticipantID)
+		tx.Exec(`
+			DELETE FROM qualification_end_scores 
+			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+		`, archerID, actualEventID)
 
 		// 2. Delete qualification target assignments
-		tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid = ?", actualParticipantID)
+		tx.Exec(`
+			DELETE FROM qualification_target_assignments 
+			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+		`, archerID, actualEventID)
 
 		// 3. Cleanup elimination entries if any
-		tx.Exec("DELETE FROM elimination_entries WHERE participant_uuid = ?", actualParticipantID)
+		tx.Exec(`
+			DELETE FROM elimination_entries 
+			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+		`, archerID, actualEventID)
 
-		// 3. Delete from event_participants
-		_, err = tx.Exec("DELETE FROM event_participants WHERE uuid = ? AND event_id = ?", actualParticipantID, actualEventID)
+		// 4. Delete ALL event_participants for this archer in this event (handles multi-category registrations)
+		_, err = tx.Exec("DELETE FROM event_participants WHERE archer_id = ? AND event_id = ?", archerID, actualEventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete participant", "details": err.Error()})
 			return
@@ -2322,7 +2331,7 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Log activity
 		userID, _ := c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), actualEventID, "participant_kicked", "event", actualEventID, "Kicked participant: "+actualParticipantID, c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userID.(string), actualEventID, "participant_kicked", "event", actualEventID, "Kicked participant: "+archerID, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Peserta berhasil dikeluarkan dari event"})
