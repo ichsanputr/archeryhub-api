@@ -463,6 +463,17 @@ func main() {
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
+		// Chat routes (archer ↔ seller)
+		chat := api.Group("/chat")
+		chat.Use(middleware.AuthMiddleware())
+		{
+			chat.POST("/conversations", handler.StartOrGetConversation(db))
+			chat.GET("/conversations", handler.ListConversations(db))
+			chat.GET("/conversations/:id/messages", handler.GetConversationMessages(db))
+			chat.POST("/conversations/:id/messages", handler.SendMessage(db))
+			chat.GET("/unread", handler.GetChatUnreadCount(db))
+		}
+
 		// Payment & Registration routes
 		payment := api.Group("/payment")
 		{
@@ -656,7 +667,9 @@ func main() {
 		sellersProtected.Use(middleware.AuthMiddleware())
 		{
 			sellersProtected.GET("/me", handler.GetSellerProfile(db))
+			sellersProtected.GET("/profile", handler.GetSellerProfile(db))
 			sellersProtected.PUT("/me", handler.UpdateSellerProfileBasic(db))
+			sellersProtected.PUT("/profile", handler.UpdateSellerProfileBasic(db))
 			sellersProtected.PUT("/me/page", handler.UpdateSellerProfile(db))
 
 			// Seller finance

@@ -61,9 +61,15 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		data["store_name"] = seller.StoreName
 		data["slug"] = seller.Slug
 		data["store_slug"] = seller.Slug
+		data["name"] = seller.StoreName
+		if seller.Slug != nil {
+			data["username"] = *seller.Slug
+		}
 		data["description"] = seller.Description
 		data["avatar_url"] = seller.AvatarURL
 		data["banner_url"] = seller.BannerURL
+		data["logo"] = seller.AvatarURL
+		data["banner"] = seller.BannerURL
 		data["phone"] = seller.Phone
 		data["email"] = seller.Email
 		data["address"] = seller.Address
@@ -161,6 +167,8 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			StoreName   *string `json:"store_name"`
+			Name        *string `json:"name"`
+			Username    *string `json:"username"`
 			Email       *string `json:"email"`
 			Phone       *string `json:"phone"`
 			City        *string `json:"city"`
@@ -169,6 +177,8 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 			Description *string `json:"description"`
 			AvatarURL   *string `json:"avatar_url"`
 			BannerURL   *string `json:"banner_url"`
+			Logo        *string `json:"logo"`
+			Banner      *string `json:"banner"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -179,9 +189,17 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 		query := "UPDATE sellers SET updated_at = NOW()"
 		args := []interface{}{}
 
-		if req.StoreName != nil {
+		storeName := req.StoreName
+		if storeName == nil && req.Name != nil {
+			storeName = req.Name
+		}
+		if storeName != nil {
 			query += ", store_name = ?"
-			args = append(args, *req.StoreName)
+			args = append(args, *storeName)
+		}
+		if req.Username != nil {
+			query += ", slug = ?"
+			args = append(args, *req.Username)
 		}
 		if req.Email != nil {
 			query += ", email = ?"
@@ -207,13 +225,21 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 			query += ", description = ?"
 			args = append(args, *req.Description)
 		}
-		if req.AvatarURL != nil {
-			query += ", avatar_url = ?"
-			args = append(args, *req.AvatarURL)
+		avatarURL := req.AvatarURL
+		if avatarURL == nil && req.Logo != nil {
+			avatarURL = req.Logo
 		}
-		if req.BannerURL != nil {
+		if avatarURL != nil {
+			query += ", avatar_url = ?"
+			args = append(args, *avatarURL)
+		}
+		bannerURL := req.BannerURL
+		if bannerURL == nil && req.Banner != nil {
+			bannerURL = req.Banner
+		}
+		if bannerURL != nil {
 			query += ", banner_url = ?"
-			args = append(args, *req.BannerURL)
+			args = append(args, *bannerURL)
 		}
 
 		query += " WHERE uuid = ? OR user_id = ?"

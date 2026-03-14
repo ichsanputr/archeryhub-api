@@ -157,13 +157,18 @@ func GetProductByID(db *sqlx.DB) gin.HandlerFunc {
 			product.Colors = &maskedStr
 		}
 
-		// Enrich with seller info
+		// Enrich with seller info (explicit columns so DB schema matches struct)
 		var enriched models.EnrichedProduct
 		enriched.Product = product
 
-		if product.SellerID != nil {
+		if product.SellerID != nil && *product.SellerID != "" {
 			var seller models.Seller
-			err = db.Get(&seller, "SELECT * FROM sellers WHERE uuid = ?", *product.SellerID)
+			err = db.Get(&seller, `
+				SELECT uuid, user_id, slug, email, store_name, description, avatar_url, banner_url,
+				       phone, address, city, province, is_verified, rating, total_sales, followers_count,
+				       product_count, chat_response_rate, chat_response_time, last_active_at, status,
+				       created_at, updated_at
+				FROM sellers WHERE uuid = ?`, *product.SellerID)
 			if err == nil {
 				if seller.AvatarURL != nil && *seller.AvatarURL != "" {
 					masked := utils.MaskMediaURL(*seller.AvatarURL)
