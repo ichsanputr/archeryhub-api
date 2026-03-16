@@ -67,7 +67,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 		// Generate OTP and persist
 		otp := utils.GenerateOTP()
 		resetID := uuid.New().String()
-		expiry := time.Now().Add(15 * time.Minute)
+		expiry := time.Now().Add(5 * time.Minute)
 
 		_, err := db.Exec(`
 			INSERT INTO password_resets (uuid, email, user_id, user_type, otp_code, expires_at)
@@ -140,7 +140,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 					<p class="otp-code">%s</p>
 				</div>
 
-				<p class="tip"><b>Penting:</b> kode ini berlaku selama 15 menit dan hanya bisa dipakai satu kali. Jika kamu tidak merasa melakukan permintaan ini, abaikan email ini.</p>
+				<p class="tip"><b>Penting:</b> kode ini berlaku selama 5 menit dan hanya bisa dipakai satu kali. Jika kamu tidak merasa melakukan permintaan ini, abaikan email ini.</p>
 			</div>
 
 			<div class="footer">
