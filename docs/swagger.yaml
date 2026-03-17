@@ -1,5 +1,67 @@
 basePath: /api/v1
 definitions:
+  handler.ChatConversation:
+    properties:
+      archer_avatar:
+        type: string
+      archer_id:
+        type: string
+      archer_last_seen:
+        type: string
+      archer_name:
+        description: Joined fields — use COALESCE in SQL so these are never NULL
+        type: string
+      archer_unread:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+      last_message:
+        type: string
+      last_message_at:
+        type: string
+      product_id:
+        type: string
+      product_image:
+        type: string
+      product_name:
+        type: string
+      seller_avatar:
+        type: string
+      seller_id:
+        type: string
+      seller_last_seen:
+        type: string
+      seller_name:
+        type: string
+      seller_unread:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  handler.ChatMessage:
+    properties:
+      conversation_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      message:
+        type: string
+      sender_avatar:
+        type: string
+      sender_id:
+        type: string
+      sender_name:
+        description: Joined fields
+        type: string
+      sender_type:
+        type: string
+    type: object
   handler.ErrorResponse:
     properties:
       error:
@@ -34,71 +96,6 @@ definitions:
   handler.MessageResponse:
     properties:
       message:
-        type: string
-    type: object
-  handler.MobileEvent:
-    properties:
-      banner_url:
-        type: string
-      end_date:
-        type: string
-      location:
-        type: string
-      logo_url:
-        type: string
-      name:
-        type: string
-      organizer_avatar_url:
-        type: string
-      organizer_name:
-        type: string
-      participant_count:
-        type: integer
-      start_date:
-        type: string
-      uuid:
-        type: string
-    type: object
-  handler.MobileEventsResponse:
-    properties:
-      events:
-        items:
-          $ref: '#/definitions/handler.MobileEvent'
-        type: array
-      total_count:
-        type: integer
-    type: object
-  handler.MobileLoginResponse:
-    properties:
-      token:
-        type: string
-      user:
-        $ref: '#/definitions/handler.MobileUser'
-    type: object
-  handler.MobileScorekeeperLoginRequest:
-    properties:
-      code:
-        type: string
-    required:
-    - code
-    type: object
-  handler.MobileUser:
-    properties:
-      avatar_url:
-        type: string
-      email:
-        type: string
-      full_name:
-        type: string
-      id:
-        type: string
-      role:
-        type: string
-      user_type:
-        type: string
-      username:
-        type: string
-      uuid:
         type: string
     type: object
   handler.ScoringCard:
@@ -142,6 +139,606 @@ definitions:
           $ref: '#/definitions/handler.ScoringTarget'
         type: array
     type: object
+  mobile.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  mobile.MobileArcherOrdersResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      orders:
+        items:
+          $ref: '#/definitions/mobile.MobileOrderHistoryItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  mobile.MobileCartResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.CartItem'
+        type: array
+    type: object
+  mobile.MobileChatLastActiveResponse:
+    properties:
+      is_online:
+        type: boolean
+      last_seen_at:
+        type: string
+      peer_id:
+        type: string
+      peer_type:
+        type: string
+      server_time:
+        type: string
+    type: object
+  mobile.MobileChatListResponse:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/handler.ChatConversation'
+        type: array
+      unread_total:
+        type: integer
+    type: object
+  mobile.MobileChatMessagesResponse:
+    properties:
+      conversation:
+        $ref: '#/definitions/handler.ChatConversation'
+      messages:
+        items:
+          $ref: '#/definitions/handler.ChatMessage'
+        type: array
+    type: object
+  mobile.MobileChatUnreadResponse:
+    properties:
+      unread:
+        type: integer
+    type: object
+  mobile.MobileCheckoutResponse:
+    properties:
+      message:
+        type: string
+      payment: {}
+      reference:
+        type: string
+    type: object
+  mobile.MobileEvent:
+    properties:
+      banner_url:
+        type: string
+      end_date:
+        type: string
+      location:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      organizer_avatar_url:
+        type: string
+      organizer_name:
+        type: string
+      participant_count:
+        type: integer
+      start_date:
+        type: string
+      uuid:
+        type: string
+    type: object
+  mobile.MobileEventQRCodeResponse:
+    properties:
+      event_id:
+        type: string
+      payment_status:
+        type: string
+      qr_code_data_url:
+        type: string
+      qr_raw:
+        type: string
+      registration_date:
+        type: string
+    type: object
+  mobile.MobileEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileEvent'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileLoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/mobile.MobileUser'
+    type: object
+  mobile.MobileMarketplaceProductResponse:
+    properties:
+      product:
+        $ref: '#/definitions/models.Product'
+    type: object
+  mobile.MobileMarketplaceProductsResponse:
+    properties:
+      products:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileMyEventItem:
+    properties:
+      category_name:
+        type: string
+      end_date:
+        type: string
+      event_name:
+        type: string
+      event_slug:
+        type: string
+      event_uuid:
+        type: string
+      location:
+        type: string
+      logo_url:
+        type: string
+      payment_status:
+        type: string
+      qr_code_data_url:
+        type: string
+      qr_raw:
+        type: string
+      registration_date:
+        type: string
+      start_date:
+        type: string
+    type: object
+  mobile.MobileMyEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileMyEventItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  mobile.MobileMyRegistrationResponse:
+    properties:
+      event_id:
+        type: string
+      registrations:
+        items:
+          $ref: '#/definitions/mobile.MobileRegistrationItem'
+        type: array
+    type: object
+  mobile.MobileNewsDetail:
+    properties:
+      author_name:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      meta_description:
+        type: string
+      meta_title:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      tags:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      views:
+        type: integer
+    type: object
+  mobile.MobileNewsDetailResponse:
+    properties:
+      news:
+        $ref: '#/definitions/mobile.MobileNewsDetail'
+    type: object
+  mobile.MobileNewsItem:
+    properties:
+      author_name:
+        type: string
+      category:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      title:
+        type: string
+      views:
+        type: integer
+    type: object
+  mobile.MobileNewsListResponse:
+    properties:
+      news:
+        items:
+          $ref: '#/definitions/mobile.MobileNewsItem'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileOrderHistoryItem:
+    properties:
+      checkout_url:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      payment_method:
+        type: string
+      payment_reference:
+        type: string
+      payment_status:
+        type: string
+      seller_id:
+        type: string
+      seller_name:
+        type: string
+      status:
+        type: string
+      total_amount:
+        type: number
+      total_items:
+        type: integer
+    type: object
+  mobile.MobilePaymentTransactionResponse:
+    properties:
+      amount:
+        type: number
+      checkout_url:
+        type: string
+      event_id:
+        type: string
+      fee_amount:
+        type: number
+      id:
+        type: string
+      instructions:
+        type: string
+      pay_code:
+        type: string
+      payment_method:
+        type: string
+      qr_url:
+        type: string
+      reference:
+        type: string
+      registration_id:
+        type: string
+      status:
+        type: string
+      total_amount:
+        type: number
+      tripay_reference:
+        type: string
+      user_id:
+        type: string
+      va_number:
+        type: string
+    type: object
+  mobile.MobileRegistrationItem:
+    properties:
+      category_name:
+        type: string
+      checkout_url:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      pay_code:
+        type: string
+      payment_amount:
+        type: number
+      payment_method:
+        type: string
+      payment_status:
+        type: string
+      qr_code_data_url:
+        type: string
+      qr_raw:
+        type: string
+      qr_url:
+        type: string
+      registration_date:
+        type: string
+      tripay_reference:
+        type: string
+      va_number:
+        type: string
+    type: object
+  mobile.MobileScorekeeperLoginRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  mobile.MobileUser:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      user_type:
+        type: string
+      username:
+        type: string
+      uuid:
+        type: string
+    type: object
+  models.CartItem:
+    properties:
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      product_id:
+        type: string
+      product_image_url:
+        type: string
+      product_name:
+        description: Joined data
+        type: string
+      product_price:
+        type: number
+      product_sale_price:
+        type: number
+      product_stock:
+        type: integer
+      quantity:
+        type: integer
+      seller_name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.CheckoutRequest:
+    properties:
+      method:
+        type: string
+      shipping_address:
+        type: string
+    required:
+    - method
+    - shipping_address
+    type: object
+  models.EventWithDetails:
+    properties:
+      accreditation_status:
+        example: approved
+        type: string
+      active_target_count:
+        example: 36
+        type: integer
+      address:
+        example: Jl. Asia Afrika No.8, Jakarta
+        type: string
+      banner_url:
+        example: https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      code:
+        example: AHC-2026-JKT-OPEN
+        type: string
+      created_at:
+        example: "2026-03-01T10:30:00Z"
+        format: date-time
+        type: string
+      description:
+        example: Kejuaraan terbuka nasional untuk kategori recurve, compound, dan
+          barebow.
+        type: string
+      end_date:
+        example: "2026-05-21T17:00:00Z"
+        format: date-time
+        type: string
+      entry_fee:
+        example: 350000
+        type: number
+      event_count:
+        example: 12
+        type: integer
+      faq:
+        example: '[{"q":"Kapan jadwal technical meeting?","a":"H-1 pukul 19:00 WIB"}]'
+        type: string
+      gmaps_link:
+        example: https://maps.google.com/?q=-6.2185,106.8022
+        type: string
+      id:
+        example: evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      location:
+        example: Jakarta Selatan
+        type: string
+      location_type:
+        description: 'Location type: Indoor, Outdoor, Field, 3D, etc.'
+        example: Outdoor
+        type: string
+      logo_url:
+        example: https://cdn.archeryhub.id/media/logo-jkt-open-2026.png
+        type: string
+      name:
+        example: ArcheryHub Jakarta Open 2026
+        type: string
+      num_distances:
+        example: 2
+        type: integer
+      num_sessions:
+        example: 4
+        type: integer
+      organizer_avatar_url:
+        example: https://cdn.archeryhub.id/media/organizer-avatar.png
+        type: string
+      organizer_email:
+        example: event@archeryhub.id
+        type: string
+      organizer_id:
+        example: org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55
+        type: string
+      organizer_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      organizer_phone:
+        example: "081234567890"
+        type: string
+      organizer_slug:
+        example: archeryhub-jakarta
+        type: string
+      page_settings:
+        example: '{"sections":{"about":true,"fees":true}}'
+        type: string
+      participant_count:
+        example: 128
+        type: integer
+      participant_status:
+        example: registered
+        type: string
+      participant_uuid:
+        example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
+        type: string
+      payment_status:
+        example: paid
+        type: string
+      qr_raw:
+        example: EVT2026-ARC-0001
+        type: string
+      registration_deadline:
+        example: "2026-05-10T23:59:59Z"
+        format: date-time
+        type: string
+      short_name:
+        example: JKT Open 2026
+        type: string
+      slug:
+        example: archeryhub-jakarta-open-2026
+        type: string
+      start_date:
+        example: "2026-05-18T08:00:00Z"
+        format: date-time
+        type: string
+      status:
+        description: draft, active
+        example: published
+        type: string
+      target_count:
+        example: 48
+        type: integer
+      technical_guidebook_url:
+        example: https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf
+        type: string
+      total_prize:
+        example: 50000000
+        type: number
+      type:
+        description: Indoor, Outdoor, Field, 3D (kept for backward compatibility)
+        example: Outdoor
+        type: string
+      updated_at:
+        example: "2026-03-12T13:10:00Z"
+        format: date-time
+        type: string
+      venue:
+        example: Lapangan ABC Senayan
+        type: string
+      venue_type:
+        example: outdoor
+        type: string
+      whatsapp_number:
+        example: "081234567890"
+        type: string
+    type: object
+  models.Product:
+    properties:
+      category:
+        description: equipment, apparel, accessories, training, other
+        type: string
+      club_id:
+        type: string
+      colors:
+        description: JSON array
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      images:
+        description: JSON array
+        type: string
+      name:
+        type: string
+      organization_id:
+        type: string
+      price:
+        type: number
+      sale_price:
+        type: number
+      seller_id:
+        type: string
+      slug:
+        type: string
+      specifications:
+        description: JSON object
+        type: string
+      status:
+        description: draft, active, sold_out, archived
+        type: string
+      stock:
+        type: integer
+      updated_at:
+        type: string
+      views:
+        type: integer
+    type: object
   models.ScoreBatchUpdateRequest:
     properties:
       ends:
@@ -172,14 +769,88 @@ info:
   title: ArcheryHub Mobile API
   version: "1.0"
 paths:
-  /mobile/assignments/{assignmentId}/detail:
+  /mobile/archer/cart:
     get:
-      description: Returns all ends and arrow scores for a participant's qualification
-        assignment
+      description: Returns the authenticated archer cart items
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileCartResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get archer cart
+      tags:
+      - Mobile - Archer
+  /mobile/archer/cart/checkout:
+    post:
+      consumes:
+      - application/json
+      description: Creates orders and Tripay payment from authenticated archer cart
       parameters:
-      - description: Target assignment UUID
+      - description: Checkout request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CheckoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileCheckoutResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Checkout archer cart
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events:
+    get:
+      description: Returns all events the authenticated archer has registered for
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMyEventsResponse'
+      security:
+      - BearerAuth: []
+      summary: List archer's registered events
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/{id}/qr:
+    get:
+      description: Returns archer QR information and payment status for a specific
+        event
+      parameters:
+      - description: Event UUID or slug
         in: path
-        name: assignmentId
+        name: id
         required: true
         type: string
       produces:
@@ -188,19 +859,231 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/mobile.MobileEventQRCodeResponse'
+        "401":
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/handler.ErrorResponse'
+            $ref: '#/definitions/mobile.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-      summary: Get full score detail for an assignment
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get archer event QR
       tags:
-      - Mobile - Scoring
+      - Mobile - Archer
+  /mobile/archer/events/{id}/registration:
+    get:
+      description: Returns registration details including payment status and payment
+        instructions
+      parameters:
+      - description: Event UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMyRegistrationResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get archer's registration for an event
+      tags:
+      - Mobile - Archer
+  /mobile/archer/orders:
+    get:
+      description: Returns authenticated archer order history with payment summary
+      parameters:
+      - description: Order status
+        in: query
+        name: status
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherOrdersResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get archer order history
+      tags:
+      - Mobile - Archer
+  /mobile/archer/participants/{participantId}/payment:
+    post:
+      consumes:
+      - application/json
+      description: Create Tripay payment transaction for archer registration in an
+        event
+      parameters:
+      - description: Participant registration UUID
+        in: path
+        name: participantId
+        required: true
+        type: string
+      - description: Payment method
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            method:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobilePaymentTransactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create participant payment
+      tags:
+      - Mobile - Archer
+  /mobile/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login for archers using email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Archer login
+      tags:
+      - Mobile - Authentication
+  /mobile/auth/organization/login:
+    post:
+      consumes:
+      - application/json
+      description: Login for organizations using email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Organization login
+      tags:
+      - Mobile - Authentication
+  /mobile/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new archer account
+      parameters:
+      - description: Registration info
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Archer registration
+      tags:
+      - Mobile - Authentication
   /mobile/auth/scorekeeper/login:
     post:
       consumes:
@@ -212,29 +1095,259 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.MobileScorekeeperLoginRequest'
+          $ref: '#/definitions/mobile.MobileScorekeeperLoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.MobileLoginResponse'
+            $ref: '#/definitions/mobile.MobileLoginResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/handler.ErrorResponse'
+            $ref: '#/definitions/mobile.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/handler.ErrorResponse'
+            $ref: '#/definitions/mobile.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/handler.ErrorResponse'
+            $ref: '#/definitions/mobile.ErrorResponse'
       summary: Scorekeeper login
       tags:
       - Mobile - Authentication
+  /mobile/auth/seller/login:
+    post:
+      consumes:
+      - application/json
+      description: Login for sellers using email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Seller login
+      tags:
+      - Mobile - Authentication
+  /mobile/chat/conversations:
+    get:
+      description: Lists archer/seller conversations including last message, unread
+        counters, and last seen info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileChatListResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List chat conversations
+      tags:
+      - Mobile - Chat
+    post:
+      consumes:
+      - application/json
+      description: Archer starts (or gets existing) conversation with seller, optionally
+        by product
+      parameters:
+      - description: Conversation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            product_id:
+              type: string
+            product_image:
+              type: string
+            product_name:
+              type: string
+            seller_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ChatConversation'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.ChatConversation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start or get chat conversation
+      tags:
+      - Mobile - Chat
+  /mobile/chat/conversations/{id}/messages:
+    get:
+      description: Returns message list in a conversation and marks opposite side
+        unread as read
+      parameters:
+      - description: Conversation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileChatMessagesResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get conversation messages
+      tags:
+      - Mobile - Chat
+    post:
+      consumes:
+      - application/json
+      description: Sends a message to a conversation as archer or seller participant
+      parameters:
+      - description: Conversation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message payload
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            message:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.ChatMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send chat message
+      tags:
+      - Mobile - Chat
+  /mobile/chat/last-active:
+    get:
+      description: Returns last_seen_at and online flag for chat peer (seller or archer)
+      parameters:
+      - description: 'Peer type: seller or archer'
+        in: query
+        name: peer_type
+        required: true
+        type: string
+      - description: Peer UUID
+        in: query
+        name: peer_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileChatLastActiveResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get peer last active
+      tags:
+      - Mobile - Chat
+  /mobile/chat/unread:
+    get:
+      description: Returns total unread chats for current archer/seller
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileChatUnreadResponse'
+      security:
+      - BearerAuth: []
+      summary: Get unread chat count
+      tags:
+      - Mobile - Chat
   /mobile/elimination/scoring/matches/{matchId}/end:
     post:
       consumes:
@@ -371,7 +1484,121 @@ paths:
       - Mobile - Elimination
   /mobile/events:
     get:
-      description: Get events optimized for mobile view
+      description: Get published events for mobile with pagination and search
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search term (event name/location)
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: List mobile events
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}:
+    get:
+      description: Get event detail (by slug or UUID) with the same response body
+        as /events/:id
+      parameters:
+      - description: Event slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.EventWithDetails'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Get mobile event detail
+      tags:
+      - Mobile - Events
+  /mobile/marketplace/products:
+    get:
+      description: Returns active products for mobile marketplace read-only pages
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      - description: Product category
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMarketplaceProductsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: List marketplace products for mobile
+      tags:
+      - Mobile - Marketplace
+  /mobile/marketplace/products/{id}:
+    get:
+      description: Returns one product by UUID or slug for mobile marketplace read-only
+        pages
+      parameters:
+      - description: Product UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMarketplaceProductResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Get marketplace product detail for mobile
+      tags:
+      - Mobile - Marketplace
+  /mobile/news:
+    get:
+      description: Returns published news list for mobile read-only pages
       parameters:
       - description: Limit
         in: query
@@ -391,14 +1618,37 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.MobileEventsResponse'
+            $ref: '#/definitions/mobile.MobileNewsListResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-      summary: List mobile events
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: List published news for mobile
       tags:
-      - Mobile - Events
+      - Mobile - News
+  /mobile/news/{id}:
+    get:
+      description: Returns one published news article by UUID or slug
+      parameters:
+      - description: News UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileNewsDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Get published news detail for mobile
+      tags:
+      - Mobile - News
   /mobile/qualification/scoring/cards:
     get:
       description: Get selectable target cards for scoring context
@@ -496,62 +1746,4 @@ paths:
       summary: Get scoring targets
       tags:
       - Mobile - Qualification
-  /mobile/scan:
-    get:
-      description: Look up a target board by its barcode code and return archer list
-        with scores
-      parameters:
-      - description: Barcode / QR code on the target board
-        in: query
-        name: code
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-      summary: Scan target barcode
-      tags:
-      - Mobile - Scoring
-  /mobile/sessions/boards:
-    get:
-      description: Get all boards and their archers with score summaries for a qualification
-        session
-      parameters:
-      - description: Qualification session UUID
-        in: query
-        name: session_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handler.ErrorResponse'
-      summary: List all target boards in a session
-      tags:
-      - Mobile - Scoring
 swagger: "2.0"

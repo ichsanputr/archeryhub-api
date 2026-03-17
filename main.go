@@ -7,6 +7,7 @@ import (
 	"archeryhub-api/database"
 	_ "archeryhub-api/docs"
 	"archeryhub-api/handler"
+	mobilehandler "archeryhub-api/handler/mobile"
 	"archeryhub-api/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -231,7 +232,7 @@ func main() {
 
 			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
 
-			// Forgot / Reset password (public — no auth required)
+			// Forgot / Reset password (public â€” no auth required)
 			auth.POST("/forgot-password", handler.ForgotPassword(db))
 			auth.POST("/verify-reset-otp", handler.VerifyResetOTP(db))
 			auth.POST("/reset-password", handler.ResetPassword(db))
@@ -463,7 +464,7 @@ func main() {
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
-		// Chat routes (archer ↔ seller)
+		// Chat routes (archer â†” seller)
 		chat := api.Group("/chat")
 		chat.Use(middleware.AuthMiddleware())
 		{
@@ -513,36 +514,65 @@ func main() {
 		// Mobile dedicated routes
 		mobile := api.Group("/mobile")
 		{
-			mobile.GET("/hello", handler.MobileHello())
+			mobile.GET("/hello", mobilehandler.MobileHello())
 
 			// 1. Authentication (no auth required)
 			auth := mobile.Group("/auth")
 			{
-				auth.POST("/scorekeeper/login", handler.MobileScorekeeperLogin(db))
-				auth.POST("/login", handler.MobileArcherLogin(db))
-				auth.POST("/register", handler.MobileArcherRegister(db))
+				auth.POST("/scorekeeper/login", mobilehandler.MobileScorekeeperLogin(db))
+				auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
+				auth.POST("/organization/login", mobilehandler.MobileOrganizationLogin(db))
+				auth.POST("/seller/login", mobilehandler.MobileSellerLogin(db))
+				auth.POST("/login", mobilehandler.MobileArcherLogin(db))
+				auth.POST("/register", mobilehandler.MobileArcherRegister(db))
 			}
 
 			// 2. Events (public)
-			mobile.GET("/events", handler.MobileListEvents(db))
-			mobile.GET("/events/:slug", handler.MobileGetEventDetail(db))
+			mobile.GET("/events", mobilehandler.MobileListEvents(db))
+			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
+
+			// 2b. News (public read-only)
+			mobile.GET("/news", mobilehandler.MobileListNews(db))
+			mobile.GET("/news/:id", mobilehandler.MobileGetNewsDetail(db))
+
+			// 2c. Marketplace (public read-only)
+			mobile.GET("/marketplace/products", mobilehandler.MobileMarketplaceListProducts(db))
+			mobile.GET("/marketplace/products/:id", mobilehandler.MobileMarketplaceGetProductDetail(db))
 
 			// 3. Target scan by QR/barcode code (requires auth)
 			mobileAuth := mobile.Group("")
 			mobileAuth.Use(middleware.AuthMiddleware())
 			{
-				mobileAuth.GET("/scan", handler.MobileScanTarget(db))
-				mobileAuth.GET("/sessions/boards", handler.MobileGetSessionBoards(db))
-				mobileAuth.GET("/assignments/:assignmentId/detail", handler.MobileGetAssignmentScoreDetail(db))
+				mobileAuth.GET("/scan", mobilehandler.MobileScanTarget(db))
+				mobileAuth.GET("/sessions/boards", mobilehandler.MobileGetSessionBoards(db))
+				mobileAuth.GET("/assignments/:assignmentId/detail", mobilehandler.MobileGetAssignmentScoreDetail(db))
+			}
+
+			// 3b. Chat archer <-> seller (requires auth)
+			mobileChat := mobile.Group("/chat")
+			mobileChat.Use(middleware.AuthMiddleware())
+			{
+				mobileChat.POST("/conversations", mobilehandler.MobileStartOrGetConversation(db))
+				mobileChat.GET("/conversations", mobilehandler.MobileListConversations(db))
+				mobileChat.GET("/conversations/:id/messages", mobilehandler.MobileGetConversationMessages(db))
+				mobileChat.POST("/conversations/:id/messages", mobilehandler.MobileSendMessage(db))
+				mobileChat.GET("/unread", mobilehandler.MobileGetChatUnreadCount(db))
+				mobileChat.GET("/last-active", mobilehandler.MobileGetPeerLastActive(db))
 			}
 
 			// 4b. Archer account (requires auth)
 			mobileArcher := mobile.Group("/archer")
 			mobileArcher.Use(middleware.AuthMiddleware())
 			{
-				mobileArcher.GET("/events", handler.MobileGetMyEvents(db))
-				mobileArcher.POST("/events/:id/register", handler.MobileRegisterForEvent(db))
-				mobileArcher.GET("/events/:id/registration", handler.MobileGetMyRegistration(db))
+				mobileArcher.GET("/cart", mobilehandler.MobileArcherGetCart(db))
+				mobileArcher.POST("/cart/checkout", mobilehandler.MobileArcherCheckoutCart(db))
+				mobileArcher.GET("/orders", mobilehandler.MobileArcherGetOrderHistory(db))
+
+				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
+				mobileArcher.POST("/events/:id/register", mobilehandler.MobileRegisterForEvent(db))
+				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
+				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
+				mobileArcher.POST("/participants/:participantId/payment", mobilehandler.MobileCreateParticipantPayment(db))
 			}
 
 			// 4. Qualification Scoring
@@ -569,8 +599,8 @@ func main() {
 			sk := mobile.Group("/scorekeeper")
 			sk.Use(middleware.AuthMiddleware())
 			{
-				sk.GET("/me", handler.MobileGetScorekeeperMe(db))
-				sk.GET("/events", handler.MobileGetScorekeeperEvents(db))
+				sk.GET("/me", mobilehandler.MobileGetScorekeeperMe(db))
+				sk.GET("/events", mobilehandler.MobileGetScorekeeperEvents(db))
 			}
 
 			// Swagger UI
@@ -631,7 +661,7 @@ func main() {
 			cbr.GET("/:id", handler.GetClubByID(db))
 		}
 
-		// Product routes — /my must be registered BEFORE /:id to avoid wildcard conflict
+		// Product routes â€” /my must be registered BEFORE /:id to avoid wildcard conflict
 		products := api.Group("/products")
 		{
 			products.GET("", handler.GetProducts(db))
@@ -683,7 +713,7 @@ func main() {
 			sellersProtected.POST("/wallet/withdrawals", handler.CreateWithdrawal(db))
 		}
 
-		// Order routes (seller) — also accessible as /api/v1/orders
+		// Order routes (seller) â€” also accessible as /api/v1/orders
 		ordersGroup := api.Group("/orders")
 		ordersGroup.Use(middleware.AuthMiddleware())
 		{

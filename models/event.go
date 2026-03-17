@@ -60,56 +60,56 @@ func (ft *FlexibleTime) UnmarshalJSON(data []byte) error {
 
 // Event represents an archery Event/competition
 type Event struct {
-	UUID                  string     `json:"id" db:"uuid"`
-	Code                  string     `json:"code" db:"code"`
-	Name                  string     `json:"name" db:"name"`
-	ShortName             *string    `json:"short_name" db:"short_name"`
-	Slug                  string     `json:"slug" db:"slug"`
-	Venue                 *string    `json:"venue" db:"venue"`
-	Address               *string    `json:"address" db:"address"`
-	GmapLink              *string    `json:"gmaps_link" db:"gmaps_link"`
-	Location              *string    `json:"location" db:"location"`
-	City                  *string    `json:"city" db:"city"`
-	StartDate             *time.Time `json:"start_date" db:"start_date"`
-	EndDate               *time.Time `json:"end_date" db:"end_date"`
-	RegistrationDeadline  *time.Time `json:"registration_deadline" db:"registration_deadline"`
-	Description           *string    `json:"description" db:"description"`
-	BannerURL             *string    `json:"banner_url" db:"banner_url"`
-	LogoURL               *string    `json:"logo_url" db:"logo_url"`
-	Type                  *string    `json:"type" db:"type"`                   // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
-	LocationType          *string    `json:"location_type" db:"location_type"` // Location type: Indoor, Outdoor, Field, 3D, etc.
-	NumDistances          *int       `json:"num_distances" db:"num_distances"`
-	NumSessions           *int       `json:"num_sessions" db:"num_sessions"`
-	EntryFee              float64    `json:"entry_fee" db:"entry_fee"`
-	Status                string     `json:"status" db:"status"` // draft, active
-	OrganizerID           *string    `json:"organizer_id" db:"organizer_id"`
-	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at"`
-	TotalPrize            float64    `json:"total_prize" db:"total_prize"`
-	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url"`
-	PageSettings          *string    `json:"page_settings" db:"page_settings"`
-	FAQ                   *string    `json:"faq" db:"faq"`
+	UUID                  string     `json:"id" db:"uuid" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	Code                  string     `json:"code" db:"code" example:"AHC-2026-JKT-OPEN"`
+	Name                  string     `json:"name" db:"name" example:"ArcheryHub Jakarta Open 2026"`
+	ShortName             *string    `json:"short_name" db:"short_name" example:"JKT Open 2026"`
+	Slug                  string     `json:"slug" db:"slug" example:"archeryhub-jakarta-open-2026"`
+	Venue                 *string    `json:"venue" db:"venue" example:"Lapangan ABC Senayan"`
+	Address               *string    `json:"address" db:"address" example:"Jl. Asia Afrika No.8, Jakarta"`
+	GmapLink              *string    `json:"gmaps_link" db:"gmaps_link" example:"https://maps.google.com/?q=-6.2185,106.8022"`
+	Location              *string    `json:"location" db:"location" example:"Jakarta Selatan"`
+	City                  *string    `json:"city" db:"city" example:"Jakarta"`
+	StartDate             *time.Time `json:"start_date" db:"start_date" swaggertype:"string" format:"date-time" example:"2026-05-18T08:00:00Z"`
+	EndDate               *time.Time `json:"end_date" db:"end_date" swaggertype:"string" format:"date-time" example:"2026-05-21T17:00:00Z"`
+	RegistrationDeadline  *time.Time `json:"registration_deadline" db:"registration_deadline" swaggertype:"string" format:"date-time" example:"2026-05-10T23:59:59Z"`
+	Description           *string    `json:"description" db:"description" example:"Kejuaraan terbuka nasional untuk kategori recurve, compound, dan barebow."`
+	BannerURL             *string    `json:"banner_url" db:"banner_url" example:"https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg"`
+	LogoURL               *string    `json:"logo_url" db:"logo_url" example:"https://cdn.archeryhub.id/media/logo-jkt-open-2026.png"`
+	Type                  *string    `json:"type" db:"type" example:"Outdoor"`                   // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
+	LocationType          *string    `json:"location_type" db:"location_type" example:"Outdoor"` // Location type: Indoor, Outdoor, Field, 3D, etc.
+	NumDistances          *int       `json:"num_distances" db:"num_distances" example:"2"`
+	NumSessions           *int       `json:"num_sessions" db:"num_sessions" example:"4"`
+	EntryFee              float64    `json:"entry_fee" db:"entry_fee" example:"350000"`
+	Status                string     `json:"status" db:"status" example:"published"` // draft, active
+	OrganizerID           *string    `json:"organizer_id" db:"organizer_id" example:"org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"`
+	CreatedAt             time.Time  `json:"created_at" db:"created_at" swaggertype:"string" format:"date-time" example:"2026-03-01T10:30:00Z"`
+	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at" swaggertype:"string" format:"date-time" example:"2026-03-12T13:10:00Z"`
+	TotalPrize            float64    `json:"total_prize" db:"total_prize" example:"50000000"`
+	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url" example:"https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf"`
+	PageSettings          *string    `json:"page_settings" db:"page_settings" example:"{\"sections\":{\"about\":true,\"fees\":true}}"`
+	FAQ                   *string    `json:"faq" db:"faq" example:"[{\"q\":\"Kapan jadwal technical meeting?\",\"a\":\"H-1 pukul 19:00 WIB\"}]"`
 }
 
 // EventWithDetails includes organizer information
 type EventWithDetails struct {
 	Event
-	OrganizerName       *string `json:"organizer_name" db:"organizer_name"`
-	OrganizerEmail      *string `json:"organizer_email" db:"organizer_email"`
-	OrganizerAvatarURL  *string `json:"organizer_avatar_url" db:"organizer_avatar_url"`
-	OrganizerSlug       *string `json:"organizer_slug" db:"organizer_slug"`
-	OrganizerPhone      *string `json:"organizer_phone" db:"organizer_phone"`
-	ParticipantCount    int     `json:"participant_count" db:"participant_count"`
-	EventCount          int     `json:"event_count" db:"event_count"`
-	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status"`
-	PaymentStatus       *string `json:"payment_status" db:"payment_status"`
-	ParticipantUUID     *string `json:"participant_uuid" db:"participant_uuid"`
-	ParticipantStatus   *string `json:"participant_status" db:"participant_status"`
-	QRRaw               *string `json:"qr_raw" db:"qr_raw"`
-	WhatsAppNumber      *string `json:"whatsapp_number" db:"whatsapp_number"`
-	VenueType           *string `json:"venue_type" db:"venue_type"`
-	TargetCount         int     `json:"target_count" db:"target_count"`
-	ActiveTargetCount   int     `json:"active_target_count" db:"active_target_count"`
+	OrganizerName       *string `json:"organizer_name" db:"organizer_name" example:"ArcheryHub Club Jakarta"`
+	OrganizerEmail      *string `json:"organizer_email" db:"organizer_email" example:"event@archeryhub.id"`
+	OrganizerAvatarURL  *string `json:"organizer_avatar_url" db:"organizer_avatar_url" example:"https://cdn.archeryhub.id/media/organizer-avatar.png"`
+	OrganizerSlug       *string `json:"organizer_slug" db:"organizer_slug" example:"archeryhub-jakarta"`
+	OrganizerPhone      *string `json:"organizer_phone" db:"organizer_phone" example:"081234567890"`
+	ParticipantCount    int     `json:"participant_count" db:"participant_count" example:"128"`
+	EventCount          int     `json:"event_count" db:"event_count" example:"12"`
+	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status" example:"approved"`
+	PaymentStatus       *string `json:"payment_status" db:"payment_status" example:"paid"`
+	ParticipantUUID     *string `json:"participant_uuid" db:"participant_uuid" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
+	ParticipantStatus   *string `json:"participant_status" db:"participant_status" example:"registered"`
+	QRRaw               *string `json:"qr_raw" db:"qr_raw" example:"EVT2026-ARC-0001"`
+	WhatsAppNumber      *string `json:"whatsapp_number" db:"whatsapp_number" example:"081234567890"`
+	VenueType           *string `json:"venue_type" db:"venue_type" example:"outdoor"`
+	TargetCount         int     `json:"target_count" db:"target_count" example:"48"`
+	ActiveTargetCount   int     `json:"active_target_count" db:"active_target_count" example:"36"`
 }
 
 // CreateEventRequest represents the request payload for creating a Event
@@ -232,6 +232,7 @@ type EventCategoryRef struct {
 	AgeName    string `json:"age_name" db:"age_name"`
 	Status     string `json:"status" db:"status"`
 }
+
 // EventTarget represents a physical target in an event
 type EventTarget struct {
 	UUID        string    `json:"id" db:"uuid"`
