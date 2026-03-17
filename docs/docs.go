@@ -1368,6 +1368,235 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/organization/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get events owned by the authenticated organization for mobile pages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "List organization events for mobile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event status filter",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by event name, code, or location",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationEventsResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/events/{id}/participants": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get participants for an organization-owned event including QR code data URLs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "List event participants with QR code for mobile organization",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID or slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by participant or club name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment status filter",
+                        "name": "payment_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category UUID filter",
+                        "name": "category_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationEventParticipantsResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the authenticated organization profile for mobile pages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Get mobile organization profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationProfileResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the authenticated organization profile for mobile pages",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Update mobile organization profile",
+                "parameters": [
+                    {
+                        "description": "Organization profile payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateOrganizationProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/qualification/scoring/cards": {
             "get": {
                 "description": "Get selectable target cards for scoring context",
@@ -1508,6 +1737,214 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/seller/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the authenticated seller profile for mobile pages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Get mobile seller profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileSellerProfileResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the authenticated seller basic profile for mobile pages",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Update mobile seller profile",
+                "parameters": [
+                    {
+                        "description": "Seller profile payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateSellerProfileBasicRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/seller/me/page": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the authenticated seller page settings for mobile pages",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Update mobile seller page settings",
+                "parameters": [
+                    {
+                        "description": "Seller page settings payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateSellerPageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/seller/products": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get products owned by the authenticated seller for mobile pages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "List seller products for mobile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product status filter",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product category filter",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by product name or description",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileSellerProductsResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
                         }
                     }
                 }
@@ -1731,6 +2168,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
                     "type": "string"
                 }
             }
@@ -2150,6 +2595,353 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileOrganizationEventItem": {
+            "type": "object",
+            "properties": {
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg"
+                },
+                "end_date": {
+                    "type": "string",
+                    "example": "2026-05-21T17:00:00Z"
+                },
+                "location": {
+                    "type": "string",
+                    "example": "Jakarta Selatan"
+                },
+                "logo_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta Open 2026"
+                },
+                "participant_count": {
+                    "type": "integer",
+                    "example": 128
+                },
+                "pending_count": {
+                    "type": "integer",
+                    "example": 32
+                },
+                "registration_closed": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-jakarta-open-2026"
+                },
+                "start_date": {
+                    "type": "string",
+                    "example": "2026-05-18T08:00:00Z"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "published"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "venue": {
+                    "type": "string",
+                    "example": "Lapangan ABC Senayan"
+                },
+                "verified_count": {
+                    "type": "integer",
+                    "example": 96
+                }
+            }
+        },
+        "mobile.MobileOrganizationEventParticipantsResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrganizationParticipantItem"
+                    }
+                },
+                "pending_count": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "verified_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOrganizationEventsResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrganizationEventItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOrganizationParticipantItem": {
+            "type": "object",
+            "properties": {
+                "archer_id": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                },
+                "athlete_code": {
+                    "type": "string",
+                    "example": "ARC-0042"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                },
+                "category_id": {
+                    "type": "string",
+                    "example": "cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Umum"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "club_id": {
+                    "type": "string",
+                    "example": "club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "division_name": {
+                    "type": "string",
+                    "example": "Recurve"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "rizky@example.com"
+                },
+                "event_id": {
+                    "type": "string",
+                    "example": "evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "event_type_name": {
+                    "type": "string",
+                    "example": "Individual"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "gender_division_name": {
+                    "type": "string",
+                    "example": "Putra"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "lunas"
+                },
+                "qr_code_data_url": {
+                    "type": "string",
+                    "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                },
+                "qr_raw": {
+                    "type": "string",
+                    "example": "EVT2026-ARC-0001"
+                },
+                "registration_date": {
+                    "type": "string",
+                    "example": "2026-05-01T09:30:00Z"
+                },
+                "target_name": {
+                    "type": "string",
+                    "example": "A-12"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "rizky-pratama"
+                }
+            }
+        },
+        "mobile.MobileOrganizationProfileData": {
+            "type": "object",
+            "properties": {
+                "acronym": {
+                    "type": "string",
+                    "example": "AHJ"
+                },
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Stadion Utama No. 1, Jakarta"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/organization/logo.png"
+                },
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/organization/banner.jpg"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "contact_person_email": {
+                    "type": "string",
+                    "example": "budi@archeryhub.id"
+                },
+                "contact_person_name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "contact_person_phone": {
+                    "type": "string",
+                    "example": "081298765432"
+                },
+                "country": {
+                    "type": "string",
+                    "example": "Indonesia"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-10T08:00:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Organisasi panahan yang fokus pada pembinaan atlet dan penyelenggaraan event."
+                },
+                "email": {
+                    "type": "string",
+                    "example": "event@archeryhub.id"
+                },
+                "established_date": {
+                    "type": "string",
+                    "example": "2020-08-17"
+                },
+                "faq": {
+                    "type": "array",
+                    "items": {}
+                },
+                "history": {
+                    "type": "string",
+                    "example": "Didirikan untuk mendukung ekosistem panahan nasional yang lebih terstruktur."
+                },
+                "id": {
+                    "type": "string",
+                    "example": "org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"
+                },
+                "mission": {
+                    "type": "string",
+                    "example": "Membina atlet, pelatih, dan penyelenggaraan kompetisi yang profesional."
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta"
+                },
+                "page_settings": {
+                    "type": "object"
+                },
+                "registration_number": {
+                    "type": "string",
+                    "example": "AHJ-2026-001"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-jakarta"
+                },
+                "social_facebook": {
+                    "type": "string",
+                    "example": "archeryhubjakarta"
+                },
+                "social_instagram": {
+                    "type": "string",
+                    "example": "archeryhub.jakarta"
+                },
+                "social_media": {
+                    "type": "object"
+                },
+                "social_twitter": {
+                    "type": "string",
+                    "example": "archeryhubjkt"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "active"
+                },
+                "subscription_expires_at": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "subscription_status": {
+                    "type": "string",
+                    "example": "active"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-03-10T09:30:00Z"
+                },
+                "user_type": {
+                    "type": "string",
+                    "example": "organization"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"
+                },
+                "verification_status": {
+                    "type": "string",
+                    "example": "verified"
+                },
+                "vision": {
+                    "type": "string",
+                    "example": "Menjadi pusat pembinaan panahan modern di Indonesia."
+                },
+                "website": {
+                    "type": "string",
+                    "example": "https://archeryhub.id"
+                },
+                "whatsapp_no": {
+                    "type": "string",
+                    "example": "081234567890"
+                }
+            }
+        },
+        "mobile.MobileOrganizationProfileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/mobile.MobileOrganizationProfileData"
+                }
+            }
+        },
         "mobile.MobilePaymentTransactionResponse": {
             "type": "object",
             "properties": {
@@ -2257,6 +3049,260 @@ const docTemplate = `{
             ],
             "properties": {
                 "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileSellerProductsResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Product"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileSellerProfileData": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Panahan No. 10, Jakarta"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/logo-store.png"
+                },
+                "banner": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/banner-store.jpg"
+                },
+                "banner_text": {
+                    "type": "string",
+                    "example": "Perlengkapan panahan lengkap untuk semua level"
+                },
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/banner-store.jpg"
+                },
+                "catalog_config": {
+                    "type": "object"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi."
+                },
+                "email": {
+                    "type": "string",
+                    "example": "seller@archeryhub.id"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"
+                },
+                "logo": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/logo-store.png"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Store Jakarta"
+                },
+                "page_settings": {
+                    "type": "object"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "081234567890"
+                },
+                "province": {
+                    "type": "string",
+                    "example": "DKI Jakarta"
+                },
+                "sections": {
+                    "type": "object"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-store-jakarta"
+                },
+                "store_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Store Jakarta"
+                },
+                "store_slug": {
+                    "type": "string",
+                    "example": "archeryhub-store-jakarta"
+                },
+                "theme_color": {
+                    "type": "string",
+                    "example": "#C1121F"
+                },
+                "user_type": {
+                    "type": "string",
+                    "example": "seller"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "archeryhub-store-jakarta"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"
+                }
+            }
+        },
+        "mobile.MobileSellerProfileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/mobile.MobileSellerProfileData"
+                }
+            }
+        },
+        "mobile.MobileUpdateOrganizationProfileRequest": {
+            "type": "object",
+            "properties": {
+                "acronym": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "banner_url": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "contact_person_email": {
+                    "type": "string"
+                },
+                "contact_person_name": {
+                    "type": "string"
+                },
+                "contact_person_phone": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "established_date": {
+                    "type": "string"
+                },
+                "faq": {},
+                "history": {
+                    "type": "string"
+                },
+                "mission": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "page_settings": {},
+                "registration_number": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "social_facebook": {
+                    "type": "string"
+                },
+                "social_instagram": {
+                    "type": "string"
+                },
+                "social_media": {},
+                "social_twitter": {
+                    "type": "string"
+                },
+                "vision": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                },
+                "whatsapp_no": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileUpdateSellerPageRequest": {
+            "type": "object",
+            "properties": {
+                "banner_text": {
+                    "type": "string"
+                },
+                "catalog_config": {},
+                "page_settings": {},
+                "sections": {},
+                "theme_color": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileUpdateSellerProfileBasicRequest": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "banner": {
+                    "type": "string"
+                },
+                "banner_url": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }

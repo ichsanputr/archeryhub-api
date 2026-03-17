@@ -575,6 +575,24 @@ func main() {
 				mobileArcher.POST("/participants/:participantId/payment", mobilehandler.MobileCreateParticipantPayment(db))
 			}
 
+			mobileOrganization := mobile.Group("/organization")
+			mobileOrganization.Use(middleware.AuthMiddleware())
+			{
+				mobileOrganization.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
+				mobileOrganization.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
+				mobileOrganization.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
+				mobileOrganization.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
+			}
+
+			mobileSeller := mobile.Group("/seller")
+			mobileSeller.Use(middleware.AuthMiddleware())
+			{
+				mobileSeller.GET("/me", mobilehandler.MobileGetSellerMe(db))
+				mobileSeller.PUT("/me", mobilehandler.MobileUpdateSellerMe(db))
+				mobileSeller.PUT("/me/page", mobilehandler.MobileUpdateSellerPage(db))
+				mobileSeller.GET("/products", mobilehandler.MobileGetSellerProducts(db))
+			}
+
 			// 4. Qualification Scoring
 			qual := mobile.Group("/qualification")
 			qual.Use(middleware.AuthMiddleware())

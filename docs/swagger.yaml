@@ -144,6 +144,11 @@ definitions:
       error:
         type: string
     type: object
+  mobile.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
   mobile.MobileArcherOrdersResponse:
     properties:
       limit:
@@ -414,6 +419,259 @@ definitions:
       total_items:
         type: integer
     type: object
+  mobile.MobileOrganizationEventItem:
+    properties:
+      banner_url:
+        example: https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg
+        type: string
+      end_date:
+        example: "2026-05-21T17:00:00Z"
+        type: string
+      location:
+        example: Jakarta Selatan
+        type: string
+      logo_url:
+        example: https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png
+        type: string
+      name:
+        example: ArcheryHub Jakarta Open 2026
+        type: string
+      participant_count:
+        example: 128
+        type: integer
+      pending_count:
+        example: 32
+        type: integer
+      registration_closed:
+        example: false
+        type: boolean
+      slug:
+        example: archeryhub-jakarta-open-2026
+        type: string
+      start_date:
+        example: "2026-05-18T08:00:00Z"
+        type: string
+      status:
+        example: published
+        type: string
+      uuid:
+        example: evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      venue:
+        example: Lapangan ABC Senayan
+        type: string
+      verified_count:
+        example: 96
+        type: integer
+    type: object
+  mobile.MobileOrganizationEventParticipantsResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      participants:
+        items:
+          $ref: '#/definitions/mobile.MobileOrganizationParticipantItem'
+        type: array
+      pending_count:
+        type: integer
+      total:
+        type: integer
+      verified_count:
+        type: integer
+    type: object
+  mobile.MobileOrganizationEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileOrganizationEventItem'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  mobile.MobileOrganizationParticipantItem:
+    properties:
+      archer_id:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+      athlete_code:
+        example: ARC-0042
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        type: string
+      category_id:
+        example: cat-44f67d53-032f-428f-a8f2-8db5672a7a9d
+        type: string
+      category_name:
+        example: Umum
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      club_id:
+        example: club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      division_name:
+        example: Recurve
+        type: string
+      email:
+        example: rizky@example.com
+        type: string
+      event_id:
+        example: evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      event_type_name:
+        example: Individual
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      gender_division_name:
+        example: Putra
+        type: string
+      id:
+        example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
+        type: string
+      payment_status:
+        example: lunas
+        type: string
+      qr_code_data_url:
+        example: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+        type: string
+      qr_raw:
+        example: EVT2026-ARC-0001
+        type: string
+      registration_date:
+        example: "2026-05-01T09:30:00Z"
+        type: string
+      target_name:
+        example: A-12
+        type: string
+      username:
+        example: rizky-pratama
+        type: string
+    type: object
+  mobile.MobileOrganizationProfileData:
+    properties:
+      acronym:
+        example: AHJ
+        type: string
+      address:
+        example: Jl. Stadion Utama No. 1, Jakarta
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/organization/logo.png
+        type: string
+      banner_url:
+        example: https://cdn.archeryhub.id/media/organization/banner.jpg
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      contact_person_email:
+        example: budi@archeryhub.id
+        type: string
+      contact_person_name:
+        example: Budi Santoso
+        type: string
+      contact_person_phone:
+        example: "081298765432"
+        type: string
+      country:
+        example: Indonesia
+        type: string
+      created_at:
+        example: "2026-01-10T08:00:00Z"
+        type: string
+      description:
+        example: Organisasi panahan yang fokus pada pembinaan atlet dan penyelenggaraan
+          event.
+        type: string
+      email:
+        example: event@archeryhub.id
+        type: string
+      established_date:
+        example: "2020-08-17"
+        type: string
+      faq:
+        items: {}
+        type: array
+      history:
+        example: Didirikan untuk mendukung ekosistem panahan nasional yang lebih terstruktur.
+        type: string
+      id:
+        example: org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55
+        type: string
+      mission:
+        example: Membina atlet, pelatih, dan penyelenggaraan kompetisi yang profesional.
+        type: string
+      name:
+        example: ArcheryHub Jakarta
+        type: string
+      page_settings:
+        type: object
+      registration_number:
+        example: AHJ-2026-001
+        type: string
+      slug:
+        example: archeryhub-jakarta
+        type: string
+      social_facebook:
+        example: archeryhubjakarta
+        type: string
+      social_instagram:
+        example: archeryhub.jakarta
+        type: string
+      social_media:
+        type: object
+      social_twitter:
+        example: archeryhubjkt
+        type: string
+      status:
+        example: active
+        type: string
+      subscription_expires_at:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      subscription_status:
+        example: active
+        type: string
+      updated_at:
+        example: "2026-03-10T09:30:00Z"
+        type: string
+      user_type:
+        example: organization
+        type: string
+      uuid:
+        example: org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55
+        type: string
+      verification_status:
+        example: verified
+        type: string
+      vision:
+        example: Menjadi pusat pembinaan panahan modern di Indonesia.
+        type: string
+      website:
+        example: https://archeryhub.id
+        type: string
+      whatsapp_no:
+        example: "081234567890"
+        type: string
+    type: object
+  mobile.MobileOrganizationProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/mobile.MobileOrganizationProfileData'
+    type: object
   mobile.MobilePaymentTransactionResponse:
     properties:
       amount:
@@ -486,6 +744,182 @@ definitions:
         type: string
     required:
     - code
+    type: object
+  mobile.MobileSellerProductsResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      total:
+        type: integer
+    type: object
+  mobile.MobileSellerProfileData:
+    properties:
+      address:
+        example: Jl. Panahan No. 10, Jakarta
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/seller/logo-store.png
+        type: string
+      banner:
+        example: https://cdn.archeryhub.id/media/seller/banner-store.jpg
+        type: string
+      banner_text:
+        example: Perlengkapan panahan lengkap untuk semua level
+        type: string
+      banner_url:
+        example: https://cdn.archeryhub.id/media/seller/banner-store.jpg
+        type: string
+      catalog_config:
+        type: object
+      city:
+        example: Jakarta
+        type: string
+      description:
+        example: Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi.
+        type: string
+      email:
+        example: seller@archeryhub.id
+        type: string
+      id:
+        example: sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e
+        type: string
+      logo:
+        example: https://cdn.archeryhub.id/media/seller/logo-store.png
+        type: string
+      name:
+        example: ArcheryHub Store Jakarta
+        type: string
+      page_settings:
+        type: object
+      phone:
+        example: "081234567890"
+        type: string
+      province:
+        example: DKI Jakarta
+        type: string
+      sections:
+        type: object
+      slug:
+        example: archeryhub-store-jakarta
+        type: string
+      store_name:
+        example: ArcheryHub Store Jakarta
+        type: string
+      store_slug:
+        example: archeryhub-store-jakarta
+        type: string
+      theme_color:
+        example: '#C1121F'
+        type: string
+      user_type:
+        example: seller
+        type: string
+      username:
+        example: archeryhub-store-jakarta
+        type: string
+      uuid:
+        example: sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e
+        type: string
+    type: object
+  mobile.MobileSellerProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/mobile.MobileSellerProfileData'
+    type: object
+  mobile.MobileUpdateOrganizationProfileRequest:
+    properties:
+      acronym:
+        type: string
+      address:
+        type: string
+      avatar_url:
+        type: string
+      banner_url:
+        type: string
+      city:
+        type: string
+      contact_person_email:
+        type: string
+      contact_person_name:
+        type: string
+      contact_person_phone:
+        type: string
+      country:
+        type: string
+      description:
+        type: string
+      established_date:
+        type: string
+      faq: {}
+      history:
+        type: string
+      mission:
+        type: string
+      name:
+        type: string
+      page_settings: {}
+      registration_number:
+        type: string
+      slug:
+        type: string
+      social_facebook:
+        type: string
+      social_instagram:
+        type: string
+      social_media: {}
+      social_twitter:
+        type: string
+      vision:
+        type: string
+      website:
+        type: string
+      whatsapp_no:
+        type: string
+    type: object
+  mobile.MobileUpdateSellerPageRequest:
+    properties:
+      banner_text:
+        type: string
+      catalog_config: {}
+      page_settings: {}
+      sections: {}
+      theme_color:
+        type: string
+    type: object
+  mobile.MobileUpdateSellerProfileBasicRequest:
+    properties:
+      address:
+        type: string
+      avatar_url:
+        type: string
+      banner:
+        type: string
+      banner_url:
+        type: string
+      city:
+        type: string
+      description:
+        type: string
+      email:
+        type: string
+      logo:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      province:
+        type: string
+      store_name:
+        type: string
+      username:
+        type: string
     type: object
   mobile.MobileUser:
     properties:
@@ -1808,6 +2242,154 @@ paths:
       summary: Get published news detail for mobile
       tags:
       - Mobile - News
+  /mobile/organization/events:
+    get:
+      description: Get events owned by the authenticated organization for mobile pages
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Event status filter
+        in: query
+        name: status
+        type: string
+      - description: Search by event name, code, or location
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationEventsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization events for mobile
+      tags:
+      - Mobile - Organization
+  /mobile/organization/events/{id}/participants:
+    get:
+      description: Get participants for an organization-owned event including QR code
+        data URLs
+      parameters:
+      - description: Event UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search by participant or club name
+        in: query
+        name: search
+        type: string
+      - description: Payment status filter
+        in: query
+        name: payment_status
+        type: string
+      - description: Category UUID filter
+        in: query
+        name: category_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationEventParticipantsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List event participants with QR code for mobile organization
+      tags:
+      - Mobile - Organization
+  /mobile/organization/me:
+    get:
+      description: Get the authenticated organization profile for mobile pages
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationProfileResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get mobile organization profile
+      tags:
+      - Mobile - Organization
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated organization profile for mobile pages
+      parameters:
+      - description: Organization profile payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateOrganizationProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update mobile organization profile
+      tags:
+      - Mobile - Organization
   /mobile/qualification/scoring/cards:
     get:
       description: Get selectable target cards for scoring context
@@ -1905,4 +2487,136 @@ paths:
       summary: Get scoring targets
       tags:
       - Mobile - Qualification
+  /mobile/seller/me:
+    get:
+      description: Get the authenticated seller profile for mobile pages
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileSellerProfileResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get mobile seller profile
+      tags:
+      - Mobile - Seller
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated seller basic profile for mobile pages
+      parameters:
+      - description: Seller profile payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateSellerProfileBasicRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update mobile seller profile
+      tags:
+      - Mobile - Seller
+  /mobile/seller/me/page:
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated seller page settings for mobile pages
+      parameters:
+      - description: Seller page settings payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateSellerPageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update mobile seller page settings
+      tags:
+      - Mobile - Seller
+  /mobile/seller/products:
+    get:
+      description: Get products owned by the authenticated seller for mobile pages
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Product status filter
+        in: query
+        name: status
+        type: string
+      - description: Product category filter
+        in: query
+        name: category
+        type: string
+      - description: Search by product name or description
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileSellerProductsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List seller products for mobile
+      tags:
+      - Mobile - Seller
 swagger: "2.0"
