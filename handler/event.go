@@ -268,6 +268,8 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 			Event.OrganizerAvatarURL = &masked
 		}
 
+		utils.PopulateEventDetailExtras(db, &Event)
+
 		c.JSON(http.StatusOK, Event)
 	}
 }

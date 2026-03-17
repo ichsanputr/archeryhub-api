@@ -2344,6 +2344,201 @@
                 }
             }
         },
+        "models.EventCompetitionCategory": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "string",
+                    "example": "cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Umum"
+                },
+                "division_name": {
+                    "type": "string",
+                    "example": "Recurve"
+                },
+                "event_type_name": {
+                    "type": "string",
+                    "example": "Individual"
+                },
+                "gender_division_name": {
+                    "type": "string",
+                    "example": "Putra"
+                },
+                "participant_count": {
+                    "type": "integer",
+                    "example": 64
+                }
+            }
+        },
+        "models.EventImage": {
+            "type": "object",
+            "properties": {
+                "alt_text": {
+                    "type": "string"
+                },
+                "caption": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "display_order": {
+                    "type": "integer"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventLocationDetail": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Asia Afrika No.8, Jakarta"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "gmaps_link": {
+                    "type": "string",
+                    "example": "https://maps.google.com/?q=-6.2185,106.8022"
+                },
+                "location": {
+                    "type": "string",
+                    "example": "Jakarta Selatan"
+                },
+                "location_type": {
+                    "type": "string",
+                    "example": "Outdoor"
+                },
+                "venue": {
+                    "type": "string",
+                    "example": "Lapangan ABC Senayan"
+                }
+            }
+        },
+        "models.EventParticipantPreview": {
+            "type": "object",
+            "properties": {
+                "archer_id": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Recurve Umum Putra"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "participant_id": {
+                    "type": "string",
+                    "example": "par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "lunas"
+                },
+                "qual_rank": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "qual_score": {
+                    "type": "integer",
+                    "example": 668
+                }
+            }
+        },
+        "models.EventResultPreview": {
+            "type": "object",
+            "properties": {
+                "category_name": {
+                    "type": "string",
+                    "example": "Recurve Umum Putra"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "participant_id": {
+                    "type": "string",
+                    "example": "par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"
+                },
+                "rank": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "score": {
+                    "type": "integer",
+                    "example": 668
+                },
+                "x_count": {
+                    "type": "integer",
+                    "example": 22
+                }
+            }
+        },
+        "models.EventSchedule": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "day_order": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "models.EventWithDetails": {
             "type": "object",
             "properties": {
@@ -2371,6 +2566,12 @@
                     "type": "string",
                     "example": "AHC-2026-JKT-OPEN"
                 },
+                "competition_categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventCompetitionCategory"
+                    }
+                },
                 "created_at": {
                     "type": "string",
                     "format": "date-time",
@@ -2397,6 +2598,12 @@
                     "type": "string",
                     "example": "[{\"q\":\"Kapan jadwal technical meeting?\",\"a\":\"H-1 pukul 19:00 WIB\"}]"
                 },
+                "gallery": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventImage"
+                    }
+                },
                 "gmaps_link": {
                     "type": "string",
                     "example": "https://maps.google.com/?q=-6.2185,106.8022"
@@ -2408,6 +2615,9 @@
                 "location": {
                     "type": "string",
                     "example": "Jakarta Selatan"
+                },
+                "location_detail": {
+                    "$ref": "#/definitions/models.EventLocationDetail"
                 },
                 "location_type": {
                     "description": "Location type: Indoor, Outdoor, Field, 3D, etc.",
@@ -2470,6 +2680,12 @@
                     "type": "string",
                     "example": "par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"
                 },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventParticipantPreview"
+                    }
+                },
                 "payment_status": {
                     "type": "string",
                     "example": "paid"
@@ -2482,6 +2698,18 @@
                     "type": "string",
                     "format": "date-time",
                     "example": "2026-05-10T23:59:59Z"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventResultPreview"
+                    }
+                },
+                "schedules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventSchedule"
+                    }
                 },
                 "short_name": {
                     "type": "string",

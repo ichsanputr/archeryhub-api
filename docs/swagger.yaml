@@ -546,6 +546,143 @@ definitions:
     - method
     - shipping_address
     type: object
+  models.EventCompetitionCategory:
+    properties:
+      category_id:
+        example: cat-44f67d53-032f-428f-a8f2-8db5672a7a9d
+        type: string
+      category_name:
+        example: Umum
+        type: string
+      division_name:
+        example: Recurve
+        type: string
+      event_type_name:
+        example: Individual
+        type: string
+      gender_division_name:
+        example: Putra
+        type: string
+      participant_count:
+        example: 64
+        type: integer
+    type: object
+  models.EventImage:
+    properties:
+      alt_text:
+        type: string
+      caption:
+        type: string
+      created_at:
+        type: string
+      display_order:
+        type: integer
+      event_id:
+        type: string
+      id:
+        type: string
+      is_primary:
+        type: boolean
+      url:
+        type: string
+    type: object
+  models.EventLocationDetail:
+    properties:
+      address:
+        example: Jl. Asia Afrika No.8, Jakarta
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      gmaps_link:
+        example: https://maps.google.com/?q=-6.2185,106.8022
+        type: string
+      location:
+        example: Jakarta Selatan
+        type: string
+      location_type:
+        example: Outdoor
+        type: string
+      venue:
+        example: Lapangan ABC Senayan
+        type: string
+    type: object
+  models.EventParticipantPreview:
+    properties:
+      archer_id:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg
+        type: string
+      category_name:
+        example: Recurve Umum Putra
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      participant_id:
+        example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
+        type: string
+      payment_status:
+        example: lunas
+        type: string
+      qual_rank:
+        example: 1
+        type: integer
+      qual_score:
+        example: 668
+        type: integer
+    type: object
+  models.EventResultPreview:
+    properties:
+      category_name:
+        example: Recurve Umum Putra
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      participant_id:
+        example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
+        type: string
+      rank:
+        example: 1
+        type: integer
+      score:
+        example: 668
+        type: integer
+      x_count:
+        example: 22
+        type: integer
+    type: object
+  models.EventSchedule:
+    properties:
+      created_at:
+        type: string
+      day_order:
+        type: integer
+      description:
+        type: string
+      end_time:
+        type: string
+      event_id:
+        type: string
+      id:
+        type: string
+      location:
+        type: string
+      sort_order:
+        type: integer
+      start_time:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
   models.EventWithDetails:
     properties:
       accreditation_status:
@@ -566,6 +703,10 @@ definitions:
       code:
         example: AHC-2026-JKT-OPEN
         type: string
+      competition_categories:
+        items:
+          $ref: '#/definitions/models.EventCompetitionCategory'
+        type: array
       created_at:
         example: "2026-03-01T10:30:00Z"
         format: date-time
@@ -587,6 +728,10 @@ definitions:
       faq:
         example: '[{"q":"Kapan jadwal technical meeting?","a":"H-1 pukul 19:00 WIB"}]'
         type: string
+      gallery:
+        items:
+          $ref: '#/definitions/models.EventImage'
+        type: array
       gmaps_link:
         example: https://maps.google.com/?q=-6.2185,106.8022
         type: string
@@ -596,6 +741,8 @@ definitions:
       location:
         example: Jakarta Selatan
         type: string
+      location_detail:
+        $ref: '#/definitions/models.EventLocationDetail'
       location_type:
         description: 'Location type: Indoor, Outdoor, Field, 3D, etc.'
         example: Outdoor
@@ -642,6 +789,10 @@ definitions:
       participant_uuid:
         example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
         type: string
+      participants:
+        items:
+          $ref: '#/definitions/models.EventParticipantPreview'
+        type: array
       payment_status:
         example: paid
         type: string
@@ -652,6 +803,14 @@ definitions:
         example: "2026-05-10T23:59:59Z"
         format: date-time
         type: string
+      results:
+        items:
+          $ref: '#/definitions/models.EventResultPreview'
+        type: array
+      schedules:
+        items:
+          $ref: '#/definitions/models.EventSchedule'
+        type: array
       short_name:
         example: JKT Open 2026
         type: string

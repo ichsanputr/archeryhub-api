@@ -197,6 +197,8 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			event.OrganizerAvatarURL = &masked
 		}
 
+		utils.PopulateEventDetailExtras(db, &event)
+
 		c.JSON(http.StatusOK, event)
 	}
 }

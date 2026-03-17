@@ -94,22 +94,67 @@ type Event struct {
 // EventWithDetails includes organizer information
 type EventWithDetails struct {
 	Event
-	OrganizerName       *string `json:"organizer_name" db:"organizer_name" example:"ArcheryHub Club Jakarta"`
-	OrganizerEmail      *string `json:"organizer_email" db:"organizer_email" example:"event@archeryhub.id"`
-	OrganizerAvatarURL  *string `json:"organizer_avatar_url" db:"organizer_avatar_url" example:"https://cdn.archeryhub.id/media/organizer-avatar.png"`
-	OrganizerSlug       *string `json:"organizer_slug" db:"organizer_slug" example:"archeryhub-jakarta"`
-	OrganizerPhone      *string `json:"organizer_phone" db:"organizer_phone" example:"081234567890"`
-	ParticipantCount    int     `json:"participant_count" db:"participant_count" example:"128"`
-	EventCount          int     `json:"event_count" db:"event_count" example:"12"`
-	AccreditationStatus *string `json:"accreditation_status" db:"accreditation_status" example:"approved"`
-	PaymentStatus       *string `json:"payment_status" db:"payment_status" example:"paid"`
-	ParticipantUUID     *string `json:"participant_uuid" db:"participant_uuid" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
-	ParticipantStatus   *string `json:"participant_status" db:"participant_status" example:"registered"`
-	QRRaw               *string `json:"qr_raw" db:"qr_raw" example:"EVT2026-ARC-0001"`
-	WhatsAppNumber      *string `json:"whatsapp_number" db:"whatsapp_number" example:"081234567890"`
-	VenueType           *string `json:"venue_type" db:"venue_type" example:"outdoor"`
-	TargetCount         int     `json:"target_count" db:"target_count" example:"48"`
-	ActiveTargetCount   int     `json:"active_target_count" db:"active_target_count" example:"36"`
+	OrganizerName         *string                    `json:"organizer_name" db:"organizer_name" example:"ArcheryHub Club Jakarta"`
+	OrganizerEmail        *string                    `json:"organizer_email" db:"organizer_email" example:"event@archeryhub.id"`
+	OrganizerAvatarURL    *string                    `json:"organizer_avatar_url" db:"organizer_avatar_url" example:"https://cdn.archeryhub.id/media/organizer-avatar.png"`
+	OrganizerSlug         *string                    `json:"organizer_slug" db:"organizer_slug" example:"archeryhub-jakarta"`
+	OrganizerPhone        *string                    `json:"organizer_phone" db:"organizer_phone" example:"081234567890"`
+	ParticipantCount      int                        `json:"participant_count" db:"participant_count" example:"128"`
+	EventCount            int                        `json:"event_count" db:"event_count" example:"12"`
+	AccreditationStatus   *string                    `json:"accreditation_status" db:"accreditation_status" example:"approved"`
+	PaymentStatus         *string                    `json:"payment_status" db:"payment_status" example:"paid"`
+	ParticipantUUID       *string                    `json:"participant_uuid" db:"participant_uuid" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
+	ParticipantStatus     *string                    `json:"participant_status" db:"participant_status" example:"registered"`
+	QRRaw                 *string                    `json:"qr_raw" db:"qr_raw" example:"EVT2026-ARC-0001"`
+	WhatsAppNumber        *string                    `json:"whatsapp_number" db:"whatsapp_number" example:"081234567890"`
+	VenueType             *string                    `json:"venue_type" db:"venue_type" example:"outdoor"`
+	TargetCount           int                        `json:"target_count" db:"target_count" example:"48"`
+	ActiveTargetCount     int                        `json:"active_target_count" db:"active_target_count" example:"36"`
+	LocationDetail        EventLocationDetail        `json:"location_detail"`
+	Participants          []EventParticipantPreview  `json:"participants"`
+	Schedules             []EventSchedule            `json:"schedules"`
+	Results               []EventResultPreview       `json:"results"`
+	Gallery               []EventImage               `json:"gallery"`
+	CompetitionCategories []EventCompetitionCategory `json:"competition_categories"`
+}
+
+type EventLocationDetail struct {
+	Venue        *string `json:"venue" example:"Lapangan ABC Senayan"`
+	Address      *string `json:"address" example:"Jl. Asia Afrika No.8, Jakarta"`
+	GmapLink     *string `json:"gmaps_link" example:"https://maps.google.com/?q=-6.2185,106.8022"`
+	Location     *string `json:"location" example:"Jakarta Selatan"`
+	City         *string `json:"city" example:"Jakarta"`
+	LocationType *string `json:"location_type" example:"Outdoor"`
+}
+
+type EventParticipantPreview struct {
+	ParticipantID string  `json:"participant_id" db:"participant_id" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
+	ArcherID      *string `json:"archer_id" db:"archer_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
+	FullName      string  `json:"full_name" db:"full_name" example:"Rizky Pratama"`
+	ClubName      *string `json:"club_name" db:"club_name" example:"ArcheryHub Club Jakarta"`
+	CategoryName  *string `json:"category_name" db:"category_name" example:"Recurve Umum Putra"`
+	PaymentStatus string  `json:"payment_status" db:"payment_status" example:"lunas"`
+	QualRank      *int    `json:"qual_rank" db:"qual_rank" example:"1"`
+	QualScore     *int    `json:"qual_score" db:"qual_score" example:"668"`
+	AvatarURL     *string `json:"avatar_url" db:"avatar_url" example:"https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg"`
+}
+
+type EventResultPreview struct {
+	ParticipantID string  `json:"participant_id" db:"participant_id" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
+	FullName      string  `json:"full_name" db:"full_name" example:"Rizky Pratama"`
+	CategoryName  *string `json:"category_name" db:"category_name" example:"Recurve Umum Putra"`
+	Rank          *int    `json:"rank" db:"rank" example:"1"`
+	Score         *int    `json:"score" db:"score" example:"668"`
+	XCount        int     `json:"x_count" db:"x_count" example:"22"`
+}
+
+type EventCompetitionCategory struct {
+	CategoryID         string  `json:"category_id" db:"category_id" example:"cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"`
+	DivisionName       *string `json:"division_name" db:"division_name" example:"Recurve"`
+	CategoryName       *string `json:"category_name" db:"category_name" example:"Umum"`
+	EventTypeName      *string `json:"event_type_name" db:"event_type_name" example:"Individual"`
+	GenderDivisionName *string `json:"gender_division_name" db:"gender_division_name" example:"Putra"`
+	ParticipantCount   int     `json:"participant_count" db:"participant_count" example:"64"`
 }
 
 // CreateEventRequest represents the request payload for creating a Event
