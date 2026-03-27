@@ -1,842 +1,2425 @@
 {
-	"info": {
-		"_postman_id": "c7a9b8e6-1234-4567-89ab-cdef12345678",
-		"name": "ArcheryHub Mobile API (Official)",
-		"description": "Comprehensive Postman collection for ArcheryHub mobile application. Contains actual request and response examples for all key workflows.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "Authentication",
-			"item": [
-				{
-					"name": "Archer Login",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"let res = pm.response.json();",
-									"if (res.token) {",
-									"    pm.environment.set('jwt_token', res.token);",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"archer@example.com\",\n    \"password\": \"password123\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/archer/login",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"auth",
-								"archer",
-								"login"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Login Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"is_new_user\": false,\n    \"user\": {\n        \"uuid\": \"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9\",\n        \"id\": \"ARC-0012\",\n        \"username\": \"budi_archer\",\n        \"full_name\": \"Budi Archer\",\n        \"email\": \"archer@example.com\",\n        \"avatar_url\": \"https://cdn.archeryhub.id/media/archers/budi.jpg\",\n        \"role\": \"archer\",\n        \"user_type\": \"archer\"\n    }\n}"
-						}
-					]
-				},
-				{
-					"name": "Organization Login",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"let res = pm.response.json();",
-									"if (res.token) {",
-									"    pm.environment.set('jwt_token', res.token);",
-									"}"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"org@example.com\",\n    \"password\": \"password123\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/organization/login",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"auth",
-								"organization",
-								"login"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Login Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"is_new_user\": false,\n    \"user\": {\n        \"uuid\": \"org-123e4567-e89b-12d3-a456-426614174000\",\n        \"id\": \"ORG-5521\",\n        \"username\": \"archeryhub_jakarta\",\n        \"full_name\": \"ArcheryHub Club Jakarta\",\n        \"email\": \"org@example.com\",\n        \"avatar_url\": \"https://cdn.archeryhub.id/media/orgs/jakarta.jpg\",\n        \"role\": \"organization\",\n        \"user_type\": \"organization\"\n    }\n}"
-						}
-					]
-				},
-				{
-					"name": "Scorekeeper Login",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"code\": \"SK-1234\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/scorekeeper/login",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"auth",
-								"scorekeeper",
-								"login"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Login Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"user\": {\n        \"uuid\": \"sk-123\",\n        \"full_name\": \"Scorekeeper User\",\n        \"role\": \"scorekeeper\",\n        \"user_type\": \"scorekeeper\"\n    }\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "News",
-			"item": [
-				{
-					"name": "List News",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/news?limit=10&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"news"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "10"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "News List Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"news\": [\n        {\n            \"id\": \"news-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n            \"title\": \"Selamat kepada Pemenang ArcheryHub Championship 2024\",\n            \"slug\": \"selamat-kepada-para-pemenang-archeryhub-championship-2024\",\n            \"excerpt\": \"Turnamen tahunan ArcheryHub Championship 2024 telah berakhir...\",\n            \"image_url\": \"https://cdn.archeryhub.id/media/news/winners-2024.jpg\",\n            \"category\": \"Event\",\n            \"author_name\": \"Admin ArcheryHub\",\n            \"views\": 1250,\n            \"published_at\": \"2024-03-20T10:00:00Z\",\n            \"created_at\": \"2024-03-15T08:00:00Z\"\n        }\n    ],\n    \"total_count\": 1\n}"
-						}
-					]
-				},
-				{
-					"name": "Get News Detail",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/news/tips-memilih-perlengkapan-archery-pertama-anda",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"news",
-								"tips-memilih-perlengkapan-archery-pertama-anda"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Detail Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"news\": {\n        \"id\": \"news-a49ee7d7-9d7b-4be7-8652-342f2fca23f9\",\n        \"title\": \"Tips Memilih Perlengkapan Archery Pertama Anda\",\n        \"slug\": \"tips-memilih-perlengkapan-archery-pertama-anda\",\n        \"content\": \"<p>Bagi pemula, memilih busur dan anak panah pertama...</p>\",\n        \"image_url\": \"https://cdn.archeryhub.id/media/news/tips-gear.jpg\",\n        \"category\": \"Tips\",\n        \"author_name\": \"Coach Hendra\",\n        \"views\": 3400,\n        \"published_at\": \"2024-02-10T14:30:00Z\",\n        \"created_at\": \"2024-02-05T09:00:00Z\"\n    }\n}"
-						}
-					]
-				},
-				{
-					"name": "Related News",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/news/tips-memilih-perlengkapan-archery-pertama-anda/related",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"news",
-								"tips-memilih-perlengkapan-archery-pertama-anda",
-								"related"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Related Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"news\": [\n        {\n            \"id\": \"news-001\",\n            \"title\": \"Panduan Merawat Busur\",\n            \"slug\": \"panduan-merawat-busur\"\n        }\n    ]\n}"
-						}
-					]
-				},
-				{
-					"name": "List News Comments",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/news/tips-memilih-perlengkapan-archery-pertama-anda/comments",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"news",
-								"tips-memilih-perlengkapan-archery-pertama-anda",
-								"comments"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Comments Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"comments\": [\n        {\n            \"id\": \"comm-123\",\n            \"user_name\": \"Budi Archer\",\n            \"content\": \"Sangat membantu!\",\n            \"created_at\": \"2024-03-27T10:00:00Z\"\n        }\n    ],\n    \"count\": 1\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Events",
-			"item": [
-				{
-					"name": "List All Events",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/events?limit=20&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"events"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "20"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Events List Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"events\": [\n        {\n            \"uuid\": \"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n            \"name\": \"Jakarta Open 2026\",\n            \"location\": \"Jakarta Selatan\",\n            \"start_date\": \"2026-05-18\",\n            \"participant_count\": 125\n        }\n    ],\n    \"total_count\": 1\n}"
-						}
-					]
-				},
-				{
-					"name": "Get Event Detail",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/events/jakarta-open-2026",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"events",
-								"jakarta-open-2026"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Event Detail Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"uuid\": \"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n    \"name\": \"Jakarta Open 2026\",\n    \"description\": \"Turnamen terbuka...\"\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Archer Portal",
-			"item": [
-				{
-					"name": "My Profile",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/archer/profile",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"archer",
-								"profile"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Profile Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"data\": {\n        \"uuid\": \"arc-123\",\n        \"full_name\": \"Budi Archer\"\n    }\n}"
-						}
-					]
-				},
-				{
-					"name": "Update Profile",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "PUT",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"full_name\": \"Budi Revised\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/archer/profile",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"archer",
-								"profile"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Update Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"message\": \"Profil berhasil diperbarui\"\n}"
-						}
-					]
-				},
-				{
-					"name": "My Events",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/archer/events",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"archer",
-								"events"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Events Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"events\": [\n        {\n            \"event_name\": \"Jakarta Open 2026\",\n            \"payment_status\": \"lunas\"\n        }\n    ],\n    \"total\": 1\n}"
-						}
-					]
-				},
-				{
-					"name": "My Orders",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/archer/orders?limit=10&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"archer",
-								"orders"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "10"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Orders Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"orders\": [],\n    \"total\": 0\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Organization Portal",
-			"item": [
-				{
-					"name": "My Stats",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/organization/me",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"organization",
-								"me"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Profile Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"data\": {\n        \"uuid\": \"org-123\",\n        \"name\": \"Jakarta Archery\"\n    }\n}"
-						}
-					]
-				},
-				{
-					"name": "My Organized Events",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/organization/events?limit=20&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"organization",
-								"events"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "20"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Org Events Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"events\": [],\n    \"total\": 0\n}"
-						}
-					]
-				},
-				{
-					"name": "Scan Registration QR",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"code\": \"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/organization/scan-registration",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"organization",
-								"scan-registration"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Scan Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"participant_uuid\": \"f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n    \"full_name\": \"Rizky Pratama\",\n    \"last_reregistration_at\": \"2026-03-27T12:00:00Z\"\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Marketplace",
-			"item": [
-				{
-					"name": "List Products",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/marketplace/products?limit=20&offset=0",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"marketplace",
-								"products"
-							],
-							"query": [
-								{
-									"key": "limit",
-									"value": "20"
-								},
-								{
-									"key": "offset",
-									"value": "0"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Products Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"products\": [],\n    \"total_count\": 0\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Commerce",
-			"item": [
-				{
-					"name": "Get Cart",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/commerce/cart",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"commerce",
-								"cart"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Cart Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"data\": []\n}"
-						}
-					]
-				},
-				{
-					"name": "Checkout",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{jwt_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"payment_method\": \"BRIVA\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/commerce/checkout",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"commerce",
-								"checkout"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Checkout Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"message\": \"Pesanan berhasil dibuat\",\n    \"reference\": \"INV-123\",\n    \"payment\": {}\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Chatbot",
-			"item": [
-				{
-					"name": "Send Message",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"message\": \"Halo\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/chatbot/message",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"chatbot",
-								"message"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Message Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"answer\": \"Halo! Mau tanya apa?\",\n    \"intent\": \"greeting\",\n    \"confidence\": 1.0,\n    \"quick_actions\": []\n}"
-						}
-					]
-				},
-				{
-					"name": "List Intents",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/chatbot/intents",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"chatbot",
-								"intents"
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Intents Success",
-							"status": "OK",
-							"code": 200,
-							"header": [],
-							"body": "{\n    \"intents\": []\n}"
-						}
-					]
-				}
-			]
-		}
-	],
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://api.archeryhub.id/api/v1/mobile",
-			"type": "string"
-		},
-		{
-			"key": "jwt_token",
-			"value": "your-jwt-token-here",
-			"type": "string"
-		}
-	]
+    "info": {
+        "_postman_id": "archeryhub-mobile-v1",
+        "name": "ArcheryHub Mobile API (Official)",
+        "description": "Comprehensive collection reflecting all endpoints in api/main.go. Single source of truth.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Scorekeeper Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/scorekeeper/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "scorekeeper",
+                                "login"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"code\": \"SK-1234\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "let res = pm.response.json();",
+                                    "if (res.token) { pm.environment.set('jwt_token', res.token); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Archer Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/archer/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "archer",
+                                "login"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"archer@ex.com\",\n    \"password\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "let res = pm.response.json();",
+                                    "if (res.token) { pm.environment.set('jwt_token', res.token); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Organization Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/organization/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "organization",
+                                "login"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"org@ex.com\",\n    \"password\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "let res = pm.response.json();",
+                                    "if (res.token) { pm.environment.set('jwt_token', res.token); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Seller Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/seller/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "seller",
+                                "login"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"sel@ex.com\",\n    \"password\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ],
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "let res = pm.response.json();",
+                                    "if (res.token) { pm.environment.set('jwt_token', res.token); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Archer Register",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/archer/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "archer",
+                                "register"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"full_name\": \"Budi\",\n    \"email\": \"...\",\n    \"gender\": \"L\",\n    \"bow_type\": \"recurve\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Seller Register",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/seller/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "seller",
+                                "register"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"store_name\": \"Toko Budi\",\n    \"email\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Google Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/google/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "google",
+                                "login"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"idToken\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Forgot Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/forgot-password",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "forgot-password"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Verify OTP",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/verify-otp",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "verify-otp"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"...\",\n    \"otp\": \"123456\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Reset Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/auth/reset-password",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "reset-password"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"...\",\n    \"otp\": \"123\",\n    \"new_password\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Public Content",
+            "item": [
+                {
+                    "name": "Hello World",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/hello",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "hello"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List News",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/news",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "news"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get News Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/news/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "news",
+                                ":id"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List News Comments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/news/:id/comments",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "news",
+                                ":id",
+                                "comments"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Add News Comment",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/news/:id/comments",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "news",
+                                ":id",
+                                "comments"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"content\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Related News",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/news/:id/related",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "news",
+                                ":id",
+                                "related"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/events",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "events"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Event Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/events/:slug",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "events",
+                                ":slug"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Products",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/marketplace/products",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "marketplace",
+                                "products"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Product Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/marketplace/products/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "marketplace",
+                                "products",
+                                ":id"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Archer Portal",
+            "item": [
+                {
+                    "name": "My Profile (Me)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Update My Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"full_name\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get My Cart",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/cart",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "cart"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Checkout Cart",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/cart/checkout",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "cart",
+                                "checkout"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"method\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "My Order History",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/orders",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "orders"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "My Registered Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/events",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "events"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Registration Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/events/:id/detail",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "events",
+                                ":id",
+                                "detail"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Registration QR",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/events/:id/qr",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "events",
+                                ":id",
+                                "qr"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Registration Record",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/events/:id/registration",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "events",
+                                ":id",
+                                "registration"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Register For Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/events/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "events",
+                                "register"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"event_id\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Register For Specific Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/events/:id/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "events",
+                                ":id",
+                                "register"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Payment Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/payments/:reference",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "payments",
+                                ":reference"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Participant Payment",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/archer/participants/:id/payment",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "archer",
+                                "participants",
+                                ":id",
+                                "payment"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Organization Portal",
+            "item": [
+                {
+                    "name": "Club Profile (Me)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/organization/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "organization",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Club Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/organization/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "organization",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "My Organized Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/organization/events",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "organization",
+                                "events"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Event Participants",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/organization/events/:id/participants",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "organization",
+                                "events",
+                                ":id",
+                                "participants"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Scan Registration Ticket",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/organization/scan-registration",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "organization",
+                                "scan-registration"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"code\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Seller Portal",
+            "item": [
+                {
+                    "name": "Store Profile (Me)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/seller/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "seller",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Store Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/seller/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "seller",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"store_name\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Store Page",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/seller/me/page",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "seller",
+                                "me",
+                                "page"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"theme\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "My Listed Products",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/seller/products",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "seller",
+                                "products"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Scoring Service",
+            "item": [
+                {
+                    "name": "Scan Board QR",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/scan",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "scan"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Current Session Boards",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/sessions/boards",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "sessions",
+                                "boards"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Assignment Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/assignments/:id/detail",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "assignments",
+                                ":id",
+                                "detail"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Qual Scoring Cards",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/qualification/scoring/cards",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "qualification",
+                                "scoring",
+                                "cards"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Qual Scoring Targets",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/qualification/scoring/targets",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "qualification",
+                                "scoring",
+                                "targets"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "POST Update Qual Score",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/qualification/scoring/scores/:id",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "qualification",
+                                "scoring",
+                                "scores",
+                                ":id"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"score\": 10\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Elim Scoring Cards",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/elimination/scoring/cards",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "elimination",
+                                "scoring",
+                                "cards"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Elimination Match Score",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/elimination/scoring/matches/:id/score",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "elimination",
+                                "scoring",
+                                "matches",
+                                ":id",
+                                "score"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"score\": 10\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Finish Elimination Match",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/elimination/scoring/matches/:id/finish",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "elimination",
+                                "scoring",
+                                "matches",
+                                ":id",
+                                "finish"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "End Elimination Match",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/elimination/scoring/matches/:id/end",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "elimination",
+                                "scoring",
+                                "matches",
+                                ":id",
+                                "end"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Reset Elimination Match",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/elimination/scoring/matches/:id/reset",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "elimination",
+                                "scoring",
+                                "matches",
+                                ":id",
+                                "reset"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Scorekeeper Portal",
+            "item": [
+                {
+                    "name": "Scorekeeper Profile (Me)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/scorekeeper/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "scorekeeper",
+                                "me"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "My Assigned Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/scorekeeper/events",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "scorekeeper",
+                                "events"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Chat",
+            "item": [
+                {
+                    "name": "List All Conversations",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chat/conversations",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chat",
+                                "conversations"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Start New Conversation",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chat/conversations",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chat",
+                                "conversations"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"peer_id\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Conversation Messages",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chat/conversations/:id/messages",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chat",
+                                "conversations",
+                                ":id",
+                                "messages"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Send Chat Message",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chat/conversations/:id/messages",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chat",
+                                "conversations",
+                                ":id",
+                                "messages"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"content\": \"...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Overall Unread Count",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chat/unread",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chat",
+                                "unread"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Peer Last Active Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chat/last-active",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chat",
+                                "last-active"
+                            ]
+                        },
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{jwt_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Chatbot Service",
+            "item": [
+                {
+                    "name": "List Chatbot Intents",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chatbot/intents",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chatbot",
+                                "intents"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
+                    "name": "POST Chatbot Message",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/chatbot/message",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "chatbot",
+                                "message"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"message\": \"Halo\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://api.archeryhub.id/api/v1/mobile",
+            "type": "string"
+        },
+        {
+            "key": "jwt_token",
+            "value": "your-jwt-token-here",
+            "type": "string"
+        }
+    ]
 }
