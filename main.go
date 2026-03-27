@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"archeryhub-api/database"
-	_ "archeryhub-api/docs"
 	"archeryhub-api/handler"
 	mobilehandler "archeryhub-api/handler/mobile"
 	"archeryhub-api/middleware"
@@ -13,16 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title ArcheryHub Mobile API
-// @version 1.0
-// @description This documentation is exclusively for the ArcheryHub Mobile Application.
-// @description NOTE: This Swagger only contains endpoints relevant to mobile app workflows (Scoring, Events, and Auth).
-// @host localhost:8001
-// @BasePath /api/v1/mobile
 
 var logger *logrus.Logger
 
@@ -644,8 +635,6 @@ func main() {
 				sk.GET("/events", mobilehandler.MobileGetScorekeeperEvents(db))
 			}
 
-			// Swagger UI
-			mobile.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 		}
 
 		// Organization routes

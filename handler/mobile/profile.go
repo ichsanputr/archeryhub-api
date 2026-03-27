@@ -86,15 +86,6 @@ func mapFromMap(data map[string]interface{}, key string) map[string]interface{} 
 }
 
 // MobileGetSellerMe godoc
-// @Summary      Get mobile seller profile
-// @Description  Get the authenticated seller profile for mobile pages
-// @Tags         Seller
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200  {object}  MobileSellerProfileResponse
-// @Failure      403  {object}  ErrorResponse
-// @Failure      404  {object}  ErrorResponse
-// @Router       /seller/me [get]
 func MobileGetSellerMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "seller") {
@@ -171,17 +162,6 @@ func MobileGetSellerMe(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileUpdateSellerMe godoc
-// @Summary      Update mobile seller profile
-// @Description  Update the authenticated seller basic profile for mobile pages
-// @Tags         Seller
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        request  body      MobileUpdateSellerProfileBasicRequest  true  "Seller profile payload"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /seller/me [put]
 func MobileUpdateSellerMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "seller") {
@@ -192,17 +172,6 @@ func MobileUpdateSellerMe(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileUpdateSellerPage godoc
-// @Summary      Update mobile seller page settings
-// @Description  Update the authenticated seller page settings for mobile pages
-// @Tags         Seller
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        request  body      MobileUpdateSellerPageRequest  true  "Seller page settings payload"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /seller/me/page [put]
 func MobileUpdateSellerPage(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "seller") {
@@ -213,20 +182,6 @@ func MobileUpdateSellerPage(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetSellerProducts godoc
-// @Summary      List seller products for mobile
-// @Description  Get products owned by the authenticated seller for mobile pages
-// @Tags         Seller
-// @Produce      json
-// @Security     BearerAuth
-// @Param        limit     query     int     false  "Limit"   default(20)
-// @Param        offset    query     int     false  "Offset"  default(0)
-// @Param        status    query     string  false  "Product status filter"
-// @Param        category  query     string  false  "Product category filter"
-// @Param        search    query     string  false  "Search by product name or description"
-// @Success      200       {object}  MobileSellerProductsResponse
-// @Failure      403       {object}  ErrorResponse
-// @Failure      404       {object}  ErrorResponse
-// @Router       /seller/products [get]
 func MobileGetSellerProducts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "seller") {
@@ -293,15 +248,6 @@ func MobileGetSellerProducts(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetOrganizationMe godoc
-// @Summary      Get mobile organization profile
-// @Description  Get the authenticated organization profile for mobile pages
-// @Tags         Organization
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200  {object}  MobileOrganizationProfileResponse
-// @Failure      403  {object}  ErrorResponse
-// @Failure      404  {object}  ErrorResponse
-// @Router       /organization/me [get]
 func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organization") {
@@ -417,17 +363,6 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileUpdateOrganizationMe godoc
-// @Summary      Update mobile organization profile
-// @Description  Update the authenticated organization profile for mobile pages
-// @Tags         Organization
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        request  body      MobileUpdateOrganizationProfileRequest  true  "Organization profile payload"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /organization/me [put]
 func MobileUpdateOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organization") {
@@ -463,19 +398,6 @@ func getOwnedEventUUID(c *gin.Context, db *sqlx.DB, organizationUUID, eventID st
 }
 
 // MobileGetOrganizationEvents godoc
-// @Summary      List organization events for mobile
-// @Description  Get events owned by the authenticated organization for mobile pages
-// @Tags         Organization
-// @Produce      json
-// @Security     BearerAuth
-// @Param        limit   query     int     false  "Limit"   default(20)
-// @Param        offset  query     int     false  "Offset"  default(0)
-// @Param        status  query     string  false  "Event status filter"
-// @Param        search  query     string  false  "Search by event name, code, or location"
-// @Success      200     {object}  MobileOrganizationEventsResponse
-// @Failure      403     {object}  ErrorResponse
-// @Failure      404     {object}  ErrorResponse
-// @Router       /organization/events [get]
 func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organization") {
@@ -571,21 +493,6 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetOrganizationEventParticipants godoc
-// @Summary      List event participants with QR code for mobile organization
-// @Description  Get participants for an organization-owned event including QR code data URLs
-// @Tags         Organization
-// @Produce      json
-// @Security     BearerAuth
-// @Param        id              path      string  true   "Event UUID or slug"
-// @Param        limit           query     int     false  "Limit"   default(20)
-// @Param        offset          query     int     false  "Offset"  default(0)
-// @Param        search          query     string  false  "Search by participant or club name"
-// @Param        payment_status  query     string  false  "Payment status filter"
-// @Param        category_id     query     string  false  "Category UUID filter"
-// @Success      200             {object}  MobileOrganizationEventParticipantsResponse
-// @Failure      403             {object}  ErrorResponse
-// @Failure      404             {object}  ErrorResponse
-// @Router       /organization/events/{id}/participants [get]
 func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organization") {
@@ -705,15 +612,6 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetArcherMe godoc
-// @Summary      Get mobile archer profile
-// @Description  Get the authenticated archer profile for mobile pages
-// @Tags         Archer
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200  {object}  MobileArcherProfileResponse
-// @Failure      403  {object}  ErrorResponse
-// @Failure      404  {object}  ErrorResponse
-// @Router       /archer/me [get]
 func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "archer") {
@@ -782,17 +680,6 @@ func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileUpdateArcherMe godoc
-// @Summary      Update mobile archer profile
-// @Description  Update the authenticated archer profile for mobile pages
-// @Tags         Archer
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        request  body      MobileUpdateArcherProfileRequest  true  "Archer profile payload"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /archer/me [put]
 func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "archer") {
@@ -839,18 +726,6 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileOrganizationScanRegistration godoc
-// @Summary      Scan archer QR for reregistration
-// @Description  Scan an archer's registration QR code (qr_raw) to confirm attendance at an event organized by the authenticated organization
-// @Tags         Organization
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        request  body      MobileOrganizationScanRegistrationRequest  true  "Scan payload"
-// @Success      200      {object}  MobileOrganizationScanRegistrationResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
-// @Router       /organization/scan-registration [post]
 func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organization") {

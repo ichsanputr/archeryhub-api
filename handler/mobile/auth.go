@@ -93,17 +93,6 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 }
 
 // MobileScorekeeperLogin godoc
-// @Summary      Scorekeeper login
-// @Description  Login for scorekeepers using their unique code
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      MobileScorekeeperLoginRequest  true  "Scorekeeper login request"
-// @Success      200      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /auth/scorekeeper/login [post]
 func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileScorekeeperLoginRequest
@@ -187,29 +176,10 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileListEvents godoc
-// @Summary      List mobile events
-// @Description  Get events optimized for mobile view
-// @Tags         Events
-// @Produce      json
-// @Param        limit   query     int     false  "Limit"
-// @Param        offset  query     int     false  "Offset"
-// @Param        search  query     string  false  "Search term"
-// @Success      200     {object}  MobileEventsResponse
-// @Failure      500     {object}  ErrorResponse
 
 // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Auth Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
 
 // MobileArcherLogin godoc
-// @Summary      Archer login
-// @Description  Login for archers using email and password
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string,password=string}  true  "Login credentials"
-// @Success      200      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Router       /auth/archer/login [post]
 func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -230,17 +200,6 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileOrganizationLogin godoc
-// @Summary      Organization login
-// @Description  Login for organizations using email and password
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string,password=string}  true  "Login credentials"
-// @Success      200      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /auth/organization/login [post]
 func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -261,17 +220,6 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileSellerLogin godoc
-// @Summary      Seller login
-// @Description  Login for sellers using email and password
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string,password=string}  true  "Login credentials"
-// @Success      200      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Failure      403      {object}  ErrorResponse
-// @Router       /auth/seller/login [post]
 func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -292,16 +240,6 @@ func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileArcherRegister godoc
-// @Summary      Archer registration
-// @Description  Register a new archer account
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object  true  "Registration info"
-// @Success      201      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      409      {object}  ErrorResponse
-// @Router       /auth/archer/register [post]
 func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -378,16 +316,6 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileSellerRegister godoc
-// @Summary      Seller registration
-// @Description  Register a new seller account
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{store_name=string,email=string,password=string,phone=string,city=string,address=string}  true  "Registration info"
-// @Success      201      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      409      {object}  ErrorResponse
-// @Router       /auth/seller/register [post]
 func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -451,15 +379,6 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGoogleLogin handles Google Sign-In for mobile using idToken
-// @Summary      Google login for mobile
-// @Description  Login using Google ID Token from mobile SDK
-// @Tags         Authentication
-// @Produce      json
-// @Param        request  body      MobileOAuthLoginRequest  true  "Google ID Token"
-// @Success      200      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Router       /auth/google/login [post]
 func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileOAuthLoginRequest
@@ -590,16 +509,6 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileForgotPassword godoc
-// @Summary      Forgot password - Send OTP
-// @Description  Send a 6-digit OTP to the user's email for password recovery
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string}  true  "Forgot password request"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
-// @Router       /auth/forgot-password [post]
 func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -663,16 +572,6 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileVerifyOTP godoc
-// @Summary      Verify OTP for password recovery
-// @Description  Verify the 6-digit OTP sent to the user's email
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string,otp=string}  true  "Verify OTP request"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Router       /auth/verify-otp [post]
 func MobileVerifyOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -701,16 +600,6 @@ func MobileVerifyOTP(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileResetPassword godoc
-// @Summary      Reset password
-// @Description  Set a new password using a verified OTP
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string,otp=string,new_password=string}  true  "Reset password request"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse
-// @Router       /auth/reset-password [post]
 func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {

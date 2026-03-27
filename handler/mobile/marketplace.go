@@ -12,17 +12,6 @@ import (
 )
 
 // MobileMarketplaceListProducts godoc
-// @Summary      List marketplace products for mobile
-// @Description  Returns active products for mobile marketplace read-only pages
-// @Tags         Marketplace
-// @Produce      json
-// @Param        limit     query     int     false  "Limit"
-// @Param        offset    query     int     false  "Offset"
-// @Param        search    query     string  false  "Search term"
-// @Param        category  query     string  false  "Product category"
-// @Success      200       {object}  MobileMarketplaceProductsResponse
-// @Failure      500       {object}  ErrorResponse
-// @Router       /marketplace/products [get]
 func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -68,14 +57,6 @@ func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileMarketplaceGetProductDetail godoc
-// @Summary      Get marketplace product detail for mobile
-// @Description  Returns one product by UUID or slug for mobile marketplace read-only pages
-// @Tags         Marketplace
-// @Produce      json
-// @Param        id  path      string  true  "Product UUID or slug"
-// @Success      200 {object}  MobileMarketplaceProductResponse
-// @Failure      404 {object}  ErrorResponse
-// @Router       /marketplace/products/{id} [get]
 func MobileMarketplaceGetProductDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

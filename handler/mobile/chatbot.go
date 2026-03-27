@@ -159,14 +159,6 @@ func recommendedQuickActions() []string {
 }
 
 // MobileChatbotMessage godoc
-// @Summary      Chat with ArcheryHub assistant
-// @Description  Simple automated response based on user keywords
-// @Tags         Chatbot
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{message=string}  true  "User message"
-// @Success      200      {object}  MobileChatbotResponse
-// @Router       /chatbot/message [post]
 func MobileChatbotMessage() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loadChatbotIntentsFromFile()
@@ -201,12 +193,6 @@ func MobileChatbotMessage() gin.HandlerFunc {
 }
 
 // MobileChatbotIntents godoc
-// @Summary      Get list of chatbot intents
-// @Description  Returns all supported chatbot intents and examples
-// @Tags         Chatbot
-// @Produce      json
-// @Success      200      {object}  MobileChatbotIntentsResponse
-// @Router       /chatbot/intents [get]
 func MobileChatbotIntents() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loadChatbotIntentsFromFile()

@@ -250,14 +250,6 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 // with each archer's current score summary Î“Ã‡Ã¶ powers the "List Targets" leaderboard screen.
 //
 // MobileGetSessionBoards godoc
-// @Summary      List all target boards in a session
-// @Description  Get all boards and their archers with score summaries for a qualification session
-// @Tags         Scoring
-// @Produce      json
-// @Param        session_id  query  string  true  "Qualification session UUID"
-// @Success      200         {object}  MobileGetSessionBoardsResponse
-// @Failure      400         {object}  ErrorResponse
-// @Failure      404         {object}  ErrorResponse
 
 func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -367,14 +359,6 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 // participant's target assignment Î“Ã‡Ã¶ powers the "Detail Score Target" screen.
 //
 // MobileGetAssignmentScoreDetail godoc
-// @Summary      Get full score detail for an assignment
-// @Description  Returns all ends and arrow scores for a participant's qualification assignment
-// @Tags         Scoring
-// @Produce      json
-// @Param        assignmentId  path   string  true  "Target assignment UUID"
-// @Success      200           {object}  MobileAssignmentScoreDetailResponse
-// @Failure      400           {object}  ErrorResponse
-// @Failure      404           {object}  ErrorResponse
 
 func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -518,12 +502,3 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Auth Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
 
 // MobileArcherLogin godoc
-// @Summary      Archer login
-// @Description  Login for archers using email and password
-// @Tags         Authentication
-// @Accept       json
-// @Produce      json
-// @Param        request  body      object{email=string,password=string}  true  "Login credentials"
-// @Success      200      {object}  MobileLoginResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      401      {object}  ErrorResponse

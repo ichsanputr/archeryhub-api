@@ -14,19 +14,6 @@ import (
 )
 
 // MobileCreateParticipantPayment godoc
-// @Summary      Create participant payment
-// @Description  Create Tripay payment transaction for archer registration in an event
-// @Tags         Archer
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        participantId  path  string  true  "Participant registration UUID"
-// @Param        request        body  object{method=string}  true  "Payment method"
-// @Success      200            {object}  MobilePaymentTransactionResponse
-// @Failure      400            {object}  ErrorResponse
-// @Failure      401            {object}  ErrorResponse
-// @Failure      404            {object}  ErrorResponse
-// @Router       /archer/participants/{participantId}/payment [post]
 func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		participantID := c.Param("participantId")
@@ -171,16 +158,6 @@ func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetPaymentDetail godoc
-// @Summary      Get payment detail
-// @Description  Get payment transaction details and instructions by reference
-// @Tags         Archer
-// @Produce      json
-// @Security     BearerAuth
-// @Param        reference  path      string  true  "Payment reference (ORD-... or PAY-...)"
-// @Success      200        {object}  models.PaymentTransaction
-// @Failure      401        {object}  ErrorResponse
-// @Failure      404        {object}  ErrorResponse
-// @Router       /archer/payments/{reference} [get]
 func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		reference := c.Param("reference")

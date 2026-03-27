@@ -1749,17 +1749,6 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 // UpdateMatchScore updates or creates end scores for a match
 // UpdateMatchScore godoc
-// @Summary      Update match score
-// @Description  Update or create end scores for a match
-// @Tags         Elimination
-// @Accept       json
-// @Produce      json
-// @Param        matchId  path      string  true  "Match UUID"
-// @Param        request  body      MatchScoreRequest  true  "Match score update request"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
-// @Router       /elimination/scoring/matches/{matchId}/score [post]
 func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -1980,17 +1969,6 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 
 // FinishMatch marks a match as finished and advances winner to next round
 // FinishMatch godoc
-// @Summary      Finish match
-// @Description  Mark a match as finished and advance winner to next round
-// @Tags         Elimination
-// @Accept       json
-// @Produce      json
-// @Param        matchId  path      string  true  "Match UUID"
-// @Param        request  body      FinishMatchRequest  true  "Winner details"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
-// @Router       /elimination/scoring/matches/{matchId}/finish [post]
 func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -2153,17 +2131,6 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 // EndMatch calculates winner from scores and finishes the match
 // EndMatch godoc
-// @Summary      End match manually
-// @Description  Calculate winner from scores and finish the match
-// @Tags         Elimination
-// @Accept       json
-// @Produce      json
-// @Param        matchId  path      string  true  "Match UUID"
-// @Param        request  body      FinishMatchRequest  false  "Winner details (optional)"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
-// @Router       /elimination/scoring/matches/{matchId}/end [post]
 func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -2525,16 +2492,6 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 
 // ResetMatch resets a finished match back to live/pending and removes its winner from the next round
 // ResetMatch godoc
-// @Summary      Reset match
-// @Description  Reset a finished match back to in_progress and remove winner from next round
-// @Tags         Elimination
-// @Accept       json
-// @Produce      json
-// @Param        matchId  path      string  true  "Match UUID"
-// @Success      200      {object}  MessageResponse
-// @Failure      400      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
-// @Router       /elimination/scoring/matches/{matchId}/reset [post]
 func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")

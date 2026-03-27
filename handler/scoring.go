@@ -38,16 +38,6 @@ type ScoringTargetsResponse struct {
 // GetScoringCards returns selectable "card target" options for scoring context.
 // For now it supports qualification phase and returns cards across sessions for a given event category.
 // GetScoringCards godoc
-// @Summary      Get scoring cards
-// @Description  Get selectable target cards for scoring context
-// @Tags         Qualification
-// @Tags         Elimination
-// @Produce      json
-// @Param        phase        query     string  true  "Phase (qualification)"
-// @Param        category_id  query     string  true  "Category UUID"
-// @Success      200          {object}  ScoringCardsResponse
-// @Failure      400          {object}  ErrorResponse
-// @Router       /qualification/scoring/cards [get]
 func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")
@@ -101,16 +91,6 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 // GetScoringTargets returns scoring progress for a selected target name in a session.
 // Qualification-only for now.
 // GetScoringTargets godoc
-// @Summary      Get scoring targets
-// @Description  Get scoring progress for a selected target in a session
-// @Tags         Qualification
-// @Produce      json
-// @Param        phase        query     string  true  "Phase (qualification)"
-// @Param        session_id    query     string  true  "Session UUID"
-// @Param        target_name  query     string  true  "Target Name (e.g. 1A)"
-// @Success      200          {object}  ScoringTargetsResponse
-// @Failure      400          {object}  ErrorResponse
-// @Router       /qualification/scoring/targets [get]
 func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")

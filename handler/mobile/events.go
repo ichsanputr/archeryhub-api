@@ -12,16 +12,6 @@ import (
 )
 
 // MobileListEvents godoc
-// @Summary      List mobile events
-// @Description  Get published events for mobile with pagination and search
-// @Tags         Events
-// @Produce      json
-// @Param        limit   query     int     false  "Limit"   default(20)
-// @Param        offset  query     int     false  "Offset"  default(0)
-// @Param        search  query     string  false  "Search term (event name/location)"
-// @Success      200     {object}  MobileEventsResponse
-// @Failure      500     {object}  ErrorResponse
-// @Router       /events [get]
 func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -89,14 +79,6 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetEventDetail godoc
-// @Summary      Get mobile event detail
-// @Description  Get event detail (by slug or UUID) with the same response body as /events/:id
-// @Tags         Events
-// @Produce      json
-// @Param        slug  path      string  true  "Event slug or UUID"
-// @Success      200   {object}  models.EventWithDetails
-// @Failure      404   {object}  ErrorResponse
-// @Router       /events/{slug} [get]
 func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -206,15 +188,6 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileArcherGetEventDetail godoc
-// @Summary      Get event detail for archer (protected)
-// @Description  Returns event detail including authenticated archer registration status
-// @Tags         Archer
-// @Produce      json
-// @Security     BearerAuth
-// @Param        id   path      string  true  "Event UUID or slug"
-// @Success      200  {object}  map[string]interface{}
-// @Failure      404  {object}  ErrorResponse
-// @Router       /archer/events/{id}/detail [get]
 func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

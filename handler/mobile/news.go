@@ -11,14 +11,6 @@ import (
 )
 
 // MobileListNews godoc
-// @Summary      List published news for mobile
-// @Tags         News
-// @Produce      json
-// @Param        limit   query     int     false  "Limit"
-// @Param        offset  query     int     false  "Offset"
-// @Param        search  query     string  false  "Search term"
-// @Success      200     {object}  MobileNewsListResponse
-// @Router       /news [get]
 func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -68,12 +60,6 @@ func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetNewsDetail godoc
-// @Summary      Get published news detail for mobile
-// @Tags         News
-// @Produce      json
-// @Param        id  path      string  true  "News UUID or slug"
-// @Success      200 {object}  MobileNewsDetailResponse
-// @Router       /news/{id} [get]
 func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -104,12 +90,6 @@ func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileListNewsComments godoc
-// @Summary      List comments for a news article
-// @Tags         News
-// @Produce      json
-// @Param        id   path      string  true  "News UUID or slug"
-// @Success      200  {object}  MobileNewsCommentsResponse
-// @Router       /news/{id}/comments [get]
 func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -146,14 +126,6 @@ func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileAddNewsComment godoc
-// @Summary      Post a comment on a news article
-// @Tags         News
-// @Accept       json
-// @Produce      json
-// @Param        id       path      string  true  "News UUID or slug"
-// @Param        request  body      object{guest_name=string,content=string}  true  "Comment payload"
-// @Success      201      {object}  MessageResponse
-// @Router       /news/{id}/comments [post]
 func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -211,13 +183,6 @@ func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileListRelatedNews godoc
-// @Summary      List related news
-// @Description  Returns a list of related news articles based on the same category
-// @Tags         News
-// @Produce      json
-// @Param        id   path      string  true  "News UUID or slug"
-// @Success      200  {object}  MobileRelatedNewsResponse
-// @Router       /news/{id}/related [get]
 func MobileListRelatedNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

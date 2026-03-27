@@ -1,0 +1,347 @@
+{
+	"info": {
+		"_postman_id": "a49ee7d7-9d7b-4be7-8652-342f2fca23f9",
+		"name": "ArcheryHub Mobile API",
+		"description": "API collection for ArcheryHub mobile application - including News, Events, and Organization features.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Archer Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"archer@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/archer/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"archer",
+								"login"
+							]
+						}
+					}
+				},
+				{
+					"name": "Organization Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"org@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/organization/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"organization",
+								"login"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "News",
+			"item": [
+				{
+					"name": "List News",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/news?limit=10&offset=0",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"news"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get News Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/news/tips-memilih-perlengkapan-archery-pertama-anda",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"news",
+								"tips-memilih-perlengkapan-archery-pertama-anda"
+							]
+						}
+					}
+				},
+				{
+					"name": "List News Comments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/news/tips-memilih-perlengkapan-archery-pertama-anda/comments",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"news",
+								"tips-memilih-perlengkapan-archery-pertama-anda",
+								"comments"
+							]
+						}
+					}
+				},
+				{
+					"name": "Add News Comment",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"guest_name\": \"Budi Archer\",\n    \"content\": \"Artikel yang sangat bermanfaat, terima kasih!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/news/tips-memilih-perlengkapan-archery-pertama-anda/comments",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"news",
+								"tips-memilih-perlengkapan-archery-pertama-anda",
+								"comments"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Events",
+			"item": [
+				{
+					"name": "List Public Events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"events"
+							]
+						}
+					}
+				},
+				{
+					"name": "Register for Event",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"category_id\": \"cat-uuid-here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/archer/events/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"archer",
+								"events",
+								"register"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Organization",
+			"item": [
+				{
+					"name": "My Organization Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/organization/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"organization",
+								"me"
+							]
+						}
+					}
+				},
+				{
+					"name": "List My Events",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/organization/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"organization",
+								"events"
+							]
+						}
+					}
+				},
+				{
+					"name": "Scan Registration QR",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"REG-sample-code-abc-123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/organization/scan-registration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"organization",
+								"scan-registration"
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8001/api/v1/mobile",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "your-jwt-token-here",
+			"type": "string"
+		}
+	]
+}
