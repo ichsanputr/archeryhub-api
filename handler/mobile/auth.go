@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -206,7 +207,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 // @Success      200      {object}  MobileLoginResponse
 // @Failure      400      {object}  ErrorResponse
 // @Failure      401      {object}  ErrorResponse
-// @Router       /auth/login [post]
+// @Router       /auth/archer/login [post]
 func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -298,7 +299,7 @@ func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 // @Success      201      {object}  MobileLoginResponse
 // @Failure      400      {object}  ErrorResponse
 // @Failure      409      {object}  ErrorResponse
-// @Router       /auth/register [post]
+// @Router       /auth/archer/register [post]
 func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -373,11 +374,82 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileSellerRegister godoc
+// @Summary      Seller registration
+// @Description  Register a new seller account
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object{store_name=string,email=string,password=string,phone=string,city=string,address=string}  true  "Registration info"
+// @Success      201      {object}  MobileLoginResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      409      {object}  ErrorResponse
+// @Router       /auth/seller/register [post]
+func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			StoreName string `json:"store_name" binding:"required"`
+			Email     string `json:"email" binding:"required,email"`
+			Password  string `json:"password" binding:"required,min=6"`
+			Phone     string `json:"phone"`
+			City      string `json:"city"`
+			Province  string `json:"province"`
+			Address   string `json:"address"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var exists bool
+		db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM sellers WHERE email = ?)`, req.Email)
+		if exists {
+			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar", "code": "email_exists"})
+			return
+		}
+
+		sellerUUID := uuid.New().String()
+		slug := utils.CleanUsername(req.StoreName)
+		if slug == "" {
+			slug = "seller"
+		}
+		slug = slug + "-" + sellerUUID[:8]
+
+		_, err := db.Exec(`
+			INSERT INTO sellers (uuid, slug, store_name, email, password, phone, city, province, address, status, is_verified, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW())
+		`, sellerUUID, slug, req.StoreName, req.Email, req.Password, req.Phone, req.City, req.Province, req.Address)
+		
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun toko: " + err.Error()})
+			return
+		}
+
+		token, err := generateJWT(sellerUUID, req.Email, "seller", "seller", req.StoreName, "", "")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"token": token,
+			"user": gin.H{
+				"uuid":      sellerUUID,
+				"id":        sellerUUID,
+				"username":  slug,
+				"full_name": req.StoreName,
+				"email":     req.Email,
+				"role":      "seller",
+				"user_type": "seller",
+			},
+		})
+	}
+}
+
 // MobileGoogleLogin handles Google Sign-In for mobile using idToken
 // @Summary      Google login for mobile
 // @Description  Login using Google ID Token from mobile SDK
 // @Tags         Authentication
-// @Accept       json
 // @Produce      json
 // @Param        request  body      MobileOAuthLoginRequest  true  "Google ID Token"
 // @Success      200      {object}  MobileLoginResponse
@@ -510,5 +582,190 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 				"user_type":  "archer",
 			},
 		})
+	}
+}
+
+// MobileForgotPassword godoc
+// @Summary      Forgot password - Send OTP
+// @Description  Send a 6-digit OTP to the user's email for password recovery
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object{email=string}  true  "Forgot password request"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /auth/forgot-password [post]
+func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email string `json:"email" binding:"required,email"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email tidak valid"})
+			return
+		}
+
+		var userData struct {
+			UUID     string `db:"uuid"`
+			FullName string `db:"full_name"`
+			UserType string `db:"user_type"`
+		}
+
+		// Try archers first
+		err := db.Get(&userData, "SELECT uuid, full_name, 'archer' as user_type FROM archers WHERE email = ? LIMIT 1", req.Email)
+		if err != nil {
+			// Try organizations
+			err = db.Get(&userData, "SELECT uuid, name as full_name, 'organization' as user_type FROM organizations WHERE email = ? LIMIT 1", req.Email)
+			if err != nil {
+				// Try sellers
+				err = db.Get(&userData, "SELECT uuid, store_name as full_name, 'seller' as user_type FROM sellers WHERE email = ? LIMIT 1", req.Email)
+				if err != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Email tidak terdaftar"})
+					return
+				}
+			}
+		}
+
+		otp := utils.GenerateOTP()
+		expiresAt := time.Now().Add(15 * time.Minute)
+
+		_, err = db.Exec(`
+			INSERT INTO password_resets (uuid, email, user_id, user_type, otp_code, expires_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, uuid.New().String(), req.Email, userData.UUID, userData.UserType, otp, expiresAt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses permintaan", "details": err.Error()})
+			return
+		}
+
+		emailBody := fmt.Sprintf(`
+			<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+				<h3 style="color: #333;">Pemulihan Kata Sandi ArcheryHub</h3>
+				<p>Halo <strong>%s</strong>,</p>
+				<p>Anda telah meminta pemulihan kata sandi. Gunakan kode OTP berikut untuk melanjutkan:</p>
+				<div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+					<h2 style="letter-spacing: 12px; color: #C1121F; margin: 0; font-size: 32px;">%s</h2>
+				</div>
+				<p style="color: #666; font-size: 14px;">Kode ini akan kadaluwarsa dalam 15 menit.</p>
+				<p style="color: #999; font-size: 12px; margin-top: 30px;">Jika Anda tidak merasa meminta ini, silakan abaikan email ini.</p>
+			</div>
+		`, userData.FullName, otp)
+
+		_ = utils.SendEmail(req.Email, "Kode OTP Pemulihan Kata Sandi - ArcheryHub", emailBody)
+
+		c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email Anda"})
+	}
+}
+
+// MobileVerifyOTP godoc
+// @Summary      Verify OTP for password recovery
+// @Description  Verify the 6-digit OTP sent to the user's email
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object{email=string,otp=string}  true  "Verify OTP request"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      401      {object}  ErrorResponse
+// @Router       /auth/verify-otp [post]
+func MobileVerifyOTP(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email string `json:"email" binding:"required,email"`
+			OTP   string `json:"otp" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
+			return
+		}
+
+		var resetID string
+		err := db.Get(&resetID, `
+			SELECT uuid FROM password_resets 
+			WHERE email = ? AND otp_code = ? AND is_used = 0 AND expires_at > NOW()
+			ORDER BY created_at DESC LIMIT 1
+		`, req.Email, req.OTP)
+
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP tidak valid atau sudah kadaluwarsa"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "OTP berhasil diverifikasi"})
+	}
+}
+
+// MobileResetPassword godoc
+// @Summary      Reset password
+// @Description  Set a new password using a verified OTP
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object{email=string,otp=string,new_password=string}  true  "Reset password request"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      401      {object}  ErrorResponse
+// @Router       /auth/reset-password [post]
+func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Email       string `json:"email" binding:"required,email"`
+			OTP         string `json:"otp" binding:"required"`
+			NewPassword string `json:"new_password" binding:"required,min=6"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid atau password terlalu pendek"})
+			return
+		}
+
+		var reset struct {
+			UUID     string `db:"uuid"`
+			UserID   string `db:"user_id"`
+			UserType string `db:"user_type"`
+		}
+		err := db.Get(&reset, `
+			SELECT uuid, user_id, user_type FROM password_resets 
+			WHERE email = ? AND otp_code = ? AND is_used = 0 AND expires_at > NOW()
+			ORDER BY created_at DESC LIMIT 1
+		`, req.Email, req.OTP)
+
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid atau sudah kadaluwarsa"})
+			return
+		}
+
+		tableName := "archers"
+		if reset.UserType == "organization" {
+			tableName = "organizations"
+		} else if reset.UserType == "seller" {
+			tableName = "sellers"
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses permintaan"})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec(fmt.Sprintf("UPDATE %s SET password = ? WHERE uuid = ?", tableName), req.NewPassword, reset.UserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset kata sandi"})
+			return
+		}
+
+		_, err = tx.Exec("UPDATE password_resets SET is_used = 1 WHERE uuid = ?", reset.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses sesi"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Kata sandi berhasil diperbarui"})
 	}
 }

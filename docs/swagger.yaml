@@ -162,6 +162,59 @@ definitions:
       total:
         type: integer
     type: object
+  mobile.MobileArcherProfileData:
+    properties:
+      address:
+        example: Jl. Panahan No. 10
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        type: string
+      bow_type:
+        example: recurve
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      club_id:
+        example: club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      date_of_birth:
+        example: "1995-05-18"
+        type: string
+      email:
+        example: rizky@example.com
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      gender:
+        example: male
+        type: string
+      id:
+        example: ARC-0042
+        type: string
+      phone:
+        example: "081234567890"
+        type: string
+      user_type:
+        example: archer
+        type: string
+      username:
+        example: rizky-pratama
+        type: string
+      uuid:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+    type: object
+  mobile.MobileArcherProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/mobile.MobileArcherProfileData'
+    type: object
   mobile.MobileCartResponse:
     properties:
       data:
@@ -231,6 +284,8 @@ definitions:
         type: string
       participant_count:
         type: integer
+      slug:
+        type: string
       start_date:
         type: string
       uuid:
@@ -325,76 +380,6 @@ definitions:
         items:
           $ref: '#/definitions/mobile.MobileRegistrationItem'
         type: array
-    type: object
-  mobile.MobileNewsDetail:
-    properties:
-      author_name:
-        type: string
-      category:
-        type: string
-      content:
-        type: string
-      created_at:
-        type: string
-      excerpt:
-        type: string
-      id:
-        type: string
-      image_url:
-        type: string
-      meta_description:
-        type: string
-      meta_title:
-        type: string
-      published_at:
-        type: string
-      slug:
-        type: string
-      tags:
-        type: string
-      title:
-        type: string
-      updated_at:
-        type: string
-      views:
-        type: integer
-    type: object
-  mobile.MobileNewsDetailResponse:
-    properties:
-      news:
-        $ref: '#/definitions/mobile.MobileNewsDetail'
-    type: object
-  mobile.MobileNewsItem:
-    properties:
-      author_name:
-        type: string
-      category:
-        type: string
-      created_at:
-        type: string
-      excerpt:
-        type: string
-      id:
-        type: string
-      image_url:
-        type: string
-      published_at:
-        type: string
-      slug:
-        type: string
-      title:
-        type: string
-      views:
-        type: integer
-    type: object
-  mobile.MobileNewsListResponse:
-    properties:
-      news:
-        items:
-          $ref: '#/definitions/mobile.MobileNewsItem'
-        type: array
-      total_count:
-        type: integer
     type: object
   mobile.MobileOAuthLoginRequest:
     properties:
@@ -840,6 +825,25 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/mobile.MobileSellerProfileData'
+    type: object
+  mobile.MobileUpdateArcherProfileRequest:
+    properties:
+      address:
+        type: string
+      avatar_url:
+        type: string
+      bow_type:
+        type: string
+      city:
+        type: string
+      date_of_birth:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      phone:
+        type: string
     type: object
   mobile.MobileUpdateOrganizationProfileRequest:
     properties:
@@ -1295,6 +1299,58 @@ definitions:
         example: "081234567890"
         type: string
     type: object
+  models.PaymentTransaction:
+    properties:
+      amount:
+        type: number
+      callback_data:
+        type: object
+      checkout_url:
+        type: string
+      created_at:
+        type: string
+      event_id:
+        type: string
+      expired_at:
+        type: string
+      fee_amount:
+        type: number
+      id:
+        type: string
+      instructions:
+        type: string
+      months:
+        type: integer
+      paid_at:
+        type: string
+      pay_code:
+        type: string
+      payment_channel:
+        type: string
+      payment_method:
+        type: string
+      qr_url:
+        type: string
+      reference:
+        type: string
+      registration_id:
+        type: string
+      status:
+        description: pending, paid, expired, failed, refunded
+        type: string
+      subscription_plan_id:
+        type: integer
+      total_amount:
+        type: number
+      tripay_reference:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      va_number:
+        type: string
+    type: object
   models.Product:
     properties:
       category:
@@ -1445,6 +1501,33 @@ paths:
       summary: List archer's registered events
       tags:
       - Archer
+  /archer/events/{id}/detail:
+    get:
+      description: Returns event detail including authenticated archer registration
+        status
+      parameters:
+      - description: Event UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get event detail for archer (protected)
+      tags:
+      - Archer
   /archer/events/{id}/qr:
     get:
       description: Returns archer QR information and payment status for a specific
@@ -1499,6 +1582,60 @@ paths:
       security:
       - BearerAuth: []
       summary: Get archer's registration for an event
+      tags:
+      - Archer
+  /archer/me:
+    get:
+      description: Get the authenticated archer profile for mobile pages
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherProfileResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get mobile archer profile
+      tags:
+      - Archer
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated archer profile for mobile pages
+      parameters:
+      - description: Archer profile payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateArcherProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update mobile archer profile
       tags:
       - Archer
   /archer/orders:
@@ -1582,37 +1719,36 @@ paths:
       summary: Create participant payment
       tags:
       - Archer
-  /auth/google/login:
-    post:
-      consumes:
-      - application/json
-      description: Login using Google ID Token from mobile SDK
+  /archer/payments/{reference}:
+    get:
+      description: Get payment transaction details and instructions by reference
       parameters:
-      - description: Google ID Token
-        in: body
-        name: request
+      - description: Payment reference (ORD-... or PAY-...)
+        in: path
+        name: reference
         required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileOAuthLoginRequest'
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileLoginResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/mobile.ErrorResponse'
+            $ref: '#/definitions/models.PaymentTransaction'
         "401":
           description: Unauthorized
           schema:
             $ref: '#/definitions/mobile.ErrorResponse'
-      summary: Google login for mobile
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get payment detail
       tags:
-      - Authentication
-  /auth/login:
+      - Archer
+  /auth/archer/login:
     post:
       consumes:
       - application/json
@@ -1645,6 +1781,97 @@ paths:
           schema:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Archer login
+      tags:
+      - Authentication
+  /auth/archer/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new archer account
+      parameters:
+      - description: Registration info
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Archer registration
+      tags:
+      - Authentication
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Send a 6-digit OTP to the user's email for password recovery
+      parameters:
+      - description: Forgot password request
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Forgot password - Send OTP
+      tags:
+      - Authentication
+  /auth/google/login:
+    post:
+      description: Login using Google ID Token from mobile SDK
+      parameters:
+      - description: Google ID Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOAuthLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Google login for mobile
       tags:
       - Authentication
   /auth/organization/login:
@@ -1686,34 +1913,41 @@ paths:
       summary: Organization login
       tags:
       - Authentication
-  /auth/register:
+  /auth/reset-password:
     post:
       consumes:
       - application/json
-      description: Register a new archer account
+      description: Set a new password using a verified OTP
       parameters:
-      - description: Registration info
+      - description: Reset password request
         in: body
         name: request
         required: true
         schema:
+          properties:
+            email:
+              type: string
+            new_password:
+              type: string
+            otp:
+              type: string
           type: object
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileLoginResponse'
+            $ref: '#/definitions/mobile.MessageResponse'
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/mobile.ErrorResponse'
-        "409":
-          description: Conflict
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/mobile.ErrorResponse'
-      summary: Archer registration
+      summary: Reset password
       tags:
       - Authentication
   /auth/scorekeeper/login:
@@ -1787,6 +2021,84 @@ paths:
           schema:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Seller login
+      tags:
+      - Authentication
+  /auth/seller/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new seller account
+      parameters:
+      - description: Registration info
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            address:
+              type: string
+            city:
+              type: string
+            email:
+              type: string
+            password:
+              type: string
+            phone:
+              type: string
+            store_name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Seller registration
+      tags:
+      - Authentication
+  /auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the 6-digit OTP sent to the user's email
+      parameters:
+      - description: Verify OTP request
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            otp:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Verify OTP for password recovery
       tags:
       - Authentication
   /chat/conversations:
@@ -1980,6 +2292,46 @@ paths:
       summary: Get unread chat count
       tags:
       - Chat
+  /chatbot/intents:
+    get:
+      description: Returns all supported chatbot intents and examples
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get list of chatbot intents
+      tags:
+      - Chatbot
+  /chatbot/message:
+    post:
+      consumes:
+      - application/json
+      description: Simple automated response based on user keywords
+      parameters:
+      - description: User message
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            message:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Chat with ArcheryHub assistant
+      tags:
+      - Chatbot
   /elimination/scoring/matches/{matchId}/end:
     post:
       consumes:
@@ -2230,7 +2582,6 @@ paths:
       - Marketplace
   /news:
     get:
-      description: Returns published news list for mobile read-only pages
       parameters:
       - description: Limit
         in: query
@@ -2250,17 +2601,13 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileNewsListResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/mobile.ErrorResponse'
+            additionalProperties: true
+            type: object
       summary: List published news for mobile
       tags:
       - News
   /news/{id}:
     get:
-      description: Returns one published news article by UUID or slug
       parameters:
       - description: News UUID or slug
         in: path
@@ -2273,12 +2620,79 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileNewsDetailResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/mobile.ErrorResponse'
+            additionalProperties: true
+            type: object
       summary: Get published news detail for mobile
+      tags:
+      - News
+  /news/{id}/comments:
+    get:
+      parameters:
+      - description: News UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List comments for a news article
+      tags:
+      - News
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: News UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Comment payload
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            content:
+              type: string
+            guest_name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Post a comment on a news article
+      tags:
+      - News
+  /news/{id}/related:
+    get:
+      description: Returns a list of related news articles based on the same category
+      parameters:
+      - description: News UUID or slug
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List related news
       tags:
       - News
   /organization/events:

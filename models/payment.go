@@ -53,7 +53,7 @@ type PaymentTransaction struct {
 	Status           string          `json:"status" db:"status"` // pending, paid, expired, failed, refunded
 	PaidAt           *time.Time      `json:"paid_at" db:"paid_at"`
 	ExpiredAt        time.Time       `json:"expired_at" db:"expired_at"`
-	CallbackData     *json.RawMessage `json:"callback_data" db:"callback_data"`
+	CallbackData     *json.RawMessage `json:"callback_data" db:"callback_data" swaggertype:"object"`
 	CreatedAt        time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at" db:"updated_at"`
 }

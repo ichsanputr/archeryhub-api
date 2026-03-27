@@ -24,6 +24,7 @@ type MobileLoginResponse struct {
 // MobileEvent represents event information optimized for mobile.
 type MobileEvent struct {
 	UUID               string  `db:"uuid" json:"uuid"`
+	Slug               string  `db:"slug" json:"slug"`
 	Name               string  `db:"name" json:"name"`
 	Location           string  `db:"location" json:"location"`
 	StartDate          string  `db:"start_date" json:"start_date"`
@@ -249,4 +250,40 @@ type MobileUpdateOrganizationProfileRequest struct {
 	History            *string     `json:"history"`
 	FAQ                interface{} `json:"faq"`
 	PageSettings       interface{} `json:"page_settings"`
+}
+
+// MobileArcherProfileData represents archer profile data for mobile.
+type MobileArcherProfileData struct {
+	ID          string  `json:"id" example:"ARC-0042"`
+	UUID        string  `json:"uuid" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
+	Username    *string `json:"username" example:"rizky-pratama"`
+	FullName    string  `json:"full_name" example:"Rizky Pratama"`
+	Email       *string `json:"email" example:"rizky@example.com"`
+	AvatarURL   *string `json:"avatar_url" example:"https://cdn.archeryhub.id/media/archers/rizky.jpg"`
+	Phone       *string `json:"phone" example:"081234567890"`
+	Gender      *string `json:"gender" example:"male"`
+	DateOfBirth *string `json:"date_of_birth" example:"1995-05-18"`
+	City        *string `json:"city" example:"Jakarta"`
+	Address     *string `json:"address" example:"Jl. Panahan No. 10"`
+	BowType     *string `json:"bow_type" example:"recurve"`
+	ClubID      *string `json:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
+	ClubName    *string `json:"club_name" example:"ArcheryHub Club Jakarta"`
+	UserType    string  `json:"user_type" example:"archer"`
+}
+
+// MobileArcherProfileResponse represents /mobile/archer/me response.
+type MobileArcherProfileResponse struct {
+	Data MobileArcherProfileData `json:"data"`
+}
+
+// MobileUpdateArcherProfileRequest represents archer profile update payload.
+type MobileUpdateArcherProfileRequest struct {
+	FullName    *string `json:"full_name"`
+	Phone       *string `json:"phone"`
+	Gender      *string `json:"gender"`
+	DateOfBirth *string `json:"date_of_birth"`
+	City        *string `json:"city"`
+	Address     *string `json:"address"`
+	BowType     *string `json:"bow_type"`
+	AvatarURL   *string `json:"avatar_url"`
 }

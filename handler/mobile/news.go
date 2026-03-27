@@ -6,8 +6,19 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
+
+type MobileNewsComment struct {
+	UUID      string  `db:"uuid" json:"id"`
+	NewsID    string  `db:"news_id" json:"news_id"`
+	UserID    *string `db:"user_id" json:"user_id,omitempty"`
+	UserType  string  `db:"user_type" json:"user_type"`
+	GuestName *string `db:"guest_name" json:"guest_name,omitempty"`
+	Content   string  `db:"content" json:"content"`
+	CreatedAt string  `db:"created_at" json:"created_at"`
+}
 
 type MobileNewsItem struct {
 	UUID        string  `db:"uuid" json:"id"`
@@ -42,14 +53,12 @@ type MobileNewsDetail struct {
 
 // MobileListNews godoc
 // @Summary      List published news for mobile
-// @Description  Returns published news list for mobile read-only pages
 // @Tags         News
 // @Produce      json
 // @Param        limit   query     int     false  "Limit"
 // @Param        offset  query     int     false  "Offset"
 // @Param        search  query     string  false  "Search term"
-// @Success      200     {object}  MobileNewsListResponse
-// @Failure      500     {object}  ErrorResponse
+// @Success      200     {object}  map[string]interface{}
 // @Router       /news [get]
 func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -101,12 +110,10 @@ func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 
 // MobileGetNewsDetail godoc
 // @Summary      Get published news detail for mobile
-// @Description  Returns one published news article by UUID or slug
 // @Tags         News
 // @Produce      json
 // @Param        id  path      string  true  "News UUID or slug"
-// @Success      200 {object}  MobileNewsDetailResponse
-// @Failure      404 {object}  ErrorResponse
+// @Success      200 {object}  map[string]interface{}
 // @Router       /news/{id} [get]
 func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -134,5 +141,161 @@ func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"news": article})
+	}
+}
+
+// MobileListNewsComments godoc
+// @Summary      List comments for a news article
+// @Tags         News
+// @Produce      json
+// @Param        id   path      string  true  "News UUID or slug"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /news/{id}/comments [get]
+func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		var comments []MobileNewsComment
+		query := `
+			SELECT c.uuid, c.news_id, c.user_id, c.user_type, c.guest_name, c.content, c.created_at
+			FROM news_comments c
+			JOIN news n ON c.news_id = n.uuid
+			WHERE (n.uuid = ? OR n.slug = ?) AND c.status = 'approved'
+			ORDER BY c.created_at DESC
+		`
+		err := db.Select(&comments, query, id, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil komentar", "details": err.Error()})
+			return
+		}
+
+		if comments == nil {
+			comments = []MobileNewsComment{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"comments": comments,
+			"count":    len(comments),
+		})
+	}
+}
+
+// MobileAddNewsComment godoc
+// @Summary      Post a comment on a news article
+// @Tags         News
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string  true  "News UUID or slug"
+// @Param        request  body      object{guest_name=string,content=string}  true  "Comment payload"
+// @Success      201      {object}  map[string]interface{}
+// @Router       /news/{id}/comments [post]
+func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		
+		var req struct {
+			GuestName string `json:"guest_name"`
+			Content   string `json:"content" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data komentar tidak valid"})
+			return
+		}
+
+		// Resolve news ID
+		var newsID string
+		err := db.Get(&newsID, "SELECT uuid FROM news WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Berita tidak ditemukan"})
+			return
+		}
+
+		userIDInterface, exists := c.Get("user_id")
+		userTypeInterface, _ := c.Get("user_type")
+
+		var userID *string
+		userType := "guest"
+		guestName := &req.GuestName
+
+		if exists && userIDInterface != nil {
+			uid := userIDInterface.(string)
+			userID = &uid
+			userType = userTypeInterface.(string)
+			guestName = nil
+		} else {
+			if req.GuestName == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Nama harus diisi untuk komentar tamu"})
+				return
+			}
+		}
+
+		commentUUID := uuid.New().String()
+		_, err = db.Exec(`
+			INSERT INTO news_comments (uuid, news_id, user_id, user_type, guest_name, content, status)
+			VALUES (?, ?, ?, ?, ?, ?, 'approved')
+		`, commentUUID, newsID, userID, userType, guestName, req.Content)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan komentar", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"message": "Komentar berhasil ditambahkan"})
+	}
+}
+
+// MobileListRelatedNews godoc
+// @Summary      List related news
+// @Description  Returns a list of related news articles based on the same category
+// @Tags         News
+// @Produce      json
+// @Param        id   path      string  true  "News UUID or slug"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /news/{id}/related [get]
+func MobileListRelatedNews(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		// 1. Get current news category
+		var current struct {
+			UUID     string `db:"uuid"`
+			Category string `db:"category"`
+		}
+		err := db.Get(&current, "SELECT uuid, category FROM news WHERE uuid = ? OR slug = ? LIMIT 1", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Berita tidak ditemukan"})
+			return
+		}
+
+		// 2. Get related news (same category, different UUID)
+		var news []MobileNewsItem
+		query := `
+			SELECT uuid, title, slug, excerpt, image_url, category, author_name,
+			       COALESCE(views, 0) as views, published_at, created_at
+			FROM news
+			WHERE status = 'published' AND category = ? AND uuid != ?
+			ORDER BY published_at DESC, created_at DESC
+			LIMIT 5
+		`
+		if err := db.Select(&news, query, current.Category, current.UUID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil berita terkait"})
+			return
+		}
+
+		if news == nil {
+			news = []MobileNewsItem{}
+		}
+
+		for i := range news {
+			if news[i].ImageURL != nil {
+				masked := utils.MaskMediaURL(*news[i].ImageURL)
+				news[i].ImageURL = &masked
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"news": news,
+		})
 	}
 }

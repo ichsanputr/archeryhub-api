@@ -523,9 +523,12 @@ func main() {
 				auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 				auth.POST("/organization/login", mobilehandler.MobileOrganizationLogin(db))
 				auth.POST("/seller/login", mobilehandler.MobileSellerLogin(db))
-				auth.POST("/login", mobilehandler.MobileArcherLogin(db))
-				auth.POST("/register", mobilehandler.MobileArcherRegister(db))
+				auth.POST("/archer/register", mobilehandler.MobileArcherRegister(db))
+				auth.POST("/seller/register", mobilehandler.MobileSellerRegister(db))
 				auth.POST("/google/login", mobilehandler.MobileGoogleLogin(db))
+				auth.POST("/forgot-password", mobilehandler.MobileForgotPassword(db))
+				auth.POST("/verify-otp", mobilehandler.MobileVerifyOTP(db))
+				auth.POST("/reset-password", mobilehandler.MobileResetPassword(db))
 			}
 
 			// 2. Events (public)
@@ -535,6 +538,16 @@ func main() {
 			// 2b. News (public read-only)
 			mobile.GET("/news", mobilehandler.MobileListNews(db))
 			mobile.GET("/news/:id", mobilehandler.MobileGetNewsDetail(db))
+			mobile.GET("/news/:id/comments", mobilehandler.MobileListNewsComments(db))
+			mobile.POST("/news/:id/comments", mobilehandler.MobileAddNewsComment(db))
+			mobile.GET("/news/:id/related", mobilehandler.MobileListRelatedNews(db))
+
+			// 2d. Chatbot (public)
+			chatbot := mobile.Group("/chatbot")
+			{
+				chatbot.GET("/intents", mobilehandler.MobileChatbotIntents())
+				chatbot.POST("/message", mobilehandler.MobileChatbotMessage())
+			}
 
 			// 2c. Marketplace (public read-only)
 			mobile.GET("/marketplace/products", mobilehandler.MobileMarketplaceListProducts(db))
@@ -565,12 +578,17 @@ func main() {
 			mobileArcher := mobile.Group("/archer")
 			mobileArcher.Use(middleware.AuthMiddleware())
 			{
+				mobileArcher.GET("/me", mobilehandler.MobileGetArcherMe(db))
+				mobileArcher.PUT("/me", mobilehandler.MobileUpdateArcherMe(db))
 				mobileArcher.GET("/cart", mobilehandler.MobileArcherGetCart(db))
 				mobileArcher.POST("/cart/checkout", mobilehandler.MobileArcherCheckoutCart(db))
 				mobileArcher.GET("/orders", mobilehandler.MobileArcherGetOrderHistory(db))
 
+				mobileArcher.GET("/payments/:reference", mobilehandler.MobileGetPaymentDetail(db))
 				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
+				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
 				mobileArcher.POST("/events/:id/register", mobilehandler.MobileRegisterForEvent(db))
+				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterForEvent(db))
 				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
 				mobileArcher.POST("/participants/:participantId/payment", mobilehandler.MobileCreateParticipantPayment(db))

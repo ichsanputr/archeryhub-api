@@ -161,3 +161,30 @@ func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, transaction)
 	}
 }
+
+// MobileGetPaymentDetail godoc
+// @Summary      Get payment detail
+// @Description  Get payment transaction details and instructions by reference
+// @Tags         Archer
+// @Produce      json
+// @Security     BearerAuth
+// @Param        reference  path      string  true  "Payment reference (ORD-... or PAY-...)"
+// @Success      200        {object}  models.PaymentTransaction
+// @Failure      401        {object}  ErrorResponse
+// @Failure      404        {object}  ErrorResponse
+// @Router       /archer/payments/{reference} [get]
+func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		reference := c.Param("reference")
+		userID, _ := c.Get("user_id")
+
+		var transaction models.PaymentTransaction
+		err := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE reference = ? AND user_id = ?`, reference, fmt.Sprintf("%v", userID))
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, transaction)
+	}
+}

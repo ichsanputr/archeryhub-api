@@ -702,3 +702,137 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+
+// MobileGetArcherMe godoc
+// @Summary      Get mobile archer profile
+// @Description  Get the authenticated archer profile for mobile pages
+// @Tags         Archer
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  MobileArcherProfileResponse
+// @Failure      403  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Router       /archer/me [get]
+func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !requireMobileUserType(c, "archer") {
+			return
+		}
+
+		userID := c.GetString("user_id")
+		var archer struct {
+			UUID        string  `db:"uuid"`
+			ID          string  `db:"id"`
+			Username    *string `db:"username"`
+			FullName    string  `db:"full_name"`
+			Email       *string `db:"email"`
+			AvatarURL   *string `db:"avatar_url"`
+			Phone       *string `db:"phone"`
+			Gender      *string `db:"gender"`
+			DateOfBirth *string `db:"date_of_birth"`
+			City        *string `db:"city"`
+			Address     *string `db:"address"`
+			BowType     *string `db:"bow_type"`
+			ClubID      *string `db:"club_id"`
+			ClubName    *string `db:"club_name"`
+		}
+
+		query := `
+			SELECT 
+				a.uuid, a.id, a.username, a.full_name, a.email, a.avatar_url,
+				a.phone, a.gender, CAST(a.date_of_birth AS CHAR) as date_of_birth,
+				a.city, a.address, a.bow_type,
+				a.club_id, c.name as club_name
+			FROM archers a
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			WHERE a.uuid = ?
+		`
+		err := db.Get(&archer, query, userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Pemanah tidak ditemukan"})
+			return
+		}
+
+		if archer.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*archer.AvatarURL)
+			archer.AvatarURL = &masked
+		}
+
+		c.JSON(http.StatusOK, MobileArcherProfileResponse{
+			Data: MobileArcherProfileData{
+				ID:          archer.ID,
+				UUID:        archer.UUID,
+				Username:    archer.Username,
+				FullName:    archer.FullName,
+				Email:       archer.Email,
+				AvatarURL:   archer.AvatarURL,
+				Phone:       archer.Phone,
+				Gender:      archer.Gender,
+				DateOfBirth: archer.DateOfBirth,
+				City:        archer.City,
+				Address:     archer.Address,
+				BowType:     archer.BowType,
+				ClubID:      archer.ClubID,
+				ClubName:    archer.ClubName,
+				UserType:    "archer",
+			},
+		})
+	}
+}
+
+// MobileUpdateArcherMe godoc
+// @Summary      Update mobile archer profile
+// @Description  Update the authenticated archer profile for mobile pages
+// @Tags         Archer
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request  body      MobileUpdateArcherProfileRequest  true  "Archer profile payload"
+// @Success      200      {object}  MessageResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      403      {object}  ErrorResponse
+// @Router       /archer/me [put]
+func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !requireMobileUserType(c, "archer") {
+			return
+		}
+
+		userID := c.GetString("user_id")
+		var req MobileUpdateArcherProfileRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
+			return
+		}
+
+		query := "UPDATE archers SET updated_at = NOW()"
+		args := []interface{}{}
+
+		if req.FullName != nil { query += ", full_name = ?"; args = append(args, *req.FullName) }
+		if req.Phone != nil { query += ", phone = ?"; args = append(args, *req.Phone) }
+		if req.Gender != nil { query += ", gender = ?"; args = append(args, *req.Gender) }
+		if req.DateOfBirth != nil { query += ", date_of_birth = ?"; args = append(args, *req.DateOfBirth) }
+		if req.City != nil { query += ", city = ?"; args = append(args, *req.City) }
+		if req.Address != nil { query += ", address = ?"; args = append(args, *req.Address) }
+		if req.BowType != nil { query += ", bow_type = ?"; args = append(args, *req.BowType) }
+		if req.AvatarURL != nil { query += ", avatar_url = ?"; args = append(args, *req.AvatarURL) }
+
+		if len(args) == 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada data yang diperbarui"})
+			return
+		}
+
+		query += " WHERE uuid = ?"
+		args = append(args, userID)
+
+		_, err := db.Exec(query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui profil", "details": err.Error()})
+			return
+		}
+
+		utils.LogActivity(db, userID, "", "mobile_profile_updated", "archer", userID, "Updated profile via mobile", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui"})
+	}
+}

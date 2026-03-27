@@ -128,6 +128,47 @@
                 }
             }
         },
+        "/archer/events/{id}/detail": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns event detail including authenticated archer registration status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Get event detail for archer (protected)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID or slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/archer/events/{id}/qr": {
             "get": {
                 "security": [
@@ -207,6 +248,92 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/archer/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the authenticated archer profile for mobile pages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Get mobile archer profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherProfileResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the authenticated archer profile for mobile pages",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Update mobile archer profile",
+                "parameters": [
+                    {
+                        "description": "Archer profile payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateArcherProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/mobile.ErrorResponse"
                         }
@@ -340,41 +467,35 @@
                 }
             }
         },
-        "/auth/google/login": {
-            "post": {
-                "description": "Login using Google ID Token from mobile SDK",
-                "consumes": [
-                    "application/json"
+        "/archer/payments/{reference}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
                 ],
+                "description": "Get payment transaction details and instructions by reference",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Authentication"
+                    "Archer"
                 ],
-                "summary": "Google login for mobile",
+                "summary": "Get payment detail",
                 "parameters": [
                     {
-                        "description": "Google ID Token",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileOAuthLoginRequest"
-                        }
+                        "type": "string",
+                        "description": "Payment reference (ORD-... or PAY-...)",
+                        "name": "reference",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileLoginResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.ErrorResponse"
+                            "$ref": "#/definitions/models.PaymentTransaction"
                         }
                     },
                     "401": {
@@ -382,11 +503,17 @@
                         "schema": {
                             "$ref": "#/definitions/mobile.ErrorResponse"
                         }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
                     }
                 }
             }
         },
-        "/auth/login": {
+        "/auth/archer/login": {
             "post": {
                 "description": "Login for archers using email and password",
                 "consumes": [
@@ -415,6 +542,146 @@
                                     "type": "string"
                                 }
                             }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/archer/register": {
+            "post": {
+                "description": "Register a new archer account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Archer registration",
+                "parameters": [
+                    {
+                        "description": "Registration info",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/forgot-password": {
+            "post": {
+                "description": "Send a 6-digit OTP to the user's email for password recovery",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Forgot password - Send OTP",
+                "parameters": [
+                    {
+                        "description": "Forgot password request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "email": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google/login": {
+            "post": {
+                "description": "Login using Google ID Token from mobile SDK",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Google login for mobile",
+                "parameters": [
+                    {
+                        "description": "Google ID Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOAuthLoginRequest"
                         }
                     }
                 ],
@@ -500,9 +767,9 @@
                 }
             }
         },
-        "/auth/register": {
+        "/auth/reset-password": {
             "post": {
-                "description": "Register a new archer account",
+                "description": "Set a new password using a verified OTP",
                 "consumes": [
                     "application/json"
                 ],
@@ -512,23 +779,34 @@
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "Archer registration",
+                "summary": "Reset password",
                 "parameters": [
                     {
-                        "description": "Registration info",
+                        "description": "Reset password request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "properties": {
+                                "email": {
+                                    "type": "string"
+                                },
+                                "new_password": {
+                                    "type": "string"
+                                },
+                                "otp": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                            "$ref": "#/definitions/mobile.MessageResponse"
                         }
                     },
                     "400": {
@@ -537,8 +815,8 @@
                             "$ref": "#/definitions/mobile.ErrorResponse"
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/mobile.ErrorResponse"
                         }
@@ -651,6 +929,126 @@
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/seller/register": {
+            "post": {
+                "description": "Register a new seller account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Seller registration",
+                "parameters": [
+                    {
+                        "description": "Registration info",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "address": {
+                                    "type": "string"
+                                },
+                                "city": {
+                                    "type": "string"
+                                },
+                                "email": {
+                                    "type": "string"
+                                },
+                                "password": {
+                                    "type": "string"
+                                },
+                                "phone": {
+                                    "type": "string"
+                                },
+                                "store_name": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/verify-otp": {
+            "post": {
+                "description": "Verify the 6-digit OTP sent to the user's email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify OTP for password recovery",
+                "parameters": [
+                    {
+                        "description": "Verify OTP request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "email": {
+                                    "type": "string"
+                                },
+                                "otp": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/mobile.ErrorResponse"
                         }
@@ -950,6 +1348,67 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/mobile.MobileChatUnreadResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chatbot/intents": {
+            "get": {
+                "description": "Returns all supported chatbot intents and examples",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chatbot"
+                ],
+                "summary": "Get list of chatbot intents",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/chatbot/message": {
+            "post": {
+                "description": "Simple automated response based on user keywords",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chatbot"
+                ],
+                "summary": "Chat with ArcheryHub assistant",
+                "parameters": [
+                    {
+                        "description": "User message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1329,7 +1788,6 @@
         },
         "/news": {
             "get": {
-                "description": "Returns published news list for mobile read-only pages",
                 "produces": [
                     "application/json"
                 ],
@@ -1361,13 +1819,8 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileNewsListResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.ErrorResponse"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1375,7 +1828,6 @@
         },
         "/news/{id}": {
             "get": {
-                "description": "Returns one published news article by UUID or slug",
                 "produces": [
                     "application/json"
                 ],
@@ -1396,13 +1848,114 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileNewsDetailResponse"
+                            "type": "object",
+                            "additionalProperties": true
                         }
-                    },
-                    "404": {
-                        "description": "Not Found",
+                    }
+                }
+            }
+        },
+        "/news/{id}/comments": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "News"
+                ],
+                "summary": "List comments for a news article",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "News UUID or slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.ErrorResponse"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "News"
+                ],
+                "summary": "Post a comment on a news article",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "News UUID or slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Comment payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "string"
+                                },
+                                "guest_name": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/news/{id}/related": {
+            "get": {
+                "description": "Returns a list of related news articles based on the same category",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "News"
+                ],
+                "summary": "List related news",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "News UUID or slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2240,6 +2793,79 @@
                 }
             }
         },
+        "mobile.MobileArcherProfileData": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Panahan No. 10"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                },
+                "bow_type": {
+                    "type": "string",
+                    "example": "recurve"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "club_id": {
+                    "type": "string",
+                    "example": "club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "date_of_birth": {
+                    "type": "string",
+                    "example": "1995-05-18"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "rizky@example.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "gender": {
+                    "type": "string",
+                    "example": "male"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "ARC-0042"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "081234567890"
+                },
+                "user_type": {
+                    "type": "string",
+                    "example": "archer"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "rizky-pratama"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                }
+            }
+        },
+        "mobile.MobileArcherProfileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/mobile.MobileArcherProfileData"
+                }
+            }
+        },
         "mobile.MobileCartResponse": {
             "type": "object",
             "properties": {
@@ -2345,6 +2971,9 @@
                 },
                 "participant_count": {
                     "type": "integer"
+                },
+                "slug": {
+                    "type": "string"
                 },
                 "start_date": {
                     "type": "string"
@@ -2490,113 +3119,6 @@
                     "items": {
                         "$ref": "#/definitions/mobile.MobileRegistrationItem"
                     }
-                }
-            }
-        },
-        "mobile.MobileNewsDetail": {
-            "type": "object",
-            "properties": {
-                "author_name": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "content": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "excerpt": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "image_url": {
-                    "type": "string"
-                },
-                "meta_description": {
-                    "type": "string"
-                },
-                "meta_title": {
-                    "type": "string"
-                },
-                "published_at": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "tags": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "views": {
-                    "type": "integer"
-                }
-            }
-        },
-        "mobile.MobileNewsDetailResponse": {
-            "type": "object",
-            "properties": {
-                "news": {
-                    "$ref": "#/definitions/mobile.MobileNewsDetail"
-                }
-            }
-        },
-        "mobile.MobileNewsItem": {
-            "type": "object",
-            "properties": {
-                "author_name": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "excerpt": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "image_url": {
-                    "type": "string"
-                },
-                "published_at": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "views": {
-                    "type": "integer"
-                }
-            }
-        },
-        "mobile.MobileNewsListResponse": {
-            "type": "object",
-            "properties": {
-                "news": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/mobile.MobileNewsItem"
-                    }
-                },
-                "total_count": {
-                    "type": "integer"
                 }
             }
         },
@@ -3226,6 +3748,35 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/mobile.MobileSellerProfileData"
+                }
+            }
+        },
+        "mobile.MobileUpdateArcherProfileRequest": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "bow_type": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "date_of_birth": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
                 }
             }
         },
@@ -3868,6 +4419,84 @@
                 "whatsapp_number": {
                     "type": "string",
                     "example": "081234567890"
+                }
+            }
+        },
+        "models.PaymentTransaction": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "callback_data": {
+                    "type": "object"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "expired_at": {
+                    "type": "string"
+                },
+                "fee_amount": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "months": {
+                    "type": "integer"
+                },
+                "paid_at": {
+                    "type": "string"
+                },
+                "pay_code": {
+                    "type": "string"
+                },
+                "payment_channel": {
+                    "type": "string"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
+                "qr_url": {
+                    "type": "string"
+                },
+                "reference": {
+                    "type": "string"
+                },
+                "registration_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "pending, paid, expired, failed, refunded",
+                    "type": "string"
+                },
+                "subscription_plan_id": {
+                    "type": "integer"
+                },
+                "total_amount": {
+                    "type": "number"
+                },
+                "tripay_reference": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "va_number": {
+                    "type": "string"
                 }
             }
         },

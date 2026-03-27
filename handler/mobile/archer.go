@@ -31,6 +31,7 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 
 		var req struct {
+			EventID            string   `json:"event_id"`
 			AthleteID          string   `json:"athlete_id"`
 			EventCategoryID    string   `json:"event_category_id"`
 			EventCategoryIDs   []string `json:"event_category_ids"`
@@ -42,6 +43,15 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if eventID == "" {
+			eventID = req.EventID
+		}
+
+		if eventID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "event_id wajib diisi"})
 			return
 		}
 

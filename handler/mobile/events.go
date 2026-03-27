@@ -39,7 +39,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				t.uuid, t.name, COALESCE(t.location, '') as location, 
+				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
 				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
 				t.logo_url, t.banner_url,
 				COALESCE(u.full_name, '') as organizer_name,
@@ -53,7 +53,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			` + whereClause + `
-			GROUP BY t.uuid, u.full_name, u.avatar_url
+			GROUP BY t.uuid, t.slug, u.full_name, u.avatar_url
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 		`
@@ -205,17 +205,87 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Account (requires auth) Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
-
-// MobileRegisterForEvent godoc
-// @Summary      Register archer for event
-// @Description  Authenticated archer self-registers for one or more event categories
+// MobileArcherGetEventDetail godoc
+// @Summary      Get event detail for archer (protected)
+// @Description  Returns event detail including authenticated archer registration status
 // @Tags         Archer
-// @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        id       path  string  true  "Event UUID or slug"
-// @Param        request  body  object  true  "Category IDs and payment type"
-// @Success      201      {object}  map[string]interface{}
-// @Failure      400      {object}  ErrorResponse
-// @Failure      404      {object}  ErrorResponse
+// @Param        id   path      string  true  "Event UUID or slug"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  ErrorResponse
+// @Router       /archer/events/{id}/detail [get]
+func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		userID := c.GetString("user_id")
+
+		// 1. Get Event Detail (same query as public detail)
+		query := `
+			SELECT 
+				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
+				COALESCE(t.venue, '') as venue, t.city, t.province,
+				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
+				t.logo_url, t.banner_url, t.description, t.rules, t.technical_guidebook_url,
+				COALESCE(u.full_name, '') as organizer_name,
+				COALESCE(u.avatar_url, '') as organizer_avatar_url,
+				COALESCE(u.slug, '') as organizer_slug,
+				COALESCE(active_target_stats.participant_count, 0) as participant_count,
+				t.organizer_id, t.status, t.registration_deadline
+			FROM events t
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, avatar_url, slug FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug FROM clubs
+			) u ON t.organizer_id = u.id
+			LEFT JOIN (
+				SELECT event_id, COUNT(*) as participant_count
+				FROM event_participants
+				GROUP BY event_id
+			) active_target_stats ON t.uuid = active_target_stats.event_id
+			WHERE t.uuid = ? OR t.slug = ?
+			LIMIT 1
+		`
+
+		var event models.EventWithDetails
+		err := db.Get(&event, query, id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		if event.BannerURL != nil { *event.BannerURL = utils.MaskMediaURL(*event.BannerURL) }
+		if event.LogoURL != nil { *event.LogoURL = utils.MaskMediaURL(*event.LogoURL) }
+		if event.TechnicalGuidebookURL != nil { *event.TechnicalGuidebookURL = utils.MaskMediaURL(*event.TechnicalGuidebookURL) }
+		if event.OrganizerAvatarURL != nil { *event.OrganizerAvatarURL = utils.MaskMediaURL(*event.OrganizerAvatarURL) }
+
+		utils.PopulateEventDetailExtras(db, &event)
+
+		// 2. Get Archer Registration Status
+		var registration struct {
+			UUID          string  `db:"uuid" json:"id"`
+			PaymentStatus string  `db:"payment_status" json:"payment_status"`
+			TargetName    *string `db:"target_name" json:"target_name"`
+			PaymentAmount float64 `db:"payment_amount" json:"payment_amount"`
+		}
+		
+		isRegistered := false
+		err = db.Get(&registration, `
+			SELECT uuid, payment_status, target_name, payment_amount
+			FROM event_participants
+			WHERE event_id = ? AND archer_id = ?
+			LIMIT 1
+		`, event.UUID, userID)
+		if err == nil {
+			isRegistered = true
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"event":         event,
+			"is_registered": isRegistered,
+			"registration":  registration,
+		})
+	}
+}
+
+
