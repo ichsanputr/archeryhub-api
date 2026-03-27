@@ -204,6 +204,24 @@ func MobileArcherRemoveFromCart(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileArcherClearCart (DELETE /archer/cart)
+func MobileArcherClearCart(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !ensureArcherUser(c) {
+			return
+		}
+
+		userID, _ := c.Get("user_id")
+		_, err := db.Exec("DELETE FROM cart_items WHERE user_id = ?", fmt.Sprintf("%v", userID))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengosongkan keranjang"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Keranjang berhasil dikosongkan"})
+	}
+}
+
 // MobileArcherCheckoutCart godoc
 func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
