@@ -525,6 +525,7 @@ func main() {
 				auth.POST("/seller/login", mobilehandler.MobileSellerLogin(db))
 				auth.POST("/login", mobilehandler.MobileArcherLogin(db))
 				auth.POST("/register", mobilehandler.MobileArcherRegister(db))
+				auth.POST("/google/login", mobilehandler.MobileGoogleLogin(db))
 			}
 
 			// 2. Events (public)

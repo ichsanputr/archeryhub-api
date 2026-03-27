@@ -2,6 +2,7 @@ package mobile
 
 import (
 	"archeryhub-api/utils"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -18,6 +19,10 @@ type MobileScorekeeperLoginRequest struct {
 type mobileEmailPasswordRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+type MobileOAuthLoginRequest struct {
+	IDToken string `json:"idToken" binding:"required"`
 }
 
 type mobileLoginUser struct {
@@ -363,6 +368,146 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 				"email":     req.Email,
 				"role":      "archer",
 				"user_type": "archer",
+			},
+		})
+	}
+}
+
+// MobileGoogleLogin handles Google Sign-In for mobile using idToken
+// @Summary      Google login for mobile
+// @Description  Login using Google ID Token from mobile SDK
+// @Tags         Mobile - Authentication
+// @Accept       json
+// @Produce      json
+// @Param        request  body      MobileOAuthLoginRequest  true  "Google ID Token"
+// @Success      200      {object}  MobileLoginResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      401      {object}  ErrorResponse
+// @Router       /mobile/auth/google/login [post]
+func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req MobileOAuthLoginRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID Token wajib diisi"})
+			return
+		}
+
+		// Verify ID Token with Google
+		resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + req.IDToken)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal verifikasi Google token", "details": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Google ID Token tidak valid"})
+			return
+		}
+
+		var googleInfo struct {
+			Email         string `json:"email"`
+			Name          string `json:"name"`
+			Picture       string `json:"picture"`
+			Sub           string `json:"sub"` // Google ID
+			EmailVerified string `json:"email_verified"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&googleInfo); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses data Google", "details": err.Error()})
+			return
+		}
+
+		if googleInfo.Email == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email tidak ditemukan di Google token"})
+			return
+		}
+
+		// Search for existing user (Archer only for now for mobile app)
+		var user mobileLoginUser
+		err = db.Get(&user, `SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status FROM archers WHERE email = ? OR google_id = ?`, googleInfo.Email, googleInfo.Sub)
+
+		isNewUser := false
+		if err != nil {
+			// User not found, register new archer
+			isNewUser = true
+			userID := uuid.New().String()
+
+			// Generate athlete ID (ARC-XXXX)
+			var lastID string
+			_ = db.Get(&lastID, "SELECT id FROM archers WHERE id LIKE 'ARC-%' ORDER BY id DESC LIMIT 1")
+			nextIDNum := 1
+			if lastID != "" {
+				parts := strings.Split(lastID, "-")
+				if len(parts) == 2 {
+					fmt.Sscanf(parts[1], "%d", &nextIDNum)
+					nextIDNum++
+				}
+			}
+			athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
+
+			// Generate username
+			username := utils.CleanUsername(googleInfo.Name)
+			if username == "" {
+				username = "archer"
+			}
+			username = username + "-" + userID[:8]
+
+			_, err = db.Exec(`
+				INSERT INTO archers (uuid, id, username, email, google_id, full_name, avatar_url, status, is_verified, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW())
+			`, userID, athleteID, username, googleInfo.Email, googleInfo.Sub, googleInfo.Name, googleInfo.Picture)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan user baru: " + err.Error()})
+				return
+			}
+
+			// Assign values to user struct for token generation
+			user.UUID = userID
+			user.ID = athleteID
+			user.Username = username
+			user.Email = googleInfo.Email
+			user.FullName = googleInfo.Name
+			user.AvatarURL = &googleInfo.Picture
+			user.Status = "active"
+
+			utils.LogActivity(db, userID, "", "mobile_register_google", "archer", userID, "User registered via Google on mobile", c.ClientIP(), c.Request.UserAgent())
+		} else {
+			// Update existing user with Google ID and Avatar if needed
+			_, _ = db.Exec(`UPDATE archers SET google_id = ?, avatar_url = ?, updated_at = NOW() WHERE uuid = ?`, googleInfo.Sub, googleInfo.Picture, user.UUID)
+		}
+
+		if user.Status != "active" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Akun tidak aktif", "code": "account_inactive"})
+			return
+		}
+
+		avatar := ""
+		if user.AvatarURL != nil {
+			avatar = *user.AvatarURL
+		}
+
+		token, err := generateJWT(user.UUID, user.Email, "archer", "archer", user.FullName, avatar, "")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
+			return
+		}
+
+		utils.LogActivity(db, user.UUID, "", "mobile_login_google", "archer", user.UUID, "User logged in via Google mobile", c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, gin.H{
+			"token":       token,
+			"is_new_user": isNewUser,
+			"user": gin.H{
+				"uuid":       user.UUID,
+				"id":         user.ID,
+				"username":   user.Username,
+				"full_name":  user.FullName,
+				"email":      user.Email,
+				"avatar_url": avatar,
+				"role":       "archer",
+				"user_type":  "archer",
 			},
 		})
 	}
