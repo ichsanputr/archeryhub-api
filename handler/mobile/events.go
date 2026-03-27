@@ -47,7 +47,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, avatar_url FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, avatar_url FROM clubs
+				SELECT uuid as id, name as full_name, logo_url as avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			` + whereClause + `
