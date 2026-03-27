@@ -28,7 +28,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 		search := c.Query("search")
 
-		whereClause := "WHERE t.status = 'published'"
+		whereClause := "WHERE t.status != 'draft'"
 		args := []interface{}{}
 
 		if search != "" {
