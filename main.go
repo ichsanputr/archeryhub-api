@@ -22,7 +22,7 @@ import (
 // @description This documentation is exclusively for the ArcheryHub Mobile Application.
 // @description NOTE: This Swagger only contains endpoints relevant to mobile app workflows (Scoring, Events, and Auth).
 // @host localhost:8001
-// @BasePath /api/v1
+// @BasePath /api/v1/mobile
 
 var logger *logrus.Logger
 

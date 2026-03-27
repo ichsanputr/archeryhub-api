@@ -13,7 +13,7 @@ import (
 // MobileStartOrGetConversation godoc
 // @Summary      Start or get chat conversation
 // @Description  Archer starts (or gets existing) conversation with seller, optionally by product
-// @Tags         Mobile - Chat
+// @Tags         Chat
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
@@ -23,7 +23,7 @@ import (
 // @Failure      400      {object}  ErrorResponse
 // @Failure      403      {object}  ErrorResponse
 // @Failure      404      {object}  ErrorResponse
-// @Router       /mobile/chat/conversations [post]
+// @Router       /chat/conversations [post]
 func MobileStartOrGetConversation(db *sqlx.DB) gin.HandlerFunc {
 	return handler.StartOrGetConversation(db)
 }
@@ -31,12 +31,12 @@ func MobileStartOrGetConversation(db *sqlx.DB) gin.HandlerFunc {
 // MobileListConversations godoc
 // @Summary      List chat conversations
 // @Description  Lists archer/seller conversations including last message, unread counters, and last seen info
-// @Tags         Mobile - Chat
+// @Tags         Chat
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200  {object}  MobileChatListResponse
 // @Failure      403  {object}  ErrorResponse
-// @Router       /mobile/chat/conversations [get]
+// @Router       /chat/conversations [get]
 func MobileListConversations(db *sqlx.DB) gin.HandlerFunc {
 	return handler.ListConversations(db)
 }
@@ -44,14 +44,14 @@ func MobileListConversations(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetConversationMessages godoc
 // @Summary      Get conversation messages
 // @Description  Returns message list in a conversation and marks opposite side unread as read
-// @Tags         Mobile - Chat
+// @Tags         Chat
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id  path      string  true  "Conversation UUID"
 // @Success      200 {object}  MobileChatMessagesResponse
 // @Failure      403 {object}  ErrorResponse
 // @Failure      404 {object}  ErrorResponse
-// @Router       /mobile/chat/conversations/{id}/messages [get]
+// @Router       /chat/conversations/{id}/messages [get]
 func MobileGetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 	return handler.GetConversationMessages(db)
 }
@@ -59,7 +59,7 @@ func MobileGetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 // MobileSendMessage godoc
 // @Summary      Send chat message
 // @Description  Sends a message to a conversation as archer or seller participant
-// @Tags         Mobile - Chat
+// @Tags         Chat
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
@@ -69,7 +69,7 @@ func MobileGetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 // @Failure      400      {object}  ErrorResponse
 // @Failure      403      {object}  ErrorResponse
 // @Failure      404      {object}  ErrorResponse
-// @Router       /mobile/chat/conversations/{id}/messages [post]
+// @Router       /chat/conversations/{id}/messages [post]
 func MobileSendMessage(db *sqlx.DB) gin.HandlerFunc {
 	return handler.SendMessage(db)
 }
@@ -77,11 +77,11 @@ func MobileSendMessage(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetChatUnreadCount godoc
 // @Summary      Get unread chat count
 // @Description  Returns total unread chats for current archer/seller
-// @Tags         Mobile - Chat
+// @Tags         Chat
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200  {object}  MobileChatUnreadResponse
-// @Router       /mobile/chat/unread [get]
+// @Router       /chat/unread [get]
 func MobileGetChatUnreadCount(db *sqlx.DB) gin.HandlerFunc {
 	return handler.GetChatUnreadCount(db)
 }
@@ -89,7 +89,7 @@ func MobileGetChatUnreadCount(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetPeerLastActive godoc
 // @Summary      Get peer last active
 // @Description  Returns last_seen_at and online flag for chat peer (seller or archer)
-// @Tags         Mobile - Chat
+// @Tags         Chat
 // @Produce      json
 // @Security     BearerAuth
 // @Param        peer_type  query     string  true  "Peer type: seller or archer"
@@ -97,7 +97,7 @@ func MobileGetChatUnreadCount(db *sqlx.DB) gin.HandlerFunc {
 // @Success      200        {object}  MobileChatLastActiveResponse
 // @Failure      400        {object}  ErrorResponse
 // @Failure      404        {object}  ErrorResponse
-// @Router       /mobile/chat/last-active [get]
+// @Router       /chat/last-active [get]
 func MobileGetPeerLastActive(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		peerType := c.Query("peer_type")

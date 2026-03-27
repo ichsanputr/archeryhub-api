@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/mobile/archer/cart": {
+        "/archer/cart": {
             "get": {
                 "security": [
                     {
@@ -27,7 +27,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer cart",
                 "responses": {
@@ -52,7 +52,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/cart/checkout": {
+        "/archer/cart/checkout": {
             "post": {
                 "security": [
                     {
@@ -67,7 +67,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Checkout archer cart",
                 "parameters": [
@@ -109,7 +109,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events": {
+        "/archer/events": {
             "get": {
                 "security": [
                     {
@@ -121,7 +121,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "List archer's registered events",
                 "responses": {
@@ -134,7 +134,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/{id}/qr": {
+        "/archer/events/{id}/qr": {
             "get": {
                 "security": [
                     {
@@ -146,7 +146,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer event QR",
                 "parameters": [
@@ -180,7 +180,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/{id}/registration": {
+        "/archer/events/{id}/registration": {
             "get": {
                 "security": [
                     {
@@ -192,7 +192,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer's registration for an event",
                 "parameters": [
@@ -220,7 +220,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/orders": {
+        "/archer/orders": {
             "get": {
                 "security": [
                     {
@@ -232,7 +232,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer order history",
                 "parameters": [
@@ -277,7 +277,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/participants/{participantId}/payment": {
+        "/archer/participants/{participantId}/payment": {
             "post": {
                 "security": [
                     {
@@ -292,7 +292,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Create participant payment",
                 "parameters": [
@@ -346,7 +346,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/google/login": {
+        "/auth/google/login": {
             "post": {
                 "description": "Login using Google ID Token from mobile SDK",
                 "consumes": [
@@ -356,7 +356,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Google login for mobile",
                 "parameters": [
@@ -392,7 +392,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/login": {
+        "/auth/login": {
             "post": {
                 "description": "Login for archers using email and password",
                 "consumes": [
@@ -402,7 +402,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Archer login",
                 "parameters": [
@@ -446,7 +446,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/organization/login": {
+        "/auth/organization/login": {
             "post": {
                 "description": "Login for organizations using email and password",
                 "consumes": [
@@ -456,7 +456,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Organization login",
                 "parameters": [
@@ -506,7 +506,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/register": {
+        "/auth/register": {
             "post": {
                 "description": "Register a new archer account",
                 "consumes": [
@@ -516,7 +516,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Archer registration",
                 "parameters": [
@@ -552,7 +552,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/scorekeeper/login": {
+        "/auth/scorekeeper/login": {
             "post": {
                 "description": "Login for scorekeepers using their unique code",
                 "consumes": [
@@ -562,7 +562,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Scorekeeper login",
                 "parameters": [
@@ -604,7 +604,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/seller/login": {
+        "/auth/seller/login": {
             "post": {
                 "description": "Login for sellers using email and password",
                 "consumes": [
@@ -614,7 +614,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Seller login",
                 "parameters": [
@@ -664,7 +664,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/chat/conversations": {
+        "/chat/conversations": {
             "get": {
                 "security": [
                     {
@@ -676,7 +676,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "List chat conversations",
                 "responses": {
@@ -708,7 +708,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Start or get chat conversation",
                 "parameters": [
@@ -770,7 +770,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/chat/conversations/{id}/messages": {
+        "/chat/conversations/{id}/messages": {
             "get": {
                 "security": [
                     {
@@ -782,7 +782,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Get conversation messages",
                 "parameters": [
@@ -829,7 +829,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Send chat message",
                 "parameters": [
@@ -883,7 +883,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/chat/last-active": {
+        "/chat/last-active": {
             "get": {
                 "security": [
                     {
@@ -895,7 +895,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Get peer last active",
                 "parameters": [
@@ -936,7 +936,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/chat/unread": {
+        "/chat/unread": {
             "get": {
                 "security": [
                     {
@@ -948,7 +948,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Get unread chat count",
                 "responses": {
@@ -961,7 +961,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/end": {
+        "/elimination/scoring/matches/{matchId}/end": {
             "post": {
                 "description": "Calculate winner from scores and finish the match",
                 "consumes": [
@@ -971,7 +971,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "End match manually",
                 "parameters": [
@@ -1013,7 +1013,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/finish": {
+        "/elimination/scoring/matches/{matchId}/finish": {
             "post": {
                 "description": "Mark a match as finished and advance winner to next round",
                 "consumes": [
@@ -1023,7 +1023,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "Finish match",
                 "parameters": [
@@ -1066,7 +1066,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/reset": {
+        "/elimination/scoring/matches/{matchId}/reset": {
             "post": {
                 "description": "Reset a finished match back to in_progress and remove winner from next round",
                 "consumes": [
@@ -1076,7 +1076,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "Reset match",
                 "parameters": [
@@ -1110,7 +1110,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/score": {
+        "/elimination/scoring/matches/{matchId}/score": {
             "post": {
                 "description": "Update or create end scores for a match",
                 "consumes": [
@@ -1120,7 +1120,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "Update match score",
                 "parameters": [
@@ -1163,14 +1163,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events": {
+        "/events": {
             "get": {
                 "description": "Get published events for mobile with pagination and search",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Events"
+                    "Events"
                 ],
                 "summary": "List mobile events",
                 "parameters": [
@@ -1211,14 +1211,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/{slug}": {
+        "/events/{slug}": {
             "get": {
                 "description": "Get event detail (by slug or UUID) with the same response body as /events/:id",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Events"
+                    "Events"
                 ],
                 "summary": "Get mobile event detail",
                 "parameters": [
@@ -1246,14 +1246,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/marketplace/products": {
+        "/marketplace/products": {
             "get": {
                 "description": "Returns active products for mobile marketplace read-only pages",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Marketplace"
+                    "Marketplace"
                 ],
                 "summary": "List marketplace products for mobile",
                 "parameters": [
@@ -1298,14 +1298,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/marketplace/products/{id}": {
+        "/marketplace/products/{id}": {
             "get": {
                 "description": "Returns one product by UUID or slug for mobile marketplace read-only pages",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Marketplace"
+                    "Marketplace"
                 ],
                 "summary": "Get marketplace product detail for mobile",
                 "parameters": [
@@ -1333,14 +1333,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/news": {
+        "/news": {
             "get": {
                 "description": "Returns published news list for mobile read-only pages",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - News"
+                    "News"
                 ],
                 "summary": "List published news for mobile",
                 "parameters": [
@@ -1379,14 +1379,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/news/{id}": {
+        "/news/{id}": {
             "get": {
                 "description": "Returns one published news article by UUID or slug",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - News"
+                    "News"
                 ],
                 "summary": "Get published news detail for mobile",
                 "parameters": [
@@ -1414,7 +1414,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/events": {
+        "/organization/events": {
             "get": {
                 "security": [
                     {
@@ -1426,7 +1426,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "List organization events for mobile",
                 "parameters": [
@@ -1479,7 +1479,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/events/{id}/participants": {
+        "/organization/events/{id}/participants": {
             "get": {
                 "security": [
                     {
@@ -1491,7 +1491,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "List event participants with QR code for mobile organization",
                 "parameters": [
@@ -1557,7 +1557,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/me": {
+        "/organization/me": {
             "get": {
                 "security": [
                     {
@@ -1569,7 +1569,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "Get mobile organization profile",
                 "responses": {
@@ -1607,7 +1607,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "Update mobile organization profile",
                 "parameters": [
@@ -1643,15 +1643,15 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/qualification/scoring/cards": {
+        "/qualification/scoring/cards": {
             "get": {
                 "description": "Get selectable target cards for scoring context",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Qualification",
-                    "Mobile - Elimination"
+                    "Qualification",
+                    "Elimination"
                 ],
                 "summary": "Get scoring cards",
                 "parameters": [
@@ -1686,7 +1686,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/qualification/scoring/scores/{assignmentId}": {
+        "/qualification/scoring/scores/{assignmentId}": {
             "post": {
                 "description": "Update end scores for an assignment (supports batch)",
                 "consumes": [
@@ -1696,7 +1696,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Qualification"
+                    "Qualification"
                 ],
                 "summary": "Update qualification score",
                 "parameters": [
@@ -1739,14 +1739,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/qualification/scoring/targets": {
+        "/qualification/scoring/targets": {
             "get": {
                 "description": "Get scoring progress for a selected target in a session",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Qualification"
+                    "Qualification"
                 ],
                 "summary": "Get scoring targets",
                 "parameters": [
@@ -1788,7 +1788,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/seller/me": {
+        "/seller/me": {
             "get": {
                 "security": [
                     {
@@ -1800,7 +1800,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "Get mobile seller profile",
                 "responses": {
@@ -1838,7 +1838,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "Update mobile seller profile",
                 "parameters": [
@@ -1874,7 +1874,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/seller/me/page": {
+        "/seller/me/page": {
             "put": {
                 "security": [
                     {
@@ -1889,7 +1889,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "Update mobile seller page settings",
                 "parameters": [
@@ -1925,7 +1925,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/seller/products": {
+        "/seller/products": {
             "get": {
                 "security": [
                     {
@@ -1937,7 +1937,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "List seller products for mobile",
                 "parameters": [
@@ -3983,7 +3983,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8001",
-	BasePath:         "/api/v1",
+	BasePath:         "/api/v1/mobile",
 	Schemes:          []string{},
 	Title:            "ArcheryHub Mobile API",
 	Description:      "This documentation is exclusively for the ArcheryHub Mobile Application.\nNOTE: This Swagger only contains endpoints relevant to mobile app workflows (Scoring, Events, and Auth).",

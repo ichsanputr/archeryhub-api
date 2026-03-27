@@ -7,9 +7,9 @@
         "version": "1.0"
     },
     "host": "localhost:8001",
-    "basePath": "/api/v1",
+    "basePath": "/api/v1/mobile",
     "paths": {
-        "/mobile/archer/cart": {
+        "/archer/cart": {
             "get": {
                 "security": [
                     {
@@ -21,7 +21,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer cart",
                 "responses": {
@@ -46,7 +46,7 @@
                 }
             }
         },
-        "/mobile/archer/cart/checkout": {
+        "/archer/cart/checkout": {
             "post": {
                 "security": [
                     {
@@ -61,7 +61,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Checkout archer cart",
                 "parameters": [
@@ -103,7 +103,7 @@
                 }
             }
         },
-        "/mobile/archer/events": {
+        "/archer/events": {
             "get": {
                 "security": [
                     {
@@ -115,7 +115,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "List archer's registered events",
                 "responses": {
@@ -128,7 +128,7 @@
                 }
             }
         },
-        "/mobile/archer/events/{id}/qr": {
+        "/archer/events/{id}/qr": {
             "get": {
                 "security": [
                     {
@@ -140,7 +140,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer event QR",
                 "parameters": [
@@ -174,7 +174,7 @@
                 }
             }
         },
-        "/mobile/archer/events/{id}/registration": {
+        "/archer/events/{id}/registration": {
             "get": {
                 "security": [
                     {
@@ -186,7 +186,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer's registration for an event",
                 "parameters": [
@@ -214,7 +214,7 @@
                 }
             }
         },
-        "/mobile/archer/orders": {
+        "/archer/orders": {
             "get": {
                 "security": [
                     {
@@ -226,7 +226,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Get archer order history",
                 "parameters": [
@@ -271,7 +271,7 @@
                 }
             }
         },
-        "/mobile/archer/participants/{participantId}/payment": {
+        "/archer/participants/{participantId}/payment": {
             "post": {
                 "security": [
                     {
@@ -286,7 +286,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Archer"
+                    "Archer"
                 ],
                 "summary": "Create participant payment",
                 "parameters": [
@@ -340,7 +340,7 @@
                 }
             }
         },
-        "/mobile/auth/google/login": {
+        "/auth/google/login": {
             "post": {
                 "description": "Login using Google ID Token from mobile SDK",
                 "consumes": [
@@ -350,7 +350,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Google login for mobile",
                 "parameters": [
@@ -386,7 +386,7 @@
                 }
             }
         },
-        "/mobile/auth/login": {
+        "/auth/login": {
             "post": {
                 "description": "Login for archers using email and password",
                 "consumes": [
@@ -396,7 +396,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Archer login",
                 "parameters": [
@@ -440,7 +440,7 @@
                 }
             }
         },
-        "/mobile/auth/organization/login": {
+        "/auth/organization/login": {
             "post": {
                 "description": "Login for organizations using email and password",
                 "consumes": [
@@ -450,7 +450,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Organization login",
                 "parameters": [
@@ -500,7 +500,7 @@
                 }
             }
         },
-        "/mobile/auth/register": {
+        "/auth/register": {
             "post": {
                 "description": "Register a new archer account",
                 "consumes": [
@@ -510,7 +510,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Archer registration",
                 "parameters": [
@@ -546,7 +546,7 @@
                 }
             }
         },
-        "/mobile/auth/scorekeeper/login": {
+        "/auth/scorekeeper/login": {
             "post": {
                 "description": "Login for scorekeepers using their unique code",
                 "consumes": [
@@ -556,7 +556,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Scorekeeper login",
                 "parameters": [
@@ -598,7 +598,7 @@
                 }
             }
         },
-        "/mobile/auth/seller/login": {
+        "/auth/seller/login": {
             "post": {
                 "description": "Login for sellers using email and password",
                 "consumes": [
@@ -608,7 +608,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Authentication"
+                    "Authentication"
                 ],
                 "summary": "Seller login",
                 "parameters": [
@@ -658,7 +658,7 @@
                 }
             }
         },
-        "/mobile/chat/conversations": {
+        "/chat/conversations": {
             "get": {
                 "security": [
                     {
@@ -670,7 +670,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "List chat conversations",
                 "responses": {
@@ -702,7 +702,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Start or get chat conversation",
                 "parameters": [
@@ -764,7 +764,7 @@
                 }
             }
         },
-        "/mobile/chat/conversations/{id}/messages": {
+        "/chat/conversations/{id}/messages": {
             "get": {
                 "security": [
                     {
@@ -776,7 +776,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Get conversation messages",
                 "parameters": [
@@ -823,7 +823,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Send chat message",
                 "parameters": [
@@ -877,7 +877,7 @@
                 }
             }
         },
-        "/mobile/chat/last-active": {
+        "/chat/last-active": {
             "get": {
                 "security": [
                     {
@@ -889,7 +889,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Get peer last active",
                 "parameters": [
@@ -930,7 +930,7 @@
                 }
             }
         },
-        "/mobile/chat/unread": {
+        "/chat/unread": {
             "get": {
                 "security": [
                     {
@@ -942,7 +942,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Chat"
+                    "Chat"
                 ],
                 "summary": "Get unread chat count",
                 "responses": {
@@ -955,7 +955,7 @@
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/end": {
+        "/elimination/scoring/matches/{matchId}/end": {
             "post": {
                 "description": "Calculate winner from scores and finish the match",
                 "consumes": [
@@ -965,7 +965,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "End match manually",
                 "parameters": [
@@ -1007,7 +1007,7 @@
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/finish": {
+        "/elimination/scoring/matches/{matchId}/finish": {
             "post": {
                 "description": "Mark a match as finished and advance winner to next round",
                 "consumes": [
@@ -1017,7 +1017,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "Finish match",
                 "parameters": [
@@ -1060,7 +1060,7 @@
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/reset": {
+        "/elimination/scoring/matches/{matchId}/reset": {
             "post": {
                 "description": "Reset a finished match back to in_progress and remove winner from next round",
                 "consumes": [
@@ -1070,7 +1070,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "Reset match",
                 "parameters": [
@@ -1104,7 +1104,7 @@
                 }
             }
         },
-        "/mobile/elimination/scoring/matches/{matchId}/score": {
+        "/elimination/scoring/matches/{matchId}/score": {
             "post": {
                 "description": "Update or create end scores for a match",
                 "consumes": [
@@ -1114,7 +1114,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Elimination"
+                    "Elimination"
                 ],
                 "summary": "Update match score",
                 "parameters": [
@@ -1157,14 +1157,14 @@
                 }
             }
         },
-        "/mobile/events": {
+        "/events": {
             "get": {
                 "description": "Get published events for mobile with pagination and search",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Events"
+                    "Events"
                 ],
                 "summary": "List mobile events",
                 "parameters": [
@@ -1205,14 +1205,14 @@
                 }
             }
         },
-        "/mobile/events/{slug}": {
+        "/events/{slug}": {
             "get": {
                 "description": "Get event detail (by slug or UUID) with the same response body as /events/:id",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Events"
+                    "Events"
                 ],
                 "summary": "Get mobile event detail",
                 "parameters": [
@@ -1240,14 +1240,14 @@
                 }
             }
         },
-        "/mobile/marketplace/products": {
+        "/marketplace/products": {
             "get": {
                 "description": "Returns active products for mobile marketplace read-only pages",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Marketplace"
+                    "Marketplace"
                 ],
                 "summary": "List marketplace products for mobile",
                 "parameters": [
@@ -1292,14 +1292,14 @@
                 }
             }
         },
-        "/mobile/marketplace/products/{id}": {
+        "/marketplace/products/{id}": {
             "get": {
                 "description": "Returns one product by UUID or slug for mobile marketplace read-only pages",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Marketplace"
+                    "Marketplace"
                 ],
                 "summary": "Get marketplace product detail for mobile",
                 "parameters": [
@@ -1327,14 +1327,14 @@
                 }
             }
         },
-        "/mobile/news": {
+        "/news": {
             "get": {
                 "description": "Returns published news list for mobile read-only pages",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - News"
+                    "News"
                 ],
                 "summary": "List published news for mobile",
                 "parameters": [
@@ -1373,14 +1373,14 @@
                 }
             }
         },
-        "/mobile/news/{id}": {
+        "/news/{id}": {
             "get": {
                 "description": "Returns one published news article by UUID or slug",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - News"
+                    "News"
                 ],
                 "summary": "Get published news detail for mobile",
                 "parameters": [
@@ -1408,7 +1408,7 @@
                 }
             }
         },
-        "/mobile/organization/events": {
+        "/organization/events": {
             "get": {
                 "security": [
                     {
@@ -1420,7 +1420,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "List organization events for mobile",
                 "parameters": [
@@ -1473,7 +1473,7 @@
                 }
             }
         },
-        "/mobile/organization/events/{id}/participants": {
+        "/organization/events/{id}/participants": {
             "get": {
                 "security": [
                     {
@@ -1485,7 +1485,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "List event participants with QR code for mobile organization",
                 "parameters": [
@@ -1551,7 +1551,7 @@
                 }
             }
         },
-        "/mobile/organization/me": {
+        "/organization/me": {
             "get": {
                 "security": [
                     {
@@ -1563,7 +1563,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "Get mobile organization profile",
                 "responses": {
@@ -1601,7 +1601,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Organization"
                 ],
                 "summary": "Update mobile organization profile",
                 "parameters": [
@@ -1637,15 +1637,15 @@
                 }
             }
         },
-        "/mobile/qualification/scoring/cards": {
+        "/qualification/scoring/cards": {
             "get": {
                 "description": "Get selectable target cards for scoring context",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Qualification",
-                    "Mobile - Elimination"
+                    "Qualification",
+                    "Elimination"
                 ],
                 "summary": "Get scoring cards",
                 "parameters": [
@@ -1680,7 +1680,7 @@
                 }
             }
         },
-        "/mobile/qualification/scoring/scores/{assignmentId}": {
+        "/qualification/scoring/scores/{assignmentId}": {
             "post": {
                 "description": "Update end scores for an assignment (supports batch)",
                 "consumes": [
@@ -1690,7 +1690,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Qualification"
+                    "Qualification"
                 ],
                 "summary": "Update qualification score",
                 "parameters": [
@@ -1733,14 +1733,14 @@
                 }
             }
         },
-        "/mobile/qualification/scoring/targets": {
+        "/qualification/scoring/targets": {
             "get": {
                 "description": "Get scoring progress for a selected target in a session",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Qualification"
+                    "Qualification"
                 ],
                 "summary": "Get scoring targets",
                 "parameters": [
@@ -1782,7 +1782,7 @@
                 }
             }
         },
-        "/mobile/seller/me": {
+        "/seller/me": {
             "get": {
                 "security": [
                     {
@@ -1794,7 +1794,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "Get mobile seller profile",
                 "responses": {
@@ -1832,7 +1832,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "Update mobile seller profile",
                 "parameters": [
@@ -1868,7 +1868,7 @@
                 }
             }
         },
-        "/mobile/seller/me/page": {
+        "/seller/me/page": {
             "put": {
                 "security": [
                     {
@@ -1883,7 +1883,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "Update mobile seller page settings",
                 "parameters": [
@@ -1919,7 +1919,7 @@
                 }
             }
         },
-        "/mobile/seller/products": {
+        "/seller/products": {
             "get": {
                 "security": [
                     {
@@ -1931,7 +1931,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Seller"
+                    "Seller"
                 ],
                 "summary": "List seller products for mobile",
                 "parameters": [

@@ -43,14 +43,14 @@ type MobileNewsDetail struct {
 // MobileListNews godoc
 // @Summary      List published news for mobile
 // @Description  Returns published news list for mobile read-only pages
-// @Tags         Mobile - News
+// @Tags         News
 // @Produce      json
 // @Param        limit   query     int     false  "Limit"
 // @Param        offset  query     int     false  "Offset"
 // @Param        search  query     string  false  "Search term"
 // @Success      200     {object}  MobileNewsListResponse
 // @Failure      500     {object}  ErrorResponse
-// @Router       /mobile/news [get]
+// @Router       /news [get]
 func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -102,12 +102,12 @@ func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetNewsDetail godoc
 // @Summary      Get published news detail for mobile
 // @Description  Returns one published news article by UUID or slug
-// @Tags         Mobile - News
+// @Tags         News
 // @Produce      json
 // @Param        id  path      string  true  "News UUID or slug"
 // @Success      200 {object}  MobileNewsDetailResponse
 // @Failure      404 {object}  ErrorResponse
-// @Router       /mobile/news/{id} [get]
+// @Router       /news/{id} [get]
 func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

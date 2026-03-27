@@ -328,7 +328,7 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 // UpdateQualificationScore godoc
 // @Summary      Update qualification score
 // @Description  Update end scores for an assignment (supports batch)
-// @Tags         Mobile - Qualification
+// @Tags         Qualification
 // @Accept       json
 // @Produce      json
 // @Param        assignmentId  path      string  true  "Assignment UUID"
@@ -336,7 +336,7 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 // @Success      200           {object}  MessageResponse
 // @Failure      400           {object}  ErrorResponse
 // @Failure      404           {object}  ErrorResponse
-// @Router       /mobile/qualification/scoring/scores/{assignmentId} [post]
+// @Router       /qualification/scoring/scores/{assignmentId} [post]
 func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")

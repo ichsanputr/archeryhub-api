@@ -16,7 +16,7 @@ import (
 // MobileCreateParticipantPayment godoc
 // @Summary      Create participant payment
 // @Description  Create Tripay payment transaction for archer registration in an event
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
@@ -26,7 +26,7 @@ import (
 // @Failure      400            {object}  ErrorResponse
 // @Failure      401            {object}  ErrorResponse
 // @Failure      404            {object}  ErrorResponse
-// @Router       /mobile/archer/participants/{participantId}/payment [post]
+// @Router       /archer/participants/{participantId}/payment [post]
 func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		participantID := c.Param("participantId")

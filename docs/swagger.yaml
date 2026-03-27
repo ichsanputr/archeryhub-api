@@ -1,4 +1,4 @@
-basePath: /api/v1
+basePath: /api/v1/mobile
 definitions:
   handler.ChatConversation:
     properties:
@@ -1371,7 +1371,7 @@ info:
   title: ArcheryHub Mobile API
   version: "1.0"
 paths:
-  /mobile/archer/cart:
+  /archer/cart:
     get:
       description: Returns the authenticated archer cart items
       produces:
@@ -1393,8 +1393,8 @@ paths:
       - BearerAuth: []
       summary: Get archer cart
       tags:
-      - Mobile - Archer
-  /mobile/archer/cart/checkout:
+      - Archer
+  /archer/cart/checkout:
     post:
       consumes:
       - application/json
@@ -1429,8 +1429,8 @@ paths:
       - BearerAuth: []
       summary: Checkout archer cart
       tags:
-      - Mobile - Archer
-  /mobile/archer/events:
+      - Archer
+  /archer/events:
     get:
       description: Returns all events the authenticated archer has registered for
       produces:
@@ -1444,8 +1444,8 @@ paths:
       - BearerAuth: []
       summary: List archer's registered events
       tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/qr:
+      - Archer
+  /archer/events/{id}/qr:
     get:
       description: Returns archer QR information and payment status for a specific
         event
@@ -1474,8 +1474,8 @@ paths:
       - BearerAuth: []
       summary: Get archer event QR
       tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/registration:
+      - Archer
+  /archer/events/{id}/registration:
     get:
       description: Returns registration details including payment status and payment
         instructions
@@ -1500,8 +1500,8 @@ paths:
       - BearerAuth: []
       summary: Get archer's registration for an event
       tags:
-      - Mobile - Archer
-  /mobile/archer/orders:
+      - Archer
+  /archer/orders:
     get:
       description: Returns authenticated archer order history with payment summary
       parameters:
@@ -1536,8 +1536,8 @@ paths:
       - BearerAuth: []
       summary: Get archer order history
       tags:
-      - Mobile - Archer
-  /mobile/archer/participants/{participantId}/payment:
+      - Archer
+  /archer/participants/{participantId}/payment:
     post:
       consumes:
       - application/json
@@ -1581,8 +1581,8 @@ paths:
       - BearerAuth: []
       summary: Create participant payment
       tags:
-      - Mobile - Archer
-  /mobile/auth/google/login:
+      - Archer
+  /auth/google/login:
     post:
       consumes:
       - application/json
@@ -1611,8 +1611,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Google login for mobile
       tags:
-      - Mobile - Authentication
-  /mobile/auth/login:
+      - Authentication
+  /auth/login:
     post:
       consumes:
       - application/json
@@ -1646,8 +1646,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Archer login
       tags:
-      - Mobile - Authentication
-  /mobile/auth/organization/login:
+      - Authentication
+  /auth/organization/login:
     post:
       consumes:
       - application/json
@@ -1685,8 +1685,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Organization login
       tags:
-      - Mobile - Authentication
-  /mobile/auth/register:
+      - Authentication
+  /auth/register:
     post:
       consumes:
       - application/json
@@ -1715,8 +1715,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Archer registration
       tags:
-      - Mobile - Authentication
-  /mobile/auth/scorekeeper/login:
+      - Authentication
+  /auth/scorekeeper/login:
     post:
       consumes:
       - application/json
@@ -1749,8 +1749,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Scorekeeper login
       tags:
-      - Mobile - Authentication
-  /mobile/auth/seller/login:
+      - Authentication
+  /auth/seller/login:
     post:
       consumes:
       - application/json
@@ -1788,8 +1788,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Seller login
       tags:
-      - Mobile - Authentication
-  /mobile/chat/conversations:
+      - Authentication
+  /chat/conversations:
     get:
       description: Lists archer/seller conversations including last message, unread
         counters, and last seen info
@@ -1808,7 +1808,7 @@ paths:
       - BearerAuth: []
       summary: List chat conversations
       tags:
-      - Mobile - Chat
+      - Chat
     post:
       consumes:
       - application/json
@@ -1857,8 +1857,8 @@ paths:
       - BearerAuth: []
       summary: Start or get chat conversation
       tags:
-      - Mobile - Chat
-  /mobile/chat/conversations/{id}/messages:
+      - Chat
+  /chat/conversations/{id}/messages:
     get:
       description: Returns message list in a conversation and marks opposite side
         unread as read
@@ -1887,7 +1887,7 @@ paths:
       - BearerAuth: []
       summary: Get conversation messages
       tags:
-      - Mobile - Chat
+      - Chat
     post:
       consumes:
       - application/json
@@ -1930,8 +1930,8 @@ paths:
       - BearerAuth: []
       summary: Send chat message
       tags:
-      - Mobile - Chat
-  /mobile/chat/last-active:
+      - Chat
+  /chat/last-active:
     get:
       description: Returns last_seen_at and online flag for chat peer (seller or archer)
       parameters:
@@ -1964,8 +1964,8 @@ paths:
       - BearerAuth: []
       summary: Get peer last active
       tags:
-      - Mobile - Chat
-  /mobile/chat/unread:
+      - Chat
+  /chat/unread:
     get:
       description: Returns total unread chats for current archer/seller
       produces:
@@ -1979,8 +1979,8 @@ paths:
       - BearerAuth: []
       summary: Get unread chat count
       tags:
-      - Mobile - Chat
-  /mobile/elimination/scoring/matches/{matchId}/end:
+      - Chat
+  /elimination/scoring/matches/{matchId}/end:
     post:
       consumes:
       - application/json
@@ -2013,8 +2013,8 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: End match manually
       tags:
-      - Mobile - Elimination
-  /mobile/elimination/scoring/matches/{matchId}/finish:
+      - Elimination
+  /elimination/scoring/matches/{matchId}/finish:
     post:
       consumes:
       - application/json
@@ -2048,8 +2048,8 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: Finish match
       tags:
-      - Mobile - Elimination
-  /mobile/elimination/scoring/matches/{matchId}/reset:
+      - Elimination
+  /elimination/scoring/matches/{matchId}/reset:
     post:
       consumes:
       - application/json
@@ -2078,8 +2078,8 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: Reset match
       tags:
-      - Mobile - Elimination
-  /mobile/elimination/scoring/matches/{matchId}/score:
+      - Elimination
+  /elimination/scoring/matches/{matchId}/score:
     post:
       consumes:
       - application/json
@@ -2113,8 +2113,8 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: Update match score
       tags:
-      - Mobile - Elimination
-  /mobile/events:
+      - Elimination
+  /events:
     get:
       description: Get published events for mobile with pagination and search
       parameters:
@@ -2145,8 +2145,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: List mobile events
       tags:
-      - Mobile - Events
-  /mobile/events/{slug}:
+      - Events
+  /events/{slug}:
     get:
       description: Get event detail (by slug or UUID) with the same response body
         as /events/:id
@@ -2169,8 +2169,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Get mobile event detail
       tags:
-      - Mobile - Events
-  /mobile/marketplace/products:
+      - Events
+  /marketplace/products:
     get:
       description: Returns active products for mobile marketplace read-only pages
       parameters:
@@ -2203,8 +2203,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: List marketplace products for mobile
       tags:
-      - Mobile - Marketplace
-  /mobile/marketplace/products/{id}:
+      - Marketplace
+  /marketplace/products/{id}:
     get:
       description: Returns one product by UUID or slug for mobile marketplace read-only
         pages
@@ -2227,8 +2227,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Get marketplace product detail for mobile
       tags:
-      - Mobile - Marketplace
-  /mobile/news:
+      - Marketplace
+  /news:
     get:
       description: Returns published news list for mobile read-only pages
       parameters:
@@ -2257,8 +2257,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: List published news for mobile
       tags:
-      - Mobile - News
-  /mobile/news/{id}:
+      - News
+  /news/{id}:
     get:
       description: Returns one published news article by UUID or slug
       parameters:
@@ -2280,8 +2280,8 @@ paths:
             $ref: '#/definitions/mobile.ErrorResponse'
       summary: Get published news detail for mobile
       tags:
-      - Mobile - News
-  /mobile/organization/events:
+      - News
+  /organization/events:
     get:
       description: Get events owned by the authenticated organization for mobile pages
       parameters:
@@ -2322,8 +2322,8 @@ paths:
       - BearerAuth: []
       summary: List organization events for mobile
       tags:
-      - Mobile - Organization
-  /mobile/organization/events/{id}/participants:
+      - Organization
+  /organization/events/{id}/participants:
     get:
       description: Get participants for an organization-owned event including QR code
         data URLs
@@ -2374,8 +2374,8 @@ paths:
       - BearerAuth: []
       summary: List event participants with QR code for mobile organization
       tags:
-      - Mobile - Organization
-  /mobile/organization/me:
+      - Organization
+  /organization/me:
     get:
       description: Get the authenticated organization profile for mobile pages
       produces:
@@ -2397,7 +2397,7 @@ paths:
       - BearerAuth: []
       summary: Get mobile organization profile
       tags:
-      - Mobile - Organization
+      - Organization
     put:
       consumes:
       - application/json
@@ -2428,8 +2428,8 @@ paths:
       - BearerAuth: []
       summary: Update mobile organization profile
       tags:
-      - Mobile - Organization
-  /mobile/qualification/scoring/cards:
+      - Organization
+  /qualification/scoring/cards:
     get:
       description: Get selectable target cards for scoring context
       parameters:
@@ -2456,9 +2456,9 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: Get scoring cards
       tags:
-      - Mobile - Qualification
-      - Mobile - Elimination
-  /mobile/qualification/scoring/scores/{assignmentId}:
+      - Qualification
+      - Elimination
+  /qualification/scoring/scores/{assignmentId}:
     post:
       consumes:
       - application/json
@@ -2492,8 +2492,8 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: Update qualification score
       tags:
-      - Mobile - Qualification
-  /mobile/qualification/scoring/targets:
+      - Qualification
+  /qualification/scoring/targets:
     get:
       description: Get scoring progress for a selected target in a session
       parameters:
@@ -2525,8 +2525,8 @@ paths:
             $ref: '#/definitions/handler.ErrorResponse'
       summary: Get scoring targets
       tags:
-      - Mobile - Qualification
-  /mobile/seller/me:
+      - Qualification
+  /seller/me:
     get:
       description: Get the authenticated seller profile for mobile pages
       produces:
@@ -2548,7 +2548,7 @@ paths:
       - BearerAuth: []
       summary: Get mobile seller profile
       tags:
-      - Mobile - Seller
+      - Seller
     put:
       consumes:
       - application/json
@@ -2579,8 +2579,8 @@ paths:
       - BearerAuth: []
       summary: Update mobile seller profile
       tags:
-      - Mobile - Seller
-  /mobile/seller/me/page:
+      - Seller
+  /seller/me/page:
     put:
       consumes:
       - application/json
@@ -2611,8 +2611,8 @@ paths:
       - BearerAuth: []
       summary: Update mobile seller page settings
       tags:
-      - Mobile - Seller
-  /mobile/seller/products:
+      - Seller
+  /seller/products:
     get:
       description: Get products owned by the authenticated seller for mobile pages
       parameters:
@@ -2657,5 +2657,5 @@ paths:
       - BearerAuth: []
       summary: List seller products for mobile
       tags:
-      - Mobile - Seller
+      - Seller
 swagger: "2.0"

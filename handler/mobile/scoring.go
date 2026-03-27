@@ -252,7 +252,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetSessionBoards godoc
 // @Summary      List all target boards in a session
 // @Description  Get all boards and their archers with score summaries for a qualification session
-// @Tags         Mobile - Scoring
+// @Tags         Scoring
 // @Produce      json
 // @Param        session_id  query  string  true  "Qualification session UUID"
 // @Success      200         {object}  MobileGetSessionBoardsResponse
@@ -369,7 +369,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetAssignmentScoreDetail godoc
 // @Summary      Get full score detail for an assignment
 // @Description  Returns all ends and arrow scores for a participant's qualification assignment
-// @Tags         Mobile - Scoring
+// @Tags         Scoring
 // @Produce      json
 // @Param        assignmentId  path   string  true  "Target assignment UUID"
 // @Success      200           {object}  MobileAssignmentScoreDetailResponse
@@ -520,7 +520,7 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherLogin godoc
 // @Summary      Archer login
 // @Description  Login for archers using email and password
-// @Tags         Mobile - Authentication
+// @Tags         Authentication
 // @Accept       json
 // @Produce      json
 // @Param        request  body      object{email=string,password=string}  true  "Login credentials"

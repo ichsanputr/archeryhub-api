@@ -26,13 +26,13 @@ func ensureArcherUser(c *gin.Context) bool {
 // MobileArcherGetCart godoc
 // @Summary      Get archer cart
 // @Description  Returns the authenticated archer cart items
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200  {object}  MobileCartResponse
 // @Failure      403  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
-// @Router       /mobile/archer/cart [get]
+// @Router       /archer/cart [get]
 func MobileArcherGetCart(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !ensureArcherUser(c) {
@@ -81,7 +81,7 @@ func MobileArcherGetCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherCheckoutCart godoc
 // @Summary      Checkout archer cart
 // @Description  Creates orders and Tripay payment from authenticated archer cart
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
@@ -90,7 +90,7 @@ func MobileArcherGetCart(db *sqlx.DB) gin.HandlerFunc {
 // @Failure      400      {object}  ErrorResponse
 // @Failure      403      {object}  ErrorResponse
 // @Failure      500      {object}  ErrorResponse
-// @Router       /mobile/archer/cart/checkout [post]
+// @Router       /archer/cart/checkout [post]
 func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !ensureArcherUser(c) {
@@ -302,7 +302,7 @@ func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherGetOrderHistory godoc
 // @Summary      Get archer order history
 // @Description  Returns authenticated archer order history with payment summary
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Produce      json
 // @Security     BearerAuth
 // @Param        status  query     string  false  "Order status"
@@ -311,7 +311,7 @@ func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 // @Success      200     {object}  MobileArcherOrdersResponse
 // @Failure      403     {object}  ErrorResponse
 // @Failure      500     {object}  ErrorResponse
-// @Router       /mobile/archer/orders [get]
+// @Router       /archer/orders [get]
 func MobileArcherGetOrderHistory(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !ensureArcherUser(c) {

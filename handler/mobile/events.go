@@ -14,14 +14,14 @@ import (
 // MobileListEvents godoc
 // @Summary      List mobile events
 // @Description  Get published events for mobile with pagination and search
-// @Tags         Mobile - Events
+// @Tags         Events
 // @Produce      json
 // @Param        limit   query     int     false  "Limit"   default(20)
 // @Param        offset  query     int     false  "Offset"  default(0)
 // @Param        search  query     string  false  "Search term (event name/location)"
 // @Success      200     {object}  MobileEventsResponse
 // @Failure      500     {object}  ErrorResponse
-// @Router       /mobile/events [get]
+// @Router       /events [get]
 func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -91,12 +91,12 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetEventDetail godoc
 // @Summary      Get mobile event detail
 // @Description  Get event detail (by slug or UUID) with the same response body as /events/:id
-// @Tags         Mobile - Events
+// @Tags         Events
 // @Produce      json
 // @Param        slug  path      string  true  "Event slug or UUID"
 // @Success      200   {object}  models.EventWithDetails
 // @Failure      404   {object}  ErrorResponse
-// @Router       /mobile/events/{slug} [get]
+// @Router       /events/{slug} [get]
 func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -210,7 +210,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 // MobileRegisterForEvent godoc
 // @Summary      Register archer for event
 // @Description  Authenticated archer self-registers for one or more event categories
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth

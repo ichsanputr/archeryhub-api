@@ -182,13 +182,13 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetMyRegistration godoc
 // @Summary      Get archer's registration for an event
 // @Description  Returns registration details including payment status and payment instructions
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id  path  string  true  "Event UUID or slug"
 // @Success      200 {object}  MobileMyRegistrationResponse
 // @Failure      404 {object}  ErrorResponse
-// @Router       /mobile/archer/events/{id}/registration [get]
+// @Router       /archer/events/{id}/registration [get]
 func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -268,11 +268,11 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetMyEvents godoc
 // @Summary      List archer's registered events
 // @Description  Returns all events the authenticated archer has registered for
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200  {object}  MobileMyEventsResponse
-// @Router       /mobile/archer/events [get]
+// @Router       /archer/events [get]
 func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -338,14 +338,14 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetEventQRCode godoc
 // @Summary      Get archer event QR
 // @Description  Returns archer QR information and payment status for a specific event
-// @Tags         Mobile - Archer
+// @Tags         Archer
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id  path  string  true  "Event UUID or slug"
 // @Success      200 {object} MobileEventQRCodeResponse
 // @Failure      401 {object} ErrorResponse
 // @Failure      404 {object} ErrorResponse
-// @Router       /mobile/archer/events/{id}/qr [get]
+// @Router       /archer/events/{id}/qr [get]
 func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
