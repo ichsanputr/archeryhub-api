@@ -346,6 +346,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/auth/google/login": {
+            "post": {
+                "description": "Login using Google ID Token from mobile SDK",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Authentication"
+                ],
+                "summary": "Google login for mobile",
+                "parameters": [
+                    {
+                        "description": "Google ID Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOAuthLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/auth/login": {
             "post": {
                 "description": "Login for archers using email and password",
@@ -2351,6 +2397,9 @@ const docTemplate = `{
         "mobile.MobileLoginResponse": {
             "type": "object",
             "properties": {
+                "is_new_user": {
+                    "type": "boolean"
+                },
                 "token": {
                     "type": "string"
                 },
@@ -2554,6 +2603,17 @@ const docTemplate = `{
                 },
                 "total_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOAuthLoginRequest": {
+            "type": "object",
+            "required": [
+                "idToken"
+            ],
+            "properties": {
+                "idToken": {
+                    "type": "string"
                 }
             }
         },

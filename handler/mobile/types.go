@@ -16,8 +16,9 @@ type MobileUser struct {
 
 // MobileLoginResponse represents the response body for mobile login.
 type MobileLoginResponse struct {
-	Token string     `json:"token"`
-	User  MobileUser `json:"user"`
+	Token     string     `json:"token"`
+	IsNewUser bool       `json:"is_new_user"`
+	User      MobileUser `json:"user"`
 }
 
 // MobileEvent represents event information optimized for mobile.

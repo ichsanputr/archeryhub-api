@@ -260,6 +260,8 @@ definitions:
     type: object
   mobile.MobileLoginResponse:
     properties:
+      is_new_user:
+        type: boolean
       token:
         type: string
       user:
@@ -393,6 +395,13 @@ definitions:
         type: array
       total_count:
         type: integer
+    type: object
+  mobile.MobileOAuthLoginRequest:
+    properties:
+      idToken:
+        type: string
+    required:
+    - idToken
     type: object
   mobile.MobileOrderHistoryItem:
     properties:
@@ -1573,6 +1582,36 @@ paths:
       summary: Create participant payment
       tags:
       - Mobile - Archer
+  /mobile/auth/google/login:
+    post:
+      consumes:
+      - application/json
+      description: Login using Google ID Token from mobile SDK
+      parameters:
+      - description: Google ID Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOAuthLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      summary: Google login for mobile
+      tags:
+      - Mobile - Authentication
   /mobile/auth/login:
     post:
       consumes:
