@@ -108,6 +108,96 @@ type MobileRegistrationItem struct {
 	RegistrationDate string  `db:"registration_date" json:"registration_date"`
 }
 
+// MobileNewsListResponse represents news list response.
+type MobileNewsListResponse struct {
+	News       []MobileNewsItem `json:"news"`
+	TotalCount int              `json:"total_count"`
+}
+
+// MobileNewsDetailResponse represents news detail response.
+type MobileNewsDetailResponse struct {
+	News MobileNewsDetail `json:"news"`
+}
+
+// MobileNewsCommentsResponse represents news comments list response.
+type MobileNewsCommentsResponse struct {
+	Comments []MobileNewsComment `json:"comments"`
+	Count    int                 `json:"count"`
+}
+
+// MobileMarketplaceProductsResponse represents marketplace products list.
+type MobileMarketplaceProductsResponse struct {
+	Products    []models.Product `json:"products"`
+	TotalCount  int              `json:"total_count"`
+}
+
+// MobileMarketplaceProductResponse represents marketplace product detail.
+type MobileMarketplaceProductResponse struct {
+	Product models.Product `json:"product"`
+}
+
+// MobileRelatedNewsResponse represents related news items.
+type MobileRelatedNewsResponse struct {
+	News []MobileNewsItem `json:"news"`
+}
+
+// MobilePaymentTransactionResponse represents payment details.
+type MobilePaymentTransactionResponse struct {
+	ID              string  `json:"id"`
+	Reference       string  `json:"reference"`
+	TripayReference *string `json:"tripay_reference"`
+	Amount          float64 `json:"amount"`
+	VANumber        *string `json:"va_number"`
+	CheckoutURL     *string `json:"checkout_url"`
+	Status          string  `json:"status"`
+}
+
+// MobileCartResponse represents cart contents.
+type MobileCartResponse struct {
+	Data interface{} `json:"data"`
+}
+
+// MobileCheckoutResponse represents checkout result.
+type MobileCheckoutResponse struct {
+	Message   string      `json:"message"`
+	Reference string      `json:"reference"`
+	Payment   interface{} `json:"payment"`
+}
+
+// MobileArcherOrdersResponse represents orders for an archer.
+type MobileArcherOrdersResponse struct {
+	Orders []MobileOrderHistoryItem `json:"orders"`
+	Total  int                      `json:"total"`
+	Limit  int                      `json:"limit"`
+	Offset int                      `json:"offset"`
+}
+
+// MobileChatbotResponse represents chatbot message response.
+type MobileChatbotResponse struct {
+	Intent       string   `json:"intent"`
+	Confidence   float64  `json:"confidence"`
+	Answer       string   `json:"answer"`
+	QuickActions []string `json:"quick_actions"`
+}
+
+// MobileChatbotIntentsResponse represents chatbot intents list.
+type MobileChatbotIntentsResponse struct {
+	Intents []Intent `json:"intents"`
+}
+
+// MobileMyRegistrationResponse represents registrations for a specific event.
+type MobileMyRegistrationResponse struct {
+	EventID       string                   `json:"event_id"`
+	Registrations []MobileRegistrationItem `json:"registrations"`
+}
+
+// MobileMyEventsResponse represents events the archer is participating in.
+type MobileMyEventsResponse struct {
+	Events []MobileMyEventItem `json:"events"`
+	Total  int                 `json:"total"`
+}
+
+
 // MobileMyEventItem represents an event row for archer my events.
 type MobileMyEventItem struct {
 	EventUUID        string  `db:"event_uuid" json:"event_uuid"`

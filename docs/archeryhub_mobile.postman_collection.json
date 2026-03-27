@@ -1,8 +1,8 @@
 {
 	"info": {
-		"_postman_id": "a49ee7d7-9d7b-4be7-8652-342f2fca23f9",
-		"name": "ArcheryHub Mobile API",
-		"description": "API collection for ArcheryHub mobile application - including News, Events, and Organization features.",
+		"_postman_id": "c7a9b8e6-1234-4567-89ab-cdef12345678",
+		"name": "ArcheryHub Mobile API (Official)",
+		"description": "Comprehensive Postman collection for ArcheryHub mobile application. Contains actual request and response examples for all key workflows.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -11,6 +11,20 @@
 			"item": [
 				{
 					"name": "Archer Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"let res = pm.response.json();",
+									"if (res.token) {",
+									"    pm.environment.set('jwt_token', res.token);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [],
@@ -34,10 +48,33 @@
 								"login"
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "Login Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "{\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"is_new_user\": false,\n    \"user\": {\n        \"uuid\": \"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9\",\n        \"id\": \"ARC-0012\",\n        \"username\": \"budi_archer\",\n        \"full_name\": \"Budi Archer\",\n        \"email\": \"archer@example.com\",\n        \"avatar_url\": \"https://cdn.archeryhub.id/media/archers/budi.jpg\",\n        \"role\": \"archer\",\n        \"user_type\": \"archer\"\n    }\n}"
+						}
+					]
 				},
 				{
 					"name": "Organization Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"let res = pm.response.json();",
+									"if (res.token) {",
+									"    pm.environment.set('jwt_token', res.token);",
+									"}"
+								]
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [],
@@ -61,7 +98,16 @@
 								"login"
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "Login Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "{\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"is_new_user\": false,\n    \"user\": {\n        \"uuid\": \"org-123e4567-e89b-12d3-a456-426614174000\",\n        \"id\": \"ORG-5521\",\n        \"username\": \"archeryhub_jakarta\",\n        \"full_name\": \"ArcheryHub Club Jakarta\",\n        \"email\": \"org@example.com\",\n        \"avatar_url\": \"https://cdn.archeryhub.id/media/orgs/jakarta.jpg\",\n        \"role\": \"organization\",\n        \"user_type\": \"organization\"\n    }\n}"
+						}
+					]
 				}
 			]
 		},
@@ -92,7 +138,16 @@
 								}
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "News List Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "[\n    {\n        \"id\": \"news-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n        \"title\": \"Selamat kepada Pemenang ArcheryHub Championship 2024\",\n        \"slug\": \"selamat-kepada-para-pemenang-archeryhub-championship-2024\",\n        \"excerpt\": \"Turnamen tahunan ArcheryHub Championship 2024 telah berakhir with sukses besar...\",\n        \"image_url\": \"https://cdn.archeryhub.id/media/news/winners-2024.jpg\",\n        \"category\": \"Event\",\n        \"author_name\": \"Admin ArcheryHub\",\n        \"views\": 1250,\n        \"published_at\": \"2024-03-20T10:00:00Z\",\n        \"created_at\": \"2024-03-15T08:00:00Z\"\n    }\n]"
+						}
+					]
 				},
 				{
 					"name": "Get News Detail",
@@ -109,7 +164,16 @@
 								"tips-memilih-perlengkapan-archery-pertama-anda"
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "Detail Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "{\n    \"id\": \"news-a49ee7d7-9d7b-4be7-8652-342f2fca23f9\",\n    \"title\": \"Tips Memilih Perlengkapan Archery Pertama Anda\",\n    \"slug\": \"tips-memilih-perlengkapan-archery-pertama-anda\",\n    \"content\": \"<p>Bagi pemula, memilih busur dan anak panah pertama bisa menjadi tugas yang membingungkan...</p>\",\n    \"image_url\": \"https://cdn.archeryhub.id/media/news/tips-gear.jpg\",\n    \"category\": \"Tips\",\n    \"tags\": \"peralatan,pemula,panahan\",\n    \"author_name\": \"Coach Hendra\",\n    \"views\": 3400,\n    \"published_at\": \"2024-02-10T14:30:00Z\",\n    \"created_at\": \"2024-02-05T09:00:00Z\"\n}"
+						}
+					]
 				},
 				{
 					"name": "List News Comments",
@@ -127,7 +191,16 @@
 								"comments"
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "Comments Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "[\n    {\n        \"id\": \"comm-123\",\n        \"news_id\": \"news-a49ee7d7-9d7b-4be7-8652-342f2fca23f9\",\n        \"user_id\": \"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9\",\n        \"user_type\": \"archer\",\n        \"user_name\": \"Budi Archer\",\n        \"content\": \"Sangat membantu untuk saya yang baru mulai latihan!\",\n        \"created_at\": \"2024-03-27T10:00:00Z\"\n    }\n]"
+						}
+					]
 				},
 				{
 					"name": "Add News Comment",
@@ -154,80 +227,31 @@
 								"comments"
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "Comment Added Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "{\n    \"message\": \"Komentar berhasil ditambahkan\"\n}"
+						}
+					]
 				}
 			]
 		},
 		{
-			"name": "Events",
+			"name": "Organization Portal",
 			"item": [
 				{
-					"name": "List Public Events",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/events",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"events"
-							]
-						}
-					}
-				},
-				{
-					"name": "Register for Event",
+					"name": "My Profile",
 					"request": {
 						"auth": {
 							"type": "bearer",
 							"bearer": [
 								{
 									"key": "token",
-									"value": "{{auth_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"category_id\": \"cat-uuid-here\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/archer/events/register",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"archer",
-								"events",
-								"register"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Organization",
-			"item": [
-				{
-					"name": "My Organization Profile",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{auth_token}}",
+									"value": "{{jwt_token}}",
 									"type": "string"
 								}
 							]
@@ -244,34 +268,16 @@
 								"me"
 							]
 						}
-					}
-				},
-				{
-					"name": "List My Events",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{auth_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/organization/events",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"organization",
-								"events"
-							]
+					},
+					"response": [
+						{
+							"name": "Profile Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "{\n    \"data\": {\n        \"uuid\": \"org-123e4567-e89b-12d3-a456-426614174000\",\n        \"name\": \"ArcheryHub Club Jakarta\",\n        \"slug\": \"archeryhub-club-jakarta\",\n        \"email\": \"jakarta@archeryhub.id\",\n        \"logo_url\": \"https://cdn.archeryhub.id/media/orgs/jakarta.jpg\",\n        \"bio\": \"Klub panahan profesional di jantung kota Jakarta.\",\n        \"city\": \"Jakarta Selatan\",\n        \"address\": \"Gelora Bung Karno, Senayan\"\n    }\n}"
 						}
-					}
+					]
 				},
 				{
 					"name": "Scan Registration QR",
@@ -281,7 +287,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "{{auth_token}}",
+									"value": "{{jwt_token}}",
 									"type": "string"
 								}
 							]
@@ -290,7 +296,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"code\": \"REG-sample-code-abc-123\"\n}",
+							"raw": "{\n    \"code\": \"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -307,29 +313,59 @@
 								"scan-registration"
 							]
 						}
-					}
+					},
+					"response": [
+						{
+							"name": "Scan Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "{\n    \"participant_uuid\": \"f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n    \"full_name\": \"Rizky Pratama\",\n    \"athlete_code\": \"ARC-0042\",\n    \"event_name\": \"ArcheryHub Jakarta Open 2026\",\n    \"category_name\": \"Recurve Umum Putra\",\n    \"club_name\": \"ArcheryHub Club Jakarta\",\n    \"payment_status\": \"lunas\",\n    \"last_reregistration_at\": \"2026-03-27T12:00:00Z\"\n}"
+						}
+					]
 				}
 			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
 		},
 		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
+			"name": "Archer Portal",
+			"item": [
+				{
+					"name": "My Events",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/archer/events",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"archer",
+								"events"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "Events Success",
+							"status": "OK",
+							"code": 200,
+							"header": [],
+							"body": "[\n    {\n        \"id\": \"reg-123\",\n        \"category_name\": \"Recurve Umum Putra\",\n        \"payment_status\": \"lunas\",\n        \"payment_amount\": 250000,\n        \"qr_raw\": \"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a\",\n        \"qr_code_data_url\": \"data:image/png;base64,...\"\n    }\n]"
+						}
+					]
+				}
+			]
 		}
 	],
 	"variable": [
@@ -339,7 +375,7 @@
 			"type": "string"
 		},
 		{
-			"key": "auth_token",
+			"key": "jwt_token",
 			"value": "your-jwt-token-here",
 			"type": "string"
 		}
