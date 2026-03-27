@@ -575,6 +575,9 @@ func main() {
 				mobileArcher.GET("/me", mobilehandler.MobileGetArcherMe(db))
 				mobileArcher.PUT("/me", mobilehandler.MobileUpdateArcherMe(db))
 				mobileArcher.GET("/cart", mobilehandler.MobileArcherGetCart(db))
+				mobileArcher.POST("/cart", mobilehandler.MobileArcherAddToCart(db))
+				mobileArcher.PUT("/cart/:id", mobilehandler.MobileArcherUpdateCartItem(db))
+				mobileArcher.DELETE("/cart/:id", mobilehandler.MobileArcherRemoveFromCart(db))
 				mobileArcher.POST("/cart/checkout", mobilehandler.MobileArcherCheckoutCart(db))
 				mobileArcher.GET("/orders", mobilehandler.MobileArcherGetOrderHistory(db))
 

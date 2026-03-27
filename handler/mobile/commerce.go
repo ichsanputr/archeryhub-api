@@ -69,6 +69,141 @@ func MobileArcherGetCart(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileArcherAddToCart (POST /archer/cart)
+func MobileArcherAddToCart(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !ensureArcherUser(c) {
+			return
+		}
+
+		userID, _ := c.Get("user_id")
+		var req models.AddToCartRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid: " + err.Error()})
+			return
+		}
+
+		// Check if product exists and is active
+		var product struct {
+			UUID  string `db:"uuid"`
+			Stock int    `db:"stock"`
+		}
+		err := db.Get(&product, "SELECT uuid, stock FROM products WHERE uuid = ? AND status = 'active'", req.ProductID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan atau tidak aktif"})
+			return
+		}
+
+		if req.Quantity > product.Stock {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Stok tidak mencukupi, sisa stok: %d", product.Stock)})
+			return
+		}
+
+		// Check if already in cart
+		var existing models.CartItem
+		err = db.Get(&existing, "SELECT uuid, quantity FROM cart_items WHERE user_id = ? AND product_id = ?", fmt.Sprintf("%v", userID), req.ProductID)
+		if err == nil {
+			// Update quantity
+			newQty := existing.Quantity + req.Quantity
+			if newQty > product.Stock {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Total kuantitas di keranjang melebihi stok"})
+				return
+			}
+			_, err = db.Exec("UPDATE cart_items SET quantity = ?, updated_at = NOW() WHERE uuid = ?", newQty, existing.UUID)
+		} else {
+			// Insert new
+			colorParam := interface{}(nil)
+			if req.Color != "" {
+				colorParam = req.Color
+			}
+			_, err = db.Exec(`
+				INSERT INTO cart_items (uuid, user_id, product_id, quantity, color)
+				VALUES (?, ?, ?, ?, ?)
+			`, uuid.New().String(), fmt.Sprintf("%v", userID), req.ProductID, req.Quantity, colorParam)
+		}
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses keranjang: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Produk berhasil ditambahkan ke keranjang"})
+	}
+}
+
+// MobileArcherUpdateCartItem (PUT /archer/cart/:id)
+func MobileArcherUpdateCartItem(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !ensureArcherUser(c) {
+			return
+		}
+
+		itemID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		var req models.UpdateCartItemRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid"})
+			return
+		}
+
+		// Verify ownership and check stock
+		var info struct {
+			Stock int `db:"product_stock"`
+		}
+		query := `
+			SELECT p.stock as product_stock 
+			FROM cart_items c 
+			JOIN products p ON c.product_id = p.uuid 
+			WHERE c.uuid = ? AND c.user_id = ?
+		`
+		err := db.Get(&info, query, itemID, fmt.Sprintf("%v", userID))
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Item keranjang tidak ditemukan"})
+			return
+		}
+
+		if req.Quantity > info.Stock {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kuantitas melebihi stok yang tersedia"})
+			return
+		}
+
+		_, err = db.Exec("UPDATE cart_items SET quantity = ?, updated_at = NOW() WHERE uuid = ? AND user_id = ?", req.Quantity, itemID, fmt.Sprintf("%v", userID))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui keranjang"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Kuantitas keranjang berhasil diperbarui"})
+	}
+}
+
+// MobileArcherRemoveFromCart (DELETE /archer/cart/:id)
+func MobileArcherRemoveFromCart(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !ensureArcherUser(c) {
+			return
+		}
+
+		itemID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		result, err := db.Exec("DELETE FROM cart_items WHERE uuid = ? AND user_id = ?", itemID, fmt.Sprintf("%v", userID))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus item"})
+			return
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Item tidak ditemukan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Item berhasil dihapus dari keranjang"})
+	}
+}
+
 // MobileArcherCheckoutCart godoc
 func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
