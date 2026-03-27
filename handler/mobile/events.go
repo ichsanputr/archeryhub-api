@@ -39,8 +39,10 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				t.uuid, t.name, t.location, t.start_date, t.end_date, t.logo_url, t.banner_url,
-				u.full_name as organizer_name,
+				t.uuid, t.name, COALESCE(t.location, '') as location, 
+				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
+				t.logo_url, t.banner_url,
+				COALESCE(u.full_name, '') as organizer_name,
 				u.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT tp.archer_id) as participant_count
 			FROM events t
