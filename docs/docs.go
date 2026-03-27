@@ -134,6 +134,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/archer/events/register": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Allows an authenticated archer to self-register for multiple categories in an event. Returns registration ID and categories.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Register for an event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID or slug (optional if in body)",
+                        "name": "id",
+                        "in": "path"
+                    },
+                    {
+                        "description": "Registration payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "event_category_ids": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "event_id": {
+                                    "type": "string"
+                                },
+                                "payment_amount": {
+                                    "type": "number",
+                                    "format": "float64"
+                                },
+                                "payment_type": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/archer/events/{id}/detail": {
             "get": {
                 "security": [
@@ -1373,8 +1454,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileChatbotIntentsResponse"
                         }
                     }
                 }
@@ -1413,8 +1493,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileChatbotResponse"
                         }
                     }
                 }
@@ -1825,8 +1904,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileNewsListResponse"
                         }
                     }
                 }
@@ -1854,8 +1932,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileNewsDetailResponse"
                         }
                     }
                 }
@@ -1883,8 +1960,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileNewsCommentsResponse"
                         }
                     }
                 }
@@ -1930,8 +2006,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MessageResponse"
                         }
                     }
                 }
@@ -1960,8 +2035,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileRelatedNewsResponse"
                         }
                     }
                 }
@@ -2189,6 +2263,63 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/organization/scan-registration": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Scan an archer's registration QR code (qr_raw) to confirm attendance at an event organized by the authenticated organization",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Organization"
+                ],
+                "summary": "Scan archer QR for reregistration",
+                "parameters": [
+                    {
+                        "description": "Scan payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationScanRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationScanRegistrationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/mobile.ErrorResponse"
                         }
@@ -2771,6 +2902,23 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.Intent": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "examples": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "mobile.MessageResponse": {
             "type": "object",
             "properties": {
@@ -2936,6 +3084,44 @@ const docTemplate = `{
             "properties": {
                 "unread": {
                     "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileChatbotIntentsResponse": {
+            "type": "object",
+            "properties": {
+                "intents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.Intent"
+                    }
+                }
+            }
+        },
+        "mobile.MobileChatbotResponse": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string",
+                    "example": "Halo! Ada yang bisa aku bantu?"
+                },
+                "confidence": {
+                    "type": "number",
+                    "example": 0.95
+                },
+                "intent": {
+                    "type": "string",
+                    "example": "greeting"
+                },
+                "quick_actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "Cek Jadwal Event",
+                        "Bantuan Pendaftaran"
+                    ]
                 }
             }
         },
@@ -3125,6 +3311,156 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/mobile.MobileRegistrationItem"
                     }
+                }
+            }
+        },
+        "mobile.MobileNewsComment": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "guest_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "news_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "user_name": {
+                    "type": "string"
+                },
+                "user_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileNewsCommentsResponse": {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileNewsComment"
+                    }
+                },
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileNewsDetail": {
+            "type": "object",
+            "properties": {
+                "author_name": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "excerpt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "meta_description": {
+                    "type": "string"
+                },
+                "meta_title": {
+                    "type": "string"
+                },
+                "published_at": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "views": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileNewsDetailResponse": {
+            "type": "object",
+            "properties": {
+                "news": {
+                    "$ref": "#/definitions/mobile.MobileNewsDetail"
+                }
+            }
+        },
+        "mobile.MobileNewsItem": {
+            "type": "object",
+            "properties": {
+                "author_name": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "excerpt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "published_at": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "views": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileNewsListResponse": {
+            "type": "object",
+            "properties": {
+                "news": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileNewsItem"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -3524,6 +3860,55 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileOrganizationScanRegistrationRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                }
+            }
+        },
+        "mobile.MobileOrganizationScanRegistrationResponse": {
+            "type": "object",
+            "properties": {
+                "athlete_code": {
+                    "type": "string",
+                    "example": "ARC-0042"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Recurve Umum Putra"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "event_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta Open 2026"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "last_reregistration_at": {
+                    "type": "string",
+                    "example": "2026-03-27T10:00:00Z"
+                },
+                "participant_uuid": {
+                    "type": "string",
+                    "example": "f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "lunas"
+                }
+            }
+        },
         "mobile.MobilePaymentTransactionResponse": {
             "type": "object",
             "properties": {
@@ -3577,6 +3962,26 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileRegisterEventResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "registered_categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "registration_id": {
+                    "type": "string"
+                }
+            }
+        },
         "mobile.MobileRegistrationItem": {
             "type": "object",
             "properties": {
@@ -3621,6 +4026,17 @@ const docTemplate = `{
                 },
                 "va_number": {
                     "type": "string"
+                }
+            }
+        },
+        "mobile.MobileRelatedNewsResponse": {
+            "type": "object",
+            "properties": {
+                "news": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileNewsItem"
+                    }
                 }
             }
         },

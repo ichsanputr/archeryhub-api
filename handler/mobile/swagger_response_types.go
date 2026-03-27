@@ -42,23 +42,7 @@ type MobileEventDetailResponse struct {
 	RegistrationStatus string                   `json:"registration_status"`
 }
 
-// MobileRegistrationItem represents one archer registration row.
-type MobileRegistrationItem struct {
-	ID               string  `json:"id"`
-	CategoryName     string  `json:"category_name"`
-	PaymentStatus    string  `json:"payment_status"`
-	PaymentAmount    float64 `json:"payment_amount"`
-	QRRaw            *string `json:"qr_raw"`
-	QRCodeDataURL    *string `json:"qr_code_data_url"`
-	PaymentMethod    *string `json:"payment_method"`
-	TripayReference  *string `json:"tripay_reference"`
-	CheckoutURL      *string `json:"checkout_url"`
-	Instructions     *string `json:"instructions"`
-	VANumber         *string `json:"va_number"`
-	PayCode          *string `json:"pay_code"`
-	QRURL            *string `json:"qr_url"`
-	RegistrationDate string  `json:"registration_date"`
-}
+// ... moved to types.go ...
 
 // MobileMyRegistrationResponse represents /mobile/archer/events/{id}/registration.
 type MobileMyRegistrationResponse struct {
@@ -66,21 +50,7 @@ type MobileMyRegistrationResponse struct {
 	Registrations []MobileRegistrationItem `json:"registrations"`
 }
 
-// MobileMyEventItem represents an event row for archer my events.
-type MobileMyEventItem struct {
-	EventUUID        string  `json:"event_uuid"`
-	EventName        string  `json:"event_name"`
-	EventSlug        string  `json:"event_slug"`
-	Location         string  `json:"location"`
-	StartDate        string  `json:"start_date"`
-	EndDate          string  `json:"end_date"`
-	LogoURL          *string `json:"logo_url"`
-	QRRaw            *string `json:"qr_raw"`
-	QRCodeDataURL    *string `json:"qr_code_data_url"`
-	CategoryName     string  `json:"category_name"`
-	PaymentStatus    string  `json:"payment_status"`
-	RegistrationDate string  `json:"registration_date"`
-}
+// ... moved to types.go ...
 
 // MobileMyEventsResponse represents /mobile/archer/events.
 type MobileMyEventsResponse struct {
@@ -106,6 +76,30 @@ type MobileNewsListResponse struct {
 // MobileNewsDetailResponse represents /mobile/news/{id} response.
 type MobileNewsDetailResponse struct {
 	News MobileNewsDetail `json:"news"`
+}
+
+// MobileNewsCommentsResponse represents /mobile/news/{id}/comments response.
+type MobileNewsCommentsResponse struct {
+	Comments []MobileNewsComment `json:"comments"`
+	Count    int                 `json:"count"`
+}
+
+// MobileRelatedNewsResponse represents /mobile/news/{id}/related response.
+type MobileRelatedNewsResponse struct {
+	News []MobileNewsItem `json:"news"`
+}
+
+// MobileChatbotResponse represents chatbot keyword/intent response.
+type MobileChatbotResponse struct {
+	Intent       string   `json:"intent" example:"greeting"`
+	Confidence   float64  `json:"confidence" example:"0.95"`
+	Answer       string   `json:"answer" example:"Halo! Ada yang bisa aku bantu?"`
+	QuickActions []string `json:"quick_actions" swaggertype:"array,string" example:"Cek Jadwal Event,Bantuan Pendaftaran"`
+}
+
+// MobileChatbotIntentsResponse represents /mobile/chatbot/intents response.
+type MobileChatbotIntentsResponse struct {
+	Intents []Intent `json:"intents"`
 }
 
 // MobileMarketplaceProductsResponse represents /mobile/marketplace/products.
@@ -151,20 +145,7 @@ type MobilePaymentTransactionResponse struct {
 	Status          string  `json:"status"`
 }
 
-// MobileOrderHistoryItem represents one row in order history.
-type MobileOrderHistoryItem struct {
-	ID               string  `json:"id"`
-	SellerID         string  `json:"seller_id"`
-	SellerName       string  `json:"seller_name"`
-	TotalAmount      float64 `json:"total_amount"`
-	Status           string  `json:"status"`
-	PaymentStatus    string  `json:"payment_status"`
-	TotalItems       int     `json:"total_items"`
-	PaymentReference *string `json:"payment_reference"`
-	CheckoutURL      *string `json:"checkout_url"`
-	PaymentMethod    *string `json:"payment_method"`
-	CreatedAt        string  `json:"created_at"`
-}
+// ... moved to types.go ...
 
 // MobileArcherOrdersResponse represents /mobile/archer/orders.
 type MobileArcherOrdersResponse struct {

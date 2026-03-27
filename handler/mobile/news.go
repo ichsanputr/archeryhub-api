@@ -10,47 +10,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type MobileNewsComment struct {
-	UUID      string  `db:"uuid" json:"id"`
-	NewsID    string  `db:"news_id" json:"news_id"`
-	UserID    *string `db:"user_id" json:"user_id,omitempty"`
-	UserType  string  `db:"user_type" json:"user_type"`
-	GuestName *string `db:"guest_name" json:"guest_name,omitempty"`
-	Content   string  `db:"content" json:"content"`
-	CreatedAt string  `db:"created_at" json:"created_at"`
-}
-
-type MobileNewsItem struct {
-	UUID        string  `db:"uuid" json:"id"`
-	Title       string  `db:"title" json:"title"`
-	Slug        string  `db:"slug" json:"slug"`
-	Excerpt     *string `db:"excerpt" json:"excerpt,omitempty"`
-	ImageURL    *string `db:"image_url" json:"image_url,omitempty"`
-	Category    string  `db:"category" json:"category"`
-	AuthorName  *string `db:"author_name" json:"author_name,omitempty"`
-	Views       int     `db:"views" json:"views"`
-	PublishedAt *string `db:"published_at" json:"published_at,omitempty"`
-	CreatedAt   string  `db:"created_at" json:"created_at"`
-}
-
-type MobileNewsDetail struct {
-	UUID            string  `db:"uuid" json:"id"`
-	Title           string  `db:"title" json:"title"`
-	Slug            string  `db:"slug" json:"slug"`
-	Excerpt         *string `db:"excerpt" json:"excerpt,omitempty"`
-	Content         *string `db:"content" json:"content,omitempty"`
-	ImageURL        *string `db:"image_url" json:"image_url,omitempty"`
-	Category        string  `db:"category" json:"category"`
-	Tags            *string `db:"tags" json:"tags,omitempty"`
-	AuthorName      *string `db:"author_name" json:"author_name,omitempty"`
-	MetaTitle       *string `db:"meta_title" json:"meta_title,omitempty"`
-	MetaDescription *string `db:"meta_description" json:"meta_description,omitempty"`
-	Views           int     `db:"views" json:"views"`
-	PublishedAt     *string `db:"published_at" json:"published_at,omitempty"`
-	CreatedAt       string  `db:"created_at" json:"created_at"`
-	UpdatedAt       string  `db:"updated_at" json:"updated_at"`
-}
-
 // MobileListNews godoc
 // @Summary      List published news for mobile
 // @Tags         News
@@ -58,7 +17,7 @@ type MobileNewsDetail struct {
 // @Param        limit   query     int     false  "Limit"
 // @Param        offset  query     int     false  "Offset"
 // @Param        search  query     string  false  "Search term"
-// @Success      200     {object}  map[string]interface{}
+// @Success      200     {object}  MobileNewsListResponse
 // @Router       /news [get]
 func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -101,9 +60,9 @@ func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"news":        news,
-			"total_count": len(news),
+		c.JSON(http.StatusOK, MobileNewsListResponse{
+			News:       news,
+			TotalCount: len(news),
 		})
 	}
 }
@@ -113,7 +72,7 @@ func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 // @Tags         News
 // @Produce      json
 // @Param        id  path      string  true  "News UUID or slug"
-// @Success      200 {object}  map[string]interface{}
+// @Success      200 {object}  MobileNewsDetailResponse
 // @Router       /news/{id} [get]
 func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -140,7 +99,7 @@ func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 			article.ImageURL = &masked
 		}
 
-		c.JSON(http.StatusOK, gin.H{"news": article})
+		c.JSON(http.StatusOK, MobileNewsDetailResponse{News: article})
 	}
 }
 
@@ -149,7 +108,7 @@ func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Tags         News
 // @Produce      json
 // @Param        id   path      string  true  "News UUID or slug"
-// @Success      200  {object}  map[string]interface{}
+// @Success      200  {object}  MobileNewsCommentsResponse
 // @Router       /news/{id}/comments [get]
 func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -157,7 +116,13 @@ func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 
 		var comments []MobileNewsComment
 		query := `
-			SELECT c.uuid, c.news_id, c.user_id, c.user_type, c.guest_name, c.content, c.created_at
+			SELECT c.uuid, c.news_id, c.user_id, c.user_type, c.guest_name, c.content, c.created_at,
+				CASE 
+					WHEN c.user_type = 'archer' THEN (SELECT full_name FROM archers WHERE uuid = c.user_id)
+					WHEN c.user_type = 'organization' THEN (SELECT name FROM organizations WHERE uuid = c.user_id)
+					WHEN c.user_type = 'seller' THEN (SELECT store_name FROM sellers WHERE uuid = c.user_id)
+					ELSE c.guest_name
+				END as user_name
 			FROM news_comments c
 			JOIN news n ON c.news_id = n.uuid
 			WHERE (n.uuid = ? OR n.slug = ?) AND c.status = 'approved'
@@ -173,9 +138,9 @@ func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 			comments = []MobileNewsComment{}
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"comments": comments,
-			"count":    len(comments),
+		c.JSON(http.StatusOK, MobileNewsCommentsResponse{
+			Comments: comments,
+			Count:    len(comments),
 		})
 	}
 }
@@ -187,7 +152,7 @@ func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 // @Produce      json
 // @Param        id       path      string  true  "News UUID or slug"
 // @Param        request  body      object{guest_name=string,content=string}  true  "Comment payload"
-// @Success      201      {object}  map[string]interface{}
+// @Success      201      {object}  MessageResponse
 // @Router       /news/{id}/comments [post]
 func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -251,7 +216,7 @@ func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 // @Tags         News
 // @Produce      json
 // @Param        id   path      string  true  "News UUID or slug"
-// @Success      200  {object}  map[string]interface{}
+// @Success      200  {object}  MobileRelatedNewsResponse
 // @Router       /news/{id}/related [get]
 func MobileListRelatedNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -294,8 +259,8 @@ func MobileListRelatedNews(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"news": news,
+		c.JSON(http.StatusOK, MobileRelatedNewsResponse{
+			News: news,
 		})
 	}
 }

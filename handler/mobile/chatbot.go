@@ -13,11 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Intent struct {
-	Name     string   `json:"name"`
-	Examples []string `json:"examples"`
-	Answer   string   `json:"answer"`
-}
+// ... moved to types.go ...
 
 var chatbotIntents = []Intent{
 	{
@@ -169,7 +165,7 @@ func recommendedQuickActions() []string {
 // @Accept       json
 // @Produce      json
 // @Param        request  body      object{message=string}  true  "User message"
-// @Success      200      {object}  map[string]interface{}
+// @Success      200      {object}  MobileChatbotResponse
 // @Router       /chatbot/message [post]
 func MobileChatbotMessage() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -186,20 +182,20 @@ func MobileChatbotMessage() gin.HandlerFunc {
 
 		intent, confidence := bestIntent(req.Message)
 		if intent.Name == "" || confidence < 0.18 {
-			c.JSON(http.StatusOK, gin.H{
-				"intent":        "fallback",
-				"confidence":    confidence,
-				"answer":        "Aku siap bantu customer service Archeryhub. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
-				"quick_actions": recommendedQuickActions(),
+			c.JSON(http.StatusOK, MobileChatbotResponse{
+				Intent:       "fallback",
+				Confidence:   confidence,
+				Answer:       "Aku siap bantu customer service Archeryhub. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
+				QuickActions: recommendedQuickActions(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"intent":        intent.Name,
-			"confidence":    confidence,
-			"answer":        intent.Answer,
-			"quick_actions": recommendedQuickActions(),
+		c.JSON(http.StatusOK, MobileChatbotResponse{
+			Intent:       intent.Name,
+			Confidence:   confidence,
+			Answer:       intent.Answer,
+			QuickActions: recommendedQuickActions(),
 		})
 	}
 }
@@ -209,11 +205,11 @@ func MobileChatbotMessage() gin.HandlerFunc {
 // @Description  Returns all supported chatbot intents and examples
 // @Tags         Chatbot
 // @Produce      json
-// @Success      200      {object}  map[string]interface{}
+// @Success      200      {object}  MobileChatbotIntentsResponse
 // @Router       /chatbot/intents [get]
 func MobileChatbotIntents() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loadChatbotIntentsFromFile()
-		c.JSON(http.StatusOK, gin.H{"intents": chatbotIntents})
+		c.JSON(http.StatusOK, MobileChatbotIntentsResponse{Intents: chatbotIntents})
 	}
 }

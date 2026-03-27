@@ -25,6 +25,20 @@ func buildMobileQRCodeDataURL(qrRaw *string) *string {
 	return &dataURL
 }
 
+// MobileRegisterForEvent godoc
+// @Summary      Register for an event
+// @Description  Allows an authenticated archer to self-register for multiple categories in an event. Returns registration ID and categories.
+// @Tags         Events
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string  false  "Event UUID or slug (optional if in body)"
+// @Param        request  body      object{event_id=string,event_category_ids=[]string,payment_type=string,payment_amount=float64}  true  "Registration payload"
+// @Success      201      {object}  MobileRegisterEventResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      403      {object}  ErrorResponse
+// @Failure      409      {object}  ErrorResponse
+// @Router       /archer/events/register [post]
 func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -180,11 +194,11 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"message":               "Pendaftaran berhasil",
-			"registration_id":       firstParticipantID,
-			"registered_categories": registeredCategories,
-			"payment_status":        paymentStatus,
+		c.JSON(http.StatusCreated, MobileRegisterEventResponse{
+			Message:              "Pendaftaran berhasil",
+			RegistrationID:       firstParticipantID,
+			RegisteredCategories: registeredCategories,
+			PaymentStatus:        paymentStatus,
 		})
 	}
 }
@@ -216,23 +230,7 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		type Registration struct {
-			ParticipantID    string  `db:"uuid" json:"id"`
-			CategoryName     string  `db:"category_name" json:"category_name"`
-			PaymentStatus    string  `db:"payment_status" json:"payment_status"`
-			PaymentAmount    float64 `db:"payment_amount" json:"payment_amount"`
-			QRRaw            *string `db:"qr_raw" json:"qr_raw"`
-			QRCodeDataURL    *string `json:"qr_code_data_url"`
-			PaymentMethod    *string `db:"payment_method" json:"payment_method"`
-			TripayRef        *string `db:"tripay_reference" json:"tripay_reference"`
-			CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
-			Instructions     *string `db:"instructions" json:"instructions"`
-			VANumber         *string `db:"va_number" json:"va_number"`
-			PayCode          *string `db:"pay_code" json:"pay_code"`
-			QRURL            *string `db:"qr_url" json:"qr_url"`
-			RegistrationDate string  `db:"registration_date" json:"registration_date"`
-		}
-		var registrations []Registration
+		var registrations []MobileRegistrationItem
 		err := db.Select(&registrations, `
 			SELECT
 				ep.uuid,
@@ -262,15 +260,11 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 		if registrations == nil {
-			registrations = []Registration{}
+			registrations = []MobileRegistrationItem{}
 		}
-		for i := range registrations {
-			registrations[i].QRCodeDataURL = buildMobileQRCodeDataURL(registrations[i].QRRaw)
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"event_id":      eventUUID,
-			"registrations": registrations,
+		c.JSON(http.StatusOK, MobileMyRegistrationResponse{
+			EventID:       eventUUID,
+			Registrations: registrations,
 		})
 	}
 }
@@ -293,21 +287,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		type MyEvent struct {
-			EventUUID        string  `db:"event_uuid" json:"event_uuid"`
-			EventName        string  `db:"event_name" json:"event_name"`
-			EventSlug        string  `db:"event_slug" json:"event_slug"`
-			Location         string  `db:"location" json:"location"`
-			StartDate        string  `db:"start_date" json:"start_date"`
-			EndDate          string  `db:"end_date" json:"end_date"`
-			LogoURL          *string `db:"logo_url" json:"logo_url"`
-			QRRaw            *string `db:"qr_raw" json:"qr_raw"`
-			QRCodeDataURL    *string `json:"qr_code_data_url"`
-			CategoryName     string  `db:"category_name" json:"category_name"`
-			PaymentStatus    string  `db:"payment_status" json:"payment_status"`
-			RegistrationDate string  `db:"registration_date" json:"registration_date"`
-		}
-		var events []MyEvent
+		var events []MobileMyEventItem
 		err := db.Select(&events, `
 			SELECT
 				e.uuid as event_uuid, e.name as event_name, e.slug as event_slug,
@@ -330,7 +310,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 		if events == nil {
-			events = []MyEvent{}
+			events = []MobileMyEventItem{}
 		}
 
 		for i := range events {
@@ -338,10 +318,12 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				masked := utils.MaskMediaURL(*events[i].LogoURL)
 				events[i].LogoURL = &masked
 			}
-			events[i].QRCodeDataURL = buildMobileQRCodeDataURL(events[i].QRRaw)
 		}
 
-		c.JSON(http.StatusOK, gin.H{"events": events, "total": len(events)})
+		c.JSON(http.StatusOK, MobileMyEventsResponse{
+			Events: events,
+			Total:  len(events),
+		})
 	}
 }
 

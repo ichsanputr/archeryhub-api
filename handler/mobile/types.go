@@ -2,6 +2,12 @@ package mobile
 
 import "archeryhub-api/models"
 
+type Intent struct {
+	Name     string   `json:"name"`
+	Examples []string `json:"examples"`
+	Answer   string   `json:"answer"`
+}
+
 // MobileUser represents user information in mobile login response.
 type MobileUser struct {
 	UUID      string `json:"uuid"`
@@ -19,6 +25,48 @@ type MobileLoginResponse struct {
 	Token     string     `json:"token"`
 	IsNewUser bool       `json:"is_new_user"`
 	User      MobileUser `json:"user"`
+}
+
+type MobileNewsComment struct {
+	UUID      string  `db:"uuid" json:"id"`
+	NewsID    string  `db:"news_id" json:"news_id"`
+	UserID    *string `db:"user_id" json:"user_id,omitempty"`
+	UserType  string  `db:"user_type" json:"user_type"`
+	GuestName *string `db:"guest_name" json:"guest_name,omitempty"`
+	UserName  string  `db:"user_name" json:"user_name"`
+	Content   string  `db:"content" json:"content"`
+	CreatedAt string  `db:"created_at" json:"created_at"`
+}
+
+type MobileNewsItem struct {
+	UUID        string  `db:"uuid" json:"id"`
+	Title       string  `db:"title" json:"title"`
+	Slug        string  `db:"slug" json:"slug"`
+	Excerpt     *string `db:"excerpt" json:"excerpt,omitempty"`
+	ImageURL    *string `db:"image_url" json:"image_url,omitempty"`
+	Category    string  `db:"category" json:"category"`
+	AuthorName  *string `db:"author_name" json:"author_name,omitempty"`
+	Views       int     `db:"views" json:"views"`
+	PublishedAt *string `db:"published_at" json:"published_at,omitempty"`
+	CreatedAt   string  `db:"created_at" json:"created_at"`
+}
+
+type MobileNewsDetail struct {
+	UUID            string  `db:"uuid" json:"id"`
+	Title           string  `db:"title" json:"title"`
+	Slug            string  `db:"slug" json:"slug"`
+	Excerpt         *string `db:"excerpt" json:"excerpt,omitempty"`
+	Content         *string `db:"content" json:"content,omitempty"`
+	ImageURL        *string `db:"image_url" json:"image_url,omitempty"`
+	Category        string  `db:"category" json:"category"`
+	Tags            *string `db:"tags" json:"tags,omitempty"`
+	AuthorName      *string `db:"author_name" json:"author_name,omitempty"`
+	MetaTitle       *string `db:"meta_title" json:"meta_title,omitempty"`
+	MetaDescription *string `db:"meta_description" json:"meta_description,omitempty"`
+	Views           int     `db:"views" json:"views"`
+	PublishedAt     *string `db:"published_at" json:"published_at,omitempty"`
+	CreatedAt       string  `db:"created_at" json:"created_at"`
+	UpdatedAt       string  `db:"updated_at" json:"updated_at"`
 }
 
 // MobileEvent represents event information optimized for mobile.
@@ -40,6 +88,63 @@ type MobileEvent struct {
 type MobileEventsResponse struct {
 	Events     []MobileEvent `json:"events"`
 	TotalCount int           `json:"total_count"`
+}
+
+// MobileRegistrationItem represents one archer registration row.
+type MobileRegistrationItem struct {
+	ID               string  `db:"uuid" json:"id"`
+	CategoryName     string  `db:"category_name" json:"category_name"`
+	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
+	PaymentAmount    float64 `db:"payment_amount" json:"payment_amount"`
+	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
+	QRCodeDataURL    *string `json:"qr_code_data_url"`
+	PaymentMethod    *string `db:"payment_method" json:"payment_method"`
+	TripayReference  *string `db:"tripay_reference" json:"tripay_reference"`
+	CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
+	Instructions     *string `db:"instructions" json:"instructions"`
+	VANumber         *string `db:"va_number" json:"va_number"`
+	PayCode          *string `db:"pay_code" json:"pay_code"`
+	QRURL            *string `db:"qr_url" json:"qr_url"`
+	RegistrationDate string  `db:"registration_date" json:"registration_date"`
+}
+
+// MobileMyEventItem represents an event row for archer my events.
+type MobileMyEventItem struct {
+	EventUUID        string  `db:"event_uuid" json:"event_uuid"`
+	EventName        string  `db:"event_name" json:"event_name"`
+	EventSlug        string  `db:"event_slug" json:"event_slug"`
+	Location         string  `db:"location" json:"location"`
+	StartDate        string  `db:"start_date" json:"start_date"`
+	EndDate          string  `db:"end_date" json:"end_date"`
+	LogoURL          *string `db:"logo_url" json:"logo_url"`
+	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
+	QRCodeDataURL    *string `json:"qr_code_data_url"`
+	CategoryName     string  `db:"category_name" json:"category_name"`
+	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
+	RegistrationDate string  `db:"registration_date" json:"registration_date"`
+}
+
+// MobileOrderHistoryItem represents one row in order history.
+type MobileOrderHistoryItem struct {
+	ID               string  `db:"uuid" json:"id"`
+	SellerID         string  `db:"seller_id" json:"seller_id"`
+	SellerName       string  `db:"seller_name" json:"seller_name"`
+	TotalAmount      float64 `db:"total_amount" json:"total_amount"`
+	Status           string  `db:"status" json:"status"`
+	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
+	TotalItems       int     `db:"total_items" json:"total_items"`
+	PaymentReference *string `db:"reference" json:"payment_reference"`
+	CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
+	PaymentMethod    *string `db:"payment_method" json:"payment_method"`
+	CreatedAt        string  `db:"created_at" json:"created_at"`
+}
+
+// MobileRegisterEventResponse represents a success response for event registration.
+type MobileRegisterEventResponse struct {
+	Message              string   `json:"message"`
+	RegistrationID       string   `json:"registration_id"`
+	RegisteredCategories []string `json:"registered_categories"`
+	PaymentStatus        string   `json:"payment_status"`
 }
 
 // ErrorResponse represents a standard error response.
@@ -286,4 +391,21 @@ type MobileUpdateArcherProfileRequest struct {
 	Address     *string `json:"address"`
 	BowType     *string `json:"bow_type"`
 	AvatarURL   *string `json:"avatar_url"`
+}
+
+// MobileOrganizationScanRegistrationRequest represents registration scan payload.
+type MobileOrganizationScanRegistrationRequest struct {
+	Code string `json:"code" binding:"required" example:"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+}
+
+// MobileOrganizationScanRegistrationResponse represents scan result.
+type MobileOrganizationScanRegistrationResponse struct {
+	ParticipantUUID      string  `json:"participant_uuid" example:"f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	FullName             string  `json:"full_name" example:"Rizky Pratama"`
+	AthleteCode          string  `json:"athlete_code" example:"ARC-0042"`
+	EventName            string  `json:"event_name" example:"ArcheryHub Jakarta Open 2026"`
+	CategoryName         string  `json:"category_name" example:"Recurve Umum Putra"`
+	ClubName             *string `json:"club_name" example:"ArcheryHub Club Jakarta"`
+	PaymentStatus        string  `json:"payment_status" example:"lunas"`
+	LastReregistrationAt *string `json:"last_reregistration_at" example:"2026-03-27T10:00:00Z"`
 }

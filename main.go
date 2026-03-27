@@ -433,6 +433,9 @@ func main() {
 			news.GET("/:id", handler.GetNewsByID(db))
 			news.POST("/:id/views", handler.IncrementNewsViews(db))
 			news.POST("/subscribe", handler.SubscribeNews(db))
+			news.GET("/:id/comments", mobilehandler.MobileListNewsComments(db))
+			news.POST("/:id/comments", middleware.OptionalAuthMiddleware(), mobilehandler.MobileAddNewsComment(db))
+			news.GET("/:id/related", mobilehandler.MobileListRelatedNews(db))
 
 			// Protected news routes
 			protectedNews := news.Group("")
@@ -601,6 +604,7 @@ func main() {
 				mobileOrganization.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
 				mobileOrganization.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
 				mobileOrganization.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
+				mobileOrganization.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
 			}
 
 			mobileSeller := mobile.Group("/seller")

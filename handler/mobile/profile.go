@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -834,5 +835,78 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 		utils.LogActivity(db, userID, "", "mobile_profile_updated", "archer", userID, "Updated profile via mobile", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui"})
+	}
+}
+
+// MobileOrganizationScanRegistration godoc
+// @Summary      Scan archer QR for reregistration
+// @Description  Scan an archer's registration QR code (qr_raw) to confirm attendance at an event organized by the authenticated organization
+// @Tags         Organization
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request  body      MobileOrganizationScanRegistrationRequest  true  "Scan payload"
+// @Success      200      {object}  MobileOrganizationScanRegistrationResponse
+// @Failure      400      {object}  ErrorResponse
+// @Failure      403      {object}  ErrorResponse
+// @Failure      404      {object}  ErrorResponse
+// @Router       /organization/scan-registration [post]
+func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !requireMobileUserType(c, "organization") {
+			return
+		}
+
+		organizationUUID, ok := getMobileOrganizationUUID(c, db)
+		if !ok {
+			return
+		}
+
+		var req MobileOrganizationScanRegistrationRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
+			return
+		}
+
+		var resp MobileOrganizationScanRegistrationResponse
+		query := `
+			SELECT 
+				ep.uuid as participant_uuid,
+				COALESCE(a.full_name, '') as full_name,
+				COALESCE(a.id, '') as athlete_code,
+				e.name as event_name,
+				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name,
+				cl.name as club_name,
+				COALESCE(ep.payment_status, 'unpaid') as payment_status,
+				ep.last_reregistration_at
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
+			WHERE ep.qr_raw = ? AND e.organizer_id = ?
+			LIMIT 1
+		`
+		err := db.Get(&resp, query, req.Code, organizationUUID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data pendaftaran tidak ditemukan atau Anda tidak memiliki akses ke event ini"})
+			return
+		}
+
+		// Update reregistration time
+		_, err = db.Exec(`UPDATE event_participants SET last_reregistration_at = NOW() WHERE uuid = ?`, resp.ParticipantUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data pendaftaran", "details": err.Error()})
+			return
+		}
+
+		// Update response timestamp to "now" for immediate feedback
+		now := time.Now().Format("2006-01-02T15:04:05Z")
+		resp.LastReregistrationAt = &now
+
+		utils.LogActivity(db, organizationUUID, "", "mobile_reregistration_scan", "organization", organizationUUID, "Scanned QR for reregistration: "+resp.ParticipantUUID, c.ClientIP(), c.Request.UserAgent())
+
+		c.JSON(http.StatusOK, resp)
 	}
 }

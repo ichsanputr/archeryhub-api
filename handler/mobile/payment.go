@@ -158,7 +158,15 @@ func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, reg.UUID)
 
-		c.JSON(http.StatusOK, transaction)
+		c.JSON(http.StatusOK, MobilePaymentTransactionResponse{
+			ID:              transaction.UUID,
+			Reference:       transaction.Reference,
+			TripayReference: transaction.TripayReference,
+			Amount:          transaction.Amount,
+			VANumber:        transaction.VANumber,
+			CheckoutURL:     transaction.CheckoutURL,
+			Status:          transaction.Status,
+		})
 	}
 }
 
@@ -185,6 +193,14 @@ func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, transaction)
+		c.JSON(http.StatusOK, MobilePaymentTransactionResponse{
+			ID:              transaction.UUID,
+			Reference:       transaction.Reference,
+			TripayReference: transaction.TripayReference,
+			Amount:          transaction.Amount,
+			VANumber:        transaction.VANumber,
+			CheckoutURL:     transaction.CheckoutURL,
+			Status:          transaction.Status,
+		})
 	}
 }

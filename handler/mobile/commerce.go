@@ -74,7 +74,7 @@ func MobileArcherGetCart(db *sqlx.DB) gin.HandlerFunc {
 			items = []models.CartItem{}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": items})
+		c.JSON(http.StatusOK, MobileCartResponse{Data: items})
 	}
 }
 
@@ -291,10 +291,10 @@ func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"message":   "Pesanan berhasil dibuat",
-			"reference": merchantRef,
-			"payment":   tripayResult,
+		c.JSON(http.StatusOK, MobileCheckoutResponse{
+			Message:   "Pesanan berhasil dibuat",
+			Reference: merchantRef,
+			Payment:   tripayResult,
 		})
 	}
 }
@@ -323,20 +323,6 @@ func MobileArcherGetOrderHistory(db *sqlx.DB) gin.HandlerFunc {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-		type OrderHistoryItem struct {
-			OrderID       string  `db:"uuid" json:"id"`
-			SellerID      string  `db:"seller_id" json:"seller_id"`
-			SellerName    string  `db:"seller_name" json:"seller_name"`
-			TotalAmount   float64 `db:"total_amount" json:"total_amount"`
-			Status        string  `db:"status" json:"status"`
-			PaymentStatus string  `db:"payment_status" json:"payment_status"`
-			TotalItems    int     `db:"total_items" json:"total_items"`
-			PaymentRef    *string `db:"reference" json:"payment_reference"`
-			CheckoutURL   *string `db:"checkout_url" json:"checkout_url"`
-			PaymentMethod *string `db:"payment_method" json:"payment_method"`
-			CreatedAt     string  `db:"created_at" json:"created_at"`
-		}
-
 		query := `
 			SELECT
 				o.uuid,
@@ -363,13 +349,13 @@ func MobileArcherGetOrderHistory(db *sqlx.DB) gin.HandlerFunc {
 		query += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?"
 		args = append(args, limit, offset)
 
-		var orders []OrderHistoryItem
+		var orders []MobileOrderHistoryItem
 		if err := db.Select(&orders, query, args...); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil riwayat pesanan"})
 			return
 		}
 		if orders == nil {
-			orders = []OrderHistoryItem{}
+			orders = []MobileOrderHistoryItem{}
 		}
 
 		var total int
@@ -381,11 +367,11 @@ func MobileArcherGetOrderHistory(db *sqlx.DB) gin.HandlerFunc {
 		}
 		_ = db.Get(&total, countQuery, countArgs...)
 
-		c.JSON(http.StatusOK, gin.H{
-			"orders": orders,
-			"total":  total,
-			"limit":  limit,
-			"offset": offset,
+		c.JSON(http.StatusOK, MobileArcherOrdersResponse{
+			Orders: orders,
+			Total:  total,
+			Limit:  limit,
+			Offset: offset,
 		})
 	}
 }

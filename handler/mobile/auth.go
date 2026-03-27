@@ -76,17 +76,18 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 
 	utils.LogActivity(db, user.UUID, "", "mobile_login", userType, user.UUID, "User logged in via mobile", c.ClientIP(), c.Request.UserAgent())
 
-	c.JSON(http.StatusOK, gin.H{
-		"token": token,
-		"user": gin.H{
-			"uuid":       user.UUID,
-			"id":         user.ID,
-			"username":   user.Username,
-			"full_name":  user.FullName,
-			"email":      user.Email,
-			"avatar_url": avatar,
-			"role":       role,
-			"user_type":  userType,
+	c.JSON(http.StatusOK, MobileLoginResponse{
+		Token:     token,
+		IsNewUser: false,
+		User: MobileUser{
+			UUID:      user.UUID,
+			ID:        user.ID,
+			Username:  user.Username,
+			FullName:  user.FullName,
+			Email:     user.Email,
+			AvatarURL: avatar,
+			Role:      role,
+			UserType:  userType,
 		},
 	})
 }
@@ -168,17 +169,18 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 		utils.LogActivity(db, sk.UUID, "", "mobile_login", "scorekeeper", sk.UUID, "Scorekeeper logged in via mobile", c.ClientIP(), c.Request.UserAgent())
 		utils.LogScorekeeperAction(db, sk.UUID, sk.OrganizationUUID, "", "mobile_login", "Logged in via mobile app", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{
-			"token": token,
-			"user": gin.H{
-				"uuid":       sk.UUID,
-				"id":         sk.UUID,
-				"username":   sk.Code,
-				"full_name":  sk.Name,
-				"email":      sk.Email,
-				"avatar_url": avatar,
-				"role":       "scorekeeper",
-				"user_type":  "scorekeeper",
+		c.JSON(http.StatusOK, MobileLoginResponse{
+			Token:     token,
+			IsNewUser: false,
+			User: MobileUser{
+				UUID:      sk.UUID,
+				ID:        sk.UUID,
+				Username:  sk.Code,
+				FullName:  sk.Name,
+				Email:     sk.Email,
+				AvatarURL: avatar,
+				Role:      "scorekeeper",
+				UserType:  "scorekeeper",
 			},
 		})
 	}
@@ -359,16 +361,17 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"token": token,
-			"user": gin.H{
-				"uuid":      userID,
-				"id":        athleteID,
-				"username":  username,
-				"full_name": req.FullName,
-				"email":     req.Email,
-				"role":      "archer",
-				"user_type": "archer",
+		c.JSON(http.StatusCreated, MobileLoginResponse{
+			Token:     token,
+			IsNewUser: true,
+			User: MobileUser{
+				UUID:      userID,
+				ID:        athleteID,
+				Username:  username,
+				FullName:  req.FullName,
+				Email:     req.Email,
+				Role:      "archer",
+				UserType:  "archer",
 			},
 		})
 	}
@@ -431,16 +434,17 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"token": token,
-			"user": gin.H{
-				"uuid":      sellerUUID,
-				"id":        sellerUUID,
-				"username":  slug,
-				"full_name": req.StoreName,
-				"email":     req.Email,
-				"role":      "seller",
-				"user_type": "seller",
+		c.JSON(http.StatusCreated, MobileLoginResponse{
+			Token:     token,
+			IsNewUser: true,
+			User: MobileUser{
+				UUID:      sellerUUID,
+				ID:        sellerUUID,
+				Username:  slug,
+				FullName:  req.StoreName,
+				Email:     req.Email,
+				Role:      "seller",
+				UserType:  "seller",
 			},
 		})
 	}
@@ -568,18 +572,18 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 
 		utils.LogActivity(db, user.UUID, "", "mobile_login_google", "archer", user.UUID, "User logged in via Google mobile", c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{
-			"token":       token,
-			"is_new_user": isNewUser,
-			"user": gin.H{
-				"uuid":       user.UUID,
-				"id":         user.ID,
-				"username":   user.Username,
-				"full_name":  user.FullName,
-				"email":      user.Email,
-				"avatar_url": avatar,
-				"role":       "archer",
-				"user_type":  "archer",
+		c.JSON(http.StatusOK, MobileLoginResponse{
+			Token:     token,
+			IsNewUser: isNewUser,
+			User: MobileUser{
+				UUID:      user.UUID,
+				ID:        user.ID,
+				Username:  user.Username,
+				FullName:  user.FullName,
+				Email:     user.Email,
+				AvatarURL: avatar,
+				Role:      "archer",
+				UserType:  "archer",
 			},
 		})
 	}

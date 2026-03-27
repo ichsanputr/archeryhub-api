@@ -60,9 +60,9 @@ func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 			maskProductMedia(&products[i])
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"products":    products,
-			"total_count": len(products),
+		c.JSON(http.StatusOK, MobileMarketplaceProductsResponse{
+			Products:    products,
+			TotalCount: len(products),
 		})
 	}
 }
@@ -91,7 +91,7 @@ func MobileMarketplaceGetProductDetail(db *sqlx.DB) gin.HandlerFunc {
 
 		maskProductMedia(&product)
 
-		c.JSON(http.StatusOK, gin.H{"product": product})
+		c.JSON(http.StatusOK, MobileMarketplaceProductResponse{Product: product})
 	}
 }
 

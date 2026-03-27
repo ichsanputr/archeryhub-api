@@ -144,6 +144,17 @@ definitions:
       error:
         type: string
     type: object
+  mobile.Intent:
+    properties:
+      answer:
+        type: string
+      examples:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
   mobile.MessageResponse:
     properties:
       message:
@@ -257,6 +268,32 @@ definitions:
     properties:
       unread:
         type: integer
+    type: object
+  mobile.MobileChatbotIntentsResponse:
+    properties:
+      intents:
+        items:
+          $ref: '#/definitions/mobile.Intent'
+        type: array
+    type: object
+  mobile.MobileChatbotResponse:
+    properties:
+      answer:
+        example: Halo! Ada yang bisa aku bantu?
+        type: string
+      confidence:
+        example: 0.95
+        type: number
+      intent:
+        example: greeting
+        type: string
+      quick_actions:
+        example:
+        - Cek Jadwal Event
+        - Bantuan Pendaftaran
+        items:
+          type: string
+        type: array
     type: object
   mobile.MobileCheckoutResponse:
     properties:
@@ -380,6 +417,104 @@ definitions:
         items:
           $ref: '#/definitions/mobile.MobileRegistrationItem'
         type: array
+    type: object
+  mobile.MobileNewsComment:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      guest_name:
+        type: string
+      id:
+        type: string
+      news_id:
+        type: string
+      user_id:
+        type: string
+      user_name:
+        type: string
+      user_type:
+        type: string
+    type: object
+  mobile.MobileNewsCommentsResponse:
+    properties:
+      comments:
+        items:
+          $ref: '#/definitions/mobile.MobileNewsComment'
+        type: array
+      count:
+        type: integer
+    type: object
+  mobile.MobileNewsDetail:
+    properties:
+      author_name:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      meta_description:
+        type: string
+      meta_title:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      tags:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      views:
+        type: integer
+    type: object
+  mobile.MobileNewsDetailResponse:
+    properties:
+      news:
+        $ref: '#/definitions/mobile.MobileNewsDetail'
+    type: object
+  mobile.MobileNewsItem:
+    properties:
+      author_name:
+        type: string
+      category:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      title:
+        type: string
+      views:
+        type: integer
+    type: object
+  mobile.MobileNewsListResponse:
+    properties:
+      news:
+        items:
+          $ref: '#/definitions/mobile.MobileNewsItem'
+        type: array
+      total_count:
+        type: integer
     type: object
   mobile.MobileOAuthLoginRequest:
     properties:
@@ -666,6 +801,41 @@ definitions:
       data:
         $ref: '#/definitions/mobile.MobileOrganizationProfileData'
     type: object
+  mobile.MobileOrganizationScanRegistrationRequest:
+    properties:
+      code:
+        example: REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+    required:
+    - code
+    type: object
+  mobile.MobileOrganizationScanRegistrationResponse:
+    properties:
+      athlete_code:
+        example: ARC-0042
+        type: string
+      category_name:
+        example: Recurve Umum Putra
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      event_name:
+        example: ArcheryHub Jakarta Open 2026
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      last_reregistration_at:
+        example: "2026-03-27T10:00:00Z"
+        type: string
+      participant_uuid:
+        example: f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      payment_status:
+        example: lunas
+        type: string
+    type: object
   mobile.MobilePaymentTransactionResponse:
     properties:
       amount:
@@ -701,6 +871,19 @@ definitions:
       va_number:
         type: string
     type: object
+  mobile.MobileRegisterEventResponse:
+    properties:
+      message:
+        type: string
+      payment_status:
+        type: string
+      registered_categories:
+        items:
+          type: string
+        type: array
+      registration_id:
+        type: string
+    type: object
   mobile.MobileRegistrationItem:
     properties:
       category_name:
@@ -731,6 +914,13 @@ definitions:
         type: string
       va_number:
         type: string
+    type: object
+  mobile.MobileRelatedNewsResponse:
+    properties:
+      news:
+        items:
+          $ref: '#/definitions/mobile.MobileNewsItem'
+        type: array
     type: object
   mobile.MobileScorekeeperLoginRequest:
     properties:
@@ -1584,6 +1774,59 @@ paths:
       summary: Get archer's registration for an event
       tags:
       - Archer
+  /archer/events/register:
+    post:
+      consumes:
+      - application/json
+      description: Allows an authenticated archer to self-register for multiple categories
+        in an event. Returns registration ID and categories.
+      parameters:
+      - description: Event UUID or slug (optional if in body)
+        in: path
+        name: id
+        type: string
+      - description: Registration payload
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            event_category_ids:
+              items:
+                type: string
+              type: array
+            event_id:
+              type: string
+            payment_amount:
+              format: float64
+              type: number
+            payment_type:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Register for an event
+      tags:
+      - Events
   /archer/me:
     get:
       description: Get the authenticated archer profile for mobile pages
@@ -2301,8 +2544,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileChatbotIntentsResponse'
       summary: Get list of chatbot intents
       tags:
       - Chatbot
@@ -2327,8 +2569,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileChatbotResponse'
       summary: Chat with ArcheryHub assistant
       tags:
       - Chatbot
@@ -2601,8 +2842,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileNewsListResponse'
       summary: List published news for mobile
       tags:
       - News
@@ -2620,8 +2860,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileNewsDetailResponse'
       summary: Get published news detail for mobile
       tags:
       - News
@@ -2639,8 +2878,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileNewsCommentsResponse'
       summary: List comments for a news article
       tags:
       - News
@@ -2670,8 +2908,7 @@ paths:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MessageResponse'
       summary: Post a comment on a news article
       tags:
       - News
@@ -2690,8 +2927,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileRelatedNewsResponse'
       summary: List related news
       tags:
       - News
@@ -2841,6 +3077,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Update mobile organization profile
+      tags:
+      - Organization
+  /organization/scan-registration:
+    post:
+      consumes:
+      - application/json
+      description: Scan an archer's registration QR code (qr_raw) to confirm attendance
+        at an event organized by the authenticated organization
+      parameters:
+      - description: Scan payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOrganizationScanRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationScanRegistrationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/mobile.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scan archer QR for reregistration
       tags:
       - Organization
   /qualification/scoring/cards:
