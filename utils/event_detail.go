@@ -2,6 +2,7 @@ package utils
 
 import (
 	"archeryhub-api/models"
+	"encoding/json"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -115,4 +116,12 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 		ORDER BY participant_count DESC, ec.created_at ASC
 	`, event.UUID)
 	event.CompetitionCategories = competitionCategories
+
+	// Parse JSON fields
+	if event.Event.PageSettings != nil && *event.Event.PageSettings != "" {
+		_ = json.Unmarshal([]byte(*event.Event.PageSettings), &event.PageSettings)
+	}
+	if event.Event.FAQ != nil && *event.Event.FAQ != "" {
+		_ = json.Unmarshal([]byte(*event.Event.FAQ), &event.FAQ)
+	}
 }

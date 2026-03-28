@@ -87,8 +87,8 @@ type Event struct {
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at" swaggertype:"string" format:"date-time" example:"2026-03-12T13:10:00Z"`
 	TotalPrize            float64    `json:"total_prize" db:"total_prize" example:"50000000"`
 	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url" example:"https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf"`
-	PageSettings          *string    `json:"page_settings" db:"page_settings" example:"{\"sections\":{\"about\":true,\"fees\":true}}"`
-	FAQ                   *string    `json:"faq" db:"faq" example:"[{\"q\":\"Kapan jadwal technical meeting?\",\"a\":\"H-1 pukul 19:00 WIB\"}]"`
+	PageSettings          *string    `json:"page_settings_raw" db:"page_settings"`
+	FAQ                   *string    `json:"faq_raw" db:"faq"`
 }
 
 // EventWithDetails includes organizer information
@@ -110,6 +110,8 @@ type EventWithDetails struct {
 	VenueType             *string                    `json:"venue_type" db:"venue_type" example:"outdoor"`
 	TargetCount           int                        `json:"target_count" db:"target_count" example:"48"`
 	ActiveTargetCount     int                        `json:"active_target_count" db:"active_target_count" example:"36"`
+	PageSettings          any                        `json:"page_settings" db:"-"`
+	FAQ                   any                        `json:"faq" db:"-"`
 	LocationDetail        EventLocationDetail        `json:"location_detail"`
 	Participants          []EventParticipantPreview  `json:"participants"`
 	Schedules             []EventSchedule            `json:"schedules"`
