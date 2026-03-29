@@ -84,6 +84,17 @@ type MobileEvent struct {
 	ParticipantCount   int     `db:"participant_count" json:"participant_count"`
 }
 
+// MobileEventDetail represents the slimmed-down core info for an event.
+type MobileEventDetail struct {
+	models.Event
+	OrganizerName      *string                    `db:"organizer_name" json:"organizer_name"`
+	OrganizerAvatarURL *string                    `db:"organizer_avatar_url" json:"organizer_avatar_url"`
+	OrganizerSlug      *string                    `db:"organizer_slug" json:"organizer_slug"`
+	OrganizerPhone     *string                    `db:"organizer_phone" json:"organizer_phone"`
+	ParticipantCount   int                        `db:"participant_count" json:"participant_count"`
+	LocationDetail     models.EventLocationDetail `db:"-" json:"location_detail"`
+}
+
 // MobileEventsResponse represents the list of events for mobile.
 type MobileEventsResponse struct {
 	Events     []MobileEvent `json:"events"`

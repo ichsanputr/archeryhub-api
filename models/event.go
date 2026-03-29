@@ -110,14 +110,14 @@ type EventWithDetails struct {
 	VenueType             *string                    `json:"venue_type" db:"venue_type" example:"outdoor"`
 	TargetCount           int                        `json:"target_count" db:"target_count" example:"48"`
 	ActiveTargetCount     int                        `json:"active_target_count" db:"active_target_count" example:"36"`
-	PageSettings          any                        `json:"page_settings" db:"-"`
-	FAQ                   any                        `json:"faq" db:"-"`
-	LocationDetail        EventLocationDetail        `json:"location_detail"`
-	Participants          []EventParticipantPreview  `json:"participants"`
-	Schedules             []EventSchedule            `json:"schedules"`
-	Results               []EventResultPreview       `json:"results"`
-	Gallery               []EventImage               `json:"gallery"`
-	CompetitionCategories []EventCompetitionCategory `json:"competition_categories"`
+	PageSettings          any                        `json:"page_settings,omitempty" db:"-"`
+	FAQ                   any                        `json:"faq,omitempty" db:"-"`
+	LocationDetail        EventLocationDetail        `json:"location_detail,omitempty"`
+	Participants          []EventParticipantPreview  `json:"participants,omitempty"`
+	Schedules             []EventSchedule            `json:"schedules,omitempty"`
+	Results               []EventResultPreview       `json:"results,omitempty"`
+	Gallery               []EventImage               `json:"gallery,omitempty"`
+	CompetitionCategories []EventCompetitionCategory `json:"competition_categories,omitempty"`
 }
 
 type EventLocationDetail struct {

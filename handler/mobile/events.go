@@ -87,20 +87,20 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		// 1. Get Event Detail (same query as public detail)
 		query := `
 			SELECT 
-				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
-				COALESCE(t.venue, '') as venue, t.city, t.province,
-				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
-				t.logo_url, t.banner_url, t.description, t.rules, t.technical_guidebook_url,
+				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city, t.location_type,
+				t.start_date, t.end_date, t.registration_deadline,
+				t.logo_url, t.banner_url, t.description, t.technical_guidebook_url,
 				COALESCE(u.full_name, '') as organizer_name,
 				COALESCE(u.avatar_url, '') as organizer_avatar_url,
 				COALESCE(u.slug, '') as organizer_slug,
+				COALESCE(u.phone, '') as organizer_phone,
 				COALESCE(active_target_stats.participant_count, 0) as participant_count,
-				t.organizer_id, t.status, t.registration_deadline
+				t.organizer_id
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, avatar_url, slug FROM organizations
+				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug FROM clubs
+				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as participant_count
@@ -111,7 +111,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT 1
 		`
 
-		var event models.EventWithDetails
+		var event MobileEventDetail
 		err := db.Get(&event, query, id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
@@ -123,7 +123,15 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		if event.TechnicalGuidebookURL != nil { *event.TechnicalGuidebookURL = utils.MaskMediaURL(*event.TechnicalGuidebookURL) }
 		if event.OrganizerAvatarURL != nil { *event.OrganizerAvatarURL = utils.MaskMediaURL(*event.OrganizerAvatarURL) }
 
-		utils.PopulateEventDetailExtras(db, &event)
+		// Manual populate nested objects for mobile model consistency
+		event.LocationDetail = models.EventLocationDetail{
+			Venue:        event.Venue,
+			Address:      event.Address,
+			GmapLink:     event.GmapLink,
+			Location:     event.Location,
+			City:         event.City,
+			LocationType: event.LocationType,
+		}
 
 		// 2. Get Archer Registration Status
 		var registration struct {
@@ -159,20 +167,20 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT
-				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
-				COALESCE(t.venue, '') as venue, t.city,
-				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
-				t.logo_url, t.banner_url, t.description, t.rules, t.technical_guidebook_url,
+				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city, t.location_type,
+				t.start_date, t.end_date, t.registration_deadline,
+				t.logo_url, t.banner_url, t.description, t.technical_guidebook_url,
 				COALESCE(u.full_name, '') as organizer_name,
 				COALESCE(u.avatar_url, '') as organizer_avatar_url,
 				COALESCE(u.slug, '') as organizer_slug,
+				COALESCE(u.phone, '') as organizer_phone,
 				COALESCE(active_target_stats.participant_count, 0) as participant_count,
-				t.organizer_id, t.status, t.registration_deadline
+				t.organizer_id
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, avatar_url, slug FROM organizations
+				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug FROM clubs
+				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as participant_count
@@ -183,7 +191,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT 1
 		`
 
-		var event models.EventWithDetails
+		var event MobileEventDetail
 		err := db.Get(&event, query, id, id)
 		if err != nil {
 			fmt.Printf("[MobileGetEventDetail] Database error: %v\n", err)
@@ -195,6 +203,16 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		if event.LogoURL != nil { *event.LogoURL = utils.MaskMediaURL(*event.LogoURL) }
 		if event.TechnicalGuidebookURL != nil { *event.TechnicalGuidebookURL = utils.MaskMediaURL(*event.TechnicalGuidebookURL) }
 		if event.OrganizerAvatarURL != nil { *event.OrganizerAvatarURL = utils.MaskMediaURL(*event.OrganizerAvatarURL) }
+
+		// Manual populate nested objects for mobile model consistency
+		event.LocationDetail = models.EventLocationDetail{
+			Venue:        event.Venue,
+			Address:      event.Address,
+			GmapLink:     event.GmapLink,
+			Location:     event.Location,
+			City:         event.City,
+			LocationType: event.LocationType,
+		}
 
 		c.JSON(http.StatusOK, event)
 	}
