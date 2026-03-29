@@ -159,7 +159,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT
 				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
-				COALESCE(t.venue, '') as venue, t.city, t.province,
+				COALESCE(t.venue, '') as venue, t.city,
 				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
 				t.logo_url, t.banner_url, t.description, t.rules, t.technical_guidebook_url,
 				COALESCE(u.full_name, '') as organizer_name,
@@ -185,7 +185,8 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		var event models.EventWithDetails
 		err := db.Get(&event, query, id, id)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			fmt.Printf("[MobileGetEventDetail] Database error: %v\n", err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan atau terjadi kesalahan data"})
 			return
 		}
 
