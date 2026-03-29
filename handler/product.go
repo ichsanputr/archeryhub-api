@@ -3,6 +3,7 @@ package handler
 import (
 	"archeryhub-api/models"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -32,6 +33,26 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, searchTerm, searchTerm)
 		}
 
+		sortBy := c.DefaultQuery("sort_by", "created_at")
+		order := strings.ToUpper(c.DefaultQuery("order", "DESC"))
+
+		// Validate sortBy
+		allowedSortFields := map[string]bool{
+			"name":       true,
+			"stock":      true,
+			"price":      true,
+			"status":     true,
+			"created_at": true,
+		}
+
+		if !allowedSortFields[sortBy] {
+			sortBy = "created_at"
+		}
+
+		if order != "ASC" && order != "DESC" {
+			order = "DESC"
+		}
+
 		// Count total
 		var totalCount int
 		err := db.Get(&totalCount, "SELECT COUNT(*) FROM products "+whereClause, args...)
@@ -42,7 +63,7 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get data
 		var products []models.Product
-		query := "SELECT * FROM products " + whereClause + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+		query := fmt.Sprintf("SELECT * FROM products %s ORDER BY %s %s LIMIT ? OFFSET ?", whereClause, sortBy, order)
 		queryArgs := append(args, limit, offset)
 
 		err = db.Select(&products, query, queryArgs...)
@@ -110,6 +131,26 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, searchTerm, searchTerm)
 		}
 
+		sortBy := c.DefaultQuery("sort_by", "created_at")
+		order := strings.ToUpper(c.DefaultQuery("order", "DESC"))
+
+		// Validate sortBy
+		allowedSortFields := map[string]bool{
+			"name":       true,
+			"stock":      true,
+			"price":      true,
+			"status":     true,
+			"created_at": true,
+		}
+
+		if !allowedSortFields[sortBy] {
+			sortBy = "created_at"
+		}
+
+		if order != "ASC" && order != "DESC" {
+			order = "DESC"
+		}
+
 		// Count total
 		var totalCount int
 		err := db.Get(&totalCount, "SELECT COUNT(*) FROM products "+whereClause, args...)
@@ -120,7 +161,7 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get data
 		var products []models.Product
-		query := "SELECT * FROM products " + whereClause + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+		query := fmt.Sprintf("SELECT * FROM products %s ORDER BY %s %s LIMIT ? OFFSET ?", whereClause, sortBy, order)
 		queryArgs := append(args, limit, offset)
 
 		err = db.Select(&products, query, queryArgs...)

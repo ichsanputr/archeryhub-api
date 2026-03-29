@@ -2,8 +2,11 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
 	"crypto/rand"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -92,14 +95,49 @@ func GetOrganizationScorekeepers(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var scorekeepers []models.Scorekeeper
-		err := db.Select(&scorekeepers, "SELECT uuid, organization_uuid, code, name, avatar_url, status, created_at FROM scorekeepers WHERE organization_uuid = ? ORDER BY created_at DESC", orgUUID)
+		limit, offset, page := utils.GetPaginationParams(c)
+		sortBy := c.DefaultQuery("sort_by", "created_at")
+		order := strings.ToUpper(c.DefaultQuery("order", "DESC"))
+
+		// Validate sortBy
+		allowedSortFields := map[string]bool{
+			"name":       true,
+			"code":       true,
+			"status":     true,
+			"created_at": true,
+		}
+
+		if !allowedSortFields[sortBy] {
+			sortBy = "created_at"
+		}
+
+		if order != "ASC" && order != "DESC" {
+			order = "DESC"
+		}
+
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM scorekeepers WHERE organization_uuid = ?", orgUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch scorekeepers", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data scorekeeper"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"scorekeepers": scorekeepers})
+		// Get data
+		var scorekeepers []models.Scorekeeper
+		query := fmt.Sprintf("SELECT uuid, organization_uuid, code, name, avatar_url, status, created_at FROM scorekeepers WHERE organization_uuid = ? ORDER BY %s %s LIMIT ? OFFSET ?", sortBy, order)
+		err = db.Select(&scorekeepers, query, orgUUID, limit, offset)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat data scorekeeper", "details": err.Error()})
+			return
+		}
+
+		if scorekeepers == nil {
+			scorekeepers = []models.Scorekeeper{}
+		}
+
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"scorekeepers": scorekeepers, "meta": meta})
 	}
 }
 

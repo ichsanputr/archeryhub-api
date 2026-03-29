@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -50,6 +51,26 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, endDate)
 		}
 
+		sortBy := c.DefaultQuery("sort_by", "created_at")
+		order := strings.ToUpper(c.DefaultQuery("order", "DESC"))
+
+		// Validate sortBy
+		allowedSortFields := map[string]string{
+			"total_amount": "o.total_amount",
+			"status":       "o.status",
+			"created_at":   "o.created_at",
+			"buyer_name":   "buyer_name",
+		}
+
+		dbSortField, ok := allowedSortFields[sortBy]
+		if !ok {
+			dbSortField = "o.created_at"
+		}
+
+		if order != "ASC" && order != "DESC" {
+			order = "DESC"
+		}
+
 		// Count total
 		var totalCount int
 		err := db.Get(&totalCount, "SELECT COUNT(*) FROM orders o "+whereClause, args...)
@@ -60,7 +81,7 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get data
 		var orders []DetailedOrder
-		query := `
+		query := fmt.Sprintf(`
 			SELECT 
 				o.*, 
 				a.full_name as buyer_name, 
@@ -68,10 +89,10 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 				(SELECT SUM(quantity) FROM order_items WHERE order_id = o.uuid) as total_items
 			FROM orders o
 			LEFT JOIN archers a ON o.buyer_id = a.uuid
-			` + whereClause + `
-			ORDER BY o.created_at DESC
+			%s
+			ORDER BY %s %s
 			LIMIT ? OFFSET ?
-		`
+		`, whereClause, dbSortField, order)
 		queryArgs := append(args, limit, offset)
 
 		err = db.Select(&orders, query, queryArgs...)

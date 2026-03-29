@@ -3216,9 +3216,31 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		sortBy := c.DefaultQuery("sort_by", "created_at")
+		order := strings.ToUpper(c.DefaultQuery("order", "DESC"))
 		status := c.Query("status")
 		search := c.Query("search")
 		limit, offset, page := utils.GetPaginationParams(c)
+
+		// Validate sortBy to prevent SQL injection
+		allowedSortFields := map[string]string{
+			"name":              "t.name",
+			"start_date":        "t.start_date",
+			"venue":             "t.venue",
+			"status":            "t.status",
+			"created_at":        "t.created_at",
+			"participant_count": "participant_count",
+			"event_count":       "event_count",
+		}
+
+		dbSortField, ok := allowedSortFields[sortBy]
+		if !ok {
+			dbSortField = "t.created_at"
+		}
+
+		if order != "ASC" && order != "DESC" {
+			order = "DESC"
+		}
 
 		// Base query: get events where organizer_id is the current user
 		whereClause := "WHERE t.organizer_id = ?"
@@ -3243,7 +3265,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		query := `
+		query := fmt.Sprintf(`
 			SELECT 
 				t.*,
 				u.full_name as organizer_name,
@@ -3260,11 +3282,11 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
-			` + whereClause + `
+			%s
 			GROUP BY t.uuid
-			ORDER BY t.created_at DESC
+			ORDER BY %s %s
 			LIMIT ? OFFSET ?
-		`
+		`, whereClause, dbSortField, order)
 		args = append(args, limit, offset)
 
 		var events []models.EventWithDetails

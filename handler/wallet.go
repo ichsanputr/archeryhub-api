@@ -2,7 +2,9 @@ package handler
 
 import (
 	"archeryhub-api/utils"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -60,6 +62,24 @@ func GetWithdrawals(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		limit, offset, page := utils.GetPaginationParams(c)
 
+		sortBy := c.DefaultQuery("sort_by", "created_at")
+		order := strings.ToUpper(c.DefaultQuery("order", "DESC"))
+
+		// Validate sortBy
+		allowedSortFields := map[string]bool{
+			"amount":     true,
+			"status":     true,
+			"created_at": true,
+		}
+
+		if !allowedSortFields[sortBy] {
+			sortBy = "created_at"
+		}
+
+		if order != "ASC" && order != "DESC" {
+			order = "DESC"
+		}
+
 		// Count total
 		var totalCount int
 		err := db.Get(&totalCount, "SELECT COUNT(*) FROM withdrawals WHERE user_id = ?", userID)
@@ -70,7 +90,8 @@ func GetWithdrawals(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get data
 		var withdrawals []Withdrawal
-		err = db.Select(&withdrawals, "SELECT * FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?", userID, limit, offset)
+		query := fmt.Sprintf("SELECT * FROM withdrawals WHERE user_id = ? ORDER BY %s %s LIMIT ? OFFSET ?", sortBy, order)
+		err = db.Select(&withdrawals, query, userID, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data penarikan"})
 			return
