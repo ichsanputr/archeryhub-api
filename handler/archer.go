@@ -19,16 +19,45 @@ import (
 // GetArchers returns a list of archers with optional filtering
 func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		limit, offset, page := utils.GetPaginationParams(c)
 		status := c.Query("status")
 		search := c.Query("search") // search by name, code, or club
 		city := c.Query("city")
 		bowType := c.Query("bow_type")
-		limit := c.DefaultQuery("limit", "12")
-		offset := c.DefaultQuery("offset", "0")
 
-		limitInt, _ := strconv.Atoi(limit)
-		offsetInt, _ := strconv.Atoi(offset)
+		whereParams := []interface{}{}
+		whereClause := "WHERE 1=1"
 
+		if status != "" {
+			whereClause += " AND a.status = ?"
+			whereParams = append(whereParams, status)
+		}
+
+		if search != "" {
+			whereClause += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
+			searchTerm := "%" + search + "%"
+			whereParams = append(whereParams, searchTerm, searchTerm, searchTerm)
+		}
+
+		if city != "" {
+			whereClause += " AND a.city = ?"
+			whereParams = append(whereParams, city)
+		}
+
+		if bowType != "" && bowType != "all" {
+			whereClause += " AND a.bow_type = ?"
+			whereParams = append(whereParams, bowType)
+		}
+
+		// Get total count
+		var total int
+		countQuery := `SELECT COUNT(*) FROM archers a ` + whereClause
+		err := db.Get(&total, countQuery, whereParams...)
+		if err != nil {
+			logrus.WithError(err).Error("Gagal menghitung jumlah pemanah")
+		}
+
+		// Get data
 		query := `
 			SELECT 
 				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
@@ -39,83 +68,33 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 				a.achievements, a.equipment, a.page_settings,
 				c.name as club_name,
 				c.slug as club_slug,
-				COUNT(DISTINCT tp.uuid) as total_events,
-				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
-				MAX(t.end_date) as last_event_date
+				COALESCE(stats.total_events, 0) as total_events,
+				COALESCE(stats.completed_events, 0) as completed_events,
+				stats.last_event_date
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
-			LEFT JOIN events t ON tp.event_id = t.uuid
-			WHERE 1=1
-		`
-		args := []interface{}{}
-
-		if status != "" {
-			query += " AND a.status = ?"
-			args = append(args, status)
-		}
-
-		if search != "" {
-			query += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
-			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm, searchTerm)
-		}
-
-		if city != "" {
-			query += " AND a.city = ?"
-			args = append(args, city)
-		}
-
-		if bowType != "" && bowType != "all" {
-			query += " AND a.bow_type = ?"
-			args = append(args, bowType)
-		}
-
-		query += `
-			GROUP BY a.uuid
+			LEFT JOIN (
+				SELECT 
+					archer_id, 
+					COUNT(uuid) as total_events,
+					COUNT(CASE WHEN payment_status = 'verified' THEN uuid END) as completed_events,
+					MAX(registration_date) as last_event_date
+				FROM event_participants
+				GROUP BY archer_id
+			) stats ON a.uuid = stats.archer_id
+			` + whereClause + `
 			ORDER BY a.full_name
 			LIMIT ? OFFSET ?
 		`
-		args = append(args, limitInt, offsetInt)
+		queryArgs := append(whereParams, limit, offset)
 
 		var archers []models.ArcherWithStats
-		err := db.Select(&archers, query, args...)
+		err = db.Select(&archers, query, queryArgs...)
 
 		if err != nil {
 			logrus.WithError(err).Error("Gagal mengambil data pemanah")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pemanah", "details": err.Error()})
 			return
-		}
-
-		// Get total count
-		countQuery := `SELECT COUNT(*) FROM archers WHERE 1=1`
-		countArgs := []interface{}{}
-
-		if status != "" {
-			countQuery += " AND status = ?"
-			countArgs = append(countArgs, status)
-		}
-
-		if search != "" {
-			countQuery += " AND (full_name LIKE ? OR email LIKE ? OR club_id LIKE ?)"
-			searchTerm := "%" + search + "%"
-			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
-		}
-
-		if city != "" {
-			countQuery += " AND city = ?"
-			countArgs = append(countArgs, city)
-		}
-
-		if bowType != "" && bowType != "all" {
-			countQuery += " AND bow_type = ?"
-			countArgs = append(countArgs, bowType)
-		}
-
-		var total int
-		err = db.Get(&total, countQuery, countArgs...)
-		if err != nil {
-			logrus.WithError(err).Error("Gagal menghitung jumlah pemanah")
 		}
 
 		// Mask URLs
@@ -126,11 +105,13 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
+			"data":     archers,
 			"archers":  archers,
 			"athletes": archers,
-			"count":    len(archers),
 			"total":    total,
+			"meta":     meta,
 		})
 	}
 }

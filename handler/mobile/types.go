@@ -140,6 +140,10 @@ type MobileNewsCommentsResponse struct {
 type MobileMarketplaceProductsResponse struct {
 	Products    []models.Product `json:"products"`
 	TotalCount  int              `json:"total_count"`
+	Limit       int              `json:"limit"`
+	Offset      int              `json:"offset"`
+	CurrentPage int              `json:"current_page"`
+	LastPage    int              `json:"last_page"`
 }
 
 // MobileMarketplaceProductResponse represents marketplace product detail.

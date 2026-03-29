@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"math"
+	"fmt"
 	"net/http"
-	"strconv"
 
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -14,55 +14,48 @@ import (
 // GetClubs returns a list of clubs (data master)
 func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+		limit, offset, page := utils.GetPaginationParams(c)
 		search := c.Query("search")
 
-		var clubs []models.Club
-		var total int
-
-		query := `SELECT uuid, slug, name, abbreviation, description, banner_url, logo_url, phone, address, city, province, postal_code, established_date, registration_number, organization_id, head_coach_name, head_coach_phone, training_schedule, facilities, website, status, created_at, updated_at
-		          FROM clubs WHERE (status = 'active')`
-		countQuery := `SELECT COUNT(*) FROM clubs WHERE (status = 'active')`
+		whereClause := "WHERE status = 'active'"
+		args := []interface{}{}
 
 		if search != "" {
-			query += ` AND (name LIKE ? OR city LIKE ?)`
-			countQuery += ` AND (name LIKE ? OR city LIKE ?)`
+			whereClause += " AND (name LIKE ? OR city LIKE ?)"
 			searchParam := "%" + search + "%"
-
-			err := db.Get(&total, countQuery, searchParam, searchParam)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-
-			err = db.Select(&clubs, query+" LIMIT ? OFFSET ?", searchParam, searchParam, limit, offset)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-		} else {
-			err := db.Get(&total, countQuery)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-
-			err = db.Select(&clubs, query+" LIMIT ? OFFSET ?", limit, offset)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
+			args = append(args, searchParam, searchParam)
 		}
 
+		// Count total
+		var total int
+		err := db.Get(&total, "SELECT COUNT(*) FROM clubs "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung klub"})
+			return
+		}
+
+		// Get data
+		var clubs []models.Club
+		query := fmt.Sprintf(`
+			SELECT uuid, slug, name, abbreviation, description, banner_url, logo_url, phone, address, city, province, postal_code, established_date, registration_number, organization_id, head_coach_name, head_coach_phone, training_schedule, facilities, website, status, created_at, updated_at
+			FROM clubs %s ORDER BY name ASC LIMIT ? OFFSET ?
+		`, whereClause)
+		queryArgs := append(args, limit, offset)
+
+		err = db.Select(&clubs, query, queryArgs...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data klub"})
+			return
+		}
+
+		if clubs == nil {
+			clubs = []models.Club{}
+		}
+
+		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
 			"data": clubs,
-			"meta": gin.H{
-				"total":       total,
-				"page":        offset/limit + 1,
-				"limit":       limit,
-				"total_pages": math.Ceil(float64(total) / float64(limit)),
-			},
+			"meta": meta,
 		})
 	}
 }

@@ -24,8 +24,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		status := c.Query("status")
 		search := c.Query("search")
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
-		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+		limit, offset, page := utils.GetPaginationParams(c)
 		organizerID := c.Query("organizer_id")
 
 		// Check if user is archer to filter events and include participant status
@@ -149,11 +148,12 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
+			"data":   events,
 			"events": events,
 			"total":  total,
-			"limit":  limit,
-			"offset": offset,
+			"meta":   meta,
 		})
 	}
 }
@@ -619,13 +619,9 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		limitStr := c.DefaultQuery("limit", "10")
-		offsetStr := c.DefaultQuery("offset", "0")
+		limit, offset, page := utils.GetPaginationParams(c)
 		bowTypeFilter := c.Query("bow_type")
 		eventTypeFilter := c.Query("event_type")
-
-		limit, _ := strconv.Atoi(limitStr)
-		offset, _ := strconv.Atoi(offsetStr)
 
 		// First, resolve slug to UUID if needed
 		var actualEventID string
@@ -727,11 +723,12 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
+			"data":   events,
 			"events": events,
 			"total":  total,
-			"limit":  limit,
-			"offset": offset,
+			"meta":   meta,
 		})
 	}
 }
@@ -740,16 +737,12 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		limitStr := c.DefaultQuery("limit", "10")
-		offsetStr := c.DefaultQuery("offset", "0")
+		limit, offset, page := utils.GetPaginationParams(c)
 		categoryFilter := c.Query("category")
 		categoryIDFilter := c.Query("category_id")
 		categoryIDsFilter := c.Query("category_ids")
 		searchQuery := c.Query("search")
 		groupBy := c.Query("group_by")
-
-		limit, _ := strconv.Atoi(limitStr)
-		offset, _ := strconv.Atoi(offsetStr)
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
@@ -1115,13 +1108,14 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
+			"data":           participants,
 			"participants":   participants,
 			"total":          total,
 			"verified_count": verifiedCount,
 			"pending_count":  pendingCount,
-			"limit":          limit,
-			"offset":         offset,
+			"meta":           meta,
 		})
 	}
 }
@@ -3224,8 +3218,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		status := c.Query("status")
 		search := c.Query("search")
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+		limit, offset, page := utils.GetPaginationParams(c)
 
 		// Base query: get events where organizer_id is the current user
 		whereClause := "WHERE t.organizer_id = ?"
@@ -3304,11 +3297,12 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
+			"data":   events,
 			"events": events,
 			"total":  total,
-			"limit":  limit,
-			"offset": offset,
+			"meta":   meta,
 		})
 	}
 }

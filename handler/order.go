@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archeryhub-api/models"
+	"archeryhub-api/utils"
 	"encoding/csv"
 	"fmt"
 	"net/http"
@@ -21,6 +22,11 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		limit, offset, page := utils.GetPaginationParams(c)
+		status := c.Query("status")
+		startDate := c.Query("start_date")
+		endDate := c.Query("end_date")
+
 		type DetailedOrder struct {
 			models.Order
 			BuyerName  string `json:"customer_name" db:"buyer_name"`
@@ -28,11 +34,32 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 			TotalItems int    `json:"total_items" db:"total_items"`
 		}
 
-		var orders []DetailedOrder
-		status := c.Query("status")
-		startDate := c.Query("start_date")
-		endDate := c.Query("end_date")
+		whereClause := "WHERE o.seller_id = ?"
+		args := []interface{}{userID}
 
+		if status != "" && status != "all" {
+			whereClause += " AND o.status = ?"
+			args = append(args, status)
+		}
+		if startDate != "" {
+			whereClause += " AND o.created_at >= ?"
+			args = append(args, startDate)
+		}
+		if endDate != "" {
+			whereClause += " AND o.created_at <= ?"
+			args = append(args, endDate)
+		}
+
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM orders o "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data pesanan"})
+			return
+		}
+
+		// Get data
+		var orders []DetailedOrder
 		query := `
 			SELECT 
 				o.*, 
@@ -41,26 +68,13 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 				(SELECT SUM(quantity) FROM order_items WHERE order_id = o.uuid) as total_items
 			FROM orders o
 			LEFT JOIN archers a ON o.buyer_id = a.uuid
-			WHERE o.seller_id = ?
+			` + whereClause + `
+			ORDER BY o.created_at DESC
+			LIMIT ? OFFSET ?
 		`
-		args := []interface{}{userID}
+		queryArgs := append(args, limit, offset)
 
-		if status != "" && status != "all" {
-			query += " AND o.status = ?"
-			args = append(args, status)
-		}
-		if startDate != "" {
-			query += " AND o.created_at >= ?"
-			args = append(args, startDate)
-		}
-		if endDate != "" {
-			query += " AND o.created_at <= ?"
-			args = append(args, endDate)
-		}
-		query += " ORDER BY o.created_at DESC"
-
-		err := db.Select(&orders, query, args...)
-
+		err = db.Select(&orders, query, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pesanan: " + err.Error()})
 			return
@@ -70,7 +84,8 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 			orders = []DetailedOrder{}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": orders})
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": orders, "meta": meta})
 	}
 }
 

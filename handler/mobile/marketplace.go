@@ -15,7 +15,11 @@ import (
 func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		if page < 1 {
+			page = 1
+		}
+		offset, _ := strconv.Atoi(c.DefaultQuery("offset", strconv.Itoa((page-1)*limit)))
 		search := c.Query("search")
 		category := c.Query("category")
 
@@ -32,11 +36,19 @@ func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, category)
 		}
 
+		// Count total for pagination
+		var totalCount int
+		countQuery := "SELECT COUNT(*) FROM products " + whereClause
+		if err := db.Get(&totalCount, countQuery, args...); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data produk", "details": err.Error()})
+			return
+		}
+
 		query := "SELECT * FROM products " + whereClause + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
-		args = append(args, limit, offset)
+		queryArgs := append(args, limit, offset)
 
 		var products []models.Product
-		if err := db.Select(&products, query, args...); err != nil {
+		if err := db.Select(&products, query, queryArgs...); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk", "details": err.Error()})
 			return
 		}
@@ -49,9 +61,18 @@ func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 			maskProductMedia(&products[i])
 		}
 
+		lastPage := (totalCount + limit - 1) / limit
+		if limit <= 0 {
+			lastPage = 1
+		}
+
 		c.JSON(http.StatusOK, MobileMarketplaceProductsResponse{
 			Products:    products,
-			TotalCount: len(products),
+			TotalCount:  totalCount,
+			Limit:       limit,
+			Offset:      offset,
+			CurrentPage: page,
+			LastPage:    lastPage,
 		})
 	}
 }

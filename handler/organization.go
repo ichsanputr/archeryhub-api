@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,28 +50,41 @@ type Organization struct {
 // GetOrganizations returns all organizations (public)
 func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		limit, offset, page := utils.GetPaginationParams(c)
 		search := c.Query("search")
 		status := c.DefaultQuery("status", "active")
 
-		query := `
-			SELECT uuid, slug, name, acronym, description, vision, mission, history, website, email, whatsapp_no,
-				   avatar_url, banner_url, address, city, country,
-				   verification_status, status, created_at, social_media
-			FROM organizations
-			WHERE status = ?
-		`
+		whereClause := "WHERE status = ?"
 		args := []interface{}{status}
 
 		if search != "" {
-			query += " AND (name LIKE ? OR acronym LIKE ? OR city LIKE ?)"
+			whereClause += " AND (name LIKE ? OR acronym LIKE ? OR city LIKE ?)"
 			searchTerm := "%" + search + "%"
 			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
-		query += " ORDER BY name ASC"
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM organizations "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung organisasi"})
+			return
+		}
+
+		// Get data
+		query := fmt.Sprintf(`
+			SELECT uuid, slug, name, acronym, description, vision, mission, history, website, email, whatsapp_no,
+				   avatar_url, banner_url, address, city, country,
+				   verification_status, status, created_at, social_media
+			FROM organizations
+			%s
+			ORDER BY name ASC
+			LIMIT ? OFFSET ?
+		`, whereClause)
+		queryArgs := append(args, limit, offset)
 
 		var orgs []Organization
-		err := db.Select(&orgs, query, args...)
+		err = db.Select(&orgs, query, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data organisasi", "details": err.Error()})
 			return
@@ -83,9 +97,12 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
+			"data":          orgs,
 			"organizations": orgs,
-			"total":         len(orgs),
+			"total":         totalCount,
+			"meta":          meta,
 		})
 	}
 }

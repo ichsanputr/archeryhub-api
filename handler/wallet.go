@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"archeryhub-api/utils"
 	"net/http"
 	"time"
 
@@ -57,15 +58,30 @@ func GetMyWallet(db *sqlx.DB) gin.HandlerFunc {
 func GetWithdrawals(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
+		limit, offset, page := utils.GetPaginationParams(c)
 
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM withdrawals WHERE user_id = ?", userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data penarikan"})
+			return
+		}
+
+		// Get data
 		var withdrawals []Withdrawal
-		err := db.Select(&withdrawals, "SELECT * FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC", userID)
+		err = db.Select(&withdrawals, "SELECT * FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?", userID, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data penarikan"})
 			return
 		}
 
-		c.JSON(http.StatusOK, withdrawals)
+		if withdrawals == nil {
+			withdrawals = []Withdrawal{}
+		}
+
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": withdrawals, "meta": meta})
 	}
 }
 

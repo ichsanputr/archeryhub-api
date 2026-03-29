@@ -15,8 +15,37 @@ import (
 // GetProducts returns all products (public)
 func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		limit, offset, page := utils.GetPaginationParams(c)
+		category := c.Query("category")
+		search := c.Query("search")
+
+		whereClause := "WHERE status = 'active'"
+		args := []interface{}{}
+
+		if category != "" && category != "all" {
+			whereClause += " AND category = ?"
+			args = append(args, category)
+		}
+		if search != "" {
+			whereClause += " AND (name LIKE ? OR description LIKE ?)"
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm)
+		}
+
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM products "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data produk"})
+			return
+		}
+
+		// Get data
 		var products []models.Product
-		err := db.Select(&products, "SELECT * FROM products WHERE status = 'active' ORDER BY created_at DESC")
+		query := "SELECT * FROM products " + whereClause + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+		queryArgs := append(args, limit, offset)
+
+		err = db.Select(&products, query, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk"})
 			return
@@ -41,16 +70,10 @@ func GetProducts(db *sqlx.DB) gin.HandlerFunc {
 				maskedStr := string(maskedJSON)
 				products[i].Images = &maskedStr
 			}
-			if products[i].Colors != nil && *products[i].Colors != "" {
-				var colors []string
-				json.Unmarshal([]byte(*products[i].Colors), &colors)
-				maskedJSON, _ := json.Marshal(colors)
-				maskedStr := string(maskedJSON)
-				products[i].Colors = &maskedStr
-			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": products})
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": products, "meta": meta})
 	}
 }
 
@@ -65,25 +88,42 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var products []models.Product
+		limit, offset, page := utils.GetPaginationParams(c)
 		status := c.Query("status")
 		category := c.Query("category")
+		search := c.Query("search")
 
-		query := "SELECT * FROM products WHERE seller_id = ?"
+		whereClause := "WHERE seller_id = ?"
 		args := []interface{}{userID}
 
 		if status != "" && status != "all" {
-			query += " AND status = ?"
+			whereClause += " AND status = ?"
 			args = append(args, status)
 		}
 		if category != "" && category != "all" {
-			query += " AND category = ?"
+			whereClause += " AND category = ?"
 			args = append(args, category)
 		}
-		query += " ORDER BY created_at DESC"
+		if search != "" {
+			whereClause += " AND (name LIKE ? OR description LIKE ?)"
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm)
+		}
 
-		err := db.Select(&products, query, args...)
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM products "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data produk"})
+			return
+		}
 
+		// Get data
+		var products []models.Product
+		query := "SELECT * FROM products " + whereClause + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+		queryArgs := append(args, limit, offset)
+
+		err = db.Select(&products, query, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk"})
 			return
@@ -108,16 +148,10 @@ func GetMyProducts(db *sqlx.DB) gin.HandlerFunc {
 				maskedStr := string(maskedJSON)
 				products[i].Images = &maskedStr
 			}
-			if products[i].Colors != nil && *products[i].Colors != "" {
-				var colors []string
-				json.Unmarshal([]byte(*products[i].Colors), &colors)
-				maskedJSON, _ := json.Marshal(colors)
-				maskedStr := string(maskedJSON)
-				products[i].Colors = &maskedStr
-			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": products})
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": products, "meta": meta})
 	}
 }
 

@@ -55,30 +55,39 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
 
+		limit, offset, page := utils.GetPaginationParams(c)
 		var news []News
+		var totalCount int
 		var err error
 
-		// Build query based on user type
+		whereClause := ""
 		if userType == "organization" {
-			err = db.Select(&news, `
-				SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
-				       category, tags, status, views, author_name, published_at, created_at, updated_at
-				FROM news 
-				WHERE organization_id = (SELECT uuid FROM organizations WHERE uuid = ?)
-				ORDER BY created_at DESC
-			`, userID)
+			whereClause = "WHERE organization_id = (SELECT uuid FROM organizations WHERE uuid = ?)"
 		} else if userType == "club" {
-			err = db.Select(&news, `
-				SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
-				       category, tags, status, views, author_name, published_at, created_at, updated_at
-				FROM news 
-				WHERE club_id = (SELECT uuid FROM clubs WHERE uuid = ?)
-				ORDER BY created_at DESC
-			`, userID)
+			whereClause = "WHERE club_id = (SELECT uuid FROM clubs WHERE uuid = ?)"
 		} else {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk melihat berita"})
 			return
 		}
+
+		// Count total
+		err = db.Get(&totalCount, "SELECT COUNT(*) FROM news "+whereClause, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung berita"})
+			return
+		}
+
+		// Get data
+		query := fmt.Sprintf(`
+			SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
+				   category, tags, status, views, author_name, published_at, created_at, updated_at
+			FROM news 
+			%s
+			ORDER BY created_at DESC
+			LIMIT ? OFFSET ?
+		`, whereClause)
+
+		err = db.Select(&news, query, userID, limit, offset)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita: " + err.Error()})
@@ -97,24 +106,51 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": news})
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": news, "meta": meta})
 	}
 }
 
 // GetNewsPublic returns published news (for public pages)
 func GetNewsPublic(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		limit, offset, page := utils.GetPaginationParams(c)
+		category := c.Query("category")
+		search := c.Query("search")
+
+		whereClause := "WHERE status = 'published'"
+		args := []interface{}{}
+
+		if category != "" && category != "all" {
+			whereClause += " AND category = ?"
+			args = append(args, category)
+		}
+		if search != "" {
+			whereClause += " AND (title LIKE ? OR content LIKE ?)"
+			searchTerm := "%" + search + "%"
+			args = append(args, searchTerm, searchTerm)
+		}
+
+		// Count total
+		var totalCount int
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM news "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung data berita"})
+			return
+		}
+
 		var news []News
-
-		err := db.Select(&news, `
+		query := fmt.Sprintf(`
 			SELECT uuid, organization_id, club_id, title, slug, excerpt, image_url, 
-			       category, tags, status, views, author_name, published_at, created_at
+				   category, tags, status, views, author_name, published_at, created_at
 			FROM news 
-			WHERE status = 'published'
+			%s
 			ORDER BY published_at DESC
-			LIMIT 20
-		`)
+			LIMIT ? OFFSET ?
+		`, whereClause)
+		queryArgs := append(args, limit, offset)
 
+		err = db.Select(&news, query, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita"})
 			return
@@ -132,7 +168,8 @@ func GetNewsPublic(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": news})
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": news, "meta": meta})
 	}
 }
 
