@@ -527,6 +527,7 @@ func main() {
 
 			// 2. Events (public)
 			mobile.GET("/events", mobilehandler.MobileListEvents(db))
+			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
 			mobile.GET("/events/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
 			mobile.GET("/events/:slug/results", mobilehandler.MobileGetEventResults(db))
 			mobile.GET("/events/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))

@@ -151,6 +151,53 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileGetEventDetail returns core event information (header/summary)
+func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+
+		query := `
+			SELECT
+				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
+				COALESCE(t.venue, '') as venue, t.city, t.province,
+				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
+				t.logo_url, t.banner_url, t.description, t.rules, t.technical_guidebook_url,
+				COALESCE(u.full_name, '') as organizer_name,
+				COALESCE(u.avatar_url, '') as organizer_avatar_url,
+				COALESCE(u.slug, '') as organizer_slug,
+				COALESCE(active_target_stats.participant_count, 0) as participant_count,
+				t.organizer_id, t.status, t.registration_deadline
+			FROM events t
+			LEFT JOIN (
+				SELECT uuid as id, name as full_name, avatar_url, slug FROM organizations
+				UNION ALL
+				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug FROM clubs
+			) u ON t.organizer_id = u.id
+			LEFT JOIN (
+				SELECT event_id, COUNT(*) as participant_count
+				FROM event_participants
+				GROUP BY event_id
+			) active_target_stats ON t.uuid = active_target_stats.event_id
+			WHERE t.uuid = ? OR t.slug = ?
+			LIMIT 1
+		`
+
+		var event models.EventWithDetails
+		err := db.Get(&event, query, id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		if event.BannerURL != nil { *event.BannerURL = utils.MaskMediaURL(*event.BannerURL) }
+		if event.LogoURL != nil { *event.LogoURL = utils.MaskMediaURL(*event.LogoURL) }
+		if event.TechnicalGuidebookURL != nil { *event.TechnicalGuidebookURL = utils.MaskMediaURL(*event.TechnicalGuidebookURL) }
+		if event.OrganizerAvatarURL != nil { *event.OrganizerAvatarURL = utils.MaskMediaURL(*event.OrganizerAvatarURL) }
+
+		c.JSON(http.StatusOK, event)
+	}
+}
+
 // MobileGetEventParticipants returns only the participant list for an event
 func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

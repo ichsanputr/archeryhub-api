@@ -621,6 +621,32 @@
                     ]
                 },
                 {
+                    "name": "Get Event Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/events/:slug",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "events",
+                                ":slug"
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [],
+                            "body": "{}"
+                        }
+                    ]
+                },
+                {
                     "name": "Get Event Participants",
                     "request": {
                         "method": "GET",
