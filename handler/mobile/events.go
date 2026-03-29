@@ -3,7 +3,6 @@ package mobile
 import (
 	"archeryhub-api/models"
 	"archeryhub-api/utils"
-	"database/sql"
 	"net/http"
 	"strconv"
 
