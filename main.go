@@ -527,7 +527,11 @@ func main() {
 
 			// 2. Events (public)
 			mobile.GET("/events", mobilehandler.MobileListEvents(db))
-			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
+			mobile.GET("/events/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
+			mobile.GET("/events/:slug/results", mobilehandler.MobileGetEventResults(db))
+			mobile.GET("/events/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))
+			mobile.GET("/events/:slug/categories", mobilehandler.MobileGetEventCategories(db))
+			mobile.GET("/events/:slug/gallery", mobilehandler.MobileGetEventGallery(db))
 
 			// 2b. News (public read-only)
 			mobile.GET("/news", mobilehandler.MobileListNews(db))

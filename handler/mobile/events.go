@@ -78,115 +78,6 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetEventDetail godoc
-func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("slug")
-
-		query := `
-			SELECT
-				t.*,
-				u.full_name as organizer_name,
-				u.email as organizer_email,
-				u.avatar_url as organizer_avatar_url,
-				u.slug as organizer_slug,
-				u.phone as organizer_phone,
-				COALESCE(participant_stats.participant_count, 0) as participant_count,
-				COALESCE(category_stats.event_count, 0) as event_count,
-				COALESCE(target_stats.target_count, 0) as target_count,
-				COALESCE(active_target_stats.active_target_count, 0) as active_target_count
-			FROM events t
-			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone FROM organizations
-				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, phone FROM clubs
-			) u ON t.organizer_id = u.id
-			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT archer_id) as participant_count
-				FROM event_participants
-				GROUP BY event_id
-			) participant_stats ON t.uuid = participant_stats.event_id
-			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT uuid) as event_count
-				FROM event_categories
-				GROUP BY event_id
-			) category_stats ON t.uuid = category_stats.event_id
-			LEFT JOIN (
-				SELECT event_uuid, COUNT(*) as target_count
-				FROM event_targets
-				GROUP BY event_uuid
-			) target_stats ON t.uuid = target_stats.event_uuid
-			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT target_uuid) as active_target_count
-				FROM (
-					SELECT qs.event_uuid as event_id, qta.target_uuid
-					FROM qualification_target_assignments qta
-					JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-					UNION ALL
-					SELECT eb.event_uuid as event_id, em.target_uuid
-					FROM elimination_matches em
-					JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
-					WHERE em.target_uuid IS NOT NULL
-				) combined
-				GROUP BY event_id
-			) active_target_stats ON t.uuid = active_target_stats.event_id
-			WHERE t.uuid = ? OR t.slug = ?
-			LIMIT 1
-		`
-
-		var event models.EventWithDetails
-		err := db.Get(&event, query, id, id)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan", "id": id})
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
-			}
-			return
-		}
-
-		if event.Status == "draft" {
-			userID, exists := c.Get("user_id")
-			isAuthorized := false
-			if exists {
-				if event.OrganizerID != nil && *event.OrganizerID == userID.(string) {
-					isAuthorized = true
-				}
-				role, _ := c.Get("role")
-				if role == "admin" {
-					isAuthorized = true
-				}
-			}
-
-			if !isAuthorized {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
-				return
-			}
-		}
-
-		if event.BannerURL != nil {
-			masked := utils.MaskMediaURL(*event.BannerURL)
-			event.BannerURL = &masked
-		}
-		if event.LogoURL != nil {
-			masked := utils.MaskMediaURL(*event.LogoURL)
-			event.LogoURL = &masked
-		}
-		if event.TechnicalGuidebookURL != nil {
-			masked := utils.MaskMediaURL(*event.TechnicalGuidebookURL)
-			event.TechnicalGuidebookURL = &masked
-		}
-		if event.OrganizerAvatarURL != nil {
-			masked := utils.MaskMediaURL(*event.OrganizerAvatarURL)
-			event.OrganizerAvatarURL = &masked
-		}
-
-		utils.PopulateEventDetailExtras(db, &event)
-
-		c.JSON(http.StatusOK, event)
-	}
-}
-
 // MobileArcherGetEventDetail godoc
 func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -257,6 +148,107 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			"event":         event,
 			"is_registered": isRegistered,
 			"registration":  registration,
+		})
+	}
+}
+
+// MobileGetEventParticipants returns only the participant list for an event
+func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var eventID string
+		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if eventID == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		event := &models.EventWithDetails{Event: models.Event{UUID: eventID}}
+		utils.PopulateEventDetailExtras(db, event)
+
+		c.JSON(http.StatusOK, gin.H{
+			"participants": event.Participants,
+		})
+	}
+}
+
+// MobileGetEventResults returns only the result list for an event
+func MobileGetEventResults(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var eventID string
+		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if eventID == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		event := &models.EventWithDetails{Event: models.Event{UUID: eventID}}
+		utils.PopulateEventDetailExtras(db, event)
+
+		c.JSON(http.StatusOK, gin.H{
+			"results":       event.Results,
+			"page_settings": event.PageSettings, // Includes the manual PDF links
+		})
+	}
+}
+
+// MobileGetEventSchedule returns only the schedule for an event
+func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var eventID string
+		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if eventID == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		event := &models.EventWithDetails{Event: models.Event{UUID: eventID}}
+		utils.PopulateEventDetailExtras(db, event)
+
+		c.JSON(http.StatusOK, gin.H{
+			"schedules": event.Schedules,
+		})
+	}
+}
+
+// MobileGetEventCategories returns only the competition categories for an event
+func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var eventID string
+		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if eventID == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		event := &models.EventWithDetails{Event: models.Event{UUID: eventID}}
+		utils.PopulateEventDetailExtras(db, event)
+
+		c.JSON(http.StatusOK, gin.H{
+			"competition_categories": event.CompetitionCategories,
+		})
+	}
+}
+
+// MobileGetEventGallery returns only the gallery images for an event
+func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var eventID string
+		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if eventID == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		event := &models.EventWithDetails{Event: models.Event{UUID: eventID}}
+		utils.PopulateEventDetailExtras(db, event)
+
+		c.JSON(http.StatusOK, gin.H{
+			"gallery": event.Gallery,
 		})
 	}
 }
