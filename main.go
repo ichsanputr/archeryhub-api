@@ -533,7 +533,7 @@ func main() {
 			mobile.GET("/news", mobilehandler.MobileListNews(db))
 			mobile.GET("/news/:id", mobilehandler.MobileGetNewsDetail(db))
 			mobile.GET("/news/:id/comments", mobilehandler.MobileListNewsComments(db))
-			mobile.POST("/news/:id/comments", mobilehandler.MobileAddNewsComment(db))
+			mobile.POST("/news/:id/comments", middleware.OptionalAuthMiddleware(), mobilehandler.MobileAddNewsComment(db))
 			mobile.GET("/news/:id/related", mobilehandler.MobileListRelatedNews(db))
 
 			// 2d. Chatbot (public)

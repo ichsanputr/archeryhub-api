@@ -131,6 +131,7 @@ func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 		id := c.Param("id")
 		
 		var req struct {
+			UserID    string `json:"user_id"`
 			GuestName string `json:"guest_name"`
 			Content   string `json:"content" binding:"required"`
 		}
@@ -155,7 +156,12 @@ func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 		userType := "guest"
 		guestName := &req.GuestName
 
-		if exists && userIDInterface != nil {
+		if req.UserID != "" {
+			uid := req.UserID
+			userID = &uid
+			userType = "archer"
+			guestName = nil
+		} else if exists && userIDInterface != nil {
 			uid := userIDInterface.(string)
 			userID = &uid
 			userType = userTypeInterface.(string)
