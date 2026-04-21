@@ -218,15 +218,15 @@ type MobileMyEventItem struct {
 	EventUUID        string  `db:"event_uuid" json:"event_uuid"`
 	EventName        string  `db:"event_name" json:"event_name"`
 	EventSlug        string  `db:"event_slug" json:"event_slug"`
-	Location         string  `db:"location" json:"location"`
-	StartDate        string  `db:"start_date" json:"start_date"`
-	EndDate          string  `db:"end_date" json:"end_date"`
+	Location         *string `db:"location" json:"location"`
+	StartDate        *string `db:"start_date" json:"start_date"`
+	EndDate          *string `db:"end_date" json:"end_date"`
 	LogoURL          *string `db:"logo_url" json:"logo_url"`
 	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
 	QRCodeDataURL    *string `json:"qr_code_data_url"`
 	CategoryName     string  `db:"category_name" json:"category_name"`
 	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
-	RegistrationDate string  `db:"registration_date" json:"registration_date"`
+	RegistrationDate *string `db:"registration_date" json:"registration_date"`
 }
 
 // MobileOrderHistoryItem represents one row in order history.

@@ -228,6 +228,9 @@ func main() {
 			auth.POST("/verify-reset-otp", handler.VerifyResetOTP(db))
 			auth.POST("/reset-password", handler.ResetPassword(db))
 			auth.POST("/change-password-otp", handler.ChangePasswordWithOTP(db))
+
+			// Alias for mobile login to satisfy public URL expectations
+			auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 		}
 
 		// User routes
@@ -535,6 +538,7 @@ func main() {
 
 			// 2. Events (public)
 			mobile.GET("/events", mobilehandler.MobileListEvents(db))
+			mobile.GET("/events/history", mobilehandler.MobileListEvents(db)) // Alias/Filter trigger
 			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
 			mobile.GET("/events/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
 			mobile.GET("/events/:slug/results", mobilehandler.MobileGetEventResults(db))

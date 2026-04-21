@@ -19,6 +19,12 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 		search := c.Query("search")
 
 		whereClause := "WHERE t.status != 'draft'"
+		
+		// If path is /events/history or ?history=true is passed
+		if c.Request.URL.Path == "/api/v1/mobile/events/history" || c.Query("history") == "true" {
+			whereClause += " AND t.end_date < NOW()"
+		}
+
 		args := []interface{}{}
 
 		if search != "" {
