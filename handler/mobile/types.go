@@ -349,11 +349,6 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// MessageResponse represents a standard success message response.
-type MessageResponse struct {
-	Message string `json:"message"`
-}
-
 // MobileSellerProfileData represents seller profile data for mobile.
 type MobileSellerProfileData struct {
 	ID            string                 `json:"id" example:"sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"`
