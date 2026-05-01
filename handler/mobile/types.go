@@ -70,6 +70,35 @@ type MobileAddNewsCommentRequest struct {
 	Content   string `json:"content" example:"Wah acaranya seru banget!"`
 }
 
+// MobileSellerRegisterRequest represents the registration payload for a new seller.
+type MobileSellerRegisterRequest struct {
+	StoreName string `json:"store_name" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=6"`
+	Phone     string `json:"phone"`
+	City      string `json:"city"`
+	Province  string `json:"province"`
+	Address   string `json:"address"`
+}
+
+// MobileForgotPasswordRequest represents the forgot password payload.
+type MobileForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// MobileVerifyOTPRequest represents the OTP verification payload.
+type MobileVerifyOTPRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	OTP   string `json:"otp" binding:"required"`
+}
+
+// MobileResetPasswordRequest represents the password reset payload.
+type MobileResetPasswordRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	OTP         string `json:"otp" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
 // MobileChatbotMessageRequest represents the payload for chatbot interaction.
 type MobileChatbotMessageRequest struct {
 	Message string `json:"message" binding:"required" example:"Halo, ada event apa ya?"`

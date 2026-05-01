@@ -785,6 +785,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/auth/forgot-password": {
+            "post": {
+                "description": "Send a password reset OTP to user's email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Forgot Password",
+                "parameters": [
+                    {
+                        "description": "Email Address",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/auth/google/login": {
             "post": {
                 "description": "Authenticate or register using Google ID Token",
@@ -867,6 +901,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/auth/reset-password": {
+            "post": {
+                "description": "Reset password using verified OTP and email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Reset Password",
+                "parameters": [
+                    {
+                        "description": "Email, OTP, and New Password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/auth/scorekeeper/login": {
             "post": {
                 "description": "Login using a numeric code assigned by organization",
@@ -944,6 +1012,74 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/seller/register": {
+            "post": {
+                "description": "Register a new seller/merchant",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Seller Registration",
+                "parameters": [
+                    {
+                        "description": "Seller Registration Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileSellerRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/verify-otp": {
+            "post": {
+                "description": "Verify the 6-digit OTP sent to user's email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Verify OTP",
+                "parameters": [
+                    {
+                        "description": "Email and OTP",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileVerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileResponse"
                         }
                     }
                 }
@@ -3128,6 +3264,17 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileForgotPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
         "mobile.MobileLoginResponse": {
             "type": "object",
             "properties": {
@@ -3933,6 +4080,39 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "new_password",
+                "otp"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string",
+                    "minLength": 6
+                },
+                "otp": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Success"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "mobile.MobileScanTargetResponse": {
             "type": "object",
             "properties": {
@@ -4121,6 +4301,38 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileSellerRegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "store_name"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                }
+            }
+        },
         "mobile.MobileSessionBoardsResponse": {
             "type": "object",
             "properties": {
@@ -4300,6 +4512,21 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileVerifyOTPRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "otp"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "otp": {
                     "type": "string"
                 }
             }

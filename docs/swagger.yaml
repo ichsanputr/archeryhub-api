@@ -430,6 +430,13 @@ definitions:
       total_count:
         type: integer
     type: object
+  mobile.MobileForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   mobile.MobileLoginResponse:
     properties:
       is_new_user:
@@ -985,6 +992,29 @@ definitions:
       va_number:
         type: string
     type: object
+  mobile.MobileResetPasswordRequest:
+    properties:
+      email:
+        type: string
+      new_password:
+        minLength: 6
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - new_password
+    - otp
+    type: object
+  mobile.MobileResponse:
+    properties:
+      message:
+        example: Success
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
   mobile.MobileScanTargetResponse:
     properties:
       archers: {}
@@ -1116,6 +1146,28 @@ definitions:
       data:
         $ref: '#/definitions/mobile.MobileSellerProfileData'
     type: object
+  mobile.MobileSellerRegisterRequest:
+    properties:
+      address:
+        type: string
+      city:
+        type: string
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      phone:
+        type: string
+      province:
+        type: string
+      store_name:
+        type: string
+    required:
+    - email
+    - password
+    - store_name
+    type: object
   mobile.MobileSessionBoardsResponse:
     properties:
       archers: {}
@@ -1237,6 +1289,16 @@ definitions:
         type: string
       uuid:
         type: string
+    type: object
+  mobile.MobileVerifyOTPRequest:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - otp
     type: object
   mobile.mobileEmailPasswordRequest:
     properties:
@@ -1939,6 +2001,28 @@ paths:
       summary: Archer Registration
       tags:
       - Mobile - Auth
+  /mobile/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Send a password reset OTP to user's email
+      parameters:
+      - description: Email Address
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileResponse'
+      summary: Forgot Password
+      tags:
+      - Mobile - Auth
   /mobile/auth/google/login:
     post:
       consumes:
@@ -1993,6 +2077,28 @@ paths:
       summary: Organization Login
       tags:
       - Mobile - Auth
+  /mobile/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Reset password using verified OTP and email
+      parameters:
+      - description: Email, OTP, and New Password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileResponse'
+      summary: Reset Password
+      tags:
+      - Mobile - Auth
   /mobile/auth/scorekeeper/login:
     post:
       consumes:
@@ -2045,6 +2151,50 @@ paths:
             additionalProperties: true
             type: object
       summary: Seller Login
+      tags:
+      - Mobile - Auth
+  /mobile/auth/seller/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new seller/merchant
+      parameters:
+      - description: Seller Registration Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileSellerRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileResponse'
+      summary: Seller Registration
+      tags:
+      - Mobile - Auth
+  /mobile/auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the 6-digit OTP sent to user's email
+      parameters:
+      - description: Email and OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileVerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileResponse'
+      summary: Verify OTP
       tags:
       - Mobile - Auth
   /mobile/chat/conversations:

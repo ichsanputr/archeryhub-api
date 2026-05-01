@@ -260,8 +260,6 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetSessionBoards returns all target boards in a qualification session
 // with each archer's current score summary Î“Ã‡Ã¶ powers the "List Targets" leaderboard screen.
 //
-// MobileGetSessionBoards godoc
-
 // MobileGetSessionBoards returns leaderboard for a session
 // @Summary List Session Targets
 // @Description Get all target boards and current scores for a qualification session

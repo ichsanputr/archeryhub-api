@@ -365,18 +365,18 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileSellerRegister godoc
+// MobileSellerRegister handles seller registration for mobile
+// @Summary Seller Registration
+// @Description Register a new seller/merchant
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileSellerRegisterRequest true "Seller Registration Data"
+// @Success 201 {object} MobileResponse
+// @Router /mobile/auth/seller/register [post]
 func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req struct {
-			StoreName string `json:"store_name" binding:"required"`
-			Email     string `json:"email" binding:"required,email"`
-			Password  string `json:"password" binding:"required,min=6"`
-			Phone     string `json:"phone"`
-			City      string `json:"city"`
-			Province  string `json:"province"`
-			Address   string `json:"address"`
-		}
+		var req MobileSellerRegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -568,12 +568,18 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileForgotPassword godoc
+// MobileForgotPassword initiates password reset
+// @Summary Forgot Password
+// @Description Send a password reset OTP to user's email
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileForgotPasswordRequest true "Email Address"
+// @Success 200 {object} MobileResponse
+// @Router /mobile/auth/forgot-password [post]
 func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req struct {
-			Email string `json:"email" binding:"required,email"`
-		}
+		var req MobileForgotPasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email tidak valid"})
 			return
@@ -631,13 +637,18 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileVerifyOTP godoc
+// MobileVerifyOTP verifies the reset token/OTP
+// @Summary Verify OTP
+// @Description Verify the 6-digit OTP sent to user's email
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileVerifyOTPRequest true "Email and OTP"
+// @Success 200 {object} MobileResponse
+// @Router /mobile/auth/verify-otp [post]
 func MobileVerifyOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req struct {
-			Email string `json:"email" binding:"required,email"`
-			OTP   string `json:"otp" binding:"required"`
-		}
+		var req MobileVerifyOTPRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
 			return
@@ -659,14 +670,18 @@ func MobileVerifyOTP(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileResetPassword godoc
+// MobileResetPassword resets the password using OTP
+// @Summary Reset Password
+// @Description Reset password using verified OTP and email
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileResetPasswordRequest true "Email, OTP, and New Password"
+// @Success 200 {object} MobileResponse
+// @Router /mobile/auth/reset-password [post]
 func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req struct {
-			Email       string `json:"email" binding:"required,email"`
-			OTP         string `json:"otp" binding:"required"`
-			NewPassword string `json:"new_password" binding:"required,min=6"`
-		}
+		var req MobileResetPasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid atau password terlalu pendek"})
 			return
