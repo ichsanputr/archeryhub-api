@@ -158,7 +158,15 @@ func recommendedQuickActions() []string {
 	return actions
 }
 
-// MobileChatbotMessage godoc
+// MobileChatbotMessage handles chatbot interaction
+// @Summary Send Message to Chatbot
+// @Description Send a natural language message and get an automated answer
+// @Tags Mobile - Chatbot
+// @Accept json
+// @Produce json
+// @Param request body MobileChatbotMessageRequest true "User Message"
+// @Success 200 {object} MobileChatbotResponse
+// @Router /mobile/chatbot/message [post]
 func MobileChatbotMessage() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loadChatbotIntentsFromFile()
@@ -192,7 +200,13 @@ func MobileChatbotMessage() gin.HandlerFunc {
 	}
 }
 
-// MobileChatbotIntents godoc
+// MobileChatbotIntents returns list of supported intents
+// @Summary List Chatbot Intents
+// @Description Get a list of supported topics the chatbot can answer
+// @Tags Mobile - Chatbot
+// @Produce json
+// @Success 200 {object} MobileChatbotIntentsResponse
+// @Router /mobile/chatbot/intents [get]
 func MobileChatbotIntents() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loadChatbotIntentsFromFile()

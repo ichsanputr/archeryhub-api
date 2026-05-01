@@ -7,6 +7,11 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// MessageResponse is a simple message response.
+type MessageResponse struct {
+	Message string `json:"message" example:"Operation successful"`
+}
+
 // ScoringCard represents a selectable card for scoring
 type ScoringCard struct {
 	ID           string `json:"id"`
@@ -36,8 +41,14 @@ type ScoringTargetsResponse struct {
 }
 
 // GetScoringCards returns selectable "card target" options for scoring context.
-// For now it supports qualification phase and returns cards across sessions for a given event category.
-// GetScoringCards godoc
+// @Summary List Scoring Cards
+// @Description Get selectable cards (targets) for a specific phase and category
+// @Tags Mobile - Scoring
+// @Produce json
+// @Param phase query string true "qualification or elimination"
+// @Param category_id query string true "Category UUID"
+// @Success 200 {object} ScoringCardsResponse
+// @Router /mobile/scoring/cards [get]
 func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")
@@ -89,8 +100,15 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // GetScoringTargets returns scoring progress for a selected target name in a session.
-// Qualification-only for now.
-// GetScoringTargets godoc
+// @Summary Get Scoring Targets
+// @Description Get participants and their scoring progress for a specific target
+// @Tags Mobile - Scoring
+// @Produce json
+// @Param phase query string true "qualification or elimination"
+// @Param session_id query string true "Session UUID"
+// @Param target_name query string true "Target Name (e.g. 1A)"
+// @Success 200 {object} ScoringTargetsResponse
+// @Router /mobile/scoring/targets [get]
 func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phase := c.Query("phase")

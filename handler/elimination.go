@@ -1749,6 +1749,16 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 // UpdateMatchScore updates or creates end scores for a match
 // UpdateMatchScore godoc
+// UpdateMatchScore updates score for a specific end in a match
+// @Summary Update Match Score
+// @Description Submit or update scores for a specific end (set/end) in an elimination match
+// @Tags Mobile - Scoring
+// @Accept json
+// @Produce json
+// @Param matchId path string true "Match UUID"
+// @Param request body MatchScoreRequest true "Match Score Payload"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/elimination/scoring/matches/{matchId}/score [post]
 func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -1969,6 +1979,16 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 
 // FinishMatch marks a match as finished and advances winner to next round
 // FinishMatch godoc
+// FinishMatch marks a match as finished with a winner
+// @Summary Finish Match
+// @Description Finish an elimination match and declare the winner
+// @Tags Mobile - Scoring
+// @Accept json
+// @Produce json
+// @Param matchId path string true "Match UUID"
+// @Param request body FinishMatchRequest true "Finish Match Payload"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/elimination/scoring/matches/{matchId}/finish [post]
 func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -2131,6 +2151,16 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 
 // EndMatch calculates winner from scores and finishes the match
 // EndMatch godoc
+// EndMatch ends the match and auto-determines the winner
+// @Summary End Match
+// @Description End the match, calculate final scores/points, and advance the winner
+// @Tags Mobile - Scoring
+// @Accept json
+// @Produce json
+// @Param matchId path string true "Match UUID"
+// @Param request body object false "Optional Winner Override"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/elimination/scoring/matches/{matchId}/end [post]
 func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")
@@ -2490,8 +2520,14 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// ResetMatch resets a finished match back to live/pending and removes its winner from the next round
-// ResetMatch godoc
+// ResetMatch resets a finished match back to live/pending
+// @Summary Reset Match
+// @Description Reset a finished match status and clear the winner from next round
+// @Tags Mobile - Scoring
+// @Produce json
+// @Param matchId path string true "Match UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/elimination/scoring/matches/{matchId}/reset [post]
 func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		matchID := c.Param("matchId")

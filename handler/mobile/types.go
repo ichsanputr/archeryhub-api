@@ -1,6 +1,17 @@
 package mobile
 
 import "archeryhub-api/models"
+ 
+// MobileResponse is a generic response for mobile API.
+type MobileResponse struct {
+	Message string `json:"message" example:"Success"`
+	Success bool   `json:"success" example:"true"`
+}
+
+// MessageResponse is a simple message response.
+type MessageResponse struct {
+	Message string `json:"message" example:"Operation successful"`
+}
 
 type Intent struct {
 	Name     string   `json:"name"`
@@ -25,6 +36,48 @@ type MobileLoginResponse struct {
 	Token     string     `json:"token"`
 	IsNewUser bool       `json:"is_new_user"`
 	User      MobileUser `json:"user"`
+}
+
+// MobileArcherRegisterRequest represents the registration payload for a new archer.
+type MobileArcherRegisterRequest struct {
+	Email     string `json:"email" example:"archer@example.com"`
+	Password  string `json:"password" example:"securepassword123"`
+	FullName  string `json:"full_name" example:"Rizky Pratama"`
+	Phone     string `json:"phone" example:"081234567890"`
+	Username  string `json:"username" example:"rizky-pratama"`
+	Gender    string `json:"gender" example:"male"`
+	BirthDate string `json:"birth_date" example:"1995-05-18"`
+	AvatarURL string `json:"avatar_url" example:"https://cdn.archeryhub.id/media/archers/rizky.jpg"`
+}
+
+// MobileEventRegistrationRequest represents the payload for event registration.
+type MobileEventRegistrationRequest struct {
+	EventID            string   `json:"event_id" example:"national-open-2026"`
+	AthleteID          string   `json:"athlete_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
+	EventCategoryID    string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
+	EventCategoryIDs   []string `json:"event_category_ids" example:"[\"cat-recurve-adult-putra\", \"cat-recurve-adult-team\"]"`
+	PaymentAmount      float64  `json:"payment_amount" example:"450000"`
+	PaymentProofURLs   []string `json:"payment_proof_urls" example:"[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"`
+	PaymentStatus      string   `json:"payment_status" example:"menunggu acc"`
+	RegistrationSource string   `json:"registration_source" example:"mobile_app"`
+	PaymentType        string   `json:"payment_type" example:"manual"` // manual, online, gateway
+}
+
+// MobileAddNewsCommentRequest represents the payload for adding a news comment.
+type MobileAddNewsCommentRequest struct {
+	UserID    string `json:"user_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
+	GuestName string `json:"guest_name" example:"Budi Santoso"`
+	Content   string `json:"content" example:"Wah acaranya seru banget!"`
+}
+
+// MobileChatbotMessageRequest represents the payload for chatbot interaction.
+type MobileChatbotMessageRequest struct {
+	Message string `json:"message" binding:"required" example:"Halo, ada event apa ya?"`
+}
+
+// MobileCreatePaymentRequest represents the payload to create a payment.
+type MobileCreatePaymentRequest struct {
+	Method string `json:"method" binding:"required" example:"BRIVA"`
 }
 
 type MobileNewsComment struct {
@@ -198,6 +251,45 @@ type MobileChatbotResponse struct {
 // MobileChatbotIntentsResponse represents chatbot intents list.
 type MobileChatbotIntentsResponse struct {
 	Intents []Intent `json:"intents"`
+}
+
+// MobileScorekeeperMeResponse represents scorekeeper profile info.
+type MobileScorekeeperMeResponse struct {
+	UUID             string  `json:"uuid"`
+	OrganizationUUID string  `json:"organization_uuid"`
+	Code             string  `json:"code"`
+	Name             string  `json:"name"`
+	Email            *string `json:"email"`
+	AvatarURL        *string `json:"avatar_url"`
+	Status           string  `json:"status"`
+	OrganizationName string  `json:"organization_name"`
+}
+
+// MobileScorekeeperEventsResponse represents events for scorekeeper.
+type MobileScorekeeperEventsResponse struct {
+	Events     []MobileEvent `json:"events"`
+	TotalCount int           `json:"total_count"`
+}
+
+// MobileScanTargetResponse represents the result of scanning a target QR.
+type MobileScanTargetResponse struct {
+	Type    string      `json:"type" example:"qualification"`
+	Board   interface{} `json:"board"`
+	Archers interface{} `json:"archers"`
+	Matches interface{} `json:"matches,omitempty"`
+}
+
+// MobileSessionBoardsResponse represents the leaderboard for a session.
+type MobileSessionBoardsResponse struct {
+	Session interface{} `json:"session"`
+	Archers interface{} `json:"archers"`
+}
+
+// MobileAssignmentScoreDetailResponse represents arrow-by-arrow scores.
+type MobileAssignmentScoreDetailResponse struct {
+	Assignment interface{} `json:"assignment"`
+	Summary    interface{} `json:"summary"`
+	Ends       interface{} `json:"ends"`
 }
 
 // MobileMyRegistrationResponse represents registrations for a specific event.

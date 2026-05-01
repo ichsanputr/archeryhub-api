@@ -1,4 +1,3068 @@
+basePath: /api/v1
+definitions:
+  handler.FinishMatchRequest:
+    properties:
+      winner_entry_id:
+        type: string
+    required:
+    - winner_entry_id
+    type: object
+  handler.MatchScoreRequest:
+    properties:
+      arrows_a:
+        items:
+          type: string
+        type: array
+      arrows_b:
+        items:
+          type: string
+        type: array
+      end_no:
+        type: integer
+      score_a:
+        type: integer
+      score_b:
+        type: integer
+    required:
+    - end_no
+    type: object
+  handler.MessageResponse:
+    properties:
+      message:
+        example: Operation successful
+        type: string
+    type: object
+  handler.ScoringCard:
+    properties:
+      card_name:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      phase:
+        type: string
+      session_id:
+        type: string
+      session_name:
+        type: string
+      session_order:
+        type: integer
+      target_name:
+        type: string
+    type: object
+  handler.ScoringCardsResponse:
+    properties:
+      cards:
+        items:
+          $ref: '#/definitions/handler.ScoringCard'
+        type: array
+    type: object
+  handler.ScoringTarget:
+    properties:
+      name:
+        type: string
+      participants:
+        items: {}
+        type: array
+    type: object
+  handler.ScoringTargetsResponse:
+    properties:
+      targets:
+        items:
+          $ref: '#/definitions/handler.ScoringTarget'
+        type: array
+    type: object
+  mobile.Intent:
+    properties:
+      answer:
+        type: string
+      examples:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
+  mobile.MessageResponse:
+    properties:
+      message:
+        example: Operation successful
+        type: string
+    type: object
+  mobile.MobileAddNewsCommentRequest:
+    properties:
+      content:
+        example: Wah acaranya seru banget!
+        type: string
+      guest_name:
+        example: Budi Santoso
+        type: string
+      user_id:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+    type: object
+  mobile.MobileArcherOrdersResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      orders:
+        items:
+          $ref: '#/definitions/mobile.MobileOrderHistoryItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  mobile.MobileArcherProfileData:
+    properties:
+      address:
+        example: Jl. Panahan No. 10
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        type: string
+      bow_type:
+        example: recurve
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      club_id:
+        example: club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      date_of_birth:
+        example: "1995-05-18"
+        type: string
+      email:
+        example: rizky@example.com
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      gender:
+        example: male
+        type: string
+      id:
+        example: ARC-0042
+        type: string
+      phone:
+        example: "081234567890"
+        type: string
+      user_type:
+        example: archer
+        type: string
+      username:
+        example: rizky-pratama
+        type: string
+      uuid:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+    type: object
+  mobile.MobileArcherProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/mobile.MobileArcherProfileData'
+    type: object
+  mobile.MobileArcherRegisterRequest:
+    properties:
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        type: string
+      birth_date:
+        example: "1995-05-18"
+        type: string
+      email:
+        example: archer@example.com
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      gender:
+        example: male
+        type: string
+      password:
+        example: securepassword123
+        type: string
+      phone:
+        example: "081234567890"
+        type: string
+      username:
+        example: rizky-pratama
+        type: string
+    type: object
+  mobile.MobileAssignmentScoreDetailResponse:
+    properties:
+      assignment: {}
+      ends: {}
+      summary: {}
+    type: object
+  mobile.MobileCartResponse:
+    properties:
+      data: {}
+    type: object
+  mobile.MobileChatbotIntentsResponse:
+    properties:
+      intents:
+        items:
+          $ref: '#/definitions/mobile.Intent'
+        type: array
+    type: object
+  mobile.MobileChatbotMessageRequest:
+    properties:
+      message:
+        example: Halo, ada event apa ya?
+        type: string
+    required:
+    - message
+    type: object
+  mobile.MobileChatbotResponse:
+    properties:
+      answer:
+        type: string
+      confidence:
+        type: number
+      intent:
+        type: string
+      quick_actions:
+        items:
+          type: string
+        type: array
+    type: object
+  mobile.MobileCheckoutResponse:
+    properties:
+      message:
+        type: string
+      payment: {}
+      reference:
+        type: string
+    type: object
+  mobile.MobileCreatePaymentRequest:
+    properties:
+      method:
+        example: BRIVA
+        type: string
+    required:
+    - method
+    type: object
+  mobile.MobileEvent:
+    properties:
+      banner_url:
+        type: string
+      end_date:
+        type: string
+      location:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      organizer_avatar_url:
+        type: string
+      organizer_name:
+        type: string
+      participant_count:
+        type: integer
+      slug:
+        type: string
+      start_date:
+        type: string
+      uuid:
+        type: string
+    type: object
+  mobile.MobileEventDetail:
+    properties:
+      address:
+        example: Jl. Asia Afrika No.8, Jakarta
+        type: string
+      banner_url:
+        example: https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      code:
+        example: AHC-2026-JKT-OPEN
+        type: string
+      created_at:
+        example: "2026-03-01T10:30:00Z"
+        format: date-time
+        type: string
+      description:
+        example: Kejuaraan terbuka nasional untuk kategori recurve, compound, dan
+          barebow.
+        type: string
+      end_date:
+        example: "2026-05-21T17:00:00Z"
+        format: date-time
+        type: string
+      entry_fee:
+        example: 350000
+        type: number
+      faq_raw:
+        type: string
+      gmaps_link:
+        example: https://maps.google.com/?q=-6.2185,106.8022
+        type: string
+      id:
+        example: evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      location:
+        example: Jakarta Selatan
+        type: string
+      location_detail:
+        $ref: '#/definitions/models.EventLocationDetail'
+      location_type:
+        description: 'Location type: Indoor, Outdoor, Field, 3D, etc.'
+        example: Outdoor
+        type: string
+      logo_url:
+        example: https://cdn.archeryhub.id/media/logo-jkt-open-2026.png
+        type: string
+      name:
+        example: ArcheryHub Jakarta Open 2026
+        type: string
+      num_distances:
+        example: 2
+        type: integer
+      num_sessions:
+        example: 4
+        type: integer
+      organizer_avatar_url:
+        type: string
+      organizer_id:
+        example: org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55
+        type: string
+      organizer_name:
+        type: string
+      organizer_phone:
+        type: string
+      organizer_slug:
+        type: string
+      page_settings_raw:
+        type: string
+      participant_count:
+        type: integer
+      registration_deadline:
+        example: "2026-05-10T23:59:59Z"
+        format: date-time
+        type: string
+      short_name:
+        example: JKT Open 2026
+        type: string
+      slug:
+        example: archeryhub-jakarta-open-2026
+        type: string
+      start_date:
+        example: "2026-05-18T08:00:00Z"
+        format: date-time
+        type: string
+      status:
+        description: draft, active
+        example: published
+        type: string
+      technical_guidebook_url:
+        example: https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf
+        type: string
+      total_prize:
+        example: 50000000
+        type: number
+      type:
+        description: Indoor, Outdoor, Field, 3D (kept for backward compatibility)
+        example: Outdoor
+        type: string
+      updated_at:
+        example: "2026-03-12T13:10:00Z"
+        format: date-time
+        type: string
+      venue:
+        example: Lapangan ABC Senayan
+        type: string
+    type: object
+  mobile.MobileEventRegistrationRequest:
+    properties:
+      athlete_id:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+      event_category_id:
+        example: cat-recurve-adult-putra
+        type: string
+      event_category_ids:
+        example:
+        - '["cat-recurve-adult-putra"'
+        - ' "cat-recurve-adult-team"]'
+        items:
+          type: string
+        type: array
+      event_id:
+        example: national-open-2026
+        type: string
+      payment_amount:
+        example: 450000
+        type: number
+      payment_proof_urls:
+        example:
+        - '["https://cdn.archeryhub.id/media/proofs/receipt-001.jpg"]'
+        items:
+          type: string
+        type: array
+      payment_status:
+        example: menunggu acc
+        type: string
+      payment_type:
+        description: manual, online, gateway
+        example: manual
+        type: string
+      registration_source:
+        example: mobile_app
+        type: string
+    type: object
+  mobile.MobileEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileEvent'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileLoginResponse:
+    properties:
+      is_new_user:
+        type: boolean
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/mobile.MobileUser'
+    type: object
+  mobile.MobileMarketplaceProductResponse:
+    properties:
+      product:
+        $ref: '#/definitions/models.Product'
+    type: object
+  mobile.MobileMarketplaceProductsResponse:
+    properties:
+      current_page:
+        type: integer
+      last_page:
+        type: integer
+      limit:
+        type: integer
+      offset:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileMyEventItem:
+    properties:
+      category_name:
+        type: string
+      end_date:
+        type: string
+      event_name:
+        type: string
+      event_slug:
+        type: string
+      event_uuid:
+        type: string
+      location:
+        type: string
+      logo_url:
+        type: string
+      payment_status:
+        type: string
+      qr_code_data_url:
+        type: string
+      qr_raw:
+        type: string
+      registration_date:
+        type: string
+      start_date:
+        type: string
+    type: object
+  mobile.MobileMyEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileMyEventItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  mobile.MobileMyRegistrationResponse:
+    properties:
+      event_id:
+        type: string
+      registrations:
+        items:
+          $ref: '#/definitions/mobile.MobileRegistrationItem'
+        type: array
+    type: object
+  mobile.MobileNewsComment:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      guest_name:
+        type: string
+      id:
+        type: string
+      news_id:
+        type: string
+      user_id:
+        type: string
+      user_name:
+        type: string
+      user_type:
+        type: string
+    type: object
+  mobile.MobileNewsCommentsResponse:
+    properties:
+      comments:
+        items:
+          $ref: '#/definitions/mobile.MobileNewsComment'
+        type: array
+      count:
+        type: integer
+    type: object
+  mobile.MobileNewsDetail:
+    properties:
+      author_name:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      meta_description:
+        type: string
+      meta_title:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      tags:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      views:
+        type: integer
+    type: object
+  mobile.MobileNewsDetailResponse:
+    properties:
+      news:
+        $ref: '#/definitions/mobile.MobileNewsDetail'
+    type: object
+  mobile.MobileNewsItem:
+    properties:
+      author_name:
+        type: string
+      category:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      title:
+        type: string
+      views:
+        type: integer
+    type: object
+  mobile.MobileNewsListResponse:
+    properties:
+      news:
+        items:
+          $ref: '#/definitions/mobile.MobileNewsItem'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileOAuthLoginRequest:
+    properties:
+      idToken:
+        type: string
+    required:
+    - idToken
+    type: object
+  mobile.MobileOrderHistoryItem:
+    properties:
+      checkout_url:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      payment_method:
+        type: string
+      payment_reference:
+        type: string
+      payment_status:
+        type: string
+      seller_id:
+        type: string
+      seller_name:
+        type: string
+      status:
+        type: string
+      total_amount:
+        type: number
+      total_items:
+        type: integer
+    type: object
+  mobile.MobileOrganizationEventItem:
+    properties:
+      banner_url:
+        example: https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg
+        type: string
+      end_date:
+        example: "2026-05-21T17:00:00Z"
+        type: string
+      location:
+        example: Jakarta Selatan
+        type: string
+      logo_url:
+        example: https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png
+        type: string
+      name:
+        example: ArcheryHub Jakarta Open 2026
+        type: string
+      participant_count:
+        example: 128
+        type: integer
+      pending_count:
+        example: 32
+        type: integer
+      registration_closed:
+        example: false
+        type: boolean
+      slug:
+        example: archeryhub-jakarta-open-2026
+        type: string
+      start_date:
+        example: "2026-05-18T08:00:00Z"
+        type: string
+      status:
+        example: published
+        type: string
+      uuid:
+        example: evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      venue:
+        example: Lapangan ABC Senayan
+        type: string
+      verified_count:
+        example: 96
+        type: integer
+    type: object
+  mobile.MobileOrganizationEventParticipantsResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      participants:
+        items:
+          $ref: '#/definitions/mobile.MobileOrganizationParticipantItem'
+        type: array
+      pending_count:
+        type: integer
+      total:
+        type: integer
+      verified_count:
+        type: integer
+    type: object
+  mobile.MobileOrganizationEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileOrganizationEventItem'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  mobile.MobileOrganizationParticipantItem:
+    properties:
+      archer_id:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+      athlete_code:
+        example: ARC-0042
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        type: string
+      category_id:
+        example: cat-44f67d53-032f-428f-a8f2-8db5672a7a9d
+        type: string
+      category_name:
+        example: Umum
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      club_id:
+        example: club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      division_name:
+        example: Recurve
+        type: string
+      email:
+        example: rizky@example.com
+        type: string
+      event_id:
+        example: evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      event_type_name:
+        example: Individual
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      gender_division_name:
+        example: Putra
+        type: string
+      id:
+        example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
+        type: string
+      payment_status:
+        example: lunas
+        type: string
+      qr_code_data_url:
+        example: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+        type: string
+      qr_raw:
+        example: EVT2026-ARC-0001
+        type: string
+      registration_date:
+        example: "2026-05-01T09:30:00Z"
+        type: string
+      target_name:
+        example: A-12
+        type: string
+      username:
+        example: rizky-pratama
+        type: string
+    type: object
+  mobile.MobileOrganizationProfileData:
+    properties:
+      acronym:
+        example: AHJ
+        type: string
+      address:
+        example: Jl. Stadion Utama No. 1, Jakarta
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/organization/logo.png
+        type: string
+      banner_url:
+        example: https://cdn.archeryhub.id/media/organization/banner.jpg
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      contact_person_email:
+        example: budi@archeryhub.id
+        type: string
+      contact_person_name:
+        example: Budi Santoso
+        type: string
+      contact_person_phone:
+        example: "081298765432"
+        type: string
+      country:
+        example: Indonesia
+        type: string
+      created_at:
+        example: "2026-01-10T08:00:00Z"
+        type: string
+      description:
+        example: Organisasi panahan yang fokus pada pembinaan atlet dan penyelenggaraan
+          event.
+        type: string
+      email:
+        example: event@archeryhub.id
+        type: string
+      established_date:
+        example: "2020-08-17"
+        type: string
+      faq:
+        items: {}
+        type: array
+      history:
+        example: Didirikan untuk mendukung ekosistem panahan nasional yang lebih terstruktur.
+        type: string
+      id:
+        example: org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55
+        type: string
+      mission:
+        example: Membina atlet, pelatih, dan penyelenggaraan kompetisi yang profesional.
+        type: string
+      name:
+        example: ArcheryHub Jakarta
+        type: string
+      page_settings:
+        type: object
+      registration_number:
+        example: AHJ-2026-001
+        type: string
+      slug:
+        example: archeryhub-jakarta
+        type: string
+      social_facebook:
+        example: archeryhubjakarta
+        type: string
+      social_instagram:
+        example: archeryhub.jakarta
+        type: string
+      social_media:
+        type: object
+      social_twitter:
+        example: archeryhubjkt
+        type: string
+      status:
+        example: active
+        type: string
+      subscription_expires_at:
+        example: "2026-12-31T23:59:59Z"
+        type: string
+      subscription_status:
+        example: active
+        type: string
+      updated_at:
+        example: "2026-03-10T09:30:00Z"
+        type: string
+      user_type:
+        example: organization
+        type: string
+      uuid:
+        example: org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55
+        type: string
+      verification_status:
+        example: verified
+        type: string
+      vision:
+        example: Menjadi pusat pembinaan panahan modern di Indonesia.
+        type: string
+      website:
+        example: https://archeryhub.id
+        type: string
+      whatsapp_no:
+        example: "081234567890"
+        type: string
+    type: object
+  mobile.MobileOrganizationProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/mobile.MobileOrganizationProfileData'
+    type: object
+  mobile.MobileOrganizationScanRegistrationRequest:
+    properties:
+      code:
+        example: REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+    required:
+    - code
+    type: object
+  mobile.MobileOrganizationScanRegistrationResponse:
+    properties:
+      athlete_code:
+        example: ARC-0042
+        type: string
+      category_name:
+        example: Recurve Umum Putra
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      event_name:
+        example: ArcheryHub Jakarta Open 2026
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      last_reregistration_at:
+        example: "2026-03-27T10:00:00Z"
+        type: string
+      participant_uuid:
+        example: f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a
+        type: string
+      payment_status:
+        example: lunas
+        type: string
+    type: object
+  mobile.MobilePaymentTransactionResponse:
+    properties:
+      amount:
+        type: number
+      checkout_url:
+        type: string
+      id:
+        type: string
+      reference:
+        type: string
+      status:
+        type: string
+      tripay_reference:
+        type: string
+      va_number:
+        type: string
+    type: object
+  mobile.MobileRegisterEventResponse:
+    properties:
+      message:
+        type: string
+      payment_status:
+        type: string
+      registered_categories:
+        items:
+          type: string
+        type: array
+      registration_id:
+        type: string
+    type: object
+  mobile.MobileRegistrationItem:
+    properties:
+      category_name:
+        type: string
+      checkout_url:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      pay_code:
+        type: string
+      payment_amount:
+        type: number
+      payment_method:
+        type: string
+      payment_status:
+        type: string
+      qr_code_data_url:
+        type: string
+      qr_raw:
+        type: string
+      qr_url:
+        type: string
+      registration_date:
+        type: string
+      tripay_reference:
+        type: string
+      va_number:
+        type: string
+    type: object
+  mobile.MobileScanTargetResponse:
+    properties:
+      archers: {}
+      board: {}
+      matches: {}
+      type:
+        example: qualification
+        type: string
+    type: object
+  mobile.MobileScorekeeperEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/mobile.MobileEvent'
+        type: array
+      total_count:
+        type: integer
+    type: object
+  mobile.MobileScorekeeperLoginRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  mobile.MobileScorekeeperMeResponse:
+    properties:
+      avatar_url:
+        type: string
+      code:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      organization_name:
+        type: string
+      organization_uuid:
+        type: string
+      status:
+        type: string
+      uuid:
+        type: string
+    type: object
+  mobile.MobileSellerProductsResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      total:
+        type: integer
+    type: object
+  mobile.MobileSellerProfileData:
+    properties:
+      address:
+        example: Jl. Panahan No. 10, Jakarta
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/seller/logo-store.png
+        type: string
+      banner:
+        example: https://cdn.archeryhub.id/media/seller/banner-store.jpg
+        type: string
+      banner_text:
+        example: Perlengkapan panahan lengkap untuk semua level
+        type: string
+      banner_url:
+        example: https://cdn.archeryhub.id/media/seller/banner-store.jpg
+        type: string
+      catalog_config:
+        type: object
+      city:
+        example: Jakarta
+        type: string
+      description:
+        example: Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi.
+        type: string
+      email:
+        example: seller@archeryhub.id
+        type: string
+      id:
+        example: sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e
+        type: string
+      logo:
+        example: https://cdn.archeryhub.id/media/seller/logo-store.png
+        type: string
+      name:
+        example: ArcheryHub Store Jakarta
+        type: string
+      page_settings:
+        type: object
+      phone:
+        example: "081234567890"
+        type: string
+      province:
+        example: DKI Jakarta
+        type: string
+      sections:
+        type: object
+      slug:
+        example: archeryhub-store-jakarta
+        type: string
+      store_name:
+        example: ArcheryHub Store Jakarta
+        type: string
+      store_slug:
+        example: archeryhub-store-jakarta
+        type: string
+      theme_color:
+        example: '#C1121F'
+        type: string
+      user_type:
+        example: seller
+        type: string
+      username:
+        example: archeryhub-store-jakarta
+        type: string
+      uuid:
+        example: sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e
+        type: string
+    type: object
+  mobile.MobileSellerProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/mobile.MobileSellerProfileData'
+    type: object
+  mobile.MobileSessionBoardsResponse:
+    properties:
+      archers: {}
+      session: {}
+    type: object
+  mobile.MobileUpdateArcherProfileRequest:
+    properties:
+      address:
+        type: string
+      avatar_url:
+        type: string
+      bow_type:
+        type: string
+      city:
+        type: string
+      date_of_birth:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      phone:
+        type: string
+    type: object
+  mobile.MobileUpdateOrganizationProfileRequest:
+    properties:
+      acronym:
+        type: string
+      address:
+        type: string
+      avatar_url:
+        type: string
+      banner_url:
+        type: string
+      city:
+        type: string
+      contact_person_email:
+        type: string
+      contact_person_name:
+        type: string
+      contact_person_phone:
+        type: string
+      country:
+        type: string
+      description:
+        type: string
+      established_date:
+        type: string
+      faq: {}
+      history:
+        type: string
+      mission:
+        type: string
+      name:
+        type: string
+      page_settings: {}
+      registration_number:
+        type: string
+      slug:
+        type: string
+      social_facebook:
+        type: string
+      social_instagram:
+        type: string
+      social_media: {}
+      social_twitter:
+        type: string
+      vision:
+        type: string
+      website:
+        type: string
+      whatsapp_no:
+        type: string
+    type: object
+  mobile.MobileUpdateSellerProfileBasicRequest:
+    properties:
+      address:
+        type: string
+      avatar_url:
+        type: string
+      banner:
+        type: string
+      banner_url:
+        type: string
+      city:
+        type: string
+      description:
+        type: string
+      email:
+        type: string
+      logo:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      province:
+        type: string
+      store_name:
+        type: string
+      username:
+        type: string
+    type: object
+  mobile.MobileUser:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      user_type:
+        type: string
+      username:
+        type: string
+      uuid:
+        type: string
+    type: object
+  mobile.mobileEmailPasswordRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.AddToCartRequest:
+    properties:
+      color:
+        type: string
+      product_id:
+        type: string
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - product_id
+    - quantity
+    type: object
+  models.CheckoutRequest:
+    properties:
+      method:
+        type: string
+      shipping_address:
+        type: string
+    required:
+    - method
+    - shipping_address
+    type: object
+  models.EventCompetitionCategory:
+    properties:
+      category_id:
+        example: cat-44f67d53-032f-428f-a8f2-8db5672a7a9d
+        type: string
+      category_name:
+        example: Umum
+        type: string
+      division_name:
+        example: Recurve
+        type: string
+      event_type_name:
+        example: Individual
+        type: string
+      gender_division_name:
+        example: Putra
+        type: string
+      participant_count:
+        example: 64
+        type: integer
+    type: object
+  models.EventImage:
+    properties:
+      alt_text:
+        type: string
+      caption:
+        type: string
+      created_at:
+        type: string
+      display_order:
+        type: integer
+      event_id:
+        type: string
+      id:
+        type: string
+      is_primary:
+        type: boolean
+      url:
+        type: string
+    type: object
+  models.EventLocationDetail:
+    properties:
+      address:
+        example: Jl. Asia Afrika No.8, Jakarta
+        type: string
+      city:
+        example: Jakarta
+        type: string
+      gmaps_link:
+        example: https://maps.google.com/?q=-6.2185,106.8022
+        type: string
+      location:
+        example: Jakarta Selatan
+        type: string
+      location_type:
+        example: Outdoor
+        type: string
+      venue:
+        example: Lapangan ABC Senayan
+        type: string
+    type: object
+  models.EventParticipantPreview:
+    properties:
+      archer_id:
+        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+        type: string
+      avatar_url:
+        example: https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg
+        type: string
+      category_name:
+        example: Recurve Umum Putra
+        type: string
+      club_name:
+        example: ArcheryHub Club Jakarta
+        type: string
+      full_name:
+        example: Rizky Pratama
+        type: string
+      participant_id:
+        example: par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d
+        type: string
+      payment_status:
+        example: lunas
+        type: string
+      qual_rank:
+        example: 1
+        type: integer
+      qual_score:
+        example: 668
+        type: integer
+    type: object
+  models.EventSchedule:
+    properties:
+      created_at:
+        type: string
+      day_order:
+        type: integer
+      description:
+        type: string
+      end_time:
+        type: string
+      event_id:
+        type: string
+      id:
+        type: string
+      location:
+        type: string
+      sort_order:
+        type: integer
+      start_time:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Product:
+    properties:
+      category:
+        description: equipment, apparel, accessories, training, other
+        type: string
+      club_id:
+        type: string
+      colors:
+        description: JSON array
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      images:
+        description: JSON array
+        type: string
+      name:
+        type: string
+      organization_id:
+        type: string
+      price:
+        type: number
+      sale_price:
+        type: number
+      seller_id:
+        type: string
+      slug:
+        type: string
+      specifications:
+        description: JSON object
+        type: string
+      status:
+        description: draft, active, sold_out, archived
+        type: string
+      stock:
+        type: integer
+      updated_at:
+        type: string
+      views:
+        type: integer
+    type: object
+  models.UpdateCartItemRequest:
+    properties:
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - quantity
+    type: object
+host: api.archeryhub.id
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@archeryhub.id
+    name: ArcheryHub Support
+    url: https://archeryhub.id
+  description: Dedicated API for ArcheryHub Mobile App (Archer & Scorekeeper)
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://archeryhub.id/terms/
+  title: ArcheryHub Mobile API
+  version: "1.1"
+paths:
+  /events/{id}/results/elimination:
+    get:
+      description: Get the elimination match brackets and results for a specific category
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Category UUID
+        in: query
+        name: category_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Elimination Bracket
+      tags:
+      - Mobile - Results
+  /events/{id}/results/qualification:
+    get:
+      description: Get complete leaderboard for a specific category, including end-by-end
+        scores
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Category UUID
+        in: query
+        name: category_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Qualification Results
+      tags:
+      - Mobile - Results
+  /mobile/archer/cart:
+    delete:
+      description: Delete all items from the shopping cart for the current archer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Clear Cart
+      tags:
+      - Mobile - Commerce
+    get:
+      description: Get current list of items in the shopping cart for the authenticated
+        archer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileCartResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Cart
+      tags:
+      - Mobile - Commerce
+    post:
+      consumes:
+      - application/json
+      description: Add a product with specific quantity and color to the shopping
+        cart
+      parameters:
+      - description: Add to Cart Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddToCartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Add to Cart
+      tags:
+      - Mobile - Commerce
+  /mobile/archer/cart/{id}:
+    delete:
+      description: Delete a specific item from the shopping cart
+      parameters:
+      - description: Cart Item UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Remove from Cart
+      tags:
+      - Mobile - Commerce
+    put:
+      consumes:
+      - application/json
+      description: Update the quantity of a specific item in the cart
+      parameters:
+      - description: Cart Item UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Quantity
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateCartItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Cart Item
+      tags:
+      - Mobile - Commerce
+  /mobile/archer/cart/checkout:
+    post:
+      consumes:
+      - application/json
+      description: Create orders from cart items and initiate payment transaction
+      parameters:
+      - description: Checkout Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CheckoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileCheckoutResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Checkout Cart
+      tags:
+      - Mobile - Commerce
+  /mobile/archer/events:
+    get:
+      description: Get list of all events the archer is registered in
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMyEventsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get My Events
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/{id}/detail:
+    get:
+      description: Get event details including registration status for the authenticated
+        archer
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Event Detail (Archer)
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/{id}/qr:
+    get:
+      description: Get the digital ID / QR code for event check-in
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Event QR Code
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/{id}/register:
+    post:
+      consumes:
+      - application/json
+      description: Register the authenticated archer for one or more event categories
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Registration Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileEventRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Register for Event
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/{id}/registration:
+    get:
+      description: Get current user's registration and payment status for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMyRegistrationResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get My Registration
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/register:
+    post:
+      consumes:
+      - application/json
+      description: Register the authenticated archer for one or more event categories
+      parameters:
+      - description: Registration Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileEventRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Register for Event
+      tags:
+      - Mobile - Archer
+  /mobile/archer/me:
+    get:
+      description: Get profile information for the authenticated archer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherProfileResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Archer Profile
+      tags:
+      - Mobile - Profile
+    patch:
+      consumes:
+      - application/json
+      description: Update profile info for the authenticated archer
+      parameters:
+      - description: Profile Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateArcherProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Archer Profile
+      tags:
+      - Mobile - Profile
+  /mobile/archer/orders:
+    get:
+      description: Get a list of all past orders for the authenticated archer
+      parameters:
+      - description: Filter by order status
+        in: query
+        name: status
+        type: string
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherOrdersResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Order History
+      tags:
+      - Mobile - Commerce
+  /mobile/archer/payments/{reference}:
+    get:
+      description: Get status and details of a specific payment by reference
+      parameters:
+      - description: Merchant Reference (ORD-... or PAY-...)
+        in: path
+        name: reference
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobilePaymentTransactionResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Payment Detail
+      tags:
+      - Mobile - Payment
+  /mobile/assignments/{assignmentId}/detail:
+    get:
+      description: Get arrow-by-arrow score history for a specific participant assignment
+      parameters:
+      - description: Assignment UUID
+        in: path
+        name: assignmentId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileAssignmentScoreDetailResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Assignment Score Detail
+      tags:
+      - Mobile - Scoring
+  /mobile/auth/archer/login:
+    post:
+      consumes:
+      - application/json
+      description: Login using email and password for archers
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.mobileEmailPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Archer Login
+      tags:
+      - Mobile - Auth
+  /mobile/auth/archer/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new archer account
+      parameters:
+      - description: Registration Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileArcherRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Archer Registration
+      tags:
+      - Mobile - Auth
+  /mobile/auth/google/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate or register using Google ID Token
+      parameters:
+      - description: Google ID Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOAuthLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Google Login
+      tags:
+      - Mobile - Auth
+  /mobile/auth/organization/login:
+    post:
+      consumes:
+      - application/json
+      description: Login for organization accounts
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.mobileEmailPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Organization Login
+      tags:
+      - Mobile - Auth
+  /mobile/auth/scorekeeper/login:
+    post:
+      consumes:
+      - application/json
+      description: Login using a numeric code assigned by organization
+      parameters:
+      - description: Scorekeeper Code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileScorekeeperLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Scorekeeper Login
+      tags:
+      - Mobile - Auth
+  /mobile/auth/seller/login:
+    post:
+      consumes:
+      - application/json
+      description: Login for seller accounts
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.mobileEmailPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileLoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Seller Login
+      tags:
+      - Mobile - Auth
+  /mobile/chat/conversations:
+    get:
+      description: Get list of all chat conversations for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List Conversations
+      tags:
+      - Mobile - Chat
+    post:
+      consumes:
+      - application/json
+      description: Start a new chat or get existing conversation with a peer
+      parameters:
+      - description: Conversation Details
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Start/Get Conversation
+      tags:
+      - Mobile - Chat
+  /mobile/chat/conversations/{id}/messages:
+    get:
+      description: Get history of messages for a specific conversation
+      parameters:
+      - description: Conversation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Chat Messages
+      tags:
+      - Mobile - Chat
+    post:
+      consumes:
+      - application/json
+      description: Send a new message to an existing conversation
+      parameters:
+      - description: Conversation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message Content
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Send Chat Message
+      tags:
+      - Mobile - Chat
+  /mobile/chat/last-active:
+    get:
+      description: Get last seen and online status of a chat peer
+      parameters:
+      - description: seller or archer
+        in: query
+        name: peer_type
+        required: true
+        type: string
+      - description: Peer UUID
+        in: query
+        name: peer_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Peer Status
+      tags:
+      - Mobile - Chat
+  /mobile/chat/unread:
+    get:
+      description: Get total count of unread messages across all conversations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Unread Count
+      tags:
+      - Mobile - Chat
+  /mobile/chatbot/intents:
+    get:
+      description: Get a list of supported topics the chatbot can answer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileChatbotIntentsResponse'
+      summary: List Chatbot Intents
+      tags:
+      - Mobile - Chatbot
+  /mobile/chatbot/message:
+    post:
+      consumes:
+      - application/json
+      description: Send a natural language message and get an automated answer
+      parameters:
+      - description: User Message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileChatbotMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileChatbotResponse'
+      summary: Send Message to Chatbot
+      tags:
+      - Mobile - Chatbot
+  /mobile/elimination/scoring/matches/{matchId}/end:
+    post:
+      consumes:
+      - application/json
+      description: End the match, calculate final scores/points, and advance the winner
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      - description: Optional Winner Override
+        in: body
+        name: request
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: End Match
+      tags:
+      - Mobile - Scoring
+  /mobile/elimination/scoring/matches/{matchId}/finish:
+    post:
+      consumes:
+      - application/json
+      description: Finish an elimination match and declare the winner
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      - description: Finish Match Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.FinishMatchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Finish Match
+      tags:
+      - Mobile - Scoring
+  /mobile/elimination/scoring/matches/{matchId}/reset:
+    post:
+      description: Reset a finished match status and clear the winner from next round
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset Match
+      tags:
+      - Mobile - Scoring
+  /mobile/elimination/scoring/matches/{matchId}/score:
+    post:
+      consumes:
+      - application/json
+      description: Submit or update scores for a specific end (set/end) in an elimination
+        match
+      parameters:
+      - description: Match UUID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      - description: Match Score Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MatchScoreRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update Match Score
+      tags:
+      - Mobile - Scoring
+  /mobile/events:
+    get:
+      description: Get a list of active or past events optimized for mobile
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search by name or location
+        in: query
+        name: search
+        type: string
+      - description: Filter past events
+        in: query
+        name: history
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventsResponse'
+      summary: List Mobile Events
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}:
+    get:
+      description: Get summary and location details for a specific event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventDetail'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Mobile Event Detail
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/categories:
+    get:
+      description: Get list of divisions and age groups in this event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/models.EventCompetitionCategory'
+              type: array
+            type: object
+      summary: Get Event Categories
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/gallery:
+    get:
+      description: Get event gallery and documentation images
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/models.EventImage'
+              type: array
+            type: object
+      summary: Get Event Gallery
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/participants:
+    get:
+      description: Get the list of registered archers for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/models.EventParticipantPreview'
+              type: array
+            type: object
+      summary: Get Event Participants
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/results:
+    get:
+      description: Get the current qualification and elimination results
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Event Results
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/schedule:
+    get:
+      description: Get the daily schedule and rundown for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/models.EventSchedule'
+              type: array
+            type: object
+      summary: Get Event Schedule
+      tags:
+      - Mobile - Events
+  /mobile/marketplace/products:
+    get:
+      description: Get a list of active products in the marketplace
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination page
+        in: query
+        name: page
+        type: integer
+      - description: Search by name or description
+        in: query
+        name: search
+        type: string
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMarketplaceProductsResponse'
+      summary: List Marketplace Products
+      tags:
+      - Mobile - Marketplace
+  /mobile/marketplace/products/{id}:
+    get:
+      description: Get detailed information about a specific product
+      parameters:
+      - description: Product Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMarketplaceProductResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Product Detail
+      tags:
+      - Mobile - Marketplace
+  /mobile/news:
+    get:
+      description: Get a list of published news articles
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search by title or content
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileNewsListResponse'
+      summary: List News
+      tags:
+      - Mobile - News
+  /mobile/news/{id}:
+    get:
+      description: Get the full content of a news article
+      parameters:
+      - description: News Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileNewsDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get News Detail
+      tags:
+      - Mobile - News
+  /mobile/news/{id}/comments:
+    get:
+      description: Get approved comments for a news article
+      parameters:
+      - description: News Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileNewsCommentsResponse'
+      summary: List News Comments
+      tags:
+      - Mobile - News
+    post:
+      consumes:
+      - application/json
+      description: Post a new comment as an authenticated user or guest
+      parameters:
+      - description: News Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Comment content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileAddNewsCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Add News Comment
+      tags:
+      - Mobile - News
+  /mobile/organization/events:
+    get:
+      description: Get list of events organized by the authenticated organization
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Search events
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationEventsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Events
+      tags:
+      - Mobile - Profile
+  /mobile/organization/events/{id}/participants:
+    get:
+      description: Get list of participants for an event owned by the organization
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search participants
+        in: query
+        name: search
+        type: string
+      - description: Filter by payment status
+        in: query
+        name: payment_status
+        type: string
+      - description: Filter by category
+        in: query
+        name: category_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationEventParticipantsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Event Participants (Org)
+      tags:
+      - Mobile - Profile
+  /mobile/organization/me:
+    get:
+      description: Get profile information for the authenticated organization
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationProfileResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Profile
+      tags:
+      - Mobile - Profile
+    patch:
+      consumes:
+      - application/json
+      description: Update profile info for the authenticated organization
+      parameters:
+      - description: Profile Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateOrganizationProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Organization Profile
+      tags:
+      - Mobile - Profile
+  /mobile/organization/scan:
+    post:
+      consumes:
+      - application/json
+      description: Scan and verify a participant's QR code for event check-in/reregistration
+      parameters:
+      - description: QR Code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOrganizationScanRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationScanRegistrationResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Scan Registration QR
+      tags:
+      - Mobile - Profile
+  /mobile/participants/{participantId}/payment:
+    post:
+      consumes:
+      - application/json
+      description: Initiate a Tripay transaction for a specific participant registration
+      parameters:
+      - description: Participant UUID
+        in: path
+        name: participantId
+        required: true
+        type: string
+      - description: Payment Method
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileCreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobilePaymentTransactionResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create Participant Payment
+      tags:
+      - Mobile - Payment
+  /mobile/qualification/scoring/scores/{assignmentId}:
+    post:
+      consumes:
+      - application/json
+      description: Submit or update scores for a specific qualification assignment
+        (end-by-end)
+      parameters:
+      - description: Assignment UUID
+        in: path
+        name: assignmentId
+        required: true
+        type: string
+      - description: Score Update Payload (models.ScoreUpdateRequest or models.ScoreBatchUpdateRequest)
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+      summary: Update Qualification Score
+      tags:
+      - Mobile - Scoring
+  /mobile/scan:
+    get:
+      description: Scan a target board QR code to get participant info for scoring
+      parameters:
+      - description: Target Board QR Code
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileScanTargetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Scan Target QR
+      tags:
+      - Mobile - Scoring
+  /mobile/scorekeeper/events:
+    get:
+      description: Get list of events owned by the scorekeeper's organization
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileScorekeeperEventsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Scorekeeper Events
+      tags:
+      - Mobile - Scorekeeper
+  /mobile/scorekeeper/me:
+    get:
+      description: Get profile information for the authenticated scorekeeper
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileScorekeeperMeResponse'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Scorekeeper Profile
+      tags:
+      - Mobile - Scorekeeper
+  /mobile/scoring/cards:
+    get:
+      description: Get selectable cards (targets) for a specific phase and category
+      parameters:
+      - description: qualification or elimination
+        in: query
+        name: phase
+        required: true
+        type: string
+      - description: Category UUID
+        in: query
+        name: category_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ScoringCardsResponse'
+      summary: List Scoring Cards
+      tags:
+      - Mobile - Scoring
+  /mobile/scoring/targets:
+    get:
+      description: Get participants and their scoring progress for a specific target
+      parameters:
+      - description: qualification or elimination
+        in: query
+        name: phase
+        required: true
+        type: string
+      - description: Session UUID
+        in: query
+        name: session_id
+        required: true
+        type: string
+      - description: Target Name (e.g. 1A)
+        in: query
+        name: target_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ScoringTargetsResponse'
+      summary: Get Scoring Targets
+      tags:
+      - Mobile - Scoring
+  /mobile/seller/me:
+    get:
+      description: Get profile information for the authenticated seller
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileSellerProfileResponse'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Seller Profile
+      tags:
+      - Mobile - Profile
+    patch:
+      consumes:
+      - application/json
+      description: Update basic profile info (name, store_name, phone, etc.)
+      parameters:
+      - description: Profile Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileUpdateSellerProfileBasicRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MessageResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Seller Profile
+      tags:
+      - Mobile - Profile
+  /mobile/seller/products:
+    get:
+      description: Get list of products owned by the authenticated seller
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Search products
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileSellerProductsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Seller Products
+      tags:
+      - Mobile - Profile
+  /mobile/sessions/boards:
+    get:
+      description: Get all target boards and current scores for a qualification session
+      parameters:
+      - description: Session UUID
+        in: query
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileSessionBoardsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List Session Targets
+      tags:
+      - Mobile - Scoring
+schemes:
+- https
+- http
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

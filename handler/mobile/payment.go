@@ -13,7 +13,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// MobileCreateParticipantPayment godoc
+// MobileCreateParticipantPayment initiates a payment for event registration
+// @Summary Create Participant Payment
+// @Description Initiate a Tripay transaction for a specific participant registration
+// @Tags Mobile - Payment
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param participantId path string true "Participant UUID"
+// @Param request body MobileCreatePaymentRequest true "Payment Method"
+// @Success 200 {object} MobilePaymentTransactionResponse
+// @Router /mobile/participants/{participantId}/payment [post]
 func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		participantID := c.Param("participantId")
@@ -157,7 +167,15 @@ func MobileCreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetPaymentDetail godoc
+// MobileGetPaymentDetail returns status of a payment transaction
+// @Summary Get Payment Detail
+// @Description Get status and details of a specific payment by reference
+// @Tags Mobile - Payment
+// @Produce json
+// @Security ApiKeyAuth
+// @Param reference path string true "Merchant Reference (ORD-... or PAY-...)"
+// @Success 200 {object} MobilePaymentTransactionResponse
+// @Router /mobile/archer/payments/{reference} [get]
 func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		reference := c.Param("reference")

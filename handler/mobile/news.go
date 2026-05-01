@@ -10,7 +10,16 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// MobileListNews godoc
+// MobileListNews handles listing news for mobile
+// @Summary List News
+// @Description Get a list of published news articles
+// @Tags Mobile - News
+// @Produce json
+// @Param limit query int false "Pagination limit"
+// @Param offset query int false "Pagination offset"
+// @Param search query string false "Search by title or content"
+// @Success 200 {object} MobileNewsListResponse
+// @Router /mobile/news [get]
 func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -59,7 +68,15 @@ func MobileListNews(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetNewsDetail godoc
+// MobileGetNewsDetail returns detailed news article
+// @Summary Get News Detail
+// @Description Get the full content of a news article
+// @Tags Mobile - News
+// @Produce json
+// @Param id path string true "News Slug or UUID"
+// @Success 200 {object} MobileNewsDetailResponse
+// @Failure 404 {object} map[string]interface{}
+// @Router /mobile/news/{id} [get]
 func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -89,7 +106,14 @@ func MobileGetNewsDetail(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileListNewsComments godoc
+// MobileListNewsComments returns comments for a news article
+// @Summary List News Comments
+// @Description Get approved comments for a news article
+// @Tags Mobile - News
+// @Produce json
+// @Param id path string true "News Slug or UUID"
+// @Success 200 {object} MobileNewsCommentsResponse
+// @Router /mobile/news/{id}/comments [get]
 func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -125,7 +149,16 @@ func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileAddNewsComment godoc
+// MobileAddNewsComment adds a new comment to an article
+// @Summary Add News Comment
+// @Description Post a new comment as an authenticated user or guest
+// @Tags Mobile - News
+// @Accept json
+// @Produce json
+// @Param id path string true "News Slug or UUID"
+// @Param request body MobileAddNewsCommentRequest true "Comment content"
+// @Success 201 {object} map[string]interface{}
+// @Router /mobile/news/{id}/comments [post]
 func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

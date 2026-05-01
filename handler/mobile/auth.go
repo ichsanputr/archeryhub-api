@@ -93,6 +93,16 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 }
 
 // MobileScorekeeperLogin godoc
+// MobileScorekeeperLogin handles scorekeeper login
+// @Summary Scorekeeper Login
+// @Description Login using a numeric code assigned by organization
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileScorekeeperLoginRequest true "Scorekeeper Code"
+// @Success 200 {object} MobileLoginResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /mobile/auth/scorekeeper/login [post]
 func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileScorekeeperLoginRequest
@@ -180,6 +190,16 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Auth Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
 
 // MobileArcherLogin godoc
+// MobileArcherLogin handles archer login for mobile
+// @Summary Archer Login
+// @Description Login using email and password for archers
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body mobileEmailPasswordRequest true "Login Credentials"
+// @Success 200 {object} MobileLoginResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /mobile/auth/archer/login [post]
 func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -200,6 +220,16 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileOrganizationLogin godoc
+// MobileOrganizationLogin handles organization login for mobile
+// @Summary Organization Login
+// @Description Login for organization accounts
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body mobileEmailPasswordRequest true "Login Credentials"
+// @Success 200 {object} MobileLoginResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /mobile/auth/organization/login [post]
 func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -220,6 +250,16 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileSellerLogin godoc
+// MobileSellerLogin handles seller login for mobile
+// @Summary Seller Login
+// @Description Login for seller accounts
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body mobileEmailPasswordRequest true "Login Credentials"
+// @Success 200 {object} MobileLoginResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /mobile/auth/seller/login [post]
 func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -240,6 +280,16 @@ func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileArcherRegister godoc
+// MobileArcherRegister handles archer registration for mobile
+// @Summary Archer Registration
+// @Description Register a new archer account
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileArcherRegisterRequest true "Registration Details"
+// @Success 201 {object} MobileLoginResponse
+// @Failure 400 {object} map[string]interface{}
+// @Router /mobile/auth/archer/register [post]
 func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -379,6 +429,16 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGoogleLogin handles Google Sign-In for mobile using idToken
+// MobileGoogleLogin handles Google Sign-In for mobile
+// @Summary Google Login
+// @Description Authenticate or register using Google ID Token
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Param request body MobileOAuthLoginRequest true "Google ID Token"
+// @Success 200 {object} MobileLoginResponse
+// @Failure 401 {object} map[string]interface{}
+// @Router /mobile/auth/google/login [post]
 func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileOAuthLoginRequest

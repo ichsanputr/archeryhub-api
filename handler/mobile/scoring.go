@@ -9,6 +9,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// MobileScanTarget handles scanning a target board QR code
+// @Summary Scan Target QR
+// @Description Scan a target board QR code to get participant info for scoring
+// @Tags Mobile - Scoring
+// @Produce json
+// @Security ApiKeyAuth
+// @Param code query string true "Target Board QR Code"
+// @Success 200 {object} MobileScanTargetResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /mobile/scan [get]
 func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Query("code")
@@ -251,6 +262,15 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 //
 // MobileGetSessionBoards godoc
 
+// MobileGetSessionBoards returns leaderboard for a session
+// @Summary List Session Targets
+// @Description Get all target boards and current scores for a qualification session
+// @Tags Mobile - Scoring
+// @Produce json
+// @Security ApiKeyAuth
+// @Param session_id query string true "Session UUID"
+// @Success 200 {object} MobileSessionBoardsResponse
+// @Router /mobile/sessions/boards [get]
 func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Query("session_id")
@@ -360,6 +380,15 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 //
 // MobileGetAssignmentScoreDetail godoc
 
+// MobileGetAssignmentScoreDetail returns detailed scores for an assignment
+// @Summary Get Assignment Score Detail
+// @Description Get arrow-by-arrow score history for a specific participant assignment
+// @Tags Mobile - Scoring
+// @Produce json
+// @Security ApiKeyAuth
+// @Param assignmentId path string true "Assignment UUID"
+// @Success 200 {object} MobileAssignmentScoreDetailResponse
+// @Router /mobile/assignments/{assignmentId}/detail [get]
 func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")

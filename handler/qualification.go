@@ -325,7 +325,15 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // UpdateQualificationScore updates end scores for an assignment (supports batch)
-// UpdateQualificationScore godoc
+// @Summary Update Qualification Score
+// @Description Submit or update scores for a specific qualification assignment (end-by-end)
+// @Tags Mobile - Scoring
+// @Accept json
+// @Produce json
+// @Param assignmentId path string true "Assignment UUID"
+// @Param request body object true "Score Update Payload (models.ScoreUpdateRequest or models.ScoreBatchUpdateRequest)"
+// @Success 200 {object} MessageResponse
+// @Router /mobile/qualification/scoring/scores/{assignmentId} [post]
 func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")

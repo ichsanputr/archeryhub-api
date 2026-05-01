@@ -11,9 +11,7 @@ This document provides the **Complete Request and Response bodies** for all Mobi
 ```json
 {
   "email": "archer@example.com",
-  "password": "securepassword123",
-  "device_id": "f83a-4921-b3b3-8888",
-  "platform": "android"
+  "password": "securepassword123"
 }
 ```
 
@@ -45,7 +43,7 @@ This document provides the **Complete Request and Response bodies** for all Mobi
 {
   "gallery": [
     {
-      "uuid": "img-001",
+      "id": "img-001",
       "event_id": "evt-8f3c2a14",
       "url": "https://cdn.archeryhub.id/media/events/g1.jpg",
       "caption": "Opening Ceremony Stage",
@@ -55,7 +53,7 @@ This document provides the **Complete Request and Response bodies** for all Mobi
       "created_at": "2026-04-21T10:00:00Z"
     },
     {
-      "uuid": "img-002",
+      "id": "img-002",
       "event_id": "evt-8f3c2a14",
       "url": "https://cdn.archeryhub.id/media/events/g2.jpg",
       "caption": "Archer Practice Session",
@@ -105,7 +103,7 @@ This document provides the **Complete Request and Response bodies** for all Mobi
 {
   "schedules": [
     {
-      "uuid": "sch-001",
+      "id": "sch-001",
       "event_id": "evt-8f3c2a14",
       "title": "Technical Meeting",
       "description": "Final briefing for all participants",
@@ -159,6 +157,8 @@ This document provides the **Complete Request and Response bodies** for all Mobi
 
 ---
 
+---
+
 ## 📊 6. Event Results
 **Endpoint**: `GET /mobile/events/:slug/results`
 
@@ -176,20 +176,22 @@ This document provides the **Complete Request and Response bodies** for all Mobi
       "rank": 1,
       "score": 163,
       "x_count": 2
-    },
-    {
-      "participant_id": "169f7470-fa6d-4761-9e9a-e3ecdd4730d3",
-      "full_name": "Angger Raka Sanjaya 1",
-      "category_name": "U-13",
-      "rank": 2,
-      "score": 155,
-      "x_count": 1
     }
   ],
   "page_settings": {
-    "pdf_result_url": "https://cdn.archeryhub.id/media/results/popda-sleman-2026.pdf",
-    "show_live_score": true,
-    "theme_color": "#2D5A27"
+    "results": [
+      {
+        "url": "https://api.archeryhub.id/api/v1/media/result---popda-sleman-a90ead48.pdf",
+        "title": "KUALIFIKASI SESI 1",
+        "name": "KUALIFIKASI SESI 1",
+        "type": "application/pdf"
+      }
+    ],
+    "results_type": "system",
+    "sections": {
+      "schedule": true,
+      "location": true
+    }
   }
 }
 ```
@@ -263,7 +265,9 @@ This endpoint provides the complete leaderboard for a specific category, includi
     {
       "rank": 1,
       "participant_id": "reg-uuid-...",
+      "archer_uuid": "arc-uuid-...",
       "archer_name": "Rizky Pratama",
+      "avatar_url": "https://cdn.archeryhub.id/media/archers/rizky.jpg",
       "club_name": "Jakarta Archery",
       "total_score": 675,
       "total_10x": 18,
@@ -271,16 +275,14 @@ This endpoint provides the complete leaderboard for a specific category, includi
       "ends_completed": 12,
       "sessions": [
         {
+          "assignment_id": "asgn-uuid-...",
           "session_code": "S1",
           "session_name": "Qualification Phase 1",
           "end_scores": "58,55,59,60,57,58",
-          "total_score": 347
-        },
-        {
-          "session_code": "S2",
-          "session_name": "Qualification Phase 2",
-          "end_scores": "55,54,58,55,51,55",
-          "total_score": 328
+          "total_ends": 6,
+          "total_score": 347,
+          "total_10x": 10,
+          "total_x": 4
         }
       ]
     }

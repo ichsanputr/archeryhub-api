@@ -11,6 +11,14 @@ import (
 )
 
 // GetPublicQualificationResults returns qualification results for a specific category
+// @Summary Get Qualification Results
+// @Description Get complete leaderboard for a specific category, including end-by-end scores
+// @Tags Mobile - Results
+// @Produce json
+// @Param id path string true "Event Slug or UUID"
+// @Param category_id query string true "Category UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /events/{id}/results/qualification [get]
 func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -200,6 +208,14 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // GetPublicEliminationResults returns elimination bracket for a specific category
+// @Summary Get Elimination Bracket
+// @Description Get the elimination match brackets and results for a specific category
+// @Tags Mobile - Results
+// @Produce json
+// @Param id path string true "Event Slug or UUID"
+// @Param category_id query string true "Category UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /events/{id}/results/elimination [get]
 func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")

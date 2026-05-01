@@ -9,22 +9,4613 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://archeryhub.id/terms/",
+        "contact": {
+            "name": "ArcheryHub Support",
+            "url": "https://archeryhub.id",
+            "email": "support@archeryhub.id"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
-    "paths": {}
+    "paths": {
+        "/events/{id}/results/elimination": {
+            "get": {
+                "description": "Get the elimination match brackets and results for a specific category",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Results"
+                ],
+                "summary": "Get Elimination Bracket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category UUID",
+                        "name": "category_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{id}/results/qualification": {
+            "get": {
+                "description": "Get complete leaderboard for a specific category, including end-by-end scores",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Results"
+                ],
+                "summary": "Get Qualification Results",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category UUID",
+                        "name": "category_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/cart": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get current list of items in the shopping cart for the authenticated archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Get Cart",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileCartResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Add a product with specific quantity and color to the shopping cart",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Add to Cart",
+                "parameters": [
+                    {
+                        "description": "Add to Cart Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AddToCartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete all items from the shopping cart for the current archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Clear Cart",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/cart/checkout": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create orders from cart items and initiate payment transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Checkout Cart",
+                "parameters": [
+                    {
+                        "description": "Checkout Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CheckoutRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileCheckoutResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/cart/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update the quantity of a specific item in the cart",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Update Cart Item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cart Item UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Quantity",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateCartItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete a specific item from the shopping cart",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Remove from Cart",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cart Item UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of all events the archer is registered in",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Get My Events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileMyEventsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/register": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Register the authenticated archer for one or more event categories",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Register for Event",
+                "parameters": [
+                    {
+                        "description": "Registration Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/{id}/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get event details including registration status for the authenticated archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Get Event Detail (Archer)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/{id}/qr": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get the digital ID / QR code for event check-in",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Get Event QR Code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/{id}/register": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Register the authenticated archer for one or more event categories",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Register for Event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Registration Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/{id}/registration": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get current user's registration and payment status for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Get My Registration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileMyRegistrationResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/me": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get profile information for the authenticated archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Get Archer Profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherProfileResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update profile info for the authenticated archer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Update Archer Profile",
+                "parameters": [
+                    {
+                        "description": "Profile Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateArcherProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/orders": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a list of all past orders for the authenticated archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Commerce"
+                ],
+                "summary": "Get Order History",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by order status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherOrdersResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/payments/{reference}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get status and details of a specific payment by reference",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Payment"
+                ],
+                "summary": "Get Payment Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Merchant Reference (ORD-... or PAY-...)",
+                        "name": "reference",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobilePaymentTransactionResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/assignments/{assignmentId}/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get arrow-by-arrow score history for a specific participant assignment",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Get Assignment Score Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Assignment UUID",
+                        "name": "assignmentId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileAssignmentScoreDetailResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/archer/login": {
+            "post": {
+                "description": "Login using email and password for archers",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Archer Login",
+                "parameters": [
+                    {
+                        "description": "Login Credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.mobileEmailPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/archer/register": {
+            "post": {
+                "description": "Register a new archer account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Archer Registration",
+                "parameters": [
+                    {
+                        "description": "Registration Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/google/login": {
+            "post": {
+                "description": "Authenticate or register using Google ID Token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Google Login",
+                "parameters": [
+                    {
+                        "description": "Google ID Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOAuthLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/organization/login": {
+            "post": {
+                "description": "Login for organization accounts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Organization Login",
+                "parameters": [
+                    {
+                        "description": "Login Credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.mobileEmailPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/scorekeeper/login": {
+            "post": {
+                "description": "Login using a numeric code assigned by organization",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Scorekeeper Login",
+                "parameters": [
+                    {
+                        "description": "Scorekeeper Code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileScorekeeperLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/auth/seller/login": {
+            "post": {
+                "description": "Login for seller accounts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Seller Login",
+                "parameters": [
+                    {
+                        "description": "Login Credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.mobileEmailPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileLoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/chat/conversations": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of all chat conversations for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chat"
+                ],
+                "summary": "List Conversations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Start a new chat or get existing conversation with a peer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chat"
+                ],
+                "summary": "Start/Get Conversation",
+                "parameters": [
+                    {
+                        "description": "Conversation Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/chat/conversations/{id}/messages": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get history of messages for a specific conversation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chat"
+                ],
+                "summary": "Get Chat Messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Send a new message to an existing conversation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chat"
+                ],
+                "summary": "Send Chat Message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message Content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/chat/last-active": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get last seen and online status of a chat peer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chat"
+                ],
+                "summary": "Get Peer Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "seller or archer",
+                        "name": "peer_type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Peer UUID",
+                        "name": "peer_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/chat/unread": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get total count of unread messages across all conversations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chat"
+                ],
+                "summary": "Get Unread Count",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/chatbot/intents": {
+            "get": {
+                "description": "Get a list of supported topics the chatbot can answer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chatbot"
+                ],
+                "summary": "List Chatbot Intents",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileChatbotIntentsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/chatbot/message": {
+            "post": {
+                "description": "Send a natural language message and get an automated answer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Chatbot"
+                ],
+                "summary": "Send Message to Chatbot",
+                "parameters": [
+                    {
+                        "description": "User Message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileChatbotMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileChatbotResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/elimination/scoring/matches/{matchId}/end": {
+            "post": {
+                "description": "End the match, calculate final scores/points, and advance the winner",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "End Match",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Match UUID",
+                        "name": "matchId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional Winner Override",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/elimination/scoring/matches/{matchId}/finish": {
+            "post": {
+                "description": "Finish an elimination match and declare the winner",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Finish Match",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Match UUID",
+                        "name": "matchId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Finish Match Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.FinishMatchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/elimination/scoring/matches/{matchId}/reset": {
+            "post": {
+                "description": "Reset a finished match status and clear the winner from next round",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Reset Match",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Match UUID",
+                        "name": "matchId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/elimination/scoring/matches/{matchId}/score": {
+            "post": {
+                "description": "Submit or update scores for a specific end (set/end) in an elimination match",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Update Match Score",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Match UUID",
+                        "name": "matchId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Match Score Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.MatchScoreRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events": {
+            "get": {
+                "description": "Get a list of active or past events optimized for mobile",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "List Mobile Events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name or location",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter past events",
+                        "name": "history",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}": {
+            "get": {
+                "description": "Get summary and location details for a specific event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Mobile Event Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventDetail"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/categories": {
+            "get": {
+                "description": "Get list of divisions and age groups in this event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Categories",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/models.EventCompetitionCategory"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/gallery": {
+            "get": {
+                "description": "Get event gallery and documentation images",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Gallery",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/models.EventImage"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/participants": {
+            "get": {
+                "description": "Get the list of registered archers for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Participants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/models.EventParticipantPreview"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/results": {
+            "get": {
+                "description": "Get the current qualification and elimination results",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Results",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/schedule": {
+            "get": {
+                "description": "Get the daily schedule and rundown for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/models.EventSchedule"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/marketplace/products": {
+            "get": {
+                "description": "Get a list of active products in the marketplace",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Marketplace"
+                ],
+                "summary": "List Marketplace Products",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name or description",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by category",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileMarketplaceProductsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/marketplace/products/{id}": {
+            "get": {
+                "description": "Get detailed information about a specific product",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Marketplace"
+                ],
+                "summary": "Get Product Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileMarketplaceProductResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/news": {
+            "get": {
+                "description": "Get a list of published news articles",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - News"
+                ],
+                "summary": "List News",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by title or content",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileNewsListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/news/{id}": {
+            "get": {
+                "description": "Get the full content of a news article",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - News"
+                ],
+                "summary": "Get News Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "News Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileNewsDetailResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/news/{id}/comments": {
+            "get": {
+                "description": "Get approved comments for a news article",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - News"
+                ],
+                "summary": "List News Comments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "News Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileNewsCommentsResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Post a new comment as an authenticated user or guest",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - News"
+                ],
+                "summary": "Add News Comment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "News Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Comment content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileAddNewsCommentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of events organized by the authenticated organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Get Organization Events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search events",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationEventsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/events/{id}/participants": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of participants for an event owned by the organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Get Event Participants (Org)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search participants",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by payment status",
+                        "name": "payment_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by category",
+                        "name": "category_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationEventParticipantsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/me": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get profile information for the authenticated organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Get Organization Profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationProfileResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update profile info for the authenticated organization",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Update Organization Profile",
+                "parameters": [
+                    {
+                        "description": "Profile Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateOrganizationProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/scan": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Scan and verify a participant's QR code for event check-in/reregistration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Scan Registration QR",
+                "parameters": [
+                    {
+                        "description": "QR Code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationScanRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationScanRegistrationResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/participants/{participantId}/payment": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Initiate a Tripay transaction for a specific participant registration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Payment"
+                ],
+                "summary": "Create Participant Payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Participant UUID",
+                        "name": "participantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Payment Method",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileCreatePaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobilePaymentTransactionResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/qualification/scoring/scores/{assignmentId}": {
+            "post": {
+                "description": "Submit or update scores for a specific qualification assignment (end-by-end)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Update Qualification Score",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Assignment UUID",
+                        "name": "assignmentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Score Update Payload (models.ScoreUpdateRequest or models.ScoreBatchUpdateRequest)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/scan": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Scan a target board QR code to get participant info for scoring",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Scan Target QR",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target Board QR Code",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileScanTargetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/scorekeeper/events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of events owned by the scorekeeper's organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scorekeeper"
+                ],
+                "summary": "Get Scorekeeper Events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileScorekeeperEventsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/scorekeeper/me": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get profile information for the authenticated scorekeeper",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scorekeeper"
+                ],
+                "summary": "Get Scorekeeper Profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileScorekeeperMeResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/scoring/cards": {
+            "get": {
+                "description": "Get selectable cards (targets) for a specific phase and category",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "List Scoring Cards",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "qualification or elimination",
+                        "name": "phase",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category UUID",
+                        "name": "category_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ScoringCardsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/scoring/targets": {
+            "get": {
+                "description": "Get participants and their scoring progress for a specific target",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "Get Scoring Targets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "qualification or elimination",
+                        "name": "phase",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "session_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Target Name (e.g. 1A)",
+                        "name": "target_name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ScoringTargetsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/seller/me": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get profile information for the authenticated seller",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Get Seller Profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileSellerProfileResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update basic profile info (name, store_name, phone, etc.)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Update Seller Profile",
+                "parameters": [
+                    {
+                        "description": "Profile Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileUpdateSellerProfileBasicRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/seller/products": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of products owned by the authenticated seller",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Profile"
+                ],
+                "summary": "Get Seller Products",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by category",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search products",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileSellerProductsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/sessions/boards": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get all target boards and current scores for a qualification session",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Scoring"
+                ],
+                "summary": "List Session Targets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "session_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileSessionBoardsResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.FinishMatchRequest": {
+            "type": "object",
+            "required": [
+                "winner_entry_id"
+            ],
+            "properties": {
+                "winner_entry_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.MatchScoreRequest": {
+            "type": "object",
+            "required": [
+                "end_no"
+            ],
+            "properties": {
+                "arrows_a": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "arrows_b": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "end_no": {
+                    "type": "integer"
+                },
+                "score_a": {
+                    "type": "integer"
+                },
+                "score_b": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Operation successful"
+                }
+            }
+        },
+        "handler.ScoringCard": {
+            "type": "object",
+            "properties": {
+                "card_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "session_name": {
+                    "type": "string"
+                },
+                "session_order": {
+                    "type": "integer"
+                },
+                "target_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.ScoringCardsResponse": {
+            "type": "object",
+            "properties": {
+                "cards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.ScoringCard"
+                    }
+                }
+            }
+        },
+        "handler.ScoringTarget": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {}
+                }
+            }
+        },
+        "handler.ScoringTargetsResponse": {
+            "type": "object",
+            "properties": {
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.ScoringTarget"
+                    }
+                }
+            }
+        },
+        "mobile.Intent": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "examples": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Operation successful"
+                }
+            }
+        },
+        "mobile.MobileAddNewsCommentRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "Wah acaranya seru banget!"
+                },
+                "guest_name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                }
+            }
+        },
+        "mobile.MobileArcherOrdersResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrderHistoryItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileArcherProfileData": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Panahan No. 10"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                },
+                "bow_type": {
+                    "type": "string",
+                    "example": "recurve"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "club_id": {
+                    "type": "string",
+                    "example": "club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "date_of_birth": {
+                    "type": "string",
+                    "example": "1995-05-18"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "rizky@example.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "gender": {
+                    "type": "string",
+                    "example": "male"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "ARC-0042"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "081234567890"
+                },
+                "user_type": {
+                    "type": "string",
+                    "example": "archer"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "rizky-pratama"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                }
+            }
+        },
+        "mobile.MobileArcherProfileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/mobile.MobileArcherProfileData"
+                }
+            }
+        },
+        "mobile.MobileArcherRegisterRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                },
+                "birth_date": {
+                    "type": "string",
+                    "example": "1995-05-18"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "archer@example.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "gender": {
+                    "type": "string",
+                    "example": "male"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securepassword123"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "081234567890"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "rizky-pratama"
+                }
+            }
+        },
+        "mobile.MobileAssignmentScoreDetailResponse": {
+            "type": "object",
+            "properties": {
+                "assignment": {},
+                "ends": {},
+                "summary": {}
+            }
+        },
+        "mobile.MobileCartResponse": {
+            "type": "object",
+            "properties": {
+                "data": {}
+            }
+        },
+        "mobile.MobileChatbotIntentsResponse": {
+            "type": "object",
+            "properties": {
+                "intents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.Intent"
+                    }
+                }
+            }
+        },
+        "mobile.MobileChatbotMessageRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Halo, ada event apa ya?"
+                }
+            }
+        },
+        "mobile.MobileChatbotResponse": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "intent": {
+                    "type": "string"
+                },
+                "quick_actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "mobile.MobileCheckoutResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payment": {},
+                "reference": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileCreatePaymentRequest": {
+            "type": "object",
+            "required": [
+                "method"
+            ],
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "example": "BRIVA"
+                }
+            }
+        },
+        "mobile.MobileEvent": {
+            "type": "object",
+            "properties": {
+                "banner_url": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organizer_avatar_url": {
+                    "type": "string"
+                },
+                "organizer_name": {
+                    "type": "string"
+                },
+                "participant_count": {
+                    "type": "integer"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventDetail": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Asia Afrika No.8, Jakarta"
+                },
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "code": {
+                    "type": "string",
+                    "example": "AHC-2026-JKT-OPEN"
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-03-01T10:30:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Kejuaraan terbuka nasional untuk kategori recurve, compound, dan barebow."
+                },
+                "end_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-21T17:00:00Z"
+                },
+                "entry_fee": {
+                    "type": "number",
+                    "example": 350000
+                },
+                "faq_raw": {
+                    "type": "string"
+                },
+                "gmaps_link": {
+                    "type": "string",
+                    "example": "https://maps.google.com/?q=-6.2185,106.8022"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "location": {
+                    "type": "string",
+                    "example": "Jakarta Selatan"
+                },
+                "location_detail": {
+                    "$ref": "#/definitions/models.EventLocationDetail"
+                },
+                "location_type": {
+                    "description": "Location type: Indoor, Outdoor, Field, 3D, etc.",
+                    "type": "string",
+                    "example": "Outdoor"
+                },
+                "logo_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/logo-jkt-open-2026.png"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta Open 2026"
+                },
+                "num_distances": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "num_sessions": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "organizer_avatar_url": {
+                    "type": "string"
+                },
+                "organizer_id": {
+                    "type": "string",
+                    "example": "org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"
+                },
+                "organizer_name": {
+                    "type": "string"
+                },
+                "organizer_phone": {
+                    "type": "string"
+                },
+                "organizer_slug": {
+                    "type": "string"
+                },
+                "page_settings_raw": {
+                    "type": "string"
+                },
+                "participant_count": {
+                    "type": "integer"
+                },
+                "registration_deadline": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-10T23:59:59Z"
+                },
+                "short_name": {
+                    "type": "string",
+                    "example": "JKT Open 2026"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-jakarta-open-2026"
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-18T08:00:00Z"
+                },
+                "status": {
+                    "description": "draft, active",
+                    "type": "string",
+                    "example": "published"
+                },
+                "technical_guidebook_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf"
+                },
+                "total_prize": {
+                    "type": "number",
+                    "example": 50000000
+                },
+                "type": {
+                    "description": "Indoor, Outdoor, Field, 3D (kept for backward compatibility)",
+                    "type": "string",
+                    "example": "Outdoor"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-03-12T13:10:00Z"
+                },
+                "venue": {
+                    "type": "string",
+                    "example": "Lapangan ABC Senayan"
+                }
+            }
+        },
+        "mobile.MobileEventRegistrationRequest": {
+            "type": "object",
+            "properties": {
+                "athlete_id": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                },
+                "event_category_id": {
+                    "type": "string",
+                    "example": "cat-recurve-adult-putra"
+                },
+                "event_category_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"cat-recurve-adult-putra\"",
+                        " \"cat-recurve-adult-team\"]"
+                    ]
+                },
+                "event_id": {
+                    "type": "string",
+                    "example": "national-open-2026"
+                },
+                "payment_amount": {
+                    "type": "number",
+                    "example": 450000
+                },
+                "payment_proof_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"
+                    ]
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "menunggu acc"
+                },
+                "payment_type": {
+                    "description": "manual, online, gateway",
+                    "type": "string",
+                    "example": "manual"
+                },
+                "registration_source": {
+                    "type": "string",
+                    "example": "mobile_app"
+                }
+            }
+        },
+        "mobile.MobileEventsResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEvent"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileLoginResponse": {
+            "type": "object",
+            "properties": {
+                "is_new_user": {
+                    "type": "boolean"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/mobile.MobileUser"
+                }
+            }
+        },
+        "mobile.MobileMarketplaceProductResponse": {
+            "type": "object",
+            "properties": {
+                "product": {
+                    "$ref": "#/definitions/models.Product"
+                }
+            }
+        },
+        "mobile.MobileMarketplaceProductsResponse": {
+            "type": "object",
+            "properties": {
+                "current_page": {
+                    "type": "integer"
+                },
+                "last_page": {
+                    "type": "integer"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Product"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileMyEventItem": {
+            "type": "object",
+            "properties": {
+                "category_name": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "event_slug": {
+                    "type": "string"
+                },
+                "event_uuid": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "qr_code_data_url": {
+                    "type": "string"
+                },
+                "qr_raw": {
+                    "type": "string"
+                },
+                "registration_date": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileMyEventsResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileMyEventItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileMyRegistrationResponse": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string"
+                },
+                "registrations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileRegistrationItem"
+                    }
+                }
+            }
+        },
+        "mobile.MobileNewsComment": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "guest_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "news_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "user_name": {
+                    "type": "string"
+                },
+                "user_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileNewsCommentsResponse": {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileNewsComment"
+                    }
+                },
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileNewsDetail": {
+            "type": "object",
+            "properties": {
+                "author_name": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "excerpt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "meta_description": {
+                    "type": "string"
+                },
+                "meta_title": {
+                    "type": "string"
+                },
+                "published_at": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "views": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileNewsDetailResponse": {
+            "type": "object",
+            "properties": {
+                "news": {
+                    "$ref": "#/definitions/mobile.MobileNewsDetail"
+                }
+            }
+        },
+        "mobile.MobileNewsItem": {
+            "type": "object",
+            "properties": {
+                "author_name": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "excerpt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "published_at": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "views": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileNewsListResponse": {
+            "type": "object",
+            "properties": {
+                "news": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileNewsItem"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOAuthLoginRequest": {
+            "type": "object",
+            "required": [
+                "idToken"
+            ],
+            "properties": {
+                "idToken": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileOrderHistoryItem": {
+            "type": "object",
+            "properties": {
+                "checkout_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
+                "payment_reference": {
+                    "type": "string"
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "seller_id": {
+                    "type": "string"
+                },
+                "seller_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "number"
+                },
+                "total_items": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOrganizationEventItem": {
+            "type": "object",
+            "properties": {
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg"
+                },
+                "end_date": {
+                    "type": "string",
+                    "example": "2026-05-21T17:00:00Z"
+                },
+                "location": {
+                    "type": "string",
+                    "example": "Jakarta Selatan"
+                },
+                "logo_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta Open 2026"
+                },
+                "participant_count": {
+                    "type": "integer",
+                    "example": 128
+                },
+                "pending_count": {
+                    "type": "integer",
+                    "example": 32
+                },
+                "registration_closed": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-jakarta-open-2026"
+                },
+                "start_date": {
+                    "type": "string",
+                    "example": "2026-05-18T08:00:00Z"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "published"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "venue": {
+                    "type": "string",
+                    "example": "Lapangan ABC Senayan"
+                },
+                "verified_count": {
+                    "type": "integer",
+                    "example": 96
+                }
+            }
+        },
+        "mobile.MobileOrganizationEventParticipantsResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrganizationParticipantItem"
+                    }
+                },
+                "pending_count": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "verified_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOrganizationEventsResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrganizationEventItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOrganizationParticipantItem": {
+            "type": "object",
+            "properties": {
+                "archer_id": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                },
+                "athlete_code": {
+                    "type": "string",
+                    "example": "ARC-0042"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                },
+                "category_id": {
+                    "type": "string",
+                    "example": "cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Umum"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "club_id": {
+                    "type": "string",
+                    "example": "club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "division_name": {
+                    "type": "string",
+                    "example": "Recurve"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "rizky@example.com"
+                },
+                "event_id": {
+                    "type": "string",
+                    "example": "evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "event_type_name": {
+                    "type": "string",
+                    "example": "Individual"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "gender_division_name": {
+                    "type": "string",
+                    "example": "Putra"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "lunas"
+                },
+                "qr_code_data_url": {
+                    "type": "string",
+                    "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                },
+                "qr_raw": {
+                    "type": "string",
+                    "example": "EVT2026-ARC-0001"
+                },
+                "registration_date": {
+                    "type": "string",
+                    "example": "2026-05-01T09:30:00Z"
+                },
+                "target_name": {
+                    "type": "string",
+                    "example": "A-12"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "rizky-pratama"
+                }
+            }
+        },
+        "mobile.MobileOrganizationProfileData": {
+            "type": "object",
+            "properties": {
+                "acronym": {
+                    "type": "string",
+                    "example": "AHJ"
+                },
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Stadion Utama No. 1, Jakarta"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/organization/logo.png"
+                },
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/organization/banner.jpg"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "contact_person_email": {
+                    "type": "string",
+                    "example": "budi@archeryhub.id"
+                },
+                "contact_person_name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "contact_person_phone": {
+                    "type": "string",
+                    "example": "081298765432"
+                },
+                "country": {
+                    "type": "string",
+                    "example": "Indonesia"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-10T08:00:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Organisasi panahan yang fokus pada pembinaan atlet dan penyelenggaraan event."
+                },
+                "email": {
+                    "type": "string",
+                    "example": "event@archeryhub.id"
+                },
+                "established_date": {
+                    "type": "string",
+                    "example": "2020-08-17"
+                },
+                "faq": {
+                    "type": "array",
+                    "items": {}
+                },
+                "history": {
+                    "type": "string",
+                    "example": "Didirikan untuk mendukung ekosistem panahan nasional yang lebih terstruktur."
+                },
+                "id": {
+                    "type": "string",
+                    "example": "org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"
+                },
+                "mission": {
+                    "type": "string",
+                    "example": "Membina atlet, pelatih, dan penyelenggaraan kompetisi yang profesional."
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta"
+                },
+                "page_settings": {
+                    "type": "object"
+                },
+                "registration_number": {
+                    "type": "string",
+                    "example": "AHJ-2026-001"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-jakarta"
+                },
+                "social_facebook": {
+                    "type": "string",
+                    "example": "archeryhubjakarta"
+                },
+                "social_instagram": {
+                    "type": "string",
+                    "example": "archeryhub.jakarta"
+                },
+                "social_media": {
+                    "type": "object"
+                },
+                "social_twitter": {
+                    "type": "string",
+                    "example": "archeryhubjkt"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "active"
+                },
+                "subscription_expires_at": {
+                    "type": "string",
+                    "example": "2026-12-31T23:59:59Z"
+                },
+                "subscription_status": {
+                    "type": "string",
+                    "example": "active"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-03-10T09:30:00Z"
+                },
+                "user_type": {
+                    "type": "string",
+                    "example": "organization"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"
+                },
+                "verification_status": {
+                    "type": "string",
+                    "example": "verified"
+                },
+                "vision": {
+                    "type": "string",
+                    "example": "Menjadi pusat pembinaan panahan modern di Indonesia."
+                },
+                "website": {
+                    "type": "string",
+                    "example": "https://archeryhub.id"
+                },
+                "whatsapp_no": {
+                    "type": "string",
+                    "example": "081234567890"
+                }
+            }
+        },
+        "mobile.MobileOrganizationProfileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/mobile.MobileOrganizationProfileData"
+                }
+            }
+        },
+        "mobile.MobileOrganizationScanRegistrationRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                }
+            }
+        },
+        "mobile.MobileOrganizationScanRegistrationResponse": {
+            "type": "object",
+            "properties": {
+                "athlete_code": {
+                    "type": "string",
+                    "example": "ARC-0042"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Recurve Umum Putra"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "event_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Jakarta Open 2026"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "last_reregistration_at": {
+                    "type": "string",
+                    "example": "2026-03-27T10:00:00Z"
+                },
+                "participant_uuid": {
+                    "type": "string",
+                    "example": "f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "lunas"
+                }
+            }
+        },
+        "mobile.MobilePaymentTransactionResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "reference": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tripay_reference": {
+                    "type": "string"
+                },
+                "va_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileRegisterEventResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "registered_categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "registration_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileRegistrationItem": {
+            "type": "object",
+            "properties": {
+                "category_name": {
+                    "type": "string"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "pay_code": {
+                    "type": "string"
+                },
+                "payment_amount": {
+                    "type": "number"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "qr_code_data_url": {
+                    "type": "string"
+                },
+                "qr_raw": {
+                    "type": "string"
+                },
+                "qr_url": {
+                    "type": "string"
+                },
+                "registration_date": {
+                    "type": "string"
+                },
+                "tripay_reference": {
+                    "type": "string"
+                },
+                "va_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileScanTargetResponse": {
+            "type": "object",
+            "properties": {
+                "archers": {},
+                "board": {},
+                "matches": {},
+                "type": {
+                    "type": "string",
+                    "example": "qualification"
+                }
+            }
+        },
+        "mobile.MobileScorekeeperEventsResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEvent"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileScorekeeperLoginRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileScorekeeperMeResponse": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organization_name": {
+                    "type": "string"
+                },
+                "organization_uuid": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileSellerProductsResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Product"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileSellerProfileData": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Panahan No. 10, Jakarta"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/logo-store.png"
+                },
+                "banner": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/banner-store.jpg"
+                },
+                "banner_text": {
+                    "type": "string",
+                    "example": "Perlengkapan panahan lengkap untuk semua level"
+                },
+                "banner_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/banner-store.jpg"
+                },
+                "catalog_config": {
+                    "type": "object"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi."
+                },
+                "email": {
+                    "type": "string",
+                    "example": "seller@archeryhub.id"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"
+                },
+                "logo": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/seller/logo-store.png"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "ArcheryHub Store Jakarta"
+                },
+                "page_settings": {
+                    "type": "object"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "081234567890"
+                },
+                "province": {
+                    "type": "string",
+                    "example": "DKI Jakarta"
+                },
+                "sections": {
+                    "type": "object"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "archeryhub-store-jakarta"
+                },
+                "store_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Store Jakarta"
+                },
+                "store_slug": {
+                    "type": "string",
+                    "example": "archeryhub-store-jakarta"
+                },
+                "theme_color": {
+                    "type": "string",
+                    "example": "#C1121F"
+                },
+                "user_type": {
+                    "type": "string",
+                    "example": "seller"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "archeryhub-store-jakarta"
+                },
+                "uuid": {
+                    "type": "string",
+                    "example": "sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"
+                }
+            }
+        },
+        "mobile.MobileSellerProfileResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/mobile.MobileSellerProfileData"
+                }
+            }
+        },
+        "mobile.MobileSessionBoardsResponse": {
+            "type": "object",
+            "properties": {
+                "archers": {},
+                "session": {}
+            }
+        },
+        "mobile.MobileUpdateArcherProfileRequest": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "bow_type": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "date_of_birth": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileUpdateOrganizationProfileRequest": {
+            "type": "object",
+            "properties": {
+                "acronym": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "banner_url": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "contact_person_email": {
+                    "type": "string"
+                },
+                "contact_person_name": {
+                    "type": "string"
+                },
+                "contact_person_phone": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "established_date": {
+                    "type": "string"
+                },
+                "faq": {},
+                "history": {
+                    "type": "string"
+                },
+                "mission": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "page_settings": {},
+                "registration_number": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "social_facebook": {
+                    "type": "string"
+                },
+                "social_instagram": {
+                    "type": "string"
+                },
+                "social_media": {},
+                "social_twitter": {
+                    "type": "string"
+                },
+                "vision": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                },
+                "whatsapp_no": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileUpdateSellerProfileBasicRequest": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "banner": {
+                    "type": "string"
+                },
+                "banner_url": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileUser": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_type": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.mobileEmailPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AddToCartRequest": {
+            "type": "object",
+            "required": [
+                "product_id",
+                "quantity"
+            ],
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "models.CheckoutRequest": {
+            "type": "object",
+            "required": [
+                "method",
+                "shipping_address"
+            ],
+            "properties": {
+                "method": {
+                    "type": "string"
+                },
+                "shipping_address": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventCompetitionCategory": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "string",
+                    "example": "cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Umum"
+                },
+                "division_name": {
+                    "type": "string",
+                    "example": "Recurve"
+                },
+                "event_type_name": {
+                    "type": "string",
+                    "example": "Individual"
+                },
+                "gender_division_name": {
+                    "type": "string",
+                    "example": "Putra"
+                },
+                "participant_count": {
+                    "type": "integer",
+                    "example": 64
+                }
+            }
+        },
+        "models.EventImage": {
+            "type": "object",
+            "properties": {
+                "alt_text": {
+                    "type": "string"
+                },
+                "caption": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "display_order": {
+                    "type": "integer"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventLocationDetail": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "Jl. Asia Afrika No.8, Jakarta"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "gmaps_link": {
+                    "type": "string",
+                    "example": "https://maps.google.com/?q=-6.2185,106.8022"
+                },
+                "location": {
+                    "type": "string",
+                    "example": "Jakarta Selatan"
+                },
+                "location_type": {
+                    "type": "string",
+                    "example": "Outdoor"
+                },
+                "venue": {
+                    "type": "string",
+                    "example": "Lapangan ABC Senayan"
+                }
+            }
+        },
+        "models.EventParticipantPreview": {
+            "type": "object",
+            "properties": {
+                "archer_id": {
+                    "type": "string",
+                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg"
+                },
+                "category_name": {
+                    "type": "string",
+                    "example": "Recurve Umum Putra"
+                },
+                "club_name": {
+                    "type": "string",
+                    "example": "ArcheryHub Club Jakarta"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "Rizky Pratama"
+                },
+                "participant_id": {
+                    "type": "string",
+                    "example": "par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"
+                },
+                "payment_status": {
+                    "type": "string",
+                    "example": "lunas"
+                },
+                "qual_rank": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "qual_score": {
+                    "type": "integer",
+                    "example": 668
+                }
+            }
+        },
+        "models.EventSchedule": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "day_order": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Product": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "equipment, apparel, accessories, training, other",
+                    "type": "string"
+                },
+                "club_id": {
+                    "type": "string"
+                },
+                "colors": {
+                    "description": "JSON array",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "images": {
+                    "description": "JSON array",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "sale_price": {
+                    "type": "number"
+                },
+                "seller_id": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "specifications": {
+                    "description": "JSON object",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "draft, active, sold_out, archived",
+                    "type": "string"
+                },
+                "stock": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "views": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.UpdateCartItemRequest": {
+            "type": "object",
+            "required": [
+                "quantity"
+            ],
+            "properties": {
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
-	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Version:          "1.1",
+	Host:             "api.archeryhub.id",
+	BasePath:         "/api/v1",
+	Schemes:          []string{"https", "http"},
+	Title:            "ArcheryHub Mobile API",
+	Description:      "Dedicated API for ArcheryHub Mobile App (Archer & Scorekeeper)",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

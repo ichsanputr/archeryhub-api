@@ -8,6 +8,16 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// MobileGetScorekeeperMe returns current scorekeeper profile
+// @Summary Get Scorekeeper Profile
+// @Description Get profile information for the authenticated scorekeeper
+// @Tags Mobile - Scorekeeper
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} MobileScorekeeperMeResponse
+// @Failure 403 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /mobile/scorekeeper/me [get]
 func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -50,6 +60,13 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetScorekeeperEvents returns events for scorekeeper's organization
+// @Summary Get Scorekeeper Events
+// @Description Get list of events owned by the scorekeeper's organization
+// @Tags Mobile - Scorekeeper
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} MobileScorekeeperEventsResponse
+// @Router /mobile/scorekeeper/events [get]
 func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orgID, _ := c.Get("org_id")

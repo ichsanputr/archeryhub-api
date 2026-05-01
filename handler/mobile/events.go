@@ -11,7 +11,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// MobileListEvents godoc
+// MobileListEvents handles listing events for mobile
+// @Summary List Mobile Events
+// @Description Get a list of active or past events optimized for mobile
+// @Tags Mobile - Events
+// @Produce json
+// @Param limit query int false "Pagination limit"
+// @Param offset query int false "Pagination offset"
+// @Param search query string false "Search by name or location"
+// @Param history query bool false "Filter past events"
+// @Success 200 {object} MobileEventsResponse
+// @Router /mobile/events [get]
 func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -84,7 +94,15 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileArcherGetEventDetail godoc
+// MobileArcherGetEventDetail returns event detail with archer's registration status
+// @Summary Get Event Detail (Archer)
+// @Description Get event details including registration status for the authenticated archer
+// @Tags Mobile - Archer
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Event Slug or UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/archer/events/{id}/detail [get]
 func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -166,7 +184,15 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetEventDetail returns core event information (header/summary)
+// MobileGetEventDetail returns core event information
+// @Summary Get Mobile Event Detail
+// @Description Get summary and location details for a specific event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventDetail
+// @Failure 404 {object} map[string]interface{}
+// @Router /mobile/events/{slug} [get]
 func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -225,6 +251,13 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetEventParticipants returns only the participant list for an event
+// @Summary Get Event Participants
+// @Description Get the list of registered archers for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} map[string][]models.EventParticipantPreview
+// @Router /mobile/events/{slug}/participants [get]
 func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -245,6 +278,13 @@ func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetEventResults returns only the result list for an event
+// @Summary Get Event Results
+// @Description Get the current qualification and elimination results
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/events/{slug}/results [get]
 func MobileGetEventResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -266,6 +306,13 @@ func MobileGetEventResults(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetEventSchedule returns only the schedule for an event
+// @Summary Get Event Schedule
+// @Description Get the daily schedule and rundown for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} map[string][]models.EventSchedule
+// @Router /mobile/events/{slug}/schedule [get]
 func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -286,6 +333,13 @@ func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetEventCategories returns only the competition categories for an event
+// @Summary Get Event Categories
+// @Description Get list of divisions and age groups in this event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} map[string][]models.EventCompetitionCategory
+// @Router /mobile/events/{slug}/categories [get]
 func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -306,6 +360,13 @@ func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetEventGallery returns only the gallery images for an event
+// @Summary Get Event Gallery
+// @Description Get event gallery and documentation images
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} map[string][]models.EventImage
+// @Router /mobile/events/{slug}/gallery [get]
 func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")

@@ -11,7 +11,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// MobileMarketplaceListProducts godoc
+// MobileMarketplaceListProducts returns marketplace products
+// @Summary List Marketplace Products
+// @Description Get a list of active products in the marketplace
+// @Tags Mobile - Marketplace
+// @Produce json
+// @Param limit query int false "Pagination limit"
+// @Param page query int false "Pagination page"
+// @Param search query string false "Search by name or description"
+// @Param category query string false "Filter by category"
+// @Success 200 {object} MobileMarketplaceProductsResponse
+// @Router /mobile/marketplace/products [get]
 func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -77,7 +87,15 @@ func MobileMarketplaceListProducts(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileMarketplaceGetProductDetail godoc
+// MobileMarketplaceGetProductDetail returns product details
+// @Summary Get Product Detail
+// @Description Get detailed information about a specific product
+// @Tags Mobile - Marketplace
+// @Produce json
+// @Param id path string true "Product Slug or UUID"
+// @Success 200 {object} MobileMarketplaceProductResponse
+// @Failure 404 {object} map[string]interface{}
+// @Router /mobile/marketplace/products/{id} [get]
 func MobileMarketplaceGetProductDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

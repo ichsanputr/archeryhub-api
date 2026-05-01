@@ -9,10 +9,34 @@ import (
 	mobilehandler "archeryhub-api/handler/mobile"
 	"archeryhub-api/middleware"
 
+	_ "archeryhub-api/docs"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title ArcheryHub Mobile API
+// @version 1.1
+// @description Dedicated API for ArcheryHub Mobile App (Archer & Scorekeeper)
+// @termsOfService http://archeryhub.id/terms/
+
+// @contact.name ArcheryHub Support
+// @contact.url https://archeryhub.id
+// @contact.email support@archeryhub.id
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host api.archeryhub.id
+// @BasePath /api/v1
+// @schemes https http
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 
 
 var logger *logrus.Logger
@@ -172,6 +196,9 @@ func main() {
 
 	// Serve static media files
 	r.Static("/media", "./media")
+
+	// Swagger UI
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// API routes
 	api := r.Group("/api/v1")
