@@ -573,6 +573,10 @@ func main() {
 			mobile.GET("/events/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))
 			mobile.GET("/events/:slug/categories", mobilehandler.MobileGetEventCategories(db))
 			mobile.GET("/events/:slug/gallery", mobilehandler.MobileGetEventGallery(db))
+			mobile.GET("/events/:slug/faq", mobilehandler.MobileGetEventFAQ(db))
+			mobile.GET("/events/:slug/registration-fee", mobilehandler.MobileGetEventRegistrationFees(db))
+			mobile.GET("/events/:slug/rewards", mobilehandler.MobileGetEventRewards(db))
+			mobile.GET("/events/:slug/location", mobilehandler.MobileGetEventLocation(db))
 			mobile.GET("/events/:slug/results/qualification", handler.GetPublicQualificationResults(db))
 			mobile.GET("/events/:slug/results/elimination", handler.GetPublicEliminationResults(db))
 			mobile.GET("/events/:slug/results/files", handler.GetEventResultFiles(db))
@@ -595,6 +599,8 @@ func main() {
 			mobile.GET("/marketplace/products", mobilehandler.MobileMarketplaceListProducts(db))
 			mobile.GET("/marketplace/products/:id", mobilehandler.MobileMarketplaceGetProductDetail(db))
 			mobile.GET("/payment/channels", handler.GetPaymentChannels(db))
+			mobile.GET("/events/:slug/payment-method", mobilehandler.MobileGetEventPaymentMethods(db))
+			mobile.GET("/events/payments/:reference/instructions", mobilehandler.MobileGetPaymentInstructions(db))
 
 			// 3. Target scan by QR/barcode code (requires auth)
 			mobileAuth := mobile.Group("")
@@ -633,10 +639,13 @@ func main() {
 
 				mobileArcher.GET("/payments/:reference", mobilehandler.MobileGetPaymentDetail(db))
 				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
+				mobileArcher.GET("/events/payments", mobilehandler.MobileArcherGetEventPayments(db))
+				mobileArcher.GET("/events/payments/:slug", mobilehandler.MobileArcherGetEventPaymentsByEvent(db))
 				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
-				mobileArcher.POST("/events/:id/register", mobilehandler.MobileRegisterForEvent(db))
 				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
+				mobileArcher.POST("/events/:id/register/manual", mobilehandler.MobileRegisterEventManual(db))
+				mobileArcher.POST("/events/:id/register/payment-gateway", mobilehandler.MobileRegisterEventGateway(db))
 			}
 
 			mobileOrganization := mobile.Group("/organization")
@@ -646,8 +655,17 @@ func main() {
 				mobileOrganization.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
 				mobileOrganization.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
 				mobileOrganization.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
+				mobileOrganization.GET("/events/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
 				mobileOrganization.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
 				mobileOrganization.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
+
+				// Finance
+				mobileOrganization.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))
+				mobileOrganization.GET("/finance/balance", mobilehandler.MobileGetOrganizationWallet(db))
+				mobileOrganization.GET("/finance/bank-accounts", mobilehandler.MobileGetOrganizationBankAccounts(db))
+				mobileOrganization.POST("/finance/bank-accounts", mobilehandler.MobileAddOrganizationBankAccount(db))
+				mobileOrganization.PUT("/finance/bank-accounts/:id", mobilehandler.MobileUpdateOrganizationBankAccount(db))
+				mobileOrganization.DELETE("/finance/bank-accounts/:id", mobilehandler.MobileDeleteOrganizationBankAccount(db))
 			}
 
 			mobileSeller := mobile.Group("/seller")
@@ -702,6 +720,7 @@ func main() {
 				options.GET("/gender-divisions", mobilehandler.GetGenderDivisionOptions(db))
 				options.GET("/cities", mobilehandler.GetCityOptions())
 				options.GET("/event-types", mobilehandler.GetEventTypeOptions(db))
+				options.GET("/banks", mobilehandler.MobileGetBankOptions(db))
 			}
 
 			// 8. Media (requires auth)

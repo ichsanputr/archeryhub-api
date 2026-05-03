@@ -68,17 +68,19 @@ type MobileArcherRegisterRequest struct {
 	BowType     string `json:"bow_type" example:"recurve"`
 }
 
-// MobileEventRegistrationRequest represents the payload for event registration.
-type MobileEventRegistrationRequest struct {
-	EventID            string   `json:"event_id" example:"national-open-2026"`
-	AthleteID          string   `json:"athlete_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
-	EventCategoryID    string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
-	EventCategoryIDs   []string `json:"event_category_ids" example:"[\"cat-recurve-adult-putra\", \"cat-recurve-adult-team\"]"`
-	PaymentAmount      float64  `json:"payment_amount" example:"450000"`
-	PaymentProofURLs   []string `json:"payment_proof_urls" example:"[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"`
-	PaymentStatus      string   `json:"payment_status" example:"menunggu acc"`
-	RegistrationSource string   `json:"registration_source" example:"mobile_app"`
-	PaymentType        string   `json:"payment_type" example:"manual"` // manual, online, gateway
+// MobileEventManualRegistrationRequest represents the payload for manual event registration.
+type MobileEventManualRegistrationRequest struct {
+	EventCategoryID  string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
+	EventCategoryIDs []string `json:"event_category_ids" example:"[\"cat-recurve-adult-team\"]"`
+	PaymentAmount    float64  `json:"payment_amount" example:"450000"`
+	PaymentProofURLs []string `json:"payment_proof_urls" example:"[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"`
+}
+
+// MobileEventGatewayRegistrationRequest represents the payload for gateway event registration.
+type MobileEventGatewayRegistrationRequest struct {
+	EventCategoryID  string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
+	EventCategoryIDs []string `json:"event_category_ids" example:"[\"cat-recurve-adult-team\"]"`
+	PaymentMethod    string   `json:"payment_method" example:"BCAVA"`
 }
 
 // MobileAddNewsCommentRequest represents the payload for adding a news comment.
@@ -263,7 +265,10 @@ type MobilePaymentTransactionResponse struct {
 	TripayReference *string `json:"tripay_reference"`
 	Amount          float64 `json:"amount"`
 	VANumber        *string `json:"va_number"`
+	PayCode         *string `json:"pay_code"`
+	PaymentMethod   *string `json:"payment_method"`
 	CheckoutURL     *string `json:"checkout_url"`
+	Instructions    *string `json:"instructions"`
 	Status          string  `json:"status"`
 }
 
@@ -909,6 +914,97 @@ type MobileEventGalleryResponse struct {
 	Gallery []models.EventImage `json:"gallery"`
 }
 
+// MobileClubOptionsResponse represents the list of clubs for selection.
+type MobileClubOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileOrganizationOptionsResponse represents the list of organizations for selection.
+type MobileOrganizationOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileDisciplineOptionsResponse represents the list of archery disciplines.
+type MobileDisciplineOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileBowTypeOptionsResponse represents the list of bow types.
+type MobileBowTypeOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileAgeGroupOptionsResponse represents the list of age groups.
+type MobileAgeGroupOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileGenderDivisionOptionsResponse represents the list of gender divisions.
+type MobileGenderDivisionOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileEventTypeOptionsResponse represents the list of event/team types.
+type MobileEventTypeOptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
+// MobileCityOption represents a city in the options list.
+type MobileCityOption struct {
+	ID       string `json:"id"`
+	Province string `json:"province"`
+	Name     string `json:"name"`
+}
+
+// MobileCityOptionsResponse represents the list of Indonesian cities.
+type MobileCityOptionsResponse struct {
+	Data []MobileCityOption `json:"data"`
+}
+
+// MobileEventFAQItem represents a single FAQ entry.
+type MobileEventFAQItem struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+// MobileEventFAQResponse represents the FAQ data for an event.
+type MobileEventFAQResponse struct {
+	FAQ []MobileEventFAQItem `json:"faq"`
+}
+
+// MobileEventFeeItem represents a registration fee entry.
+type MobileEventFeeItem struct {
+	Name        string  `json:"name"`
+	Amount      float64 `json:"amount"`
+	Description string  `json:"description"`
+}
+
+// MobileEventFeesResponse represents the registration fees for an event.
+type MobileEventFeesResponse struct {
+	Fees []MobileEventFeeItem `json:"fees"`
+}
+
+// MobileEventRewardsResponse represents the prizes for an event.
+type MobileEventRewardsResponse struct {
+	First         string `json:"first"`
+	FirstCaption  string `json:"first_caption"`
+	Second        string `json:"second"`
+	SecondCaption string `json:"second_caption"`
+	Third         string `json:"third"`
+	ThirdCaption  string `json:"third_caption"`
+}
+
+// MobileEventLocationResponse represents location details for an event.
+type MobileEventLocationResponse struct {
+	Venue                string   `json:"venue"`
+	Address              string   `json:"address"`
+	City                 string   `json:"city"`
+	Location             string   `json:"location"`
+	GmapLink             string   `json:"gmaps_link"`
+	LocationType         string   `json:"location_type"`
+	LocationAccessibility []string `json:"location_accessibility"`
+}
+
 // MobileEventResultFile represents a result file associated with an event.
 type MobileEventResultFile struct {
 	Name  string `json:"name"`
@@ -921,4 +1017,172 @@ type MobileEventResultFile struct {
 // MobileEventResultFilesResponse represents the list of result files.
 type MobileEventResultFilesResponse struct {
 	Files []MobileEventResultFile `json:"files"`
+}
+// MobileEventDetailSlim represents a slimmed-down version of event details.
+type MobileEventDetailSlim struct {
+	UUID               string  `db:"uuid" json:"uuid"`
+	Slug               string  `db:"slug" json:"slug"`
+	Name               string  `db:"name" json:"name"`
+	StartDate          string  `db:"start_date" json:"start_date"`
+	EndDate            string  `db:"end_date" json:"end_date"`
+	LogoURL            *string `db:"logo_url" json:"logo_url"`
+	BannerURL          *string `db:"banner_url" json:"banner_url"`
+	Description        *string `db:"description" json:"description"`
+	OrganizerName      string  `db:"organizer_name" json:"organizer_name"`
+	OrganizerAvatarURL *string `db:"organizer_avatar_url" json:"organizer_avatar_url"`
+	OrganizerSlug      string  `db:"organizer_slug" json:"organizer_slug"`
+	OrganizerPhone     string  `db:"organizer_phone" json:"organizer_phone"`
+	ParticipantCount   int     `db:"participant_count" json:"participant_count"`
+}
+
+// MobileScanTargetQualificationResponse represents the result of scanning a qualification target QR.
+type MobileScanTargetQualificationResponse struct {
+	Type    string                             `json:"type" example:"qualification"`
+	Board   MobileScannedBoard                 `json:"board"`
+	Archers []MobileScannedArcherQualification `json:"archers"`
+}
+
+// MobileScanTargetEliminationResponse represents the result of scanning an elimination target QR.
+type MobileScanTargetEliminationResponse struct {
+	Type    string                           `json:"type" example:"elimination"`
+	Board   MobileScannedBoard               `json:"board"`
+	Archers []MobileScannedArcherElimination `json:"archers"`
+}
+// MobileOrganizationUpdateParticipantRequest represents the payload for updating a participant's registration.
+type MobileOrganizationUpdateParticipantRequest struct {
+	CategoryID          *string   `json:"category_id"`
+	CategoryIDs         []string  `json:"category_ids"`
+	TargetName          *string   `json:"target_name"`
+	BackNumber          *string   `json:"back_number"`
+	PaymentStatus       *string   `json:"payment_status"`
+	PaymentAmount       *float64  `json:"payment_amount"`
+	PaymentProofURLs    []string  `json:"payment_proof_urls"`
+	AccreditationStatus *string   `json:"accreditation_status"`
+	IsVerified          *bool     `json:"is_verified"`
+}
+
+type MobileArcherEventPaymentItem struct {
+	UUID            string     `db:"uuid" json:"id"`
+	Reference       string     `db:"reference" json:"reference"`
+	TripayReference *string    `db:"tripay_reference" json:"tripay_reference"`
+	Amount          float64    `db:"amount" json:"amount"`
+	TotalAmount     float64    `db:"total_amount" json:"total_amount"`
+	PaymentMethod   *string    `db:"payment_method" json:"payment_method"`
+	Status          string     `db:"status" json:"status"`
+	VANumber        *string    `db:"va_number" json:"va_number"`
+	CheckoutURL     *string    `db:"checkout_url" json:"checkout_url"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+	PaidAt          *time.Time `db:"paid_at" json:"paid_at"`
+	ExpiredAt       time.Time  `db:"expired_at" json:"expired_at"`
+	EventName       string     `db:"event_name" json:"event_name"`
+	EventSlug       string     `db:"event_slug" json:"event_slug"`
+	EventLogoURL    *string    `db:"event_logo_url" json:"event_logo_url"`
+}
+
+type MobileArcherEventPaymentsResponse struct {
+	Payments   []MobileArcherEventPaymentItem `json:"payments"`
+	TotalCount int                            `json:"total_count"`
+}
+
+type MobileOrganizationFinanceSummary struct {
+	TotalEarnings   float64 `json:"total_earnings"`
+	MonthlyEarnings float64 `json:"monthly_earnings"`
+	PendingEarnings float64 `json:"pending_earnings"`
+	Balance         float64 `json:"balance"`
+}
+
+type MobileOrganizationWalletResponse struct {
+	Balance    float64 `json:"balance"`
+	WalletUUID string  `json:"wallet_id"`
+}
+
+type MobileOrganizationEarningItem struct {
+	UUID         string     `db:"uuid" json:"id"`
+	EventName    string     `db:"name" json:"event_name"`
+	Amount       float64    `db:"amount" json:"amount"`
+	Status       string     `db:"status" json:"status"`
+	PaidAt       *time.Time `db:"paid_at" json:"paid_at"`
+	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+	ArcherName   string     `db:"archer_name" json:"archer_name"`
+	CategoryName string     `db:"category_name" json:"category_name"`
+}
+
+type MobileOrganizationEarningsResponse struct {
+	Earnings   []MobileOrganizationEarningItem `json:"earnings"`
+	TotalCount int                             `json:"total_count"`
+}
+
+type MobileOrganizationBankAccount struct {
+	UUID          string `db:"uuid" json:"id"`
+	BankName      string `db:"bank_name" json:"bank_name"`
+	AccountNumber string `db:"account_number" json:"account_number"`
+	AccountName   string `db:"account_name" json:"account_name"`
+	IsPrimary     bool   `db:"is_primary" json:"is_primary"`
+	Status        string `db:"status" json:"status"`
+}
+
+type MobileOrganizationBankAccountsResponse struct {
+	BankAccounts []MobileOrganizationBankAccount `json:"bank_accounts"`
+}
+
+type MobileTripayChannel struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Fee  int    `json:"fee"`
+	Icon string `json:"icon_url"`
+}
+
+type MobileEventPaymentMethodItem struct {
+	Type          string  `json:"type"` // "manual" or "gateway"
+	ID            string  `json:"id"`
+	BankName      string  `json:"bank_name"`
+	AccountName   *string `json:"account_name,omitempty"`
+	AccountNumber *string `json:"account_number,omitempty"`
+	Instructions  *string `json:"instructions,omitempty"`
+	Code          *string `json:"code,omitempty"` // For Tripay
+	IconURL       *string `json:"icon_url,omitempty"`
+}
+
+type MobileEventPaymentMethodsResponse struct {
+	Methods []MobileEventPaymentMethodItem `json:"methods"`
+}
+
+type MobileBankOption struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	LogoURL string `json:"logo_url"`
+}
+
+type MobileBankOptionsResponse struct {
+	Data []MobileBankOption `json:"data"`
+}
+
+type MobileOrganizationBankAccountRequest struct {
+	BankName      string `json:"bank_name" binding:"required" example:"BCA"`
+	AccountNumber string `json:"account_number" binding:"required" example:"1234567890"`
+	AccountName   string `json:"account_name" binding:"required" example:"Budi Santoso"`
+	IsPrimary     bool   `json:"is_primary" example:"true"`
+}
+
+type MobileOrganizationParticipantDetail struct {
+	ParticipantUUID      string   `json:"participant_uuid"`
+	ArcherUUID           string   `json:"archer_uuid"`
+	FullName             string   `json:"full_name"`
+	Gender               *string  `json:"gender"`
+	BirthDate            *string  `json:"birth_date"`
+	Email                *string  `json:"email"`
+	Phone                *string  `json:"phone"`
+	AvatarURL            *string  `json:"avatar_url"`
+	ClubName             *string  `json:"club_name"`
+	CategoryUUID         string   `json:"category_uuid"`
+	CategoryName         string   `json:"category_name"`
+	TargetName           *string  `json:"target_name"`
+	BackNumber           *string  `json:"back_number"`
+	PaymentStatus        string   `json:"payment_status"`
+	PaymentAmount        float64  `json:"payment_amount"`
+	PaymentProofURLs     []string `json:"payment_proof_urls"`
+	RegistrationDate     string   `json:"registration_date"`
+	LastReregistrationAt *string  `json:"last_reregistration_at"`
+	CheckInStatus        bool     `json:"check_in_status"`
 }

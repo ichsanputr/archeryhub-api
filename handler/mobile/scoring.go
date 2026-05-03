@@ -9,14 +9,78 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type BoardInfo struct {
+	UUID         string `db:"uuid"`
+	SessionUUID  string `db:"session_uuid"`
+	CategoryUUID string `db:"category_uuid"`
+	BoardNumber  int    `db:"board_number"`
+	Code         string `db:"code"`
+	SessionName  string `db:"session_name"`
+	EventUUID    string `db:"event_uuid"`
+	EventName    string `db:"event_name"`
+}
+
+type ArcherInfo struct {
+	AssignmentUUID  string  `db:"assignment_uuid" json:"assignment_uuid"`
+	ParticipantUUID string  `db:"participant_uuid" json:"participant_uuid"`
+	Position        string  `db:"position" json:"position"`       // e.g. "A"
+	TargetName      string  `db:"target_name" json:"target_name"` // e.g. "003A"
+	Name            string  `db:"name" json:"name"`
+	Division        string  `db:"division" json:"division"`
+	AvatarURL       *string `db:"avatar_url" json:"avatar_url"`
+	CurrentScore    int     `db:"current_score" json:"current_score"`
+	EndsCompleted   int     `db:"ends_completed" json:"ends_completed"`
+	TotalEnds       int     `db:"total_ends" json:"total_ends"`
+}
+
+type ElimBoardInfo struct {
+	UUID         string `db:"uuid"`
+	BracketUUID  string `db:"bracket_uuid"`
+	CategoryUUID string `db:"category_uuid"`
+	BoardNumber  int    `db:"board_number"`
+	Code         string `db:"code"`
+	CategoryName string `db:"category_name"`
+	EventUUID    string `db:"event_uuid"`
+	EventName    string `db:"event_name"`
+}
+
+type ElimArcherInfo struct {
+	MatchUUID  string  `json:"match_uuid"`
+	MatchID    string  `json:"match_id"`
+	Side       string  `json:"side"` // A or B
+	TargetName string  `json:"target_name"`
+	Name       string  `json:"name"`
+	Club       string  `json:"club"`
+	AvatarURL  *string `json:"avatar_url"`
+	Score      int     `json:"score"`
+	Status     string  `json:"status"`
+}
+
+type MatchRow struct {
+	MatchUUID  string         `db:"match_uuid"`
+	MatchID    sql.NullString `db:"match_id"`
+	TargetName string         `db:"target_name"`
+	RoundNo    int            `db:"round_no"`
+	MatchNo    int            `db:"match_no"`
+	Status     string         `db:"status"`
+	NameA      sql.NullString `db:"name_a"`
+	AvatarA    sql.NullString `db:"avatar_a"`
+	ClubA      sql.NullString `db:"club_a"`
+	ScoreA     int            `db:"score_a"`
+	NameB      sql.NullString `db:"name_b"`
+	AvatarB    sql.NullString `db:"avatar_b"`
+	ClubB      sql.NullString `db:"club_b"`
+	ScoreB     int            `db:"score_b"`
+}
+
 // MobileScanTarget handles scanning a target board QR code
 // @Summary Scan Target QR
-// @Description Scan a target board QR code to get participant info for scoring
+// @Description Scan a target board QR code to get participant info for scoring. Returns qualification or elimination data based on the QR.
 // @Tags Mobile - Scorekeeper
 // @Produce json
 // @Security ApiKeyAuth
 // @Param code query string true "Target Board QR Code"
-// @Success 200 {object} MobileScanTargetResponse
+// @Success 200 {object} MobileScanTargetQualificationResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Router /mobile/scan [get]
@@ -28,16 +92,6 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		type BoardInfo struct {
-			UUID         string `db:"uuid"`
-			SessionUUID  string `db:"session_uuid"`
-			CategoryUUID string `db:"category_uuid"`
-			BoardNumber  int    `db:"board_number"`
-			Code         string `db:"code"`
-			SessionName  string `db:"session_name"`
-			EventUUID    string `db:"event_uuid"`
-			EventName    string `db:"event_name"`
-		}
 
 		var board BoardInfo
 		err := db.Get(&board, `
@@ -54,18 +108,6 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 
 		if err == nil {
 			// --- Handle Qualification Board ---
-			type ArcherInfo struct {
-				AssignmentUUID  string  `db:"assignment_uuid" json:"assignment_uuid"`
-				ParticipantUUID string  `db:"participant_uuid" json:"participant_uuid"`
-				Position        string  `db:"position" json:"position"`       // e.g. "A"
-				TargetName      string  `db:"target_name" json:"target_name"` // e.g. "003A"
-				Name            string  `db:"name" json:"name"`
-				Division        string  `db:"division" json:"division"`
-				AvatarURL       *string `db:"avatar_url" json:"avatar_url"`
-				CurrentScore    int     `db:"current_score" json:"current_score"`
-				EndsCompleted   int     `db:"ends_completed" json:"ends_completed"`
-				TotalEnds       int     `db:"total_ends" json:"total_ends"`
-			}
 
 			var archers []ArcherInfo
 			err = db.Select(&archers, `
@@ -105,7 +147,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 
-			c.JSON(http.StatusOK, MobileScanTargetResponse{
+			c.JSON(http.StatusOK, MobileScanTargetQualificationResponse{
 				Type: "qualification",
 				Board: MobileScannedBoard{
 					UUID:         board.UUID,
@@ -117,22 +159,12 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 					EventName:    board.EventName,
 					CategoryUUID: board.CategoryUUID,
 				},
-				Archers: archers,
+				Archers: castToScannedArchersQual(archers),
 			})
 			return
 		}
 
 		// --- If not found in Qual, try Elimination ---
-		type ElimBoardInfo struct {
-			UUID         string `db:"uuid"`
-			BracketUUID  string `db:"bracket_uuid"`
-			CategoryUUID string `db:"category_uuid"`
-			BoardNumber  int    `db:"board_number"`
-			Code         string `db:"code"`
-			CategoryName string `db:"category_name"`
-			EventUUID    string `db:"event_uuid"`
-			EventName    string `db:"event_name"`
-		}
 		var eb ElimBoardInfo
 		err = db.Get(&eb, `
 			SELECT 
@@ -149,34 +181,6 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 
 		if err == nil {
 			// Fetch matches on this elimination board
-			type ElimArcherInfo struct {
-				MatchUUID  string  `json:"match_uuid"`
-				MatchID    string  `json:"match_id"`
-				Side       string  `json:"side"` // A or B
-				TargetName string  `json:"target_name"`
-				Name       string  `json:"name"`
-				Club       string  `json:"club"`
-				AvatarURL  *string `json:"avatar_url"`
-				Score      int     `json:"score"`
-				Status     string  `json:"status"`
-			}
-
-			type MatchRow struct {
-				MatchUUID  string         `db:"match_uuid"`
-				MatchID    sql.NullString `db:"match_id"`
-				TargetName string         `db:"target_name"`
-				RoundNo    int            `db:"round_no"`
-				MatchNo    int            `db:"match_no"`
-				Status     string         `db:"status"`
-				NameA      sql.NullString `db:"name_a"`
-				AvatarA    sql.NullString `db:"avatar_a"`
-				ClubA      sql.NullString `db:"club_a"`
-				ScoreA     int            `db:"score_a"`
-				NameB      sql.NullString `db:"name_b"`
-				AvatarB    sql.NullString `db:"avatar_b"`
-				ClubB      sql.NullString `db:"club_b"`
-				ScoreB     int            `db:"score_b"`
-			}
 			var rows []MatchRow
 			err = db.Select(&rows, `
 				SELECT 
@@ -236,19 +240,18 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 				archers = append(archers, b)
 			}
 
-			c.JSON(http.StatusOK, gin.H{
-				"type": "elimination",
-				"board": gin.H{
-					"uuid":          eb.UUID,
-					"board_number":  eb.BoardNumber,
-					"code":          eb.Code,
-					"bracket_uuid":  eb.BracketUUID,
-					"category_name": eb.CategoryName,
-					"event_uuid":    eb.EventUUID,
-					"event_name":    eb.EventName,
+			c.JSON(http.StatusOK, MobileScanTargetEliminationResponse{
+				Type: "elimination",
+				Board: MobileScannedBoard{
+					UUID:          eb.UUID,
+					BoardNumber:   eb.BoardNumber,
+					Code:          eb.Code,
+					BracketUUID:   eb.BracketUUID,
+					CategoryName:  eb.CategoryName,
+					EventUUID:     eb.EventUUID,
+					EventName:     eb.EventName,
 				},
-				"archers": archers,
-				"matches": rows,
+				Archers: castToScannedArchersElim(archers),
 			})
 			return
 		}
@@ -543,6 +546,22 @@ func castToEndScores(ends []EndScore) []MobileEndScore {
 			CumulativeTotal: e.CumTotal,
 			Arrows:          arrows,
 		}
+	}
+	return res
+}
+
+func castToScannedArchersQual(archers []ArcherInfo) []MobileScannedArcherQualification {
+	res := make([]MobileScannedArcherQualification, len(archers))
+	for i, a := range archers {
+		res[i] = MobileScannedArcherQualification(a)
+	}
+	return res
+}
+
+func castToScannedArchersElim(archers []ElimArcherInfo) []MobileScannedArcherElimination {
+	res := make([]MobileScannedArcherElimination, len(archers))
+	for i, a := range archers {
+		res[i] = MobileScannedArcherElimination(a)
 	}
 	return res
 }

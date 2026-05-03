@@ -2,12 +2,15 @@ package mobile
 
 import (
 	"archeryhub-api/models"
-	"fmt"
 	"archeryhub-api/utils"
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -193,21 +196,29 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Success 200 {object} MobileEventDetail
 // @Failure 404 {object} map[string]interface{}
 // @Router /mobile/events/{slug} [get]
+// MobileGetEventDetail returns core event information (slim)
+// @Summary Get Mobile Event Detail (Slim)
+// @Description Get summary details for a specific event without location, FAQ, or other granular info
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventDetailSlim
+// @Failure 404 {object} map[string]interface{}
+// @Router /mobile/events/{slug} [get]
 func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 
 		query := `
 			SELECT
-				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city, t.location_type,
-				t.start_date, t.end_date, t.registration_deadline,
-				t.logo_url, t.banner_url, t.description, t.technical_guidebook_url,
+				t.uuid, t.slug, t.name,
+				t.start_date, t.end_date,
+				t.logo_url, t.banner_url, t.description,
 				COALESCE(u.full_name, '') as organizer_name,
 				COALESCE(u.avatar_url, '') as organizer_avatar_url,
 				COALESCE(u.slug, '') as organizer_slug,
 				COALESCE(u.phone, '') as organizer_phone,
-				COALESCE(active_target_stats.participant_count, 0) as participant_count,
-				t.organizer_id
+				COALESCE(active_target_stats.participant_count, 0) as participant_count
 			FROM events t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizations
@@ -223,30 +234,157 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT 1
 		`
 
-		var event MobileEventDetail
+		var event MobileEventDetailSlim
 		err := db.Get(&event, query, id, id)
 		if err != nil {
-			fmt.Printf("[MobileGetEventDetail] Database error: %v\n", err)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan atau terjadi kesalahan data"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
 		if event.BannerURL != nil { *event.BannerURL = utils.MaskMediaURL(*event.BannerURL) }
 		if event.LogoURL != nil { *event.LogoURL = utils.MaskMediaURL(*event.LogoURL) }
-		if event.TechnicalGuidebookURL != nil { *event.TechnicalGuidebookURL = utils.MaskMediaURL(*event.TechnicalGuidebookURL) }
 		if event.OrganizerAvatarURL != nil { *event.OrganizerAvatarURL = utils.MaskMediaURL(*event.OrganizerAvatarURL) }
 
-		// Manual populate nested objects for mobile model consistency
-		event.LocationDetail = models.EventLocationDetail{
-			Venue:        event.Venue,
-			Address:      event.Address,
-			GmapLink:     event.GmapLink,
-			Location:     event.Location,
-			City:         event.City,
-			LocationType: event.LocationType,
+		c.JSON(http.StatusOK, event)
+	}
+}
+
+// MobileGetEventFAQ returns FAQ data for an event
+// @Summary Get Event FAQ
+// @Description Get the list of frequently asked questions for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventFAQResponse
+// @Router /mobile/events/{slug}/faq [get]
+func MobileGetEventFAQ(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var faqRaw *string
+		err := db.Get(&faqRaw, "SELECT faq FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
 		}
 
-		c.JSON(http.StatusOK, event)
+		var faq []MobileEventFAQItem
+		if faqRaw != nil && *faqRaw != "" {
+			_ = json.Unmarshal([]byte(*faqRaw), &faq)
+		}
+
+		c.JSON(http.StatusOK, MobileEventFAQResponse{FAQ: faq})
+	}
+}
+
+// MobileGetEventRegistrationFees returns registration fee data for an event
+// @Summary Get Event Registration Fees
+// @Description Get the list of registration fees and categories for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventFeesResponse
+// @Router /mobile/events/{slug}/registration-fee [get]
+func MobileGetEventRegistrationFees(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var pageSettingsRaw *string
+		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		var settings struct {
+			Fees []MobileEventFeeItem `json:"fees"`
+		}
+		if pageSettingsRaw != nil && *pageSettingsRaw != "" {
+			_ = json.Unmarshal([]byte(*pageSettingsRaw), &settings)
+		}
+
+		c.JSON(http.StatusOK, MobileEventFeesResponse{Fees: settings.Fees})
+	}
+}
+
+// MobileGetEventRewards returns prize/reward data for an event
+// @Summary Get Event Rewards
+// @Description Get the list of prizes and rewards for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventRewardsResponse
+// @Router /mobile/events/{slug}/rewards [get]
+func MobileGetEventRewards(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		var pageSettingsRaw *string
+		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		var settings struct {
+			Prizes MobileEventRewardsResponse `json:"prizes"`
+		}
+		if pageSettingsRaw != nil && *pageSettingsRaw != "" {
+			_ = json.Unmarshal([]byte(*pageSettingsRaw), &settings)
+		}
+
+		c.JSON(http.StatusOK, settings.Prizes)
+	}
+}
+
+// MobileGetEventLocation returns location data for an event
+// @Summary Get Event Location
+// @Description Get detailed location information and accessibility for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventLocationResponse
+// @Router /mobile/events/{slug}/location [get]
+func MobileGetEventLocation(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+		
+		var data struct {
+			Venue        string  `db:"venue"`
+			Address      string  `db:"address"`
+			City         string  `db:"city"`
+			Location     string  `db:"location"`
+			GmapLink     string  `db:"gmaps_link"`
+			LocationType string  `db:"location_type"`
+			PageSettings *string `db:"page_settings"`
+		}
+
+		err := db.Get(&data, `
+			SELECT venue, COALESCE(address, '') as address, COALESCE(city, '') as city, 
+			       COALESCE(location, '') as location, COALESCE(gmaps_link, '') as gmaps_link, 
+			       COALESCE(location_type, '') as location_type, page_settings 
+			FROM events 
+			WHERE uuid = ? OR slug = ?
+		`, id, id)
+		
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		var settings struct {
+			Accessibility []string `json:"location_accessibility"`
+		}
+		if data.PageSettings != nil && *data.PageSettings != "" {
+			_ = json.Unmarshal([]byte(*data.PageSettings), &settings)
+		}
+
+		c.JSON(http.StatusOK, MobileEventLocationResponse{
+			Venue:                data.Venue,
+			Address:              data.Address,
+			City:                 data.City,
+			Location:             data.Location,
+			GmapLink:             data.GmapLink,
+			LocationType:         data.LocationType,
+			LocationAccessibility: settings.Accessibility,
+		})
 	}
 }
 
@@ -359,3 +497,259 @@ func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 }
 
 
+
+// MobileRegisterEventManual handles archer registration with manual transfer
+// @Summary Register for Event (Manual)
+// @Description Register the authenticated archer for an event using manual transfer
+// @Tags Mobile - Archer
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Event UUID or Slug"
+// @Param request body MobileEventManualRegistrationRequest true "Registration Details"
+// @Success 200 {object} MobileRegisterEventResponse
+// @Router /mobile/archer/events/{id}/register/manual [post]
+func MobileRegisterEventManual(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		var req MobileEventManualRegistrationRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		internalReq := mobileRegistrationInternal{
+			EventID:          id,
+			EventCategoryID:  req.EventCategoryID,
+			EventCategoryIDs: req.EventCategoryIDs,
+			PaymentAmount:    req.PaymentAmount,
+			PaymentProofURLs: req.PaymentProofURLs,
+			PaymentType:      "manual",
+		}
+		
+		processMobileRegistration(c, db, internalReq)
+	}
+}
+
+// MobileRegisterEventGateway handles archer registration with payment gateway
+// @Summary Register for Event (Payment Gateway)
+// @Description Register the authenticated archer for an event using online payment gateway
+// @Tags Mobile - Archer
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Event UUID or Slug"
+// @Param request body MobileEventGatewayRegistrationRequest true "Registration Details"
+// @Success 200 {object} MobileRegisterEventResponse
+// @Router /mobile/archer/events/{id}/register/payment-gateway [post]
+func MobileRegisterEventGateway(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		var req MobileEventGatewayRegistrationRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		internalReq := mobileRegistrationInternal{
+			EventID:          id,
+			EventCategoryID:  req.EventCategoryID,
+			EventCategoryIDs: req.EventCategoryIDs,
+			PaymentMethod:    req.PaymentMethod,
+			PaymentType:      "gateway",
+		}
+		
+		processMobileRegistration(c, db, internalReq)
+	}
+}
+
+type mobileRegistrationInternal struct {
+	EventID          string
+	EventCategoryID  string
+	EventCategoryIDs []string
+	PaymentAmount    float64
+	PaymentProofURLs []string
+	PaymentMethod    string
+	PaymentType      string
+}
+
+// processMobileRegistration contains the core logic for mobile event registration
+func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrationInternal) {
+	// Re-use logic from RegisterParticipant but adapted for mobile responses and requirements
+	// 1. Resolve Event
+	var event struct {
+		UUID        string `db:"uuid"`
+		OrganizerID string `db:"organizer_id"`
+	}
+	err := db.Get(&event, `SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ?`, req.EventID, req.EventID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+		return
+	}
+
+	// 2. Resolve Archer
+	userID := c.GetString("user_id")
+	var archerUUID string
+	err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ?", userID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Profil pemanah tidak ditemukan"})
+		return
+	}
+
+	// 3. Combine Categories
+	allCategoryIDs := []string{}
+	if req.EventCategoryID != "" {
+		allCategoryIDs = append(allCategoryIDs, req.EventCategoryID)
+	}
+	for _, catID := range req.EventCategoryIDs {
+		if catID != "" {
+			exists := false
+			for _, e := range allCategoryIDs {
+				if e == catID { exists = true; break }
+			}
+			if !exists { allCategoryIDs = append(allCategoryIDs, catID) }
+		}
+	}
+
+	if len(allCategoryIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pilih setidaknya satu kategori"})
+		return
+	}
+
+	// 4. Transaction
+	tx, err := db.Beginx()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+		return
+	}
+	defer tx.Rollback()
+
+	registrationDate := time.Now()
+	paymentStatus := "menunggu acc"
+	if req.PaymentType == "gateway" {
+		paymentStatus = "unpaid"
+	}
+
+	var firstRegID string
+	registeredCats := []string{}
+
+	for i, catID := range allCategoryIDs {
+		// Check duplicate
+		var exists bool
+		_ = tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = ? AND archer_id = ? AND category_id = ?)", event.UUID, archerUUID, catID)
+		if exists { continue }
+
+		regUUID := uuid.New().String()
+		if i == 0 { firstRegID = regUUID }
+
+		proofs := ""
+		if len(req.PaymentProofURLs) > 0 {
+			proofs = strings.Join(req.PaymentProofURLs, ",")
+		}
+
+		_, err = tx.Exec(`
+			INSERT INTO event_participants (
+				uuid, event_id, archer_id, category_id, 
+				registration_date, payment_status, payment_amount, payment_proof_urls,
+				registration_source
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, regUUID, event.UUID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofs, "mobile_app")
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan ke kategori: " + catID})
+			return
+		}
+		registeredCats = append(registeredCats, catID)
+	}
+
+	if len(registeredCats) == 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "Anda sudah terdaftar di semua kategori pilihan"})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pendaftaran"})
+		return
+	}
+
+	c.JSON(http.StatusOK, MobileRegisterEventResponse{
+		Message:              "Pendaftaran berhasil",
+		RegistrationID:       firstRegID,
+		RegisteredCategories: registeredCats,
+		PaymentStatus:        paymentStatus,
+	})
+}
+
+// MobileGetEventPaymentMethods returns available payment methods for an event
+// @Summary Get Event Payment Methods
+// @Description Get a list of available payment methods (manual bank transfer and online gateway) for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} MobileEventPaymentMethodsResponse
+// @Router /mobile/events/{slug}/payment-method [get]
+func MobileGetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+
+		// 1. Get Event and Organizer ID
+		var event struct {
+			UUID        string `db:"uuid"`
+			OrganizerID string `db:"organizer_id"`
+		}
+		err := db.Get(&event, "SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ? LIMIT 1", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		var methods []MobileEventPaymentMethodItem
+
+		// 2. Fetch Manual Payment Methods (Bank Accounts)
+		var bankAccounts []struct {
+			UUID          string  `db:"uuid"`
+			BankName      string  `db:"bank_name"`
+			AccountNumber string  `db:"account_number"`
+			AccountName   string  `db:"account_name"`
+		}
+		_ = db.Select(&bankAccounts, `
+			SELECT uuid, bank_name, account_number, account_name 
+			FROM bank_accounts 
+			WHERE user_id = ? AND status = 'verified'
+			ORDER BY is_primary DESC
+		`, event.OrganizerID)
+
+		for _, b := range bankAccounts {
+			accName := b.AccountName
+			accNum := b.AccountNumber
+			methods = append(methods, MobileEventPaymentMethodItem{
+				Type:          "manual",
+				ID:            b.UUID,
+				BankName:      b.BankName,
+				AccountName:   &accName,
+				AccountNumber: &accNum,
+			})
+		}
+
+		// 3. Fetch Gateway Payment Methods (Tripay)
+		tripay := utils.NewTripayClient()
+		channels, err := tripay.GetPaymentChannels()
+		if err == nil {
+			for _, ch := range channels {
+				code := ch.Code
+				icon := ch.IconURL
+				methods = append(methods, MobileEventPaymentMethodItem{
+					Type:     "gateway",
+					ID:       ch.Code,
+					BankName: ch.Name,
+					Code:     &code,
+					IconURL:  &icon,
+				})
+			}
+		}
+
+		c.JSON(http.StatusOK, MobileEventPaymentMethodsResponse{
+			Methods: methods,
+		})
+	}
+}

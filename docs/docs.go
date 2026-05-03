@@ -251,6 +251,79 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/archer/events/payments": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a list of all payment transactions made for event registrations by the authenticated archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "List Event Payments",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherEventPaymentsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/payments/{slug}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a list of payment transactions made for a specific event registration",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Get Event Payments by Slug",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherEventPaymentsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/archer/events/{id}/detail": {
             "get": {
                 "security": [
@@ -279,8 +352,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileArcherEventDetailResponse"
                         }
                     }
                 }
@@ -321,14 +393,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/{id}/register": {
+        "/mobile/archer/events/{id}/register/manual": {
             "post": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Register the authenticated archer for one or more event categories",
+                "description": "Register the authenticated archer for an event using manual transfer",
                 "consumes": [
                     "application/json"
                 ],
@@ -338,37 +410,76 @@ const docTemplate = `{
                 "tags": [
                     "Mobile - Archer"
                 ],
-                "summary": "Register for Event",
+                "summary": "Register for Event (Manual)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Event Slug or UUID",
+                        "description": "Event UUID or Slug",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Registration Request",
+                        "description": "Registration Details",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventRegistrationRequest"
+                            "$ref": "#/definitions/mobile.MobileEventManualRegistrationRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
                         }
+                    }
+                }
+            }
+        },
+        "/mobile/archer/events/{id}/register/payment-gateway": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Register the authenticated archer for an event using online payment gateway",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Archer"
+                ],
+                "summary": "Register for Event (Payment Gateway)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID or Slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    {
+                        "description": "Registration Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileEventGatewayRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
                         }
                     }
                 }
@@ -1053,8 +1164,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileConversationListResponse"
                         }
                     }
                 }
@@ -1083,7 +1193,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/mobile.MobileChatCreateConversationRequest"
                         }
                     }
                 ],
@@ -1091,8 +1201,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.ChatConversation"
                         }
                     }
                 }
@@ -1126,8 +1235,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileConversationMessagesResponse"
                         }
                     }
                 }
@@ -1163,7 +1271,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/mobile.MobileChatSendMessageRequest"
                         }
                     }
                 ],
@@ -1171,8 +1279,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.ChatMessage"
                         }
                     }
                 }
@@ -1213,8 +1320,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobilePeerLastActiveResponse"
                         }
                     }
                 }
@@ -1239,8 +1345,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileChatUnreadCountResponse"
                         }
                     }
                 }
@@ -1501,17 +1606,61 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/{slug}": {
+        "/mobile/events/payments/{reference}/instructions": {
             "get": {
-                "description": "Get summary and location details for a specific event",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get step-by-step instructions for a specific payment",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Mobile - Events"
                 ],
-                "summary": "Get Mobile Event Detail",
+                "summary": "Get Payment Instructions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Merchant Reference",
+                        "name": "reference",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}": {
+            "get": {
+                "description": "Get summary and location details for a specific event\nGet summary details for a specific event without location, FAQ, or other granular info",
+                "produces": [
+                    "application/json",
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events",
+                    "Mobile - Events"
+                ],
+                "summary": "Get Mobile Event Detail (Slim)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "Event Slug or UUID",
@@ -1524,7 +1673,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventDetail"
+                            "$ref": "#/definitions/mobile.MobileEventDetailSlim"
                         }
                     },
                     "404": {
@@ -1560,13 +1709,36 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/models.EventCompetitionCategory"
-                                }
-                            }
+                            "$ref": "#/definitions/mobile.MobileEventCategoriesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/faq": {
+            "get": {
+                "description": "Get the list of frequently asked questions for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event FAQ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventFAQResponse"
                         }
                     }
                 }
@@ -1595,13 +1767,36 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/models.EventImage"
-                                }
-                            }
+                            "$ref": "#/definitions/mobile.MobileEventGalleryResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/location": {
+            "get": {
+                "description": "Get detailed location information and accessibility for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Location",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventLocationResponse"
                         }
                     }
                 }
@@ -1630,13 +1825,65 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/models.EventParticipantPreview"
-                                }
-                            }
+                            "$ref": "#/definitions/mobile.MobileEventParticipantsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/payment-method": {
+            "get": {
+                "description": "Get a list of available payment methods (manual bank transfer and online gateway) for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Payment Methods",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventPaymentMethodsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/registration-fee": {
+            "get": {
+                "description": "Get the list of registration fees and categories for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Registration Fees",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventFeesResponse"
                         }
                     }
                 }
@@ -1672,8 +1919,36 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.EliminationResultsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/results/files": {
+            "get": {
+                "description": "Get list of result files (PDF/XLSX) uploaded for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Result Files",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventResultFilesResponse"
                         }
                     }
                 }
@@ -1709,8 +1984,36 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.QualificationResultsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/rewards": {
+            "get": {
+                "description": "Get the list of prizes and rewards for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Event Rewards",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventRewardsResponse"
                         }
                     }
                 }
@@ -1739,13 +2042,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/models.EventSchedule"
-                                }
-                            }
+                            "$ref": "#/definitions/mobile.MobileEventScheduleResponse"
                         }
                     }
                 }
@@ -1988,15 +2285,34 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get Age Group Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileAgeGroupOptionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/banks": {
+            "get": {
+                "description": "Get a list of supported Indonesian banks with their logo URLs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Options"
+                ],
+                "summary": "Get Bank Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileBankOptionsResponse"
                         }
                     }
                 }
@@ -2012,15 +2328,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get Bow Type Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileBowTypeOptionsResponse"
                         }
                     }
                 }
@@ -2036,15 +2351,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get City Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileCityOptionsResponse"
                         }
                     }
                 }
@@ -2060,15 +2374,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get Club Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileClubOptionsResponse"
                         }
                     }
                 }
@@ -2084,15 +2397,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get Discipline Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileDisciplineOptionsResponse"
                         }
                     }
                 }
@@ -2115,8 +2427,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileEventTypeOptionsResponse"
                         }
                     }
                 }
@@ -2132,15 +2443,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get Gender Division Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileGenderDivisionOptionsResponse"
                         }
                     }
                 }
@@ -2156,15 +2466,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Option"
+                    "Mobile - Options"
                 ],
                 "summary": "Get Organization Options",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileOrganizationOptionsResponse"
                         }
                     }
                 }
@@ -2192,7 +2501,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.OrganizationDashboard"
+                            "$ref": "#/definitions/mobile.MobileOrganizationDashboardResponse"
                         }
                     }
                 }
@@ -2308,6 +2617,254 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/mobile.MobileOrganizationEventParticipantsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/events/{id}/participants/{user_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get full details of a specific participant for an organization event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Get Organization Participant Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Archer UUID or Participant UUID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationParticipantDetail"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/finance/balance": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get the current balance and wallet details for the organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Get Organization Wallet",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationWalletResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/finance/bank-accounts": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a list of all bank accounts registered by the organization for withdrawals",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Get Organization Bank Accounts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationBankAccountsResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Add a new bank account for withdrawals",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Add Organization Bank Account",
+                "parameters": [
+                    {
+                        "description": "Bank account details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationBankAccountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/finance/bank-accounts/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update bank account details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Update Organization Bank Account",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bank Account UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationBankAccountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove a bank account from the organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Delete Organization Bank Account",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bank Account UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/finance/earnings": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a list of all income from event registrations for the organization",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Get Organization Earnings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOrganizationEarningsResponse"
                         }
                     }
                 }
@@ -2462,7 +3019,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Scan a target board QR code to get participant info for scoring",
+                "description": "Scan a target board QR code to get participant info for scoring. Returns qualification or elimination data based on the QR.",
                 "produces": [
                     "application/json"
                 ],
@@ -2483,7 +3040,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileScanTargetResponse"
+                            "$ref": "#/definitions/mobile.MobileScanTargetQualificationResponse"
                         }
                     },
                     "400": {
@@ -2772,8 +3329,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MobileSellerProductsResponse"
                         }
                     }
                 }
@@ -2801,15 +3357,16 @@ const docTemplate = `{
                         "name": "product",
                         "in": "body",
                         "required": true,
-                        "schema": {}
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateProductRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.ProductActionResponse"
                         }
                     }
                 }
@@ -2846,15 +3403,16 @@ const docTemplate = `{
                         "name": "product",
                         "in": "body",
                         "required": true,
-                        "schema": {}
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateProductRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MessageResponse"
                         }
                     }
                 }
@@ -2889,8 +3447,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/mobile.MessageResponse"
                         }
                     }
                 }
@@ -3044,6 +3601,91 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.ChatConversation": {
+            "type": "object",
+            "properties": {
+                "archer_avatar": {
+                    "type": "string"
+                },
+                "archer_id": {
+                    "type": "string"
+                },
+                "archer_name": {
+                    "type": "string"
+                },
+                "archer_unread": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_message": {
+                    "type": "string"
+                },
+                "last_message_at": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "product_image": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "seller_avatar": {
+                    "type": "string"
+                },
+                "seller_id": {
+                    "type": "string"
+                },
+                "seller_name": {
+                    "type": "string"
+                },
+                "seller_unread": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.ChatMessage": {
+            "type": "object",
+            "properties": {
+                "conversation_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_read": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "sender_avatar": {
+                    "type": "string"
+                },
+                "sender_id": {
+                    "type": "string"
+                },
+                "sender_name": {
+                    "type": "string"
+                },
+                "sender_type": {
+                    "type": "string"
+                }
+            }
+        },
         "mobile.Intent": {
             "type": "object",
             "properties": {
@@ -3084,6 +3726,150 @@ const docTemplate = `{
                 "user_id": {
                     "type": "string",
                     "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                }
+            }
+        },
+        "mobile.MobileAgeGroupOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
+                }
+            }
+        },
+        "mobile.MobileArcherAtBoard": {
+            "type": "object",
+            "properties": {
+                "assignment_uuid": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "board_number": {
+                    "type": "integer"
+                },
+                "current_score": {
+                    "type": "integer"
+                },
+                "division": {
+                    "type": "string"
+                },
+                "ends_completed": {
+                    "type": "integer"
+                },
+                "last_end_score": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "participant_uuid": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "target_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileArcherEventDetailResponse": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "$ref": "#/definitions/mobile.MobileEventDetail"
+                },
+                "is_registered": {
+                    "type": "boolean"
+                },
+                "registration": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "payment_amount": {
+                            "type": "number"
+                        },
+                        "payment_status": {
+                            "type": "string"
+                        },
+                        "target_name": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "mobile.MobileArcherEventPaymentItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event_logo_url": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "event_slug": {
+                    "type": "string"
+                },
+                "expired_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "paid_at": {
+                    "type": "string"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
+                "reference": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "number"
+                },
+                "tripay_reference": {
+                    "type": "string"
+                },
+                "va_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileArcherEventPaymentsResponse": {
+            "type": "object",
+            "properties": {
+                "payments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileArcherEventPaymentItem"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -3182,12 +3968,21 @@ const docTemplate = `{
         },
         "mobile.MobileArcherRegisterRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "full_name",
+                "password"
+            ],
             "properties": {
-                "avatar_url": {
+                "bow_type": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                    "example": "recurve"
                 },
-                "birth_date": {
+                "city": {
+                    "type": "string",
+                    "example": "Jakarta"
+                },
+                "date_of_birth": {
                     "type": "string",
                     "example": "1995-05-18"
                 },
@@ -3205,30 +4000,165 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 6,
                     "example": "securepassword123"
                 },
                 "phone": {
                     "type": "string",
                     "example": "081234567890"
+                }
+            }
+        },
+        "mobile.MobileArrowScore": {
+            "type": "object",
+            "properties": {
+                "arrow_number": {
+                    "type": "integer"
                 },
-                "username": {
-                    "type": "string",
-                    "example": "rizky-pratama"
+                "is_x": {
+                    "type": "boolean"
+                },
+                "score": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileAssignmentMeta": {
+            "type": "object",
+            "properties": {
+                "archer_name": {
+                    "type": "string"
+                },
+                "arrows_per_end": {
+                    "type": "integer"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "division": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "session_name": {
+                    "type": "string"
+                },
+                "session_uuid": {
+                    "type": "string"
+                },
+                "target_name": {
+                    "type": "string"
+                },
+                "total_ends": {
+                    "type": "integer"
+                },
+                "uuid": {
+                    "type": "string"
                 }
             }
         },
         "mobile.MobileAssignmentScoreDetailResponse": {
             "type": "object",
             "properties": {
-                "assignment": {},
-                "ends": {},
-                "summary": {}
+                "assignment": {
+                    "$ref": "#/definitions/mobile.MobileAssignmentMeta"
+                },
+                "ends": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEndScore"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/mobile.MobileScoreSummary"
+                }
+            }
+        },
+        "mobile.MobileBankOption": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileBankOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileBankOption"
+                    }
+                }
+            }
+        },
+        "mobile.MobileBowTypeOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
+                }
             }
         },
         "mobile.MobileCartResponse": {
             "type": "object",
             "properties": {
-                "data": {}
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CartItem"
+                    }
+                }
+            }
+        },
+        "mobile.MobileChatCreateConversationRequest": {
+            "type": "object",
+            "required": [
+                "seller_id"
+            ],
+            "properties": {
+                "product_id": {
+                    "type": "string"
+                },
+                "product_image": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "seller_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileChatSendMessageRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileChatUnreadCountResponse": {
+            "type": "object",
+            "properties": {
+                "unread": {
+                    "type": "integer"
+                }
             }
         },
         "mobile.MobileChatbotIntentsResponse": {
@@ -3280,9 +4210,115 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
-                "payment": {},
+                "payment": {
+                    "$ref": "#/definitions/mobile.MobilePaymentTransactionResponse"
+                },
                 "reference": {
                     "type": "string"
+                }
+            }
+        },
+        "mobile.MobileCityOption": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "province": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileCityOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileCityOption"
+                    }
+                }
+            }
+        },
+        "mobile.MobileClubOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
+                }
+            }
+        },
+        "mobile.MobileConversationListResponse": {
+            "type": "object",
+            "properties": {
+                "conversations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.ChatConversation"
+                    }
+                },
+                "unread_total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileConversationMessagesResponse": {
+            "type": "object",
+            "properties": {
+                "conversation": {
+                    "$ref": "#/definitions/mobile.ChatConversation"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.ChatMessage"
+                    }
+                }
+            }
+        },
+        "mobile.MobileDisciplineOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEndScore": {
+            "type": "object",
+            "properties": {
+                "arrows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileArrowScore"
+                    }
+                },
+                "cumulative_total": {
+                    "type": "integer"
+                },
+                "end_number": {
+                    "type": "integer"
+                },
+                "end_score_uuid": {
+                    "type": "string"
+                },
+                "end_total": {
+                    "type": "integer"
+                },
+                "ten_count": {
+                    "type": "integer"
+                },
+                "x_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -3321,6 +4357,17 @@ const docTemplate = `{
                 },
                 "uuid": {
                     "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventCategoriesResponse": {
+            "type": "object",
+            "properties": {
+                "competition_categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventCompetitionCategory"
+                    }
                 }
             }
         },
@@ -3469,13 +4516,111 @@ const docTemplate = `{
                 }
             }
         },
-        "mobile.MobileEventRegistrationRequest": {
+        "mobile.MobileEventDetailSlim": {
             "type": "object",
             "properties": {
-                "athlete_id": {
-                    "type": "string",
-                    "example": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"
+                "banner_url": {
+                    "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "logo_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organizer_avatar_url": {
+                    "type": "string"
+                },
+                "organizer_name": {
+                    "type": "string"
+                },
+                "organizer_phone": {
+                    "type": "string"
+                },
+                "organizer_slug": {
+                    "type": "string"
+                },
+                "participant_count": {
+                    "type": "integer"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventFAQItem": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventFAQResponse": {
+            "type": "object",
+            "properties": {
+                "faq": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEventFAQItem"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventFeeItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventFeesResponse": {
+            "type": "object",
+            "properties": {
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEventFeeItem"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventGalleryResponse": {
+            "type": "object",
+            "properties": {
+                "gallery": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventImage"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventGatewayRegistrationRequest": {
+            "type": "object",
+            "properties": {
                 "event_category_id": {
                     "type": "string",
                     "example": "cat-recurve-adult-putra"
@@ -3486,13 +4631,59 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": [
-                        "[\"cat-recurve-adult-putra\"",
-                        " \"cat-recurve-adult-team\"]"
+                        "[\"cat-recurve-adult-team\"]"
                     ]
                 },
-                "event_id": {
+                "payment_method": {
                     "type": "string",
-                    "example": "national-open-2026"
+                    "example": "BCAVA"
+                }
+            }
+        },
+        "mobile.MobileEventLocationResponse": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "gmaps_link": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "location_accessibility": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "location_type": {
+                    "type": "string"
+                },
+                "venue": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventManualRegistrationRequest": {
+            "type": "object",
+            "properties": {
+                "event_category_id": {
+                    "type": "string",
+                    "example": "cat-recurve-adult-putra"
+                },
+                "event_category_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"cat-recurve-adult-team\"]"
+                    ]
                 },
                 "payment_amount": {
                     "type": "number",
@@ -3506,19 +4697,135 @@ const docTemplate = `{
                     "example": [
                         "[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"
                     ]
+                }
+            }
+        },
+        "mobile.MobileEventParticipantsResponse": {
+            "type": "object",
+            "properties": {
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventParticipantPreview"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventPaymentMethodItem": {
+            "type": "object",
+            "properties": {
+                "account_name": {
+                    "type": "string"
                 },
-                "payment_status": {
-                    "type": "string",
-                    "example": "menunggu acc"
+                "account_number": {
+                    "type": "string"
                 },
-                "payment_type": {
-                    "description": "manual, online, gateway",
-                    "type": "string",
-                    "example": "manual"
+                "bank_name": {
+                    "type": "string"
                 },
-                "registration_source": {
-                    "type": "string",
-                    "example": "mobile_app"
+                "code": {
+                    "description": "For Tripay",
+                    "type": "string"
+                },
+                "icon_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"manual\" or \"gateway\"",
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventPaymentMethodsResponse": {
+            "type": "object",
+            "properties": {
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEventPaymentMethodItem"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventResultFile": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventResultFilesResponse": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileEventResultFile"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventRewardsResponse": {
+            "type": "object",
+            "properties": {
+                "first": {
+                    "type": "string"
+                },
+                "first_caption": {
+                    "type": "string"
+                },
+                "second": {
+                    "type": "string"
+                },
+                "second_caption": {
+                    "type": "string"
+                },
+                "third": {
+                    "type": "string"
+                },
+                "third_caption": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileEventScheduleResponse": {
+            "type": "object",
+            "properties": {
+                "schedules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventSchedule"
+                    }
+                }
+            }
+        },
+        "mobile.MobileEventTypeOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
                 }
             }
         },
@@ -3544,6 +4851,17 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string"
+                }
+            }
+        },
+        "mobile.MobileGenderDivisionOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
                 }
             }
         },
@@ -3863,6 +5181,155 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileOrganizationBankAccount": {
+            "type": "object",
+            "properties": {
+                "account_name": {
+                    "type": "string"
+                },
+                "account_number": {
+                    "type": "string"
+                },
+                "bank_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileOrganizationBankAccountRequest": {
+            "type": "object",
+            "required": [
+                "account_name",
+                "account_number",
+                "bank_name"
+            ],
+            "properties": {
+                "account_name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "account_number": {
+                    "type": "string",
+                    "example": "1234567890"
+                },
+                "bank_name": {
+                    "type": "string",
+                    "example": "BCA"
+                },
+                "is_primary": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "mobile.MobileOrganizationBankAccountsResponse": {
+            "type": "object",
+            "properties": {
+                "bank_accounts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrganizationBankAccount"
+                    }
+                }
+            }
+        },
+        "mobile.MobileOrganizationDashboardResponse": {
+            "type": "object",
+            "properties": {
+                "recent_participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileRecentParticipant"
+                    }
+                },
+                "recent_payments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileRecentPayment"
+                    }
+                },
+                "stats": {
+                    "type": "object",
+                    "properties": {
+                        "active_events": {
+                            "type": "integer"
+                        },
+                        "monthly_revenue": {
+                            "type": "number"
+                        },
+                        "pending_revenue": {
+                            "type": "number"
+                        },
+                        "total_events": {
+                            "type": "integer"
+                        },
+                        "total_participants": {
+                            "type": "integer"
+                        },
+                        "total_revenue": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "upcoming_deadlines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileUpcomingDeadline"
+                    }
+                }
+            }
+        },
+        "mobile.MobileOrganizationEarningItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "archer_name": {
+                    "type": "string"
+                },
+                "category_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "paid_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileOrganizationEarningsResponse": {
+            "type": "object",
+            "properties": {
+                "earnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileOrganizationEarningItem"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "mobile.MobileOrganizationEventItem": {
             "type": "object",
             "properties": {
@@ -3967,6 +5434,82 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileOrganizationOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.OptionData"
+                    }
+                }
+            }
+        },
+        "mobile.MobileOrganizationParticipantDetail": {
+            "type": "object",
+            "properties": {
+                "archer_uuid": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "back_number": {
+                    "type": "string"
+                },
+                "birth_date": {
+                    "type": "string"
+                },
+                "category_name": {
+                    "type": "string"
+                },
+                "category_uuid": {
+                    "type": "string"
+                },
+                "check_in_status": {
+                    "type": "boolean"
+                },
+                "club_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "last_reregistration_at": {
+                    "type": "string"
+                },
+                "participant_uuid": {
+                    "type": "string"
+                },
+                "payment_amount": {
+                    "type": "number"
+                },
+                "payment_proof_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "registration_date": {
+                    "type": "string"
+                },
+                "target_name": {
+                    "type": "string"
                 }
             }
         },
@@ -4259,6 +5802,17 @@ const docTemplate = `{
                 }
             }
         },
+        "mobile.MobileOrganizationWalletResponse": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number"
+                },
+                "wallet_id": {
+                    "type": "string"
+                }
+            }
+        },
         "mobile.MobilePaymentTransactionResponse": {
             "type": "object",
             "properties": {
@@ -4271,6 +5825,15 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "instructions": {
+                    "type": "string"
+                },
+                "pay_code": {
+                    "type": "string"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
                 "reference": {
                     "type": "string"
                 },
@@ -4281,6 +5844,60 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "va_number": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobilePeerLastActiveResponse": {
+            "type": "object",
+            "properties": {
+                "is_online": {
+                    "type": "boolean"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "peer_type": {
+                    "type": "string"
+                },
+                "server_time": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileRecentParticipant": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileRecentPayment": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "athlete": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }
@@ -4385,15 +6002,108 @@ const docTemplate = `{
                 }
             }
         },
-        "mobile.MobileScanTargetResponse": {
+        "mobile.MobileScanTargetQualificationResponse": {
             "type": "object",
             "properties": {
-                "archers": {},
-                "board": {},
-                "matches": {},
+                "archers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileScannedArcherQualification"
+                    }
+                },
+                "board": {
+                    "$ref": "#/definitions/mobile.MobileScannedBoard"
+                },
                 "type": {
                     "type": "string",
                     "example": "qualification"
+                }
+            }
+        },
+        "mobile.MobileScannedArcherQualification": {
+            "type": "object",
+            "properties": {
+                "assignment_uuid": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "current_score": {
+                    "type": "integer"
+                },
+                "division": {
+                    "type": "string"
+                },
+                "ends_completed": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "participant_uuid": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "string"
+                },
+                "target_name": {
+                    "type": "string"
+                },
+                "total_ends": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mobile.MobileScannedBoard": {
+            "type": "object",
+            "properties": {
+                "board_number": {
+                    "type": "integer"
+                },
+                "bracket_uuid": {
+                    "type": "string"
+                },
+                "category_name": {
+                    "type": "string"
+                },
+                "category_uuid": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "event_uuid": {
+                    "type": "string"
+                },
+                "session_name": {
+                    "type": "string"
+                },
+                "session_uuid": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileScoreSummary": {
+            "type": "object",
+            "properties": {
+                "ends_completed": {
+                    "type": "integer"
+                },
+                "total_score": {
+                    "type": "integer"
+                },
+                "total_ten_plus_x": {
+                    "type": "integer"
+                },
+                "total_x": {
+                    "type": "integer"
                 }
             }
         },
@@ -4449,6 +6159,18 @@ const docTemplate = `{
                 "uuid": {
                     "type": "string"
                 }
+            }
+        },
+        "mobile.MobileSellerProductsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Product"
+                    }
+                },
+                "meta": {}
             }
         },
         "mobile.MobileSellerProfileData": {
@@ -4588,8 +6310,52 @@ const docTemplate = `{
         "mobile.MobileSessionBoardsResponse": {
             "type": "object",
             "properties": {
-                "archers": {},
-                "session": {}
+                "archers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.MobileArcherAtBoard"
+                    }
+                },
+                "session": {
+                    "$ref": "#/definitions/mobile.MobileSessionInfo"
+                }
+            }
+        },
+        "mobile.MobileSessionInfo": {
+            "type": "object",
+            "properties": {
+                "arrows_per_end": {
+                    "type": "integer"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "event_uuid": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "total_ends": {
+                    "type": "integer"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileUpcomingDeadline": {
+            "type": "object",
+            "properties": {
+                "days_left": {
+                    "type": "integer"
+                },
+                "deadline": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                }
             }
         },
         "mobile.MobileUpdateArcherProfileRequest": {
@@ -4783,49 +6549,27 @@ const docTemplate = `{
                 }
             }
         },
-        "mobile.OrganizationDashboard": {
+        "mobile.OptionData": {
             "type": "object",
             "properties": {
-                "recent_participants": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/mobile.RecentParticipant"
-                    }
+                "id": {
+                    "type": "string"
                 },
-                "recent_payments": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/mobile.RecentPayment"
-                    }
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.ProductActionResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "uuid-string"
                 },
-                "stats": {
-                    "type": "object",
-                    "properties": {
-                        "active_events": {
-                            "type": "integer"
-                        },
-                        "monthly_revenue": {
-                            "type": "number"
-                        },
-                        "pending_revenue": {
-                            "type": "number"
-                        },
-                        "total_events": {
-                            "type": "integer"
-                        },
-                        "total_participants": {
-                            "type": "integer"
-                        },
-                        "total_revenue": {
-                            "type": "number"
-                        }
-                    }
-                },
-                "upcoming_deadlines": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/mobile.UpcomingDeadline"
-                    }
+                "message": {
+                    "type": "string",
+                    "example": "Operation successful"
                 }
             }
         },
@@ -4842,40 +6586,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "order_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "mobile.RecentParticipant": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": "string"
-                },
-                "event_name": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "mobile.RecentPayment": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "number"
-                },
-                "athlete": {
-                    "type": "string"
-                },
-                "date": {
-                    "type": "string"
-                },
-                "event_name": {
                     "type": "string"
                 },
                 "status": {
@@ -4914,20 +6624,6 @@ const docTemplate = `{
                 }
             }
         },
-        "mobile.UpcomingDeadline": {
-            "type": "object",
-            "properties": {
-                "days_left": {
-                    "type": "integer"
-                },
-                "deadline": {
-                    "type": "string"
-                },
-                "event_name": {
-                    "type": "string"
-                }
-            }
-        },
         "mobile.mobileEmailPasswordRequest": {
             "type": "object",
             "required": [
@@ -4962,6 +6658,51 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CartItem": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "product_image_url": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "description": "Joined data",
+                    "type": "string"
+                },
+                "product_price": {
+                    "type": "number"
+                },
+                "product_sale_price": {
+                    "type": "number"
+                },
+                "product_stock": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "seller_name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CheckoutRequest": {
             "type": "object",
             "required": [
@@ -4973,6 +6714,173 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "shipping_address": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateProductRequest": {
+            "type": "object",
+            "required": [
+                "category",
+                "name",
+                "price"
+            ],
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "colors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "sale_price": {
+                    "type": "number"
+                },
+                "specifications": {},
+                "status": {
+                    "type": "string"
+                },
+                "stock": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.EliminationMatch": {
+            "type": "object",
+            "properties": {
+                "ends": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EliminationMatchEndScore"
+                    }
+                },
+                "entry_a_id": {
+                    "type": "string"
+                },
+                "entry_a_name": {
+                    "type": "string"
+                },
+                "entry_a_seed": {
+                    "type": "integer"
+                },
+                "entry_b_id": {
+                    "type": "string"
+                },
+                "entry_b_name": {
+                    "type": "string"
+                },
+                "entry_b_seed": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_bye": {
+                    "type": "boolean"
+                },
+                "match_no": {
+                    "type": "integer"
+                },
+                "round_no": {
+                    "type": "integer"
+                },
+                "set_points_a": {
+                    "type": "integer"
+                },
+                "set_points_b": {
+                    "type": "integer"
+                },
+                "shoot_off_a": {
+                    "type": "string"
+                },
+                "shoot_off_b": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_score_a": {
+                    "type": "integer"
+                },
+                "total_score_b": {
+                    "type": "integer"
+                },
+                "uuid": {
+                    "type": "string"
+                },
+                "winner_entry_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EliminationMatchEndScore": {
+            "type": "object",
+            "properties": {
+                "end_no": {
+                    "type": "integer"
+                },
+                "score_a": {
+                    "type": "integer"
+                },
+                "score_b": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.EliminationResultsResponse": {
+            "type": "object",
+            "properties": {
+                "arrows_per_end": {
+                    "type": "integer"
+                },
+                "bracket_id": {
+                    "type": "string"
+                },
+                "bracket_size": {
+                    "type": "integer"
+                },
+                "bracket_type": {
+                    "type": "string"
+                },
+                "ends_per_match": {
+                    "type": "integer"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "matches": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/models.EliminationMatch"
+                        }
+                    }
+                },
+                "uuid": {
                     "type": "string"
                 }
             }
@@ -5210,6 +7118,90 @@ const docTemplate = `{
                 }
             }
         },
+        "models.QualificationEntry": {
+            "type": "object",
+            "properties": {
+                "archer_name": {
+                    "type": "string"
+                },
+                "archer_uuid": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "club_name": {
+                    "type": "string"
+                },
+                "ends_completed": {
+                    "type": "integer"
+                },
+                "participant_id": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.QualificationSessionScore"
+                    }
+                },
+                "total_10x": {
+                    "type": "integer"
+                },
+                "total_score": {
+                    "type": "integer"
+                },
+                "total_x": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.QualificationResultsResponse": {
+            "type": "object",
+            "properties": {
+                "leaderboard": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.QualificationEntry"
+                    }
+                },
+                "total_cumulative_ends": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.QualificationSessionScore": {
+            "type": "object",
+            "properties": {
+                "assignment_id": {
+                    "type": "string"
+                },
+                "end_scores": {
+                    "type": "string"
+                },
+                "session_code": {
+                    "type": "string"
+                },
+                "session_name": {
+                    "type": "string"
+                },
+                "total_10x": {
+                    "type": "integer"
+                },
+                "total_ends": {
+                    "type": "integer"
+                },
+                "total_score": {
+                    "type": "integer"
+                },
+                "total_x": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.UpdateCartItemRequest": {
             "type": "object",
             "required": [
@@ -5219,6 +7211,48 @@ const docTemplate = `{
                 "quantity": {
                     "type": "integer",
                     "minimum": 1
+                }
+            }
+        },
+        "models.UpdateProductRequest": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "colors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "sale_price": {
+                    "type": "number"
+                },
+                "specifications": {},
+                "status": {
+                    "type": "string"
+                },
+                "stock": {
+                    "type": "integer"
                 }
             }
         }
@@ -5239,7 +7273,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"https", "http"},
 	Title:            "ArcheryHub Mobile API",
-	Description:      "Dedicated API for ArcheryHub Mobile App (Archer & Scorekeeper)",
+	Description:      "Dedicated API for ArcheryHub Mobile App",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

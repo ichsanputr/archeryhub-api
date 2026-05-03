@@ -12,10 +12,10 @@ import (
 
 // @Summary Get Club Options
 // @Description Get list of clubs for dropdown/selection
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileClubOptionsResponse
 // @Router /mobile/options/clubs [get]
 func GetClubOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -25,16 +25,16 @@ func GetClubOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch clubs"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileClubOptionsResponse{Data: data})
 	}
 }
 
 // @Summary Get Organization Options
 // @Description Get list of organizations for dropdown/selection
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileOrganizationOptionsResponse
 // @Router /mobile/options/organizations [get]
 func GetOrganizationOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -44,16 +44,16 @@ func GetOrganizationOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organizations"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileOrganizationOptionsResponse{Data: data})
 	}
 }
 
 // @Summary Get Discipline Options
 // @Description Get list of archery disciplines
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileDisciplineOptionsResponse
 // @Router /mobile/options/disciplines [get]
 func GetDisciplineOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -63,16 +63,16 @@ func GetDisciplineOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch disciplines"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileDisciplineOptionsResponse{Data: data})
 	}
 }
 
 // @Summary Get Bow Type Options
 // @Description Get list of bow types
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileBowTypeOptionsResponse
 // @Router /mobile/options/bow-types [get]
 func GetBowTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -82,16 +82,16 @@ func GetBowTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch bow types"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileBowTypeOptionsResponse{Data: data})
 	}
 }
 
 // @Summary Get Age Group Options
 // @Description Get list of age groups
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileAgeGroupOptionsResponse
 // @Router /mobile/options/age-groups [get]
 func GetAgeGroupOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -101,16 +101,16 @@ func GetAgeGroupOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch age groups"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileAgeGroupOptionsResponse{Data: data})
 	}
 }
 
 // @Summary Get Gender Division Options
 // @Description Get list of gender divisions
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileGenderDivisionOptionsResponse
 // @Router /mobile/options/gender-divisions [get]
 func GetGenderDivisionOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -120,16 +120,16 @@ func GetGenderDivisionOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch gender divisions"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileGenderDivisionOptionsResponse{Data: data})
 	}
 }
 
 // @Summary Get City Options
 // @Description Get list of Indonesian cities
-// @Tags Mobile - Option
+// @Tags Mobile - Options
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileCityOptionsResponse
 // @Router /mobile/options/cities [get]
 func GetCityOptions() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -144,9 +144,9 @@ func GetCityOptions() gin.HandlerFunc {
 			}
 		}
 
-		var cities []interface{}
+		var cities []MobileCityOption
 		json.Unmarshal(file, &cities)
-		c.JSON(http.StatusOK, gin.H{"data": cities})
+		c.JSON(http.StatusOK, MobileCityOptionsResponse{Data: cities})
 	}
 }
 
@@ -155,7 +155,7 @@ func GetCityOptions() gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} OptionsResponse
+// @Success 200 {object} MobileEventTypeOptionsResponse
 // @Router /mobile/options/event-types [get]
 func GetEventTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -165,6 +165,6 @@ func GetEventTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event types"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": data})
+		c.JSON(http.StatusOK, MobileEventTypeOptionsResponse{Data: data})
 	}
 }

@@ -73,6 +73,62 @@ definitions:
           $ref: '#/definitions/handler.ScoringTarget'
         type: array
     type: object
+  mobile.ChatConversation:
+    properties:
+      archer_avatar:
+        type: string
+      archer_id:
+        type: string
+      archer_name:
+        type: string
+      archer_unread:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+      last_message:
+        type: string
+      last_message_at:
+        type: string
+      product_id:
+        type: string
+      product_image:
+        type: string
+      product_name:
+        type: string
+      seller_avatar:
+        type: string
+      seller_id:
+        type: string
+      seller_name:
+        type: string
+      seller_unread:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  mobile.ChatMessage:
+    properties:
+      conversation_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      message:
+        type: string
+      sender_avatar:
+        type: string
+      sender_id:
+        type: string
+      sender_name:
+        type: string
+      sender_type:
+        type: string
+    type: object
   mobile.Intent:
     properties:
       answer:
@@ -101,6 +157,100 @@ definitions:
       user_id:
         example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
         type: string
+    type: object
+  mobile.MobileAgeGroupOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
+    type: object
+  mobile.MobileArcherAtBoard:
+    properties:
+      assignment_uuid:
+        type: string
+      avatar_url:
+        type: string
+      board_number:
+        type: integer
+      current_score:
+        type: integer
+      division:
+        type: string
+      ends_completed:
+        type: integer
+      last_end_score:
+        type: integer
+      name:
+        type: string
+      participant_uuid:
+        type: string
+      position:
+        type: string
+      rank:
+        type: integer
+      target_name:
+        type: string
+    type: object
+  mobile.MobileArcherEventDetailResponse:
+    properties:
+      event:
+        $ref: '#/definitions/mobile.MobileEventDetail'
+      is_registered:
+        type: boolean
+      registration:
+        properties:
+          id:
+            type: string
+          payment_amount:
+            type: number
+          payment_status:
+            type: string
+          target_name:
+            type: string
+        type: object
+    type: object
+  mobile.MobileArcherEventPaymentItem:
+    properties:
+      amount:
+        type: number
+      checkout_url:
+        type: string
+      created_at:
+        type: string
+      event_logo_url:
+        type: string
+      event_name:
+        type: string
+      event_slug:
+        type: string
+      expired_at:
+        type: string
+      id:
+        type: string
+      paid_at:
+        type: string
+      payment_method:
+        type: string
+      reference:
+        type: string
+      status:
+        type: string
+      total_amount:
+        type: number
+      tripay_reference:
+        type: string
+      va_number:
+        type: string
+    type: object
+  mobile.MobileArcherEventPaymentsResponse:
+    properties:
+      payments:
+        items:
+          $ref: '#/definitions/mobile.MobileArcherEventPaymentItem'
+        type: array
+      total_count:
+        type: integer
     type: object
   mobile.MobileArcherOrdersResponse:
     properties:
@@ -170,10 +320,13 @@ definitions:
     type: object
   mobile.MobileArcherRegisterRequest:
     properties:
-      avatar_url:
-        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+      bow_type:
+        example: recurve
         type: string
-      birth_date:
+      city:
+        example: Jakarta
+        type: string
+      date_of_birth:
         example: "1995-05-18"
         type: string
       email:
@@ -187,23 +340,113 @@ definitions:
         type: string
       password:
         example: securepassword123
+        minLength: 6
         type: string
       phone:
         example: "081234567890"
         type: string
-      username:
-        example: rizky-pratama
+    required:
+    - email
+    - full_name
+    - password
+    type: object
+  mobile.MobileArrowScore:
+    properties:
+      arrow_number:
+        type: integer
+      is_x:
+        type: boolean
+      score:
+        type: integer
+    type: object
+  mobile.MobileAssignmentMeta:
+    properties:
+      archer_name:
+        type: string
+      arrows_per_end:
+        type: integer
+      avatar_url:
+        type: string
+      division:
+        type: string
+      event_name:
+        type: string
+      session_name:
+        type: string
+      session_uuid:
+        type: string
+      target_name:
+        type: string
+      total_ends:
+        type: integer
+      uuid:
         type: string
     type: object
   mobile.MobileAssignmentScoreDetailResponse:
     properties:
-      assignment: {}
-      ends: {}
-      summary: {}
+      assignment:
+        $ref: '#/definitions/mobile.MobileAssignmentMeta'
+      ends:
+        items:
+          $ref: '#/definitions/mobile.MobileEndScore'
+        type: array
+      summary:
+        $ref: '#/definitions/mobile.MobileScoreSummary'
+    type: object
+  mobile.MobileBankOption:
+    properties:
+      id:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+    type: object
+  mobile.MobileBankOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.MobileBankOption'
+        type: array
+    type: object
+  mobile.MobileBowTypeOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
     type: object
   mobile.MobileCartResponse:
     properties:
-      data: {}
+      data:
+        items:
+          $ref: '#/definitions/models.CartItem'
+        type: array
+    type: object
+  mobile.MobileChatCreateConversationRequest:
+    properties:
+      product_id:
+        type: string
+      product_image:
+        type: string
+      product_name:
+        type: string
+      seller_id:
+        type: string
+    required:
+    - seller_id
+    type: object
+  mobile.MobileChatSendMessageRequest:
+    properties:
+      message:
+        type: string
+    required:
+    - message
+    type: object
+  mobile.MobileChatUnreadCountResponse:
+    properties:
+      unread:
+        type: integer
     type: object
   mobile.MobileChatbotIntentsResponse:
     properties:
@@ -237,9 +480,77 @@ definitions:
     properties:
       message:
         type: string
-      payment: {}
+      payment:
+        $ref: '#/definitions/mobile.MobilePaymentTransactionResponse'
       reference:
         type: string
+    type: object
+  mobile.MobileCityOption:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      province:
+        type: string
+    type: object
+  mobile.MobileCityOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.MobileCityOption'
+        type: array
+    type: object
+  mobile.MobileClubOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
+    type: object
+  mobile.MobileConversationListResponse:
+    properties:
+      conversations:
+        items:
+          $ref: '#/definitions/mobile.ChatConversation'
+        type: array
+      unread_total:
+        type: integer
+    type: object
+  mobile.MobileConversationMessagesResponse:
+    properties:
+      conversation:
+        $ref: '#/definitions/mobile.ChatConversation'
+      messages:
+        items:
+          $ref: '#/definitions/mobile.ChatMessage'
+        type: array
+    type: object
+  mobile.MobileDisciplineOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
+    type: object
+  mobile.MobileEndScore:
+    properties:
+      arrows:
+        items:
+          $ref: '#/definitions/mobile.MobileArrowScore'
+        type: array
+      cumulative_total:
+        type: integer
+      end_number:
+        type: integer
+      end_score_uuid:
+        type: string
+      end_total:
+        type: integer
+      ten_count:
+        type: integer
+      x_count:
+        type: integer
     type: object
   mobile.MobileEvent:
     properties:
@@ -265,6 +576,13 @@ definitions:
         type: string
       uuid:
         type: string
+    type: object
+  mobile.MobileEventCategoriesResponse:
+    properties:
+      competition_categories:
+        items:
+          $ref: '#/definitions/models.EventCompetitionCategory'
+        type: array
     type: object
   mobile.MobileEventDetail:
     properties:
@@ -375,24 +693,117 @@ definitions:
         example: Lapangan ABC Senayan
         type: string
     type: object
-  mobile.MobileEventRegistrationRequest:
+  mobile.MobileEventDetailSlim:
     properties:
-      athlete_id:
-        example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
+      banner_url:
         type: string
+      description:
+        type: string
+      end_date:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      organizer_avatar_url:
+        type: string
+      organizer_name:
+        type: string
+      organizer_phone:
+        type: string
+      organizer_slug:
+        type: string
+      participant_count:
+        type: integer
+      slug:
+        type: string
+      start_date:
+        type: string
+      uuid:
+        type: string
+    type: object
+  mobile.MobileEventFAQItem:
+    properties:
+      answer:
+        type: string
+      question:
+        type: string
+    type: object
+  mobile.MobileEventFAQResponse:
+    properties:
+      faq:
+        items:
+          $ref: '#/definitions/mobile.MobileEventFAQItem'
+        type: array
+    type: object
+  mobile.MobileEventFeeItem:
+    properties:
+      amount:
+        type: number
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  mobile.MobileEventFeesResponse:
+    properties:
+      fees:
+        items:
+          $ref: '#/definitions/mobile.MobileEventFeeItem'
+        type: array
+    type: object
+  mobile.MobileEventGalleryResponse:
+    properties:
+      gallery:
+        items:
+          $ref: '#/definitions/models.EventImage'
+        type: array
+    type: object
+  mobile.MobileEventGatewayRegistrationRequest:
+    properties:
       event_category_id:
         example: cat-recurve-adult-putra
         type: string
       event_category_ids:
         example:
-        - '["cat-recurve-adult-putra"'
-        - ' "cat-recurve-adult-team"]'
+        - '["cat-recurve-adult-team"]'
         items:
           type: string
         type: array
-      event_id:
-        example: national-open-2026
+      payment_method:
+        example: BCAVA
         type: string
+    type: object
+  mobile.MobileEventLocationResponse:
+    properties:
+      address:
+        type: string
+      city:
+        type: string
+      gmaps_link:
+        type: string
+      location:
+        type: string
+      location_accessibility:
+        items:
+          type: string
+        type: array
+      location_type:
+        type: string
+      venue:
+        type: string
+    type: object
+  mobile.MobileEventManualRegistrationRequest:
+    properties:
+      event_category_id:
+        example: cat-recurve-adult-putra
+        type: string
+      event_category_ids:
+        example:
+        - '["cat-recurve-adult-team"]'
+        items:
+          type: string
+        type: array
       payment_amount:
         example: 450000
         type: number
@@ -402,16 +813,90 @@ definitions:
         items:
           type: string
         type: array
-      payment_status:
-        example: menunggu acc
+    type: object
+  mobile.MobileEventParticipantsResponse:
+    properties:
+      participants:
+        items:
+          $ref: '#/definitions/models.EventParticipantPreview'
+        type: array
+    type: object
+  mobile.MobileEventPaymentMethodItem:
+    properties:
+      account_name:
         type: string
-      payment_type:
-        description: manual, online, gateway
-        example: manual
+      account_number:
         type: string
-      registration_source:
-        example: mobile_app
+      bank_name:
         type: string
+      code:
+        description: For Tripay
+        type: string
+      icon_url:
+        type: string
+      id:
+        type: string
+      instructions:
+        type: string
+      type:
+        description: '"manual" or "gateway"'
+        type: string
+    type: object
+  mobile.MobileEventPaymentMethodsResponse:
+    properties:
+      methods:
+        items:
+          $ref: '#/definitions/mobile.MobileEventPaymentMethodItem'
+        type: array
+    type: object
+  mobile.MobileEventResultFile:
+    properties:
+      name:
+        type: string
+      size:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  mobile.MobileEventResultFilesResponse:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/mobile.MobileEventResultFile'
+        type: array
+    type: object
+  mobile.MobileEventRewardsResponse:
+    properties:
+      first:
+        type: string
+      first_caption:
+        type: string
+      second:
+        type: string
+      second_caption:
+        type: string
+      third:
+        type: string
+      third_caption:
+        type: string
+    type: object
+  mobile.MobileEventScheduleResponse:
+    properties:
+      schedules:
+        items:
+          $ref: '#/definitions/models.EventSchedule'
+        type: array
+    type: object
+  mobile.MobileEventTypeOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
     type: object
   mobile.MobileEventsResponse:
     properties:
@@ -428,6 +913,13 @@ definitions:
         type: string
     required:
     - email
+    type: object
+  mobile.MobileGenderDivisionOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
     type: object
   mobile.MobileLoginResponse:
     properties:
@@ -635,6 +1127,105 @@ definitions:
       total_items:
         type: integer
     type: object
+  mobile.MobileOrganizationBankAccount:
+    properties:
+      account_name:
+        type: string
+      account_number:
+        type: string
+      bank_name:
+        type: string
+      id:
+        type: string
+      is_primary:
+        type: boolean
+      status:
+        type: string
+    type: object
+  mobile.MobileOrganizationBankAccountRequest:
+    properties:
+      account_name:
+        example: Budi Santoso
+        type: string
+      account_number:
+        example: "1234567890"
+        type: string
+      bank_name:
+        example: BCA
+        type: string
+      is_primary:
+        example: true
+        type: boolean
+    required:
+    - account_name
+    - account_number
+    - bank_name
+    type: object
+  mobile.MobileOrganizationBankAccountsResponse:
+    properties:
+      bank_accounts:
+        items:
+          $ref: '#/definitions/mobile.MobileOrganizationBankAccount'
+        type: array
+    type: object
+  mobile.MobileOrganizationDashboardResponse:
+    properties:
+      recent_participants:
+        items:
+          $ref: '#/definitions/mobile.MobileRecentParticipant'
+        type: array
+      recent_payments:
+        items:
+          $ref: '#/definitions/mobile.MobileRecentPayment'
+        type: array
+      stats:
+        properties:
+          active_events:
+            type: integer
+          monthly_revenue:
+            type: number
+          pending_revenue:
+            type: number
+          total_events:
+            type: integer
+          total_participants:
+            type: integer
+          total_revenue:
+            type: number
+        type: object
+      upcoming_deadlines:
+        items:
+          $ref: '#/definitions/mobile.MobileUpcomingDeadline'
+        type: array
+    type: object
+  mobile.MobileOrganizationEarningItem:
+    properties:
+      amount:
+        type: number
+      archer_name:
+        type: string
+      category_name:
+        type: string
+      created_at:
+        type: string
+      event_name:
+        type: string
+      id:
+        type: string
+      paid_at:
+        type: string
+      status:
+        type: string
+    type: object
+  mobile.MobileOrganizationEarningsResponse:
+    properties:
+      earnings:
+        items:
+          $ref: '#/definitions/mobile.MobileOrganizationEarningItem'
+        type: array
+      total_count:
+        type: integer
+    type: object
   mobile.MobileOrganizationEventItem:
     properties:
       banner_url:
@@ -709,6 +1300,56 @@ definitions:
         type: integer
       total:
         type: integer
+    type: object
+  mobile.MobileOrganizationOptionsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/mobile.OptionData'
+        type: array
+    type: object
+  mobile.MobileOrganizationParticipantDetail:
+    properties:
+      archer_uuid:
+        type: string
+      avatar_url:
+        type: string
+      back_number:
+        type: string
+      birth_date:
+        type: string
+      category_name:
+        type: string
+      category_uuid:
+        type: string
+      check_in_status:
+        type: boolean
+      club_name:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      last_reregistration_at:
+        type: string
+      participant_uuid:
+        type: string
+      payment_amount:
+        type: number
+      payment_proof_urls:
+        items:
+          type: string
+        type: array
+      payment_status:
+        type: string
+      phone:
+        type: string
+      registration_date:
+        type: string
+      target_name:
+        type: string
     type: object
   mobile.MobileOrganizationParticipantItem:
     properties:
@@ -923,6 +1564,13 @@ definitions:
         example: lunas
         type: string
     type: object
+  mobile.MobileOrganizationWalletResponse:
+    properties:
+      balance:
+        type: number
+      wallet_id:
+        type: string
+    type: object
   mobile.MobilePaymentTransactionResponse:
     properties:
       amount:
@@ -931,6 +1579,12 @@ definitions:
         type: string
       id:
         type: string
+      instructions:
+        type: string
+      pay_code:
+        type: string
+      payment_method:
+        type: string
       reference:
         type: string
       status:
@@ -938,6 +1592,41 @@ definitions:
       tripay_reference:
         type: string
       va_number:
+        type: string
+    type: object
+  mobile.MobilePeerLastActiveResponse:
+    properties:
+      is_online:
+        type: boolean
+      last_seen_at:
+        type: string
+      peer_id:
+        type: string
+      peer_type:
+        type: string
+      server_time:
+        type: string
+    type: object
+  mobile.MobileRecentParticipant:
+    properties:
+      date:
+        type: string
+      event_name:
+        type: string
+      name:
+        type: string
+    type: object
+  mobile.MobileRecentPayment:
+    properties:
+      amount:
+        type: number
+      athlete:
+        type: string
+      date:
+        type: string
+      event_name:
+        type: string
+      status:
         type: string
     type: object
   mobile.MobileRegisterEventResponse:
@@ -1007,14 +1696,74 @@ definitions:
         example: true
         type: boolean
     type: object
-  mobile.MobileScanTargetResponse:
+  mobile.MobileScanTargetQualificationResponse:
     properties:
-      archers: {}
-      board: {}
-      matches: {}
+      archers:
+        items:
+          $ref: '#/definitions/mobile.MobileScannedArcherQualification'
+        type: array
+      board:
+        $ref: '#/definitions/mobile.MobileScannedBoard'
       type:
         example: qualification
         type: string
+    type: object
+  mobile.MobileScannedArcherQualification:
+    properties:
+      assignment_uuid:
+        type: string
+      avatar_url:
+        type: string
+      current_score:
+        type: integer
+      division:
+        type: string
+      ends_completed:
+        type: integer
+      name:
+        type: string
+      participant_uuid:
+        type: string
+      position:
+        type: string
+      target_name:
+        type: string
+      total_ends:
+        type: integer
+    type: object
+  mobile.MobileScannedBoard:
+    properties:
+      board_number:
+        type: integer
+      bracket_uuid:
+        type: string
+      category_name:
+        type: string
+      category_uuid:
+        type: string
+      code:
+        type: string
+      event_name:
+        type: string
+      event_uuid:
+        type: string
+      session_name:
+        type: string
+      session_uuid:
+        type: string
+      uuid:
+        type: string
+    type: object
+  mobile.MobileScoreSummary:
+    properties:
+      ends_completed:
+        type: integer
+      total_score:
+        type: integer
+      total_ten_plus_x:
+        type: integer
+      total_x:
+        type: integer
     type: object
   mobile.MobileScorekeeperEventsResponse:
     properties:
@@ -1050,6 +1799,14 @@ definitions:
         type: string
       uuid:
         type: string
+    type: object
+  mobile.MobileSellerProductsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      meta: {}
     type: object
   mobile.MobileSellerProfileData:
     properties:
@@ -1149,8 +1906,36 @@ definitions:
     type: object
   mobile.MobileSessionBoardsResponse:
     properties:
-      archers: {}
-      session: {}
+      archers:
+        items:
+          $ref: '#/definitions/mobile.MobileArcherAtBoard'
+        type: array
+      session:
+        $ref: '#/definitions/mobile.MobileSessionInfo'
+    type: object
+  mobile.MobileSessionInfo:
+    properties:
+      arrows_per_end:
+        type: integer
+      event_name:
+        type: string
+      event_uuid:
+        type: string
+      name:
+        type: string
+      total_ends:
+        type: integer
+      uuid:
+        type: string
+    type: object
+  mobile.MobileUpcomingDeadline:
+    properties:
+      days_left:
+        type: integer
+      deadline:
+        type: string
+      event_name:
+        type: string
     type: object
   mobile.MobileUpdateArcherProfileRequest:
     properties:
@@ -1279,35 +2064,21 @@ definitions:
     - email
     - otp
     type: object
-  mobile.OrganizationDashboard:
+  mobile.OptionData:
     properties:
-      recent_participants:
-        items:
-          $ref: '#/definitions/mobile.RecentParticipant'
-        type: array
-      recent_payments:
-        items:
-          $ref: '#/definitions/mobile.RecentPayment'
-        type: array
-      stats:
-        properties:
-          active_events:
-            type: integer
-          monthly_revenue:
-            type: number
-          pending_revenue:
-            type: number
-          total_events:
-            type: integer
-          total_participants:
-            type: integer
-          total_revenue:
-            type: number
-        type: object
-      upcoming_deadlines:
-        items:
-          $ref: '#/definitions/mobile.UpcomingDeadline'
-        type: array
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  mobile.ProductActionResponse:
+    properties:
+      id:
+        example: uuid-string
+        type: string
+      message:
+        example: Operation successful
+        type: string
     type: object
   mobile.RecentOrder:
     properties:
@@ -1318,28 +2089,6 @@ definitions:
       date:
         type: string
       order_id:
-        type: string
-      status:
-        type: string
-    type: object
-  mobile.RecentParticipant:
-    properties:
-      date:
-        type: string
-      event_name:
-        type: string
-      name:
-        type: string
-    type: object
-  mobile.RecentPayment:
-    properties:
-      amount:
-        type: number
-      athlete:
-        type: string
-      date:
-        type: string
-      event_name:
         type: string
       status:
         type: string
@@ -1364,15 +2113,6 @@ definitions:
             type: number
         type: object
     type: object
-  mobile.UpcomingDeadline:
-    properties:
-      days_left:
-        type: integer
-      deadline:
-        type: string
-      event_name:
-        type: string
-    type: object
   mobile.mobileEmailPasswordRequest:
     properties:
       email:
@@ -1396,6 +2136,36 @@ definitions:
     - product_id
     - quantity
     type: object
+  models.CartItem:
+    properties:
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      product_id:
+        type: string
+      product_image_url:
+        type: string
+      product_name:
+        description: Joined data
+        type: string
+      product_price:
+        type: number
+      product_sale_price:
+        type: number
+      product_stock:
+        type: integer
+      quantity:
+        type: integer
+      seller_name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
   models.CheckoutRequest:
     properties:
       method:
@@ -1405,6 +2175,117 @@ definitions:
     required:
     - method
     - shipping_address
+    type: object
+  models.CreateProductRequest:
+    properties:
+      category:
+        type: string
+      colors:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      image_url:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      price:
+        type: number
+      sale_price:
+        type: number
+      specifications: {}
+      status:
+        type: string
+      stock:
+        type: integer
+    required:
+    - category
+    - name
+    - price
+    type: object
+  models.EliminationMatch:
+    properties:
+      ends:
+        items:
+          $ref: '#/definitions/models.EliminationMatchEndScore'
+        type: array
+      entry_a_id:
+        type: string
+      entry_a_name:
+        type: string
+      entry_a_seed:
+        type: integer
+      entry_b_id:
+        type: string
+      entry_b_name:
+        type: string
+      entry_b_seed:
+        type: integer
+      id:
+        type: string
+      is_bye:
+        type: boolean
+      match_no:
+        type: integer
+      round_no:
+        type: integer
+      set_points_a:
+        type: integer
+      set_points_b:
+        type: integer
+      shoot_off_a:
+        type: string
+      shoot_off_b:
+        type: string
+      status:
+        type: string
+      total_score_a:
+        type: integer
+      total_score_b:
+        type: integer
+      uuid:
+        type: string
+      winner_entry_id:
+        type: string
+    type: object
+  models.EliminationMatchEndScore:
+    properties:
+      end_no:
+        type: integer
+      score_a:
+        type: integer
+      score_b:
+        type: integer
+    type: object
+  models.EliminationResultsResponse:
+    properties:
+      arrows_per_end:
+        type: integer
+      bracket_id:
+        type: string
+      bracket_size:
+        type: integer
+      bracket_type:
+        type: string
+      ends_per_match:
+        type: integer
+      format:
+        type: string
+      generated_at:
+        type: string
+      matches:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/models.EliminationMatch'
+          type: array
+        type: object
+      uuid:
+        type: string
     type: object
   models.EventCompetitionCategory:
     properties:
@@ -1568,6 +2449,61 @@ definitions:
       views:
         type: integer
     type: object
+  models.QualificationEntry:
+    properties:
+      archer_name:
+        type: string
+      archer_uuid:
+        type: string
+      avatar_url:
+        type: string
+      club_name:
+        type: string
+      ends_completed:
+        type: integer
+      participant_id:
+        type: string
+      rank:
+        type: integer
+      sessions:
+        items:
+          $ref: '#/definitions/models.QualificationSessionScore'
+        type: array
+      total_10x:
+        type: integer
+      total_score:
+        type: integer
+      total_x:
+        type: integer
+    type: object
+  models.QualificationResultsResponse:
+    properties:
+      leaderboard:
+        items:
+          $ref: '#/definitions/models.QualificationEntry'
+        type: array
+      total_cumulative_ends:
+        type: integer
+    type: object
+  models.QualificationSessionScore:
+    properties:
+      assignment_id:
+        type: string
+      end_scores:
+        type: string
+      session_code:
+        type: string
+      session_name:
+        type: string
+      total_10x:
+        type: integer
+      total_ends:
+        type: integer
+      total_score:
+        type: integer
+      total_x:
+        type: integer
+    type: object
   models.UpdateCartItemRequest:
     properties:
       quantity:
@@ -1576,13 +2512,41 @@ definitions:
     required:
     - quantity
     type: object
+  models.UpdateProductRequest:
+    properties:
+      category:
+        type: string
+      colors:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      image_url:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      price:
+        type: number
+      sale_price:
+        type: number
+      specifications: {}
+      status:
+        type: string
+      stock:
+        type: integer
+    type: object
 host: api.archeryhub.id
 info:
   contact:
     email: support@archeryhub.id
     name: ArcheryHub Support
     url: https://archeryhub.id
-  description: Dedicated API for ArcheryHub Mobile App (Archer & Scorekeeper)
+  description: Dedicated API for ArcheryHub Mobile App
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -1748,8 +2712,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileArcherEventDetailResponse'
       security:
       - ApiKeyAuth: []
       summary: Get Event Detail (Archer)
@@ -1777,38 +2740,63 @@ paths:
       summary: Get Event QR Code
       tags:
       - Mobile - Archer
-  /mobile/archer/events/{id}/register:
+  /mobile/archer/events/{id}/register/manual:
     post:
       consumes:
       - application/json
-      description: Register the authenticated archer for one or more event categories
+      description: Register the authenticated archer for an event using manual transfer
       parameters:
-      - description: Event Slug or UUID
+      - description: Event UUID or Slug
         in: path
         name: id
         required: true
         type: string
-      - description: Registration Request
+      - description: Registration Details
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/mobile.MobileEventRegistrationRequest'
+          $ref: '#/definitions/mobile.MobileEventManualRegistrationRequest'
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
             $ref: '#/definitions/mobile.MobileRegisterEventResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
       security:
       - ApiKeyAuth: []
-      summary: Register for Event
+      summary: Register for Event (Manual)
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/{id}/register/payment-gateway:
+    post:
+      consumes:
+      - application/json
+      description: Register the authenticated archer for an event using online payment
+        gateway
+      parameters:
+      - description: Event UUID or Slug
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Registration Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileEventGatewayRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Register for Event (Payment Gateway)
       tags:
       - Mobile - Archer
   /mobile/archer/events/{id}/registration:
@@ -1830,6 +2818,52 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get My Registration
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/payments:
+    get:
+      description: Get a list of all payment transactions made for event registrations
+        by the authenticated archer
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherEventPaymentsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List Event Payments
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/payments/{slug}:
+    get:
+      description: Get a list of payment transactions made for a specific event registration
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherEventPaymentsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Event Payments by Slug
       tags:
       - Mobile - Archer
   /mobile/archer/me:
@@ -2242,8 +3276,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileConversationListResponse'
       security:
       - ApiKeyAuth: []
       summary: List Conversations
@@ -2259,15 +3292,14 @@ paths:
         name: request
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/mobile.MobileChatCreateConversationRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.ChatConversation'
       security:
       - ApiKeyAuth: []
       summary: Start/Get Conversation
@@ -2288,8 +3320,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileConversationMessagesResponse'
       security:
       - ApiKeyAuth: []
       summary: Get Chat Messages
@@ -2310,15 +3341,14 @@ paths:
         name: request
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/mobile.MobileChatSendMessageRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.ChatMessage'
       security:
       - ApiKeyAuth: []
       summary: Send Chat Message
@@ -2344,8 +3374,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobilePeerLastActiveResponse'
       security:
       - ApiKeyAuth: []
       summary: Get Peer Status
@@ -2360,8 +3389,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileChatUnreadCountResponse'
       security:
       - ApiKeyAuth: []
       summary: Get Unread Count
@@ -2538,8 +3566,15 @@ paths:
       - Mobile - Events
   /mobile/events/{slug}:
     get:
-      description: Get summary and location details for a specific event
+      description: |-
+        Get summary and location details for a specific event
+        Get summary details for a specific event without location, FAQ, or other granular info
       parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
       - description: Event Slug or UUID
         in: path
         name: slug
@@ -2547,18 +3582,20 @@ paths:
         type: string
       produces:
       - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileEventDetail'
+            $ref: '#/definitions/mobile.MobileEventDetailSlim'
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
-      summary: Get Mobile Event Detail
+      summary: Get Mobile Event Detail (Slim)
       tags:
+      - Mobile - Events
       - Mobile - Events
   /mobile/events/{slug}/categories:
     get:
@@ -2575,12 +3612,27 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              items:
-                $ref: '#/definitions/models.EventCompetitionCategory'
-              type: array
-            type: object
+            $ref: '#/definitions/mobile.MobileEventCategoriesResponse'
       summary: Get Event Categories
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/faq:
+    get:
+      description: Get the list of frequently asked questions for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventFAQResponse'
+      summary: Get Event FAQ
       tags:
       - Mobile - Events
   /mobile/events/{slug}/gallery:
@@ -2598,12 +3650,27 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              items:
-                $ref: '#/definitions/models.EventImage'
-              type: array
-            type: object
+            $ref: '#/definitions/mobile.MobileEventGalleryResponse'
       summary: Get Event Gallery
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/location:
+    get:
+      description: Get detailed location information and accessibility for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventLocationResponse'
+      summary: Get Event Location
       tags:
       - Mobile - Events
   /mobile/events/{slug}/participants:
@@ -2621,12 +3688,47 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              items:
-                $ref: '#/definitions/models.EventParticipantPreview'
-              type: array
-            type: object
+            $ref: '#/definitions/mobile.MobileEventParticipantsResponse'
       summary: Get Event Participants
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/payment-method:
+    get:
+      description: Get a list of available payment methods (manual bank transfer and
+        online gateway) for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventPaymentMethodsResponse'
+      summary: Get Event Payment Methods
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/registration-fee:
+    get:
+      description: Get the list of registration fees and categories for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventFeesResponse'
+      summary: Get Event Registration Fees
       tags:
       - Mobile - Events
   /mobile/events/{slug}/results/elimination:
@@ -2649,9 +3751,27 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/models.EliminationResultsResponse'
       summary: Get Elimination Bracket
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/results/files:
+    get:
+      description: Get list of result files (PDF/XLSX) uploaded for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventResultFilesResponse'
+      summary: Get Event Result Files
       tags:
       - Mobile - Events
   /mobile/events/{slug}/results/qualification:
@@ -2675,9 +3795,27 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/models.QualificationResultsResponse'
       summary: Get Qualification Results
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/rewards:
+    get:
+      description: Get the list of prizes and rewards for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventRewardsResponse'
+      summary: Get Event Rewards
       tags:
       - Mobile - Events
   /mobile/events/{slug}/schedule:
@@ -2695,12 +3833,30 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              items:
-                $ref: '#/definitions/models.EventSchedule'
-              type: array
-            type: object
+            $ref: '#/definitions/mobile.MobileEventScheduleResponse'
       summary: Get Event Schedule
+      tags:
+      - Mobile - Events
+  /mobile/events/payments/{reference}/instructions:
+    get:
+      description: Get step-by-step instructions for a specific payment
+      parameters:
+      - description: Merchant Reference
+        in: path
+        name: reference
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Payment Instructions
       tags:
       - Mobile - Events
   /mobile/marketplace/products:
@@ -2864,11 +4020,23 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileAgeGroupOptionsResponse'
       summary: Get Age Group Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
+  /mobile/options/banks:
+    get:
+      description: Get a list of supported Indonesian banks with their logo URLs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileBankOptionsResponse'
+      summary: Get Bank Options
+      tags:
+      - Mobile - Options
   /mobile/options/bow-types:
     get:
       consumes:
@@ -2880,11 +4048,10 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileBowTypeOptionsResponse'
       summary: Get Bow Type Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
   /mobile/options/cities:
     get:
       consumes:
@@ -2896,11 +4063,10 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileCityOptionsResponse'
       summary: Get City Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
   /mobile/options/clubs:
     get:
       consumes:
@@ -2912,11 +4078,10 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileClubOptionsResponse'
       summary: Get Club Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
   /mobile/options/disciplines:
     get:
       consumes:
@@ -2928,11 +4093,10 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileDisciplineOptionsResponse'
       summary: Get Discipline Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
   /mobile/options/event-types:
     get:
       consumes:
@@ -2944,8 +4108,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileEventTypeOptionsResponse'
       summary: Get Event Type Options
       tags:
       - Mobile - Option
@@ -2960,11 +4123,10 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileGenderDivisionOptionsResponse'
       summary: Get Gender Division Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
   /mobile/options/organizations:
     get:
       consumes:
@@ -2976,11 +4138,10 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileOrganizationOptionsResponse'
       summary: Get Organization Options
       tags:
-      - Mobile - Option
+      - Mobile - Options
   /mobile/organization/dashboard:
     get:
       consumes:
@@ -2993,7 +4154,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.OrganizationDashboard'
+            $ref: '#/definitions/mobile.MobileOrganizationDashboardResponse'
       security:
       - ApiKeyAuth: []
       summary: Get Organization Dashboard Statistics
@@ -3070,6 +4231,163 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get Event Participants (Org)
+      tags:
+      - Mobile - Organization
+  /mobile/organization/events/{id}/participants/{user_id}:
+    get:
+      description: Get full details of a specific participant for an organization
+        event
+      parameters:
+      - description: Event UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Archer UUID or Participant UUID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationParticipantDetail'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Participant Detail
+      tags:
+      - Mobile - Organization
+  /mobile/organization/finance/balance:
+    get:
+      description: Get the current balance and wallet details for the organization
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationWalletResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Wallet
+      tags:
+      - Mobile - Organization
+  /mobile/organization/finance/bank-accounts:
+    get:
+      description: Get a list of all bank accounts registered by the organization
+        for withdrawals
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationBankAccountsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Bank Accounts
+      tags:
+      - Mobile - Organization
+    post:
+      consumes:
+      - application/json
+      description: Add a new bank account for withdrawals
+      parameters:
+      - description: Bank account details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOrganizationBankAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Add Organization Bank Account
+      tags:
+      - Mobile - Organization
+  /mobile/organization/finance/bank-accounts/{id}:
+    delete:
+      description: Remove a bank account from the organization
+      parameters:
+      - description: Bank Account UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete Organization Bank Account
+      tags:
+      - Mobile - Organization
+    put:
+      consumes:
+      - application/json
+      description: Update bank account details
+      parameters:
+      - description: Bank Account UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOrganizationBankAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update Organization Bank Account
+      tags:
+      - Mobile - Organization
+  /mobile/organization/finance/earnings:
+    get:
+      description: Get a list of all income from event registrations for the organization
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileOrganizationEarningsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Earnings
       tags:
       - Mobile - Organization
   /mobile/organization/me:
@@ -3164,7 +4482,8 @@ paths:
       - Mobile - Scorekeeper
   /mobile/scan:
     get:
-      description: Scan a target board QR code to get participant info for scoring
+      description: Scan a target board QR code to get participant info for scoring.
+        Returns qualification or elimination data based on the QR.
       parameters:
       - description: Target Board QR Code
         in: query
@@ -3177,7 +4496,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileScanTargetResponse'
+            $ref: '#/definitions/mobile.MobileScanTargetQualificationResponse'
         "400":
           description: Bad Request
           schema:
@@ -3362,8 +4681,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MobileSellerProductsResponse'
       security:
       - ApiKeyAuth: []
       summary: Get My Products (Seller)
@@ -3378,15 +4696,15 @@ paths:
         in: body
         name: product
         required: true
-        schema: {}
+        schema:
+          $ref: '#/definitions/models.CreateProductRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.ProductActionResponse'
       security:
       - ApiKeyAuth: []
       summary: Create Product (Seller)
@@ -3409,8 +4727,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MessageResponse'
       security:
       - ApiKeyAuth: []
       summary: Delete Product (Seller)
@@ -3430,15 +4747,15 @@ paths:
         in: body
         name: product
         required: true
-        schema: {}
+        schema:
+          $ref: '#/definitions/models.UpdateProductRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/mobile.MessageResponse'
       security:
       - ApiKeyAuth: []
       summary: Update Product (Seller)

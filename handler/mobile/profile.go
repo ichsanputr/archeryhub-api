@@ -504,6 +504,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		search := strings.TrimSpace(c.Query("search"))
 		paymentStatus := strings.TrimSpace(c.Query("payment_status"))
 		categoryID := strings.TrimSpace(c.Query("category_id"))
+		reregistered := strings.TrimSpace(c.Query("reregistered")) // "true", "false", or ""
 
 		whereClause := "WHERE tp.event_id = ?"
 		args := []interface{}{eventUUID}
@@ -523,6 +524,11 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			whereClause += " AND tp.payment_status = ?"
 			args = append(args, paymentStatus)
 			countArgs = append(countArgs, paymentStatus)
+		}
+		if reregistered == "true" {
+			whereClause += " AND tp.last_reregistration_at IS NOT NULL"
+		} else if reregistered == "false" {
+			whereClause += " AND tp.last_reregistration_at IS NULL"
 		}
 
 		var total int
@@ -799,5 +805,108 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 		utils.LogActivity(db, organizationUUID, "", "mobile_reregistration_scan", "organization", organizationUUID, "Scanned QR for reregistration: "+resp.ParticipantUUID, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, resp)
+	}
+}
+
+// MobileGetOrganizationParticipantDetail returns detailed information about a participant
+// @Summary Get Organization Participant Detail
+// @Description Get full details of a specific participant for an organization event
+// @Tags Mobile - Organization
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "Event UUID"
+// @Param user_id path string true "Archer UUID or Participant UUID"
+// @Success 200 {object} MobileOrganizationParticipantDetail
+// @Router /mobile/organization/events/{id}/participants/{user_id} [get]
+func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userIDParam := c.Param("user_id")
+
+		query := `
+			SELECT 
+				tp.uuid as participant_uuid, a.uuid as archer_uuid, a.full_name, a.gender, a.birth_date, 
+				a.email, a.phone, a.avatar_url, cl.name as club_name,
+				ec.uuid as category_uuid, COALESCE(ec.category_name_custom, r_ag.name, '') as category_name,
+				tp.target_name, tp.back_number, tp.payment_status, tp.payment_amount, tp.payment_proof_urls,
+				tp.registration_date, tp.last_reregistration_at
+			FROM event_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
+			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
+			WHERE tp.event_id = ? AND (tp.uuid = ? OR tp.archer_id = ?)
+			LIMIT 1
+		`
+
+		var raw struct {
+			ParticipantUUID      string         `db:"participant_uuid"`
+			ArcherUUID           string         `db:"archer_uuid"`
+			FullName             string         `db:"full_name"`
+			Gender               *string        `db:"gender"`
+			BirthDate            *string        `db:"birth_date"`
+			Email                *string        `db:"email"`
+			Phone                *string        `db:"phone"`
+			AvatarURL            *string        `db:"avatar_url"`
+			ClubName             *string        `db:"club_name"`
+			CategoryUUID         string         `db:"category_uuid"`
+			CategoryName         string         `db:"category_name"`
+			TargetName           *string        `db:"target_name"`
+			BackNumber           *string        `db:"back_number"`
+			PaymentStatus        string         `db:"payment_status"`
+			PaymentAmount        float64        `db:"payment_amount"`
+			PaymentProofURLs     *string        `db:"payment_proof_urls"`
+			RegistrationDate     time.Time      `db:"registration_date"`
+			LastReregistrationAt *time.Time     `db:"last_reregistration_at"`
+		}
+
+		err := db.Get(&raw, query, eventID, userIDParam, userIDParam)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Peserta tidak ditemukan"})
+			return
+		}
+
+		var proofs []string
+		if raw.PaymentProofURLs != nil && *raw.PaymentProofURLs != "" {
+			proofs = strings.Split(*raw.PaymentProofURLs, ",")
+			for i := range proofs {
+				proofs[i] = utils.MaskMediaURL(strings.TrimSpace(proofs[i]))
+			}
+		}
+
+		var lastRereg *string
+		if raw.LastReregistrationAt != nil {
+			s := raw.LastReregistrationAt.Format(time.RFC3339)
+			lastRereg = &s
+		}
+
+		if raw.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*raw.AvatarURL)
+			raw.AvatarURL = &masked
+		}
+
+		detail := MobileOrganizationParticipantDetail{
+			ParticipantUUID:      raw.ParticipantUUID,
+			ArcherUUID:           raw.ArcherUUID,
+			FullName:             raw.FullName,
+			Gender:               raw.Gender,
+			BirthDate:            raw.BirthDate,
+			Email:                raw.Email,
+			Phone:                raw.Phone,
+			AvatarURL:            raw.AvatarURL,
+			ClubName:             raw.ClubName,
+			CategoryUUID:         raw.CategoryUUID,
+			CategoryName:         raw.CategoryName,
+			TargetName:           raw.TargetName,
+			BackNumber:           raw.BackNumber,
+			PaymentStatus:        raw.PaymentStatus,
+			PaymentAmount:        raw.PaymentAmount,
+			PaymentProofURLs:     proofs,
+			RegistrationDate:     raw.RegistrationDate.Format(time.RFC3339),
+			LastReregistrationAt: lastRereg,
+			CheckInStatus:        raw.LastReregistrationAt != nil,
+		}
+
+		c.JSON(http.StatusOK, detail)
 	}
 }
