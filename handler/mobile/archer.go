@@ -37,7 +37,6 @@ func buildMobileQRCodeDataURL(qrRaw *string) *string {
 // @Success 201 {object} MobileRegisterEventResponse
 // @Failure 400 {object} map[string]interface{}
 // @Router /mobile/archer/events/{id}/register [post]
-// @Router /mobile/archer/events/register [post]
 func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")

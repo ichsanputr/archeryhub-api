@@ -327,7 +327,7 @@ func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 // UpdateQualificationScore updates end scores for an assignment (supports batch)
 // @Summary Update Qualification Score
 // @Description Submit or update scores for a specific qualification assignment (end-by-end)
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Accept json
 // @Produce json
 // @Param assignmentId path string true "Assignment UUID"

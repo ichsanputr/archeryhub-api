@@ -96,7 +96,7 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 // MobileScorekeeperLogin handles scorekeeper login
 // @Summary Scorekeeper Login
 // @Description Login using a numeric code assigned by organization
-// @Tags Mobile - Auth
+// @Tags Mobile - Scorekeeper
 // @Accept json
 // @Produce json
 // @Param request body MobileScorekeeperLoginRequest true "Scorekeeper Code"
@@ -193,7 +193,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherLogin handles archer login for mobile
 // @Summary Archer Login
 // @Description Login using email and password for archers
-// @Tags Mobile - Auth
+// @Tags Mobile - Archer
 // @Accept json
 // @Produce json
 // @Param request body mobileEmailPasswordRequest true "Login Credentials"
@@ -223,7 +223,7 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 // MobileOrganizationLogin handles organization login for mobile
 // @Summary Organization Login
 // @Description Login for organization accounts
-// @Tags Mobile - Auth
+// @Tags Mobile - Organization
 // @Accept json
 // @Produce json
 // @Param request body mobileEmailPasswordRequest true "Login Credentials"
@@ -253,7 +253,7 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 // MobileSellerLogin handles seller login for mobile
 // @Summary Seller Login
 // @Description Login for seller accounts
-// @Tags Mobile - Auth
+// @Tags Mobile - Seller
 // @Accept json
 // @Produce json
 // @Param request body mobileEmailPasswordRequest true "Login Credentials"
@@ -283,7 +283,7 @@ func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherRegister handles archer registration for mobile
 // @Summary Archer Registration
 // @Description Register a new archer account
-// @Tags Mobile - Auth
+// @Tags Mobile - Archer
 // @Accept json
 // @Produce json
 // @Param request body MobileArcherRegisterRequest true "Registration Details"
@@ -368,7 +368,7 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 // MobileSellerRegister handles seller registration for mobile
 // @Summary Seller Registration
 // @Description Register a new seller/merchant
-// @Tags Mobile - Auth
+// @Tags Mobile - Seller
 // @Accept json
 // @Produce json
 // @Param request body MobileSellerRegisterRequest true "Seller Registration Data"
@@ -428,8 +428,33 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+type googleInfo struct {
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
+	Sub           string `json:"sub"` // Google ID
+	EmailVerified string `json:"email_verified"`
+}
+
+func verifyGoogleToken(idToken string) (*googleInfo, error) {
+	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("invalid status code: %d", resp.StatusCode)
+	}
+
+	var info googleInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
 // MobileGoogleLogin handles Google Sign-In for mobile using idToken
-// MobileGoogleLogin handles Google Sign-In for mobile
 // @Summary Google Login
 // @Description Authenticate or register using Google ID Token
 // @Tags Mobile - Auth
@@ -448,28 +473,9 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Verify ID Token with Google
-		resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + req.IDToken)
+		googleInfo, err := verifyGoogleToken(req.IDToken)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal verifikasi Google token", "details": err.Error()})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Google ID Token tidak valid"})
-			return
-		}
-
-		var googleInfo struct {
-			Email         string `json:"email"`
-			Name          string `json:"name"`
-			Picture       string `json:"picture"`
-			Sub           string `json:"sub"` // Google ID
-			EmailVerified string `json:"email_verified"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&googleInfo); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses data Google", "details": err.Error()})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Google ID Token tidak valid", "details": err.Error()})
 			return
 		}
 
@@ -735,5 +741,91 @@ func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Kata sandi berhasil diperbarui"})
+	}
+}
+
+// @Summary Mobile Logout
+// @Description Logout from mobile app and log activity
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/auth/logout [post]
+func MobileLogout(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		if exists && userID != nil {
+			utils.LogActivity(db, userID.(string), "", "mobile_logout", userType.(string), userID.(string), "User logged out via mobile", c.ClientIP(), c.Request.UserAgent())
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "Berhasil logout",
+		})
+	}
+}
+
+// @Summary Bind Google Account
+// @Description Link Google account to an existing email/password account
+// @Tags Mobile - Auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body MobileOAuthLoginRequest true "Google ID Token"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/auth/google/bind [post]
+func MobileGoogleBind(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var req MobileOAuthLoginRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID Token wajib diisi"})
+			return
+		}
+
+		// Verify Google Token
+		googleInfo, err := verifyGoogleToken(req.IDToken)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Google ID Token tidak valid", "details": err.Error()})
+			return
+		}
+
+		// Link Google ID based on user type
+		tableName := "archers"
+		if userType == "organization" {
+			tableName = "organizations"
+		} else if userType == "seller" {
+			tableName = "sellers"
+		}
+
+		// Check if this Google ID is already used by anyone else
+		var existingCount int
+		_ = db.Get(&existingCount, fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE google_id = ?", tableName), googleInfo.Sub)
+		if existingCount > 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "Akun Google ini sudah terhubung dengan akun lain", "code": "google_already_linked"})
+			return
+		}
+
+		// Update user with google_id
+		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET google_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = NOW() WHERE uuid = ?", tableName), googleInfo.Sub, googleInfo.Picture, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungkan akun Google: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "Berhasil menghubungkan akun Google",
+		})
 	}
 }

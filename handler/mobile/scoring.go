@@ -12,7 +12,7 @@ import (
 // MobileScanTarget handles scanning a target board QR code
 // @Summary Scan Target QR
 // @Description Scan a target board QR code to get participant info for scoring
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Produce json
 // @Security ApiKeyAuth
 // @Param code query string true "Target Board QR Code"
@@ -263,7 +263,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetSessionBoards returns leaderboard for a session
 // @Summary List Session Targets
 // @Description Get all target boards and current scores for a qualification session
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Produce json
 // @Security ApiKeyAuth
 // @Param session_id query string true "Session UUID"
@@ -381,7 +381,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetAssignmentScoreDetail returns detailed scores for an assignment
 // @Summary Get Assignment Score Detail
 // @Description Get arrow-by-arrow score history for a specific participant assignment
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Produce json
 // @Security ApiKeyAuth
 // @Param assignmentId path string true "Assignment UUID"

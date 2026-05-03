@@ -26,7 +26,7 @@ func ensureArcherUser(c *gin.Context) bool {
 // MobileArcherGetCart returns all items in the archer's cart
 // @Summary Get Cart
 // @Description Get current list of items in the shopping cart for the authenticated archer
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileCartResponse
@@ -80,7 +80,7 @@ func MobileArcherGetCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherAddToCart adds a product to the cart
 // @Summary Add to Cart
 // @Description Add a product with specific quantity and color to the shopping cart
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
@@ -152,7 +152,7 @@ func MobileArcherAddToCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherUpdateCartItem updates quantity of a cart item
 // @Summary Update Cart Item
 // @Description Update the quantity of a specific item in the cart
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
@@ -210,7 +210,7 @@ func MobileArcherUpdateCartItem(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherRemoveFromCart removes an item from the cart
 // @Summary Remove from Cart
 // @Description Delete a specific item from the shopping cart
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Cart Item UUID"
@@ -245,7 +245,7 @@ func MobileArcherRemoveFromCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherClearCart removes all items from the cart
 // @Summary Clear Cart
 // @Description Delete all items from the shopping cart for the current archer
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MessageResponse
@@ -270,7 +270,7 @@ func MobileArcherClearCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherCheckoutCart processes the checkout and creates orders
 // @Summary Checkout Cart
 // @Description Create orders from cart items and initiate payment transaction
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
@@ -488,7 +488,7 @@ func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 // MobileArcherGetOrderHistory returns order history for the archer
 // @Summary Get Order History
 // @Description Get a list of all past orders for the authenticated archer
-// @Tags Mobile - Commerce
+// @Tags Mobile - Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param status query string false "Filter by order status"

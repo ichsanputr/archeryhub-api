@@ -277,34 +277,6 @@ func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetEventResults returns only the result list for an event
-// @Summary Get Event Results
-// @Description Get the current qualification and elimination results
-// @Tags Mobile - Events
-// @Produce json
-// @Param slug path string true "Event Slug or UUID"
-// @Success 200 {object} map[string]interface{}
-// @Router /mobile/events/{slug}/results [get]
-func MobileGetEventResults(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("slug")
-		var eventID string
-		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
-		if eventID == "" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
-			return
-		}
-
-		event := &models.EventWithDetails{Event: models.Event{UUID: eventID}}
-		utils.PopulateEventDetailExtras(db, event)
-
-		c.JSON(http.StatusOK, gin.H{
-			"results":       event.Results,
-			"page_settings": event.PageSettings, // Includes the manual PDF links
-		})
-	}
-}
-
 // MobileGetEventSchedule returns only the schedule for an event
 // @Summary Get Event Schedule
 // @Description Get the daily schedule and rundown for an event

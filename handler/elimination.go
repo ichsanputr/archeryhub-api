@@ -1752,7 +1752,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 // UpdateMatchScore updates score for a specific end in a match
 // @Summary Update Match Score
 // @Description Submit or update scores for a specific end (set/end) in an elimination match
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Accept json
 // @Produce json
 // @Param matchId path string true "Match UUID"
@@ -1982,7 +1982,7 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 // FinishMatch marks a match as finished with a winner
 // @Summary Finish Match
 // @Description Finish an elimination match and declare the winner
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Accept json
 // @Produce json
 // @Param matchId path string true "Match UUID"
@@ -2154,7 +2154,7 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 // EndMatch ends the match and auto-determines the winner
 // @Summary End Match
 // @Description End the match, calculate final scores/points, and advance the winner
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Accept json
 // @Produce json
 // @Param matchId path string true "Match UUID"
@@ -2523,7 +2523,7 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 // ResetMatch resets a finished match back to live/pending
 // @Summary Reset Match
 // @Description Reset a finished match status and clear the winner from next round
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Produce json
 // @Param matchId path string true "Match UUID"
 // @Success 200 {object} map[string]interface{}

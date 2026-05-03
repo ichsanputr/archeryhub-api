@@ -241,14 +241,6 @@ definitions:
       reference:
         type: string
     type: object
-  mobile.MobileCreatePaymentRequest:
-    properties:
-      method:
-        example: BRIVA
-        type: string
-    required:
-    - method
-    type: object
   mobile.MobileEvent:
     properties:
       banner_url:
@@ -1059,19 +1051,6 @@ definitions:
       uuid:
         type: string
     type: object
-  mobile.MobileSellerProductsResponse:
-    properties:
-      limit:
-        type: integer
-      offset:
-        type: integer
-      products:
-        items:
-          $ref: '#/definitions/models.Product'
-        type: array
-      total:
-        type: integer
-    type: object
   mobile.MobileSellerProfileData:
     properties:
       address:
@@ -1300,6 +1279,100 @@ definitions:
     - email
     - otp
     type: object
+  mobile.OrganizationDashboard:
+    properties:
+      recent_participants:
+        items:
+          $ref: '#/definitions/mobile.RecentParticipant'
+        type: array
+      recent_payments:
+        items:
+          $ref: '#/definitions/mobile.RecentPayment'
+        type: array
+      stats:
+        properties:
+          active_events:
+            type: integer
+          monthly_revenue:
+            type: number
+          pending_revenue:
+            type: number
+          total_events:
+            type: integer
+          total_participants:
+            type: integer
+          total_revenue:
+            type: number
+        type: object
+      upcoming_deadlines:
+        items:
+          $ref: '#/definitions/mobile.UpcomingDeadline'
+        type: array
+    type: object
+  mobile.RecentOrder:
+    properties:
+      amount:
+        type: number
+      customer_name:
+        type: string
+      date:
+        type: string
+      order_id:
+        type: string
+      status:
+        type: string
+    type: object
+  mobile.RecentParticipant:
+    properties:
+      date:
+        type: string
+      event_name:
+        type: string
+      name:
+        type: string
+    type: object
+  mobile.RecentPayment:
+    properties:
+      amount:
+        type: number
+      athlete:
+        type: string
+      date:
+        type: string
+      event_name:
+        type: string
+      status:
+        type: string
+    type: object
+  mobile.SellerDashboard:
+    properties:
+      recent_orders:
+        items:
+          $ref: '#/definitions/mobile.RecentOrder'
+        type: array
+      stats:
+        properties:
+          monthly_revenue:
+            type: number
+          pending_balance:
+            type: number
+          products_sold:
+            type: integer
+          total_orders:
+            type: integer
+          total_revenue:
+            type: number
+        type: object
+    type: object
+  mobile.UpcomingDeadline:
+    properties:
+      days_left:
+        type: integer
+      deadline:
+        type: string
+      event_name:
+        type: string
+    type: object
   mobile.mobileEmailPasswordRequest:
     properties:
       email:
@@ -1517,57 +1590,6 @@ info:
   title: ArcheryHub Mobile API
   version: "1.1"
 paths:
-  /events/{id}/results/elimination:
-    get:
-      description: Get the elimination match brackets and results for a specific category
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Category UUID
-        in: query
-        name: category_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get Elimination Bracket
-      tags:
-      - Mobile - Results
-  /events/{id}/results/qualification:
-    get:
-      description: Get complete leaderboard for a specific category, including end-by-end
-        scores
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Category UUID
-        in: query
-        name: category_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get Qualification Results
-      tags:
-      - Mobile - Results
   /mobile/archer/cart:
     delete:
       description: Delete all items from the shopping cart for the current archer
@@ -1582,7 +1604,7 @@ paths:
       - ApiKeyAuth: []
       summary: Clear Cart
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
     get:
       description: Get current list of items in the shopping cart for the authenticated
         archer
@@ -1597,7 +1619,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Cart
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
     post:
       consumes:
       - application/json
@@ -1621,7 +1643,7 @@ paths:
       - ApiKeyAuth: []
       summary: Add to Cart
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
   /mobile/archer/cart/{id}:
     delete:
       description: Delete a specific item from the shopping cart
@@ -1642,7 +1664,7 @@ paths:
       - ApiKeyAuth: []
       summary: Remove from Cart
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
     put:
       consumes:
       - application/json
@@ -1670,7 +1692,7 @@ paths:
       - ApiKeyAuth: []
       summary: Update Cart Item
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
   /mobile/archer/cart/checkout:
     post:
       consumes:
@@ -1694,7 +1716,7 @@ paths:
       - ApiKeyAuth: []
       summary: Checkout Cart
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
   /mobile/archer/events:
     get:
       description: Get list of all events the archer is registered in
@@ -1810,35 +1832,6 @@ paths:
       summary: Get My Registration
       tags:
       - Mobile - Archer
-  /mobile/archer/events/register:
-    post:
-      consumes:
-      - application/json
-      description: Register the authenticated archer for one or more event categories
-      parameters:
-      - description: Registration Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileEventRegistrationRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - ApiKeyAuth: []
-      summary: Register for Event
-      tags:
-      - Mobile - Archer
   /mobile/archer/me:
     get:
       description: Get profile information for the authenticated archer
@@ -1853,7 +1846,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Archer Profile
       tags:
-      - Mobile - Profile
+      - Mobile - Archer
     patch:
       consumes:
       - application/json
@@ -1876,7 +1869,7 @@ paths:
       - ApiKeyAuth: []
       summary: Update Archer Profile
       tags:
-      - Mobile - Profile
+      - Mobile - Archer
   /mobile/archer/orders:
     get:
       description: Get a list of all past orders for the authenticated archer
@@ -1904,7 +1897,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Order History
       tags:
-      - Mobile - Commerce
+      - Mobile - Archer
   /mobile/archer/payments/{reference}:
     get:
       description: Get status and details of a specific payment by reference
@@ -1925,7 +1918,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Payment Detail
       tags:
-      - Mobile - Payment
+      - Mobile - Archer
   /mobile/assignments/{assignmentId}/detail:
     get:
       description: Get arrow-by-arrow score history for a specific participant assignment
@@ -1946,7 +1939,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Assignment Score Detail
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/auth/archer/login:
     post:
       consumes:
@@ -1973,7 +1966,7 @@ paths:
             type: object
       summary: Archer Login
       tags:
-      - Mobile - Auth
+      - Mobile - Archer
   /mobile/auth/archer/register:
     post:
       consumes:
@@ -2000,7 +1993,7 @@ paths:
             type: object
       summary: Archer Registration
       tags:
-      - Mobile - Auth
+      - Mobile - Archer
   /mobile/auth/forgot-password:
     post:
       consumes:
@@ -2021,6 +2014,31 @@ paths:
           schema:
             $ref: '#/definitions/mobile.MobileResponse'
       summary: Forgot Password
+      tags:
+      - Mobile - Auth
+  /mobile/auth/google/bind:
+    post:
+      consumes:
+      - application/json
+      description: Link Google account to an existing email/password account
+      parameters:
+      - description: Google ID Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileOAuthLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Bind Google Account
       tags:
       - Mobile - Auth
   /mobile/auth/google/login:
@@ -2050,6 +2068,24 @@ paths:
       summary: Google Login
       tags:
       - Mobile - Auth
+  /mobile/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout from mobile app and log activity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Mobile Logout
+      tags:
+      - Mobile - Auth
   /mobile/auth/organization/login:
     post:
       consumes:
@@ -2076,7 +2112,7 @@ paths:
             type: object
       summary: Organization Login
       tags:
-      - Mobile - Auth
+      - Mobile - Organization
   /mobile/auth/reset-password:
     post:
       consumes:
@@ -2125,7 +2161,7 @@ paths:
             type: object
       summary: Scorekeeper Login
       tags:
-      - Mobile - Auth
+      - Mobile - Scorekeeper
   /mobile/auth/seller/login:
     post:
       consumes:
@@ -2152,7 +2188,7 @@ paths:
             type: object
       summary: Seller Login
       tags:
-      - Mobile - Auth
+      - Mobile - Seller
   /mobile/auth/seller/register:
     post:
       consumes:
@@ -2174,7 +2210,7 @@ paths:
             $ref: '#/definitions/mobile.MobileResponse'
       summary: Seller Registration
       tags:
-      - Mobile - Auth
+      - Mobile - Seller
   /mobile/auth/verify-otp:
     post:
       consumes:
@@ -2392,7 +2428,7 @@ paths:
             type: object
       summary: End Match
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/elimination/scoring/matches/{matchId}/finish:
     post:
       consumes:
@@ -2420,7 +2456,7 @@ paths:
             type: object
       summary: Finish Match
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/elimination/scoring/matches/{matchId}/reset:
     post:
       description: Reset a finished match status and clear the winner from next round
@@ -2440,7 +2476,7 @@ paths:
             type: object
       summary: Reset Match
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/elimination/scoring/matches/{matchId}/score:
     post:
       consumes:
@@ -2469,7 +2505,7 @@ paths:
             type: object
       summary: Update Match Score
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/events:
     get:
       description: Get a list of active or past events optimized for mobile
@@ -2593,13 +2629,18 @@ paths:
       summary: Get Event Participants
       tags:
       - Mobile - Events
-  /mobile/events/{slug}/results:
+  /mobile/events/{slug}/results/elimination:
     get:
-      description: Get the current qualification and elimination results
+      description: Get the elimination match brackets and results for a specific category
       parameters:
       - description: Event Slug or UUID
         in: path
         name: slug
+        required: true
+        type: string
+      - description: Category UUID
+        in: query
+        name: category_id
         required: true
         type: string
       produces:
@@ -2610,7 +2651,33 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Get Event Results
+      summary: Get Elimination Bracket
+      tags:
+      - Mobile - Events
+  /mobile/events/{slug}/results/qualification:
+    get:
+      description: Get complete leaderboard for a specific category, including end-by-end
+        scores
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Category UUID
+        in: query
+        name: category_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Qualification Results
       tags:
       - Mobile - Events
   /mobile/events/{slug}/schedule:
@@ -2786,6 +2853,152 @@ paths:
       summary: Add News Comment
       tags:
       - Mobile - News
+  /mobile/options/age-groups:
+    get:
+      consumes:
+      - application/json
+      description: Get list of age groups
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Age Group Options
+      tags:
+      - Mobile - Option
+  /mobile/options/bow-types:
+    get:
+      consumes:
+      - application/json
+      description: Get list of bow types
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Bow Type Options
+      tags:
+      - Mobile - Option
+  /mobile/options/cities:
+    get:
+      consumes:
+      - application/json
+      description: Get list of Indonesian cities
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get City Options
+      tags:
+      - Mobile - Option
+  /mobile/options/clubs:
+    get:
+      consumes:
+      - application/json
+      description: Get list of clubs for dropdown/selection
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Club Options
+      tags:
+      - Mobile - Option
+  /mobile/options/disciplines:
+    get:
+      consumes:
+      - application/json
+      description: Get list of archery disciplines
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Discipline Options
+      tags:
+      - Mobile - Option
+  /mobile/options/event-types:
+    get:
+      consumes:
+      - application/json
+      description: Get list of event/team types
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Event Type Options
+      tags:
+      - Mobile - Option
+  /mobile/options/gender-divisions:
+    get:
+      consumes:
+      - application/json
+      description: Get list of gender divisions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Gender Division Options
+      tags:
+      - Mobile - Option
+  /mobile/options/organizations:
+    get:
+      consumes:
+      - application/json
+      description: Get list of organizations for dropdown/selection
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Organization Options
+      tags:
+      - Mobile - Option
+  /mobile/organization/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Get dashboard statistics, recent participants and payments for
+        organization
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.OrganizationDashboard'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Organization Dashboard Statistics
+      tags:
+      - Mobile - Organization
   /mobile/organization/events:
     get:
       description: Get list of events organized by the authenticated organization
@@ -2817,7 +3030,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Organization Events
       tags:
-      - Mobile - Profile
+      - Mobile - Organization
   /mobile/organization/events/{id}/participants:
     get:
       description: Get list of participants for an event owned by the organization
@@ -2858,7 +3071,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Event Participants (Org)
       tags:
-      - Mobile - Profile
+      - Mobile - Organization
   /mobile/organization/me:
     get:
       description: Get profile information for the authenticated organization
@@ -2873,7 +3086,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Organization Profile
       tags:
-      - Mobile - Profile
+      - Mobile - Organization
     patch:
       consumes:
       - application/json
@@ -2896,7 +3109,7 @@ paths:
       - ApiKeyAuth: []
       summary: Update Organization Profile
       tags:
-      - Mobile - Profile
+      - Mobile - Organization
   /mobile/organization/scan:
     post:
       consumes:
@@ -2920,36 +3133,7 @@ paths:
       - ApiKeyAuth: []
       summary: Scan Registration QR
       tags:
-      - Mobile - Profile
-  /mobile/participants/{participantId}/payment:
-    post:
-      consumes:
-      - application/json
-      description: Initiate a Tripay transaction for a specific participant registration
-      parameters:
-      - description: Participant UUID
-        in: path
-        name: participantId
-        required: true
-        type: string
-      - description: Payment Method
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileCreatePaymentRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobilePaymentTransactionResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Create Participant Payment
-      tags:
-      - Mobile - Payment
+      - Mobile - Organization
   /mobile/qualification/scoring/scores/{assignmentId}:
     post:
       consumes:
@@ -2977,7 +3161,7 @@ paths:
             $ref: '#/definitions/handler.MessageResponse'
       summary: Update Qualification Score
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/scan:
     get:
       description: Scan a target board QR code to get participant info for scoring
@@ -3008,7 +3192,7 @@ paths:
       - ApiKeyAuth: []
       summary: Scan Target QR
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/scorekeeper/events:
     get:
       description: Get list of events owned by the scorekeeper's organization
@@ -3072,7 +3256,7 @@ paths:
             $ref: '#/definitions/handler.ScoringCardsResponse'
       summary: List Scoring Cards
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
   /mobile/scoring/targets:
     get:
       description: Get participants and their scoring progress for a specific target
@@ -3101,7 +3285,24 @@ paths:
             $ref: '#/definitions/handler.ScoringTargetsResponse'
       summary: Get Scoring Targets
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
+  /mobile/seller/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Get dashboard statistics and recent orders for seller
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.SellerDashboard'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Seller Dashboard Statistics
+      tags:
+      - Mobile - Seller
   /mobile/seller/me:
     get:
       description: Get profile information for the authenticated seller
@@ -3126,7 +3327,7 @@ paths:
       - ApiKeyAuth: []
       summary: Get Seller Profile
       tags:
-      - Mobile - Profile
+      - Mobile - Seller
     patch:
       consumes:
       - application/json
@@ -3149,30 +3350,58 @@ paths:
       - ApiKeyAuth: []
       summary: Update Seller Profile
       tags:
-      - Mobile - Profile
+      - Mobile - Seller
   /mobile/seller/products:
     get:
-      description: Get list of products owned by the authenticated seller
+      consumes:
+      - application/json
+      description: Get list of products owned by the seller
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get My Products (Seller)
+      tags:
+      - Mobile - Seller
+    post:
+      consumes:
+      - application/json
+      description: Create a new product in the marketplace
       parameters:
-      - description: Pagination limit
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination offset
-        in: query
-        name: offset
-        type: integer
-      - description: Filter by status
-        in: query
-        name: status
-        type: string
-      - description: Filter by category
-        in: query
-        name: category
-        type: string
-      - description: Search products
-        in: query
-        name: search
+      - description: Product object
+        in: body
+        name: product
+        required: true
+        schema: {}
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create Product (Seller)
+      tags:
+      - Mobile - Seller
+  /mobile/seller/products/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a product
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
         type: string
       produces:
       - application/json
@@ -3180,12 +3409,41 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/mobile.MobileSellerProductsResponse'
+            additionalProperties: true
+            type: object
       security:
       - ApiKeyAuth: []
-      summary: Get Seller Products
+      summary: Delete Product (Seller)
       tags:
-      - Mobile - Profile
+      - Mobile - Seller
+    put:
+      consumes:
+      - application/json
+      description: Update an existing product
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Product object
+        in: body
+        name: product
+        required: true
+        schema: {}
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update Product (Seller)
+      tags:
+      - Mobile - Seller
   /mobile/sessions/boards:
     get:
       description: Get all target boards and current scores for a qualification session
@@ -3206,7 +3464,7 @@ paths:
       - ApiKeyAuth: []
       summary: List Session Targets
       tags:
-      - Mobile - Scoring
+      - Mobile - Scorekeeper
 schemes:
 - https
 - http

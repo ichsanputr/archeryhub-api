@@ -43,7 +43,7 @@ type ScoringTargetsResponse struct {
 // GetScoringCards returns selectable "card target" options for scoring context.
 // @Summary List Scoring Cards
 // @Description Get selectable cards (targets) for a specific phase and category
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Produce json
 // @Param phase query string true "qualification or elimination"
 // @Param category_id query string true "Category UUID"
@@ -102,7 +102,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 // GetScoringTargets returns scoring progress for a selected target name in a session.
 // @Summary Get Scoring Targets
 // @Description Get participants and their scoring progress for a specific target
-// @Tags Mobile - Scoring
+// @Tags Mobile - Scorekeeper
 // @Produce json
 // @Param phase query string true "qualification or elimination"
 // @Param session_id query string true "Session UUID"

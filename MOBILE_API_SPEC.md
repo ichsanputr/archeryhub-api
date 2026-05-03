@@ -1,249 +1,81 @@
-# 📱 ArcheryHub Mobile API Specification (v1.1)
+# ArcheryHub.id Mobile API Specification (v1)
 
-This document provides the **Complete Request and Response bodies** for all Mobile API endpoints.
-
----
-
-## 🔐 1. Authentication (Archer Login)
-**Endpoint**: `POST /auth/archer/login`
-
-### Full Request Body
-```json
-{
-  "email": "archer@example.com",
-  "password": "securepassword123"
-}
-```
-
-### Full Response Body (200 OK)
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTM2OTY0MjksImlhdCI6MTcxMzY5MjgyOSwiaXNzIjoiYXJjaGVyeWh1YiIsIm5iZiI6MTcxMzY5MjgyOSwic3ViIjoiYXJjLWE0OWVlN2Q3LTlkN2ItNGJlNy04NjUyLTM0MmYyZmNhMjNmOSJ9.signature",
-  "is_new_user": false,
-  "user": {
-    "uuid": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9",
-    "id": "ARC-0042",
-    "username": "rizky-pratama",
-    "full_name": "Rizky Pratama",
-    "email": "archer@example.com",
-    "avatar_url": "https://cdn.archeryhub.id/media/archers/rizky.jpg",
-    "role": "archer",
-    "user_type": "archer"
-  }
-}
-```
+This document provides the technical specification for mobile-exclusive API endpoints.
 
 ---
 
-## 🎨 2. Event Gallery
-**Endpoint**: `GET /mobile/events/:slug/gallery`
+## 🔐 1. Authentication
+Mobile apps use specific login endpoints that return a flat `Token` and `User` object.
 
-### Full Response Body (200 OK)
-```json
-{
-  "gallery": [
-    {
-      "id": "img-001",
-      "event_id": "evt-8f3c2a14",
-      "url": "https://cdn.archeryhub.id/media/events/g1.jpg",
-      "caption": "Opening Ceremony Stage",
-      "alt_text": "Stage photo",
-      "display_order": 1,
-      "is_primary": true,
-      "created_at": "2026-04-21T10:00:00Z"
-    },
-    {
-      "id": "img-002",
-      "event_id": "evt-8f3c2a14",
-      "url": "https://cdn.archeryhub.id/media/events/g2.jpg",
-      "caption": "Archer Practice Session",
-      "alt_text": "Practice field",
-      "display_order": 2,
-      "is_primary": false,
-      "created_at": "2026-04-21T10:05:00Z"
-    }
-  ]
-}
-```
+### Archer Login
+`POST /mobile/auth/archer/login`
+
+### Google Login
+`POST /mobile/auth/google/login`
+
+### Bind Google Account
+`POST /mobile/auth/google/bind` (Requires Auth)
+
+Links the current logged-in account with a Google ID.
+
+### Scorekeeper Login
+`POST /mobile/auth/scorekeeper/login`
 
 ---
 
-## 📜 3. Event History
-**Endpoint**: `GET /mobile/events/history`
+## 🎯 2. Target Scanning
+Scan a target face QR code or Barcode to start scoring.
 
-### Full Response Body (200 OK)
-```json
-{
-  "events": [
-    {
-      "uuid": "evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a",
-      "slug": "jakarta-open-2025",
-      "name": "ArcheryHub Jakarta Open 2025",
-      "location": "Jakarta Selatan",
-      "start_date": "2025-05-18T08:00:00Z",
-      "end_date": "2025-05-21T17:00:00Z",
-      "logo_url": "https://cdn.archeryhub.id/media/events/logo.png",
-      "banner_url": "https://cdn.archeryhub.id/media/events/banner.jpg",
-      "organizer_name": "ArcheryHub Jakarta",
-      "organizer_avatar_url": "https://cdn.archeryhub.id/media/orgs/logo.png",
-      "participant_count": 128
-    }
-  ],
-  "total_count": 1
-}
-```
+`GET /mobile/scan?code=TARGET_UUID`
 
 ---
 
-## 📅 4. Event Schedule
-**Endpoint**: `GET /mobile/events/:slug/schedule`
+## 📝 3. Scoring Endpoints
 
-### Full Response Body (200 OK)
-```json
-{
-  "schedules": [
-    {
-      "id": "sch-001",
-      "event_id": "evt-8f3c2a14",
-      "title": "Technical Meeting",
-      "description": "Final briefing for all participants",
-      "start_time": "2026-05-17T19:00:00Z",
-      "end_time": "2026-05-17T21:00:00Z",
-      "day_order": 0,
-      "sort_order": 1,
-      "location": "Zoom Meeting / VIP Room",
-      "created_at": "2026-04-21T09:00:00Z",
-      "updated_at": "2026-04-21T09:00:00Z"
-    }
-  ]
-}
-```
+### Get Scoring Cards
+`GET /mobile/qualification/scoring/cards`
+
+### Update Qualification Score
+`POST /mobile/qualification/scoring/scores/:assignmentId`
 
 ---
 
-## ✍️ 5. Event Registration
-**Endpoint**: `POST /mobile/archer/events/register`
+## 🏟️ 4. Events
+Public event listing and details.
 
-### Full Request Body (Complex Case)
-```json
-{
-  "event_id": "national-open-2026",
-  "athlete_id": "arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9",
-  "event_category_ids": [
-    "cat-recurve-adult-putra",
-    "cat-recurve-adult-team"
-  ],
-  "payment_amount": 450000,
-  "payment_type": "manual",
-  "payment_proof_urls": [
-    "https://cdn.archeryhub.id/media/proofs/receipt-001.jpg"
-  ],
-  "registration_source": "mobile_app"
-}
-```
-
-### Full Response Body (201 Created)
-```json
-{
-  "message": "Pendaftaran berhasil",
-  "registration_id": "reg-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d",
-  "registered_categories": [
-    "cat-recurve-adult-putra",
-    "cat-recurve-adult-team"
-  ],
-  "payment_status": "menunggu acc"
-}
-```
+`GET /mobile/events`
+`GET /mobile/events/:slug`
 
 ---
 
----
+## 🛍️ 5. Marketplace
+Public marketplace listing for archers to buy equipment.
 
-## 📊 6. Event Results
-**Endpoint**: `GET /mobile/events/:slug/results`
-
-### Real Case Example: POPDA Sleman
-**Sample URL**: `http://api.archeryhub.id/api/v1/mobile/events/seleksi-popda-kabsleman-2026-7247378c/results`
-
-#### Full Response Body (200 OK)
-```json
-{
-  "results": [
-    {
-      "participant_id": "dace4cbe-545e-449b-8bfb-19170e799f00",
-      "full_name": "Arya Dimas Wijarnako",
-      "category_name": "U-13",
-      "rank": 1,
-      "score": 163,
-      "x_count": 2
-    }
-  ],
-  "page_settings": {
-    "results": [
-      {
-        "url": "https://api.archeryhub.id/api/v1/media/result---popda-sleman-a90ead48.pdf",
-        "title": "KUALIFIKASI SESI 1",
-        "name": "KUALIFIKASI SESI 1",
-        "type": "application/pdf"
-      }
-    ],
-    "results_type": "system",
-    "sections": {
-      "schedule": true,
-      "location": true
-    }
-  }
-}
-```
+`GET /mobile/marketplace/products`
+`GET /mobile/marketplace/products/:id`
 
 ---
 
-## ℹ️ 7. My Registered Events (Archer)
-**Endpoint**: `GET /mobile/archer/events`
+## 💬 6. Chat
+Direct messaging between Archers and Sellers.
 
-### Full Response Body (200 OK)
-```json
-{
-  "events": [
-    {
-      "event_uuid": "evt-8f3c2a14",
-      "event_name": "National Open 2026",
-      "event_slug": "national-open-2026",
-      "location": "Senayan, Jakarta",
-      "start_date": "2026-05-18",
-      "end_date": "2026-05-21",
-      "logo_url": "https://cdn.archeryhub.id/media/events/logo.png",
-      "qr_raw": "EVT2026-ARC-0042",
-      "qr_code_data_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-      "category_name": "Recurve Senior Putra",
-      "payment_status": "lunas",
-      "registration_date": "2026-04-01T10:00:00Z"
-    }
-  ],
-  "total": 1
-}
-```
+`GET /mobile/chat/conversations`
+`POST /mobile/chat/conversations/:id/messages`
 
 ---
 
-## 🖼️ 8. WebView Embed: Pure Bracket (Bagan)
-**URL**: `http://api.archeryhub.id/embed/results/:slug`
+## 💳 7. Payment Detail
+Enriched payment status for mobile checkout screens.
 
-This is a **Pure Bracket (Bagan)** view designed specifically for mobile apps. It excludes all headers, footers, and other UI noise.
+`GET /mobile/archer/payments/:reference`
 
-### Features:
-*   **Pure View**: No main header/logo/menu.
-*   **Category Filter**: Includes a compact horizontal filter to switch categories (Barebow, Recurve, etc.).
-*   **No Chatbot**: Clean view without any third-party widgets.
-*   **Deep Linking**: Pass `?category_id=UUID` to open a specific category bracket directly.
+---
 
-### Integration (Android/Swift):
-```html
-<WebView
-  source={{ uri: 'http://api.archeryhub.id/embed/results/seleksi-popda-kabsleman-2026-7247378c?category_id=Optional-ID' }}
-  style={{ flex: 1 }}
-/>
-```
+## 🗞️ 8. News & Comments
+Public news feed with community comments.
+
+`GET /mobile/news`
+`POST /mobile/news/:id/comments`
 
 ---
 
@@ -289,3 +121,68 @@ This endpoint provides the complete leaderboard for a specific category, includi
   ]
 }
 ```
+
+---
+
+## 🔐 10. Auth Logout
+**Endpoint**: `POST /mobile/auth/logout`
+
+Clears the session on the server (for cookie-based sessions) and returns success.
+
+---
+
+## 💳 11. List Payment Channels
+**Endpoint**: `GET /mobile/payment/channels`
+
+Returns a list of available Tripay payment channels.
+
+---
+
+## 🛍️ 12. Seller Product Management
+**Base Path**: `/mobile/seller/products` (Requires Auth)
+
+CRUD for seller products. Supports `POST`, `PUT`, `DELETE`.
+
+---
+
+## ⚙️ 13. Mobile Options (Public)
+**Base Path**: `/mobile/options`
+
+Endpoints for dropdown selections: 
+- `/clubs`
+- `/organizations`
+- `/disciplines`
+- `/bow-types`
+- `/age-groups`
+- `/gender-divisions`
+- `/cities`
+- `/event-types`
+
+---
+
+## 🏛️ 14. Mobile Organization Dashboard
+**Endpoint**: `GET /mobile/organization/dashboard` (Requires Auth)
+
+Returns statistics, upcoming deadlines, and recent activities for the organization.
+
+---
+
+## 🏬 15. Mobile Seller Dashboard
+**Endpoint**: `GET /mobile/seller/dashboard` (Requires Auth)
+
+Returns statistics and recent orders for the seller.
+
+---
+
+## 📁 16. Mobile Media Upload
+**Base Path**: `/mobile/media` (Requires Auth)
+
+### Upload File
+**Endpoint**: `POST /mobile/media/upload`
+**Body**: `multipart/form-data` with `file` field.
+
+### List My Media
+**Endpoint**: `GET /mobile/media`
+
+### Delete Media
+**Endpoint**: `DELETE /mobile/media/:id`

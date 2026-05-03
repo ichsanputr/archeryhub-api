@@ -2,7 +2,6 @@ package mobile
 
 import (
 	"archeryhub-api/handler"
-	"archeryhub-api/models"
 	"archeryhub-api/utils"
 	"encoding/json"
 	"net/http"
@@ -88,7 +87,7 @@ func mapFromMap(data map[string]interface{}, key string) map[string]interface{} 
 // MobileGetSellerMe returns current seller profile
 // @Summary Get Seller Profile
 // @Description Get profile information for the authenticated seller
-// @Tags Mobile - Profile
+// @Tags Mobile - Seller
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileSellerProfileResponse
@@ -173,7 +172,7 @@ func MobileGetSellerMe(db *sqlx.DB) gin.HandlerFunc {
 // MobileUpdateSellerMe updates basic seller profile
 // @Summary Update Seller Profile
 // @Description Update basic profile info (name, store_name, phone, etc.)
-// @Tags Mobile - Profile
+// @Tags Mobile - Seller
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
@@ -199,88 +198,10 @@ func MobileUpdateSellerPage(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetSellerProducts returns seller's products
-// @Summary Get Seller Products
-// @Description Get list of products owned by the authenticated seller
-// @Tags Mobile - Profile
-// @Produce json
-// @Security ApiKeyAuth
-// @Param limit query int false "Pagination limit"
-// @Param offset query int false "Pagination offset"
-// @Param status query string false "Filter by status"
-// @Param category query string false "Filter by category"
-// @Param search query string false "Search products"
-// @Success 200 {object} MobileSellerProductsResponse
-// @Router /mobile/seller/products [get]
-func MobileGetSellerProducts(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if !requireMobileUserType(c, "seller") {
-			return
-		}
-
-		userID := c.GetString("user_id")
-		var sellerUUID string
-		if err := db.Get(&sellerUUID, `SELECT uuid FROM sellers WHERE uuid = ? OR user_id = ? LIMIT 1`, userID, userID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penjual tidak ditemukan"})
-			return
-		}
-
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-		status := strings.TrimSpace(c.Query("status"))
-		category := strings.TrimSpace(c.Query("category"))
-		search := strings.TrimSpace(c.Query("search"))
-
-		whereClause := "WHERE seller_id = ?"
-		args := []interface{}{sellerUUID}
-		if status != "" && status != "all" {
-			whereClause += " AND status = ?"
-			args = append(args, status)
-		}
-		if category != "" && category != "all" {
-			whereClause += " AND category = ?"
-			args = append(args, category)
-		}
-		if search != "" {
-			searchTerm := "%" + search + "%"
-			whereClause += " AND (name LIKE ? OR description LIKE ?)"
-			args = append(args, searchTerm, searchTerm)
-		}
-
-		var total int
-		if err := db.Get(&total, "SELECT COUNT(*) FROM products "+whereClause, args...); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung produk", "details": err.Error()})
-			return
-		}
-
-		products := []models.Product{}
-		query := "SELECT * FROM products " + whereClause + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
-		queryArgs := append(args, limit, offset)
-		if err := db.Select(&products, query, queryArgs...); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data produk", "details": err.Error()})
-			return
-		}
-
-		if products == nil {
-			products = []models.Product{}
-		}
-		for i := range products {
-			maskProductMedia(&products[i])
-		}
-
-		c.JSON(http.StatusOK, MobileSellerProductsResponse{
-			Products: products,
-			Total:    total,
-			Limit:    limit,
-			Offset:   offset,
-		})
-	}
-}
-
 // MobileGetOrganizationMe returns current organization profile
 // @Summary Get Organization Profile
 // @Description Get profile information for the authenticated organization
-// @Tags Mobile - Profile
+// @Tags Mobile - Organization
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileOrganizationProfileResponse
@@ -402,7 +323,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 // MobileUpdateOrganizationMe updates organization profile
 // @Summary Update Organization Profile
 // @Description Update profile info for the authenticated organization
-// @Tags Mobile - Profile
+// @Tags Mobile - Organization
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
@@ -446,7 +367,7 @@ func getOwnedEventUUID(c *gin.Context, db *sqlx.DB, organizationUUID, eventID st
 // MobileGetOrganizationEvents returns events owned by organization
 // @Summary Get Organization Events
 // @Description Get list of events organized by the authenticated organization
-// @Tags Mobile - Profile
+// @Tags Mobile - Organization
 // @Produce json
 // @Security ApiKeyAuth
 // @Param limit query int false "Pagination limit"
@@ -552,7 +473,7 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetOrganizationEventParticipants returns participants for an event
 // @Summary Get Event Participants (Org)
 // @Description Get list of participants for an event owned by the organization
-// @Tags Mobile - Profile
+// @Tags Mobile - Organization
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
@@ -684,7 +605,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetArcherMe returns current archer profile
 // @Summary Get Archer Profile
 // @Description Get profile information for the authenticated archer
-// @Tags Mobile - Profile
+// @Tags Mobile - Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileArcherProfileResponse
@@ -759,7 +680,7 @@ func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 // MobileUpdateArcherMe updates archer profile
 // @Summary Update Archer Profile
 // @Description Update profile info for the authenticated archer
-// @Tags Mobile - Profile
+// @Tags Mobile - Archer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
@@ -814,7 +735,7 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 // MobileOrganizationScanRegistration handles QR scan for check-in
 // @Summary Scan Registration QR
 // @Description Scan and verify a participant's QR code for event check-in/reregistration
-// @Tags Mobile - Profile
+// @Tags Mobile - Organization
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth

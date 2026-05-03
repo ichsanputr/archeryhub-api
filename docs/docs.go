@@ -24,80 +24,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/events/{id}/results/elimination": {
-            "get": {
-                "description": "Get the elimination match brackets and results for a specific category",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Results"
-                ],
-                "summary": "Get Elimination Bracket",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Category UUID",
-                        "name": "category_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/events/{id}/results/qualification": {
-            "get": {
-                "description": "Get complete leaderboard for a specific category, including end-by-end scores",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Results"
-                ],
-                "summary": "Get Qualification Results",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Category UUID",
-                        "name": "category_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/mobile/archer/cart": {
             "get": {
                 "security": [
@@ -110,7 +36,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Get Cart",
                 "responses": {
@@ -136,7 +62,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Add to Cart",
                 "parameters": [
@@ -170,7 +96,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Clear Cart",
                 "responses": {
@@ -198,7 +124,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Checkout Cart",
                 "parameters": [
@@ -237,7 +163,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Update Cart Item",
                 "parameters": [
@@ -278,7 +204,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Remove from Cart",
                 "parameters": [
@@ -320,52 +246,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/mobile.MobileMyEventsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/archer/events/register": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Register the authenticated archer for one or more event categories",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Archer"
-                ],
-                "summary": "Register for Event",
-                "parameters": [
-                    {
-                        "description": "Registration Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventRegistrationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
                         }
                     }
                 }
@@ -540,7 +420,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Archer"
                 ],
                 "summary": "Get Archer Profile",
                 "responses": {
@@ -566,7 +446,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Archer"
                 ],
                 "summary": "Update Archer Profile",
                 "parameters": [
@@ -602,7 +482,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Commerce"
+                    "Mobile - Archer"
                 ],
                 "summary": "Get Order History",
                 "parameters": [
@@ -647,7 +527,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Payment"
+                    "Mobile - Archer"
                 ],
                 "summary": "Get Payment Detail",
                 "parameters": [
@@ -681,7 +561,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Get Assignment Score Detail",
                 "parameters": [
@@ -713,7 +593,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Auth"
+                    "Mobile - Archer"
                 ],
                 "summary": "Archer Login",
                 "parameters": [
@@ -754,7 +634,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Auth"
+                    "Mobile - Archer"
                 ],
                 "summary": "Archer Registration",
                 "parameters": [
@@ -819,6 +699,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/auth/google/bind": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Link Google account to an existing email/password account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Bind Google Account",
+                "parameters": [
+                    {
+                        "description": "Google ID Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileOAuthLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/auth/google/login": {
             "post": {
                 "description": "Authenticate or register using Google ID Token",
@@ -860,6 +780,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Logout from mobile app and log activity",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Auth"
+                ],
+                "summary": "Mobile Logout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/auth/organization/login": {
             "post": {
                 "description": "Login for organization accounts",
@@ -870,7 +819,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Auth"
+                    "Mobile - Organization"
                 ],
                 "summary": "Organization Login",
                 "parameters": [
@@ -945,7 +894,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Auth"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Scorekeeper Login",
                 "parameters": [
@@ -986,7 +935,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Auth"
+                    "Mobile - Seller"
                 ],
                 "summary": "Seller Login",
                 "parameters": [
@@ -1027,7 +976,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Auth"
+                    "Mobile - Seller"
                 ],
                 "summary": "Seller Registration",
                 "parameters": [
@@ -1361,7 +1310,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "End Match",
                 "parameters": [
@@ -1402,7 +1351,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Finish Match",
                 "parameters": [
@@ -1441,7 +1390,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Reset Match",
                 "parameters": [
@@ -1474,7 +1423,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Update Match Score",
                 "parameters": [
@@ -1693,22 +1642,66 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/{slug}/results": {
+        "/mobile/events/{slug}/results/elimination": {
             "get": {
-                "description": "Get the current qualification and elimination results",
+                "description": "Get the elimination match brackets and results for a specific category",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Mobile - Events"
                 ],
-                "summary": "Get Event Results",
+                "summary": "Get Elimination Bracket",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "Event Slug or UUID",
                         "name": "slug",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category UUID",
+                        "name": "category_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/events/{slug}/results/qualification": {
+            "get": {
+                "description": "Get complete leaderboard for a specific category, including end-by-end scores",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Events"
+                ],
+                "summary": "Get Qualification Results",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category UUID",
+                        "name": "category_id",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -1985,6 +1978,226 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/options/age-groups": {
+            "get": {
+                "description": "Get list of age groups",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Age Group Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/bow-types": {
+            "get": {
+                "description": "Get list of bow types",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Bow Type Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/cities": {
+            "get": {
+                "description": "Get list of Indonesian cities",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get City Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/clubs": {
+            "get": {
+                "description": "Get list of clubs for dropdown/selection",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Club Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/disciplines": {
+            "get": {
+                "description": "Get list of archery disciplines",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Discipline Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/event-types": {
+            "get": {
+                "description": "Get list of event/team types",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Event Type Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/gender-divisions": {
+            "get": {
+                "description": "Get list of gender divisions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Gender Division Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/options/organizations": {
+            "get": {
+                "description": "Get list of organizations for dropdown/selection",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Option"
+                ],
+                "summary": "Get Organization Options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/organization/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get dashboard statistics, recent participants and payments for organization",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Get Organization Dashboard Statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.OrganizationDashboard"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/organization/events": {
             "get": {
                 "security": [
@@ -1997,7 +2210,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Organization"
                 ],
                 "summary": "Get Organization Events",
                 "parameters": [
@@ -2048,7 +2261,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Organization"
                 ],
                 "summary": "Get Event Participants (Org)",
                 "parameters": [
@@ -2112,7 +2325,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Organization"
                 ],
                 "summary": "Get Organization Profile",
                 "responses": {
@@ -2138,7 +2351,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Organization"
                 ],
                 "summary": "Update Organization Profile",
                 "parameters": [
@@ -2177,7 +2390,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Organization"
                 ],
                 "summary": "Scan Registration QR",
                 "parameters": [
@@ -2201,52 +2414,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/participants/{participantId}/payment": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Initiate a Tripay transaction for a specific participant registration",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Payment"
-                ],
-                "summary": "Create Participant Payment",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Participant UUID",
-                        "name": "participantId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Payment Method",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileCreatePaymentRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobilePaymentTransactionResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/mobile/qualification/scoring/scores/{assignmentId}": {
             "post": {
                 "description": "Submit or update scores for a specific qualification assignment (end-by-end)",
@@ -2257,7 +2424,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Update Qualification Score",
                 "parameters": [
@@ -2300,7 +2467,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Scan Target QR",
                 "parameters": [
@@ -2407,7 +2574,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "List Scoring Cards",
                 "parameters": [
@@ -2443,7 +2610,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "Get Scoring Targets",
                 "parameters": [
@@ -2479,6 +2646,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/seller/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get dashboard statistics and recent orders for seller",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Get Seller Dashboard Statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.SellerDashboard"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/seller/me": {
             "get": {
                 "security": [
@@ -2491,7 +2686,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Seller"
                 ],
                 "summary": "Get Seller Profile",
                 "responses": {
@@ -2531,7 +2726,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Seller"
                 ],
                 "summary": "Update Seller Profile",
                 "parameters": [
@@ -2562,51 +2757,140 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of products owned by the authenticated seller",
+                "description": "Get list of products owned by the seller",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Profile"
+                    "Mobile - Seller"
                 ],
-                "summary": "Get Seller Products",
+                "summary": "Get My Products (Seller)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new product in the marketplace",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Create Product (Seller)",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Pagination limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
+                        "description": "Product object",
+                        "name": "product",
+                        "in": "body",
+                        "required": true,
+                        "schema": {}
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile/seller/products/{id}": {
+            "put": {
+                "security": [
                     {
-                        "type": "integer",
-                        "description": "Pagination offset",
-                        "name": "offset",
-                        "in": "query"
-                    },
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update an existing product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Update Product (Seller)",
+                "parameters": [
                     {
                         "type": "string",
-                        "description": "Filter by status",
-                        "name": "status",
-                        "in": "query"
+                        "description": "Product UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Filter by category",
-                        "name": "category",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search products",
-                        "name": "search",
-                        "in": "query"
+                        "description": "Product object",
+                        "name": "product",
+                        "in": "body",
+                        "required": true,
+                        "schema": {}
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileSellerProductsResponse"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete a product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Seller"
+                ],
+                "summary": "Delete Product (Seller)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2624,7 +2908,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Scoring"
+                    "Mobile - Scorekeeper"
                 ],
                 "summary": "List Session Targets",
                 "parameters": [
@@ -2999,18 +3283,6 @@ const docTemplate = `{
                 "payment": {},
                 "reference": {
                     "type": "string"
-                }
-            }
-        },
-        "mobile.MobileCreatePaymentRequest": {
-            "type": "object",
-            "required": [
-                "method"
-            ],
-            "properties": {
-                "method": {
-                    "type": "string",
-                    "example": "BRIVA"
                 }
             }
         },
@@ -4179,26 +4451,6 @@ const docTemplate = `{
                 }
             }
         },
-        "mobile.MobileSellerProductsResponse": {
-            "type": "object",
-            "properties": {
-                "limit": {
-                    "type": "integer"
-                },
-                "offset": {
-                    "type": "integer"
-                },
-                "products": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Product"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
         "mobile.MobileSellerProfileData": {
             "type": "object",
             "properties": {
@@ -4527,6 +4779,151 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "otp": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.OrganizationDashboard": {
+            "type": "object",
+            "properties": {
+                "recent_participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.RecentParticipant"
+                    }
+                },
+                "recent_payments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.RecentPayment"
+                    }
+                },
+                "stats": {
+                    "type": "object",
+                    "properties": {
+                        "active_events": {
+                            "type": "integer"
+                        },
+                        "monthly_revenue": {
+                            "type": "number"
+                        },
+                        "pending_revenue": {
+                            "type": "number"
+                        },
+                        "total_events": {
+                            "type": "integer"
+                        },
+                        "total_participants": {
+                            "type": "integer"
+                        },
+                        "total_revenue": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "upcoming_deadlines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.UpcomingDeadline"
+                    }
+                }
+            }
+        },
+        "mobile.RecentOrder": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "customer_name": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.RecentParticipant": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.RecentPayment": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "athlete": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.SellerDashboard": {
+            "type": "object",
+            "properties": {
+                "recent_orders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/mobile.RecentOrder"
+                    }
+                },
+                "stats": {
+                    "type": "object",
+                    "properties": {
+                        "monthly_revenue": {
+                            "type": "number"
+                        },
+                        "pending_balance": {
+                            "type": "number"
+                        },
+                        "products_sold": {
+                            "type": "integer"
+                        },
+                        "total_orders": {
+                            "type": "integer"
+                        },
+                        "total_revenue": {
+                            "type": "number"
+                        }
+                    }
+                }
+            }
+        },
+        "mobile.UpcomingDeadline": {
+            "type": "object",
+            "properties": {
+                "days_left": {
+                    "type": "integer"
+                },
+                "deadline": {
+                    "type": "string"
+                },
+                "event_name": {
                     "type": "string"
                 }
             }

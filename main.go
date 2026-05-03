@@ -561,6 +561,8 @@ func main() {
 				auth.POST("/forgot-password", mobilehandler.MobileForgotPassword(db))
 				auth.POST("/verify-otp", mobilehandler.MobileVerifyOTP(db))
 				auth.POST("/reset-password", mobilehandler.MobileResetPassword(db))
+				auth.POST("/logout", mobilehandler.MobileLogout(db))
+				auth.POST("/google/bind", mobilehandler.MobileGoogleBind(db))
 			}
 
 			// 2. Events (public)
@@ -568,10 +570,11 @@ func main() {
 			mobile.GET("/events/history", mobilehandler.MobileListEvents(db)) // Alias/Filter trigger
 			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
 			mobile.GET("/events/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
-			mobile.GET("/events/:slug/results", mobilehandler.MobileGetEventResults(db))
 			mobile.GET("/events/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))
 			mobile.GET("/events/:slug/categories", mobilehandler.MobileGetEventCategories(db))
 			mobile.GET("/events/:slug/gallery", mobilehandler.MobileGetEventGallery(db))
+			mobile.GET("/events/:slug/results/qualification", handler.GetPublicQualificationResults(db))
+			mobile.GET("/events/:slug/results/elimination", handler.GetPublicEliminationResults(db))
 
 			// 2b. News (public read-only)
 			mobile.GET("/news", mobilehandler.MobileListNews(db))
@@ -590,6 +593,7 @@ func main() {
 			// 2c. Marketplace (public read-only)
 			mobile.GET("/marketplace/products", mobilehandler.MobileMarketplaceListProducts(db))
 			mobile.GET("/marketplace/products/:id", mobilehandler.MobileMarketplaceGetProductDetail(db))
+			mobile.GET("/payment/channels", handler.GetPaymentChannels(db))
 
 			// 3. Target scan by QR/barcode code (requires auth)
 			mobileAuth := mobile.Group("")
@@ -630,10 +634,8 @@ func main() {
 				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
 				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
 				mobileArcher.POST("/events/:id/register", mobilehandler.MobileRegisterForEvent(db))
-				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterForEvent(db))
 				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
-				mobileArcher.POST("/participants/:participantId/payment", mobilehandler.MobileCreateParticipantPayment(db))
 			}
 
 			mobileOrganization := mobile.Group("/organization")
@@ -644,6 +646,7 @@ func main() {
 				mobileOrganization.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
 				mobileOrganization.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
 				mobileOrganization.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
+				mobileOrganization.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
 			}
 
 			mobileSeller := mobile.Group("/seller")
@@ -653,6 +656,10 @@ func main() {
 				mobileSeller.PUT("/me", mobilehandler.MobileUpdateSellerMe(db))
 				mobileSeller.PUT("/me/page", mobilehandler.MobileUpdateSellerPage(db))
 				mobileSeller.GET("/products", mobilehandler.MobileGetSellerProducts(db))
+				mobileSeller.POST("/products", mobilehandler.MobileCreateProduct(db))
+				mobileSeller.PUT("/products/:id", mobilehandler.MobileUpdateProduct(db))
+				mobileSeller.DELETE("/products/:id", mobilehandler.MobileDeleteProduct(db))
+				mobileSeller.GET("/dashboard", mobilehandler.MobileGetSellerDashboard(db))
 			}
 
 			// 4. Qualification Scoring
@@ -681,6 +688,28 @@ func main() {
 			{
 				sk.GET("/me", mobilehandler.MobileGetScorekeeperMe(db))
 				sk.GET("/events", mobilehandler.MobileGetScorekeeperEvents(db))
+			}
+
+			// 7. Options (Public)
+			options := mobile.Group("/options")
+			{
+				options.GET("/clubs", mobilehandler.GetClubOptions(db))
+				options.GET("/organizations", mobilehandler.GetOrganizationOptions(db))
+				options.GET("/disciplines", mobilehandler.GetDisciplineOptions(db))
+				options.GET("/bow-types", mobilehandler.GetBowTypeOptions(db))
+				options.GET("/age-groups", mobilehandler.GetAgeGroupOptions(db))
+				options.GET("/gender-divisions", mobilehandler.GetGenderDivisionOptions(db))
+				options.GET("/cities", mobilehandler.GetCityOptions())
+				options.GET("/event-types", mobilehandler.GetEventTypeOptions(db))
+			}
+
+			// 8. Media (requires auth)
+			mobileMedia := mobile.Group("/media")
+			mobileMedia.Use(middleware.AuthMiddleware())
+			{
+				mobileMedia.POST("/upload", handler.UploadMedia(db))
+				mobileMedia.GET("", handler.ListMedia(db))
+				mobileMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}
 
 		}
