@@ -10,17 +10,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type OptionData struct {
-	ID   string `db:"uuid" json:"id"`
-	Name string `db:"name" json:"name"`
-}
-
 // @Summary Get Club Options
 // @Description Get list of clubs for dropdown/selection
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/clubs [get]
 func GetClubOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -39,7 +34,7 @@ func GetClubOptions(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/organizations [get]
 func GetOrganizationOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -58,7 +53,7 @@ func GetOrganizationOptions(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/disciplines [get]
 func GetDisciplineOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -77,7 +72,7 @@ func GetDisciplineOptions(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/bow-types [get]
 func GetBowTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -96,7 +91,7 @@ func GetBowTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/age-groups [get]
 func GetAgeGroupOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -115,7 +110,7 @@ func GetAgeGroupOptions(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/gender-divisions [get]
 func GetGenderDivisionOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -134,7 +129,7 @@ func GetGenderDivisionOptions(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/cities [get]
 func GetCityOptions() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -160,7 +155,7 @@ func GetCityOptions() gin.HandlerFunc {
 // @Tags Mobile - Option
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} OptionsResponse
 // @Router /mobile/options/event-types [get]
 func GetEventTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

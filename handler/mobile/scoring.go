@@ -105,19 +105,19 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 
-			c.JSON(http.StatusOK, gin.H{
-				"type": "qualification",
-				"board": gin.H{
-					"uuid":          board.UUID,
-					"board_number":  board.BoardNumber,
-					"code":          board.Code,
-					"session_uuid":  board.SessionUUID,
-					"session_name":  board.SessionName,
-					"event_uuid":    board.EventUUID,
-					"event_name":    board.EventName,
-					"category_uuid": board.CategoryUUID,
+			c.JSON(http.StatusOK, MobileScanTargetResponse{
+				Type: "qualification",
+				Board: MobileScannedBoard{
+					UUID:         board.UUID,
+					BoardNumber:  board.BoardNumber,
+					Code:         board.Code,
+					SessionUUID:  board.SessionUUID,
+					SessionName:  board.SessionName,
+					EventUUID:    board.EventUUID,
+					EventName:    board.EventName,
+					CategoryUUID: board.CategoryUUID,
 				},
-				"archers": archers,
+				Archers: archers,
 			})
 			return
 		}
@@ -378,6 +378,22 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 //
 // MobileGetAssignmentScoreDetail godoc
 
+type ArrowScore struct {
+	ArrowNumber int  `db:"arrow_number" json:"arrow_number"`
+	Score       int  `db:"score" json:"score"`
+	IsX         bool `db:"is_x" json:"is_x"`
+}
+
+type EndScore struct {
+	EndNumber    int          `db:"end_number" json:"end_number"`
+	EndScoreUUID string       `db:"end_score_uuid" json:"end_score_uuid"`
+	EndTotal     int          `db:"end_total" json:"end_total"`
+	XCount       int          `db:"x_count" json:"x_count"`
+	TenCount     int          `db:"ten_count" json:"ten_count"`
+	CumTotal     int          `json:"cumulative_total"`
+	Arrows       []ArrowScore `json:"arrows"`
+}
+
 // MobileGetAssignmentScoreDetail returns detailed scores for an assignment
 // @Summary Get Assignment Score Detail
 // @Description Get arrow-by-arrow score history for a specific participant assignment
@@ -445,21 +461,6 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 			meta.AvatarURL = &masked
 		}
 
-		type ArrowScore struct {
-			ArrowNumber int  `db:"arrow_number" json:"arrow_number"`
-			Score       int  `db:"score" json:"score"`
-			IsX         bool `db:"is_x" json:"is_x"`
-		}
-
-		type EndScore struct {
-			EndNumber    int          `db:"end_number" json:"end_number"`
-			EndScoreUUID string       `db:"end_score_uuid" json:"end_score_uuid"`
-			EndTotal     int          `db:"end_total" json:"end_total"`
-			XCount       int          `db:"x_count" json:"x_count"`
-			TenCount     int          `db:"ten_count" json:"ten_count"`
-			CumTotal     int          `json:"cumulative_total"`
-			Arrows       []ArrowScore `json:"arrows"`
-		}
 
 		var ends []EndScore
 		err = db.Select(&ends, `
@@ -502,28 +503,48 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 			ends[i].Arrows = arrows
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"assignment": gin.H{
-				"uuid":           meta.AssignmentUUID,
-				"session_uuid":   meta.SessionUUID,
-				"session_name":   meta.SessionName,
-				"event_name":     meta.EventName,
-				"target_name":    meta.TargetName,
-				"archer_name":    meta.ArcherName,
-				"division":       meta.Division,
-				"avatar_url":     meta.AvatarURL,
-				"total_ends":     meta.TotalEnds,
-				"arrows_per_end": meta.ArrowsPerEnd,
+		c.JSON(http.StatusOK, MobileAssignmentScoreDetailResponse{
+			Assignment: MobileAssignmentMeta{
+				UUID:         meta.AssignmentUUID,
+				SessionUUID:  meta.SessionUUID,
+				SessionName:  meta.SessionName,
+				EventName:    meta.EventName,
+				TargetName:   meta.TargetName,
+				ArcherName:   meta.ArcherName,
+				Division:     meta.Division,
+				AvatarURL:    meta.AvatarURL,
+				TotalEnds:    meta.TotalEnds,
+				ArrowsPerEnd: meta.ArrowsPerEnd,
 			},
-			"summary": gin.H{
-				"total_score":      cumTotal,
-				"total_x":          totalXCount,
-				"total_ten_plus_x": totalTenPlusXCount,
-				"ends_completed":   len(ends),
+			Summary: MobileScoreSummary{
+				TotalScore:    cumTotal,
+				TotalX:        totalXCount,
+				TotalTenPlusX: totalTenPlusXCount,
+				EndsCompleted: len(ends),
 			},
-			"ends": ends,
+			Ends: castToEndScores(ends),
 		})
 	}
+}
+
+func castToEndScores(ends []EndScore) []MobileEndScore {
+	res := make([]MobileEndScore, len(ends))
+	for i, e := range ends {
+		arrows := make([]MobileArrowScore, len(e.Arrows))
+		for j, a := range e.Arrows {
+			arrows[j] = MobileArrowScore(a)
+		}
+		res[i] = MobileEndScore{
+			EndNumber:       e.EndNumber,
+			EndScoreUUID:    e.EndScoreUUID,
+			EndTotal:        e.EndTotal,
+			XCount:          e.XCount,
+			TenCount:        e.TenCount,
+			CumulativeTotal: e.CumTotal,
+			Arrows:          arrows,
+		}
+	}
+	return res
 }
 
 // Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Auth Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡

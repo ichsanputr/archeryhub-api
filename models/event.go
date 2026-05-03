@@ -289,3 +289,36 @@ type EventTarget struct {
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// QualificationSessionScore represents scores for a specific session in qualification
+type QualificationSessionScore struct {
+	AssignmentUUID string `json:"assignment_id"`
+	SessionCode    string `json:"session_code"`
+	SessionName    string `json:"session_name"`
+	EndScores      string `json:"end_scores"`
+	TotalEnds      int    `json:"total_ends"`
+	TotalScore     int    `json:"total_score"`
+	TotalTenX      int    `json:"total_10x"`
+	TotalX         int    `json:"total_x"`
+}
+
+// QualificationEntry represents a single participant's result in qualification leaderboard
+type QualificationEntry struct {
+	Rank            int                         `json:"rank"`
+	ParticipantUUID string                      `json:"participant_id"`
+	ArcherUUID      string                      `json:"archer_uuid"`
+	ArcherName      string                      `json:"archer_name"`
+	AvatarURL       *string                     `json:"avatar_url"`
+	ClubName        *string                     `json:"club_name"`
+	TotalScore      int                         `json:"total_score"`
+	TotalTenX       int                         `json:"total_10x"`
+	TotalX          int                         `json:"total_x"`
+	EndsCompleted   int                         `json:"ends_completed"`
+	Sessions        []QualificationSessionScore `json:"sessions"`
+}
+
+// QualificationResultsResponse represents the full leaderboard for qualification
+type QualificationResultsResponse struct {
+	TotalCumulativeEnds int                  `json:"total_cumulative_ends"`
+	Leaderboard         []QualificationEntry `json:"leaderboard"`
+}

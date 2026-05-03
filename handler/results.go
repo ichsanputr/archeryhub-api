@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"archeryhub-api/models"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -17,7 +19,7 @@ import (
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Param category_id query string true "Category UUID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} models.QualificationResultsResponse
 // @Router /mobile/events/{slug}/results/qualification [get]
 func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -51,31 +53,6 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		`, eventUUID)
 		if err != nil || totalCumulativeEnds == 0 {
 			totalCumulativeEnds = 12
-		}
-
-		type SessionScore struct {
-			AssignmentUUID string `json:"assignment_id"`
-			SessionCode    string `json:"session_code"`
-			SessionName    string `json:"session_name"`
-			EndScores      string `json:"end_scores"`
-			TotalEnds      int    `json:"total_ends"`
-			TotalScore     int    `json:"total_score"`
-			TotalTenX      int    `json:"total_10x"`
-			TotalX         int    `json:"total_x"`
-		}
-
-		type Entry struct {
-			Rank            int            `json:"rank"`
-			ParticipantUUID string         `json:"participant_id" db:"participant_uuid"`
-			ArcherUUID      string         `json:"archer_uuid" db:"archer_uuid"`
-			ArcherName      string         `json:"archer_name" db:"archer_name"`
-			AvatarURL       *string        `json:"avatar_url" db:"avatar_url"`
-			ClubName        *string        `json:"club_name" db:"club_name"`
-			TotalScore      int            `json:"total_score"`
-			TotalTenX       int            `json:"total_10x"`
-			TotalX          int            `json:"total_x"`
-			EndsCompleted   int            `json:"ends_completed"`
-			Sessions        []SessionScore `json:"sessions"`
 		}
 
 		type dbEntry struct {
@@ -139,18 +116,18 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Group by archer
-		archerMap := make(map[string]*Entry)
+		archerMap := make(map[string]*models.QualificationEntry)
 		archerOrder := []string{}
 
 		for _, de := range dbEntries {
 			if _, ok := archerMap[de.ParticipantUUID]; !ok {
-				archerMap[de.ParticipantUUID] = &Entry{
+				archerMap[de.ParticipantUUID] = &models.QualificationEntry{
 					ParticipantUUID: de.ParticipantUUID,
 					ArcherUUID:      de.ArcherUUID,
 					ArcherName:      de.ArcherName,
 					AvatarURL:       de.AvatarURL,
 					ClubName:        de.ClubName,
-					Sessions:        []SessionScore{},
+					Sessions:        []models.QualificationSessionScore{},
 				}
 				archerOrder = append(archerOrder, de.ParticipantUUID)
 			}
@@ -166,7 +143,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 				if de.EndScores != nil {
 					endScores = *de.EndScores
 				}
-				entry.Sessions = append(entry.Sessions, SessionScore{
+				entry.Sessions = append(entry.Sessions, models.QualificationSessionScore{
 					AssignmentUUID: de.AssignmentUUID,
 					SessionCode:    *de.SessionCode,
 					SessionName:    *de.SessionName,
@@ -180,7 +157,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Convert map to slice and sort
-		leaderboard := make([]*Entry, 0, len(archerOrder))
+		leaderboard := make([]*models.QualificationEntry, 0, len(archerOrder))
 		for _, uuid := range archerOrder {
 			leaderboard = append(leaderboard, archerMap[uuid])
 		}
@@ -200,9 +177,14 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			leaderboard[i].Rank = i + 1
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"results":    leaderboard,
-			"total_ends": totalCumulativeEnds,
+		var finalLeaderboard []models.QualificationEntry
+		for _, e := range leaderboard {
+			finalLeaderboard = append(finalLeaderboard, *e)
+		}
+
+		c.JSON(http.StatusOK, models.QualificationResultsResponse{
+			Leaderboard:         finalLeaderboard,
+			TotalCumulativeEnds: totalCumulativeEnds,
 		})
 	}
 }
@@ -214,7 +196,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Param category_id query string true "Category UUID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} models.EliminationResultsResponse
 // @Router /mobile/events/{slug}/results/elimination [get]
 func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -278,37 +260,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get all matches for this bracket
-		type MatchEndScore struct {
-			EndNo  int `json:"end_no"`
-			ScoreA int `json:"score_a"`
-			ScoreB int `json:"score_b"`
-		}
-
-		type Match struct {
-			UUID            string          `db:"uuid" json:"uuid"`
-			MatchID         string          `db:"match_id" json:"id"`
-			RoundNo         int             `db:"round_no" json:"round_no"`
-			MatchNo         int             `db:"match_no" json:"match_no"`
-			EntryAUUID      *string         `db:"entry_a_uuid" json:"entry_a_id"`
-			EntryAName      *string         `db:"entry_a_name" json:"entry_a_name"`
-			EntryASeed      *int            `db:"entry_a_seed" json:"entry_a_seed"`
-			EntryBUUID      *string         `db:"entry_b_uuid" json:"entry_b_id"`
-			EntryBName      *string         `db:"entry_b_name" json:"entry_b_name"`
-			EntryBSeed      *int            `db:"entry_b_seed" json:"entry_b_seed"`
-			WinnerEntryUUID *string         `db:"winner_entry_uuid" json:"winner_entry_id"`
-			Status          string          `db:"status" json:"status"`
-			IsBye           bool            `db:"is_bye" json:"is_bye"`
-			TotalScoreA     int             `json:"total_score_a"`
-			TotalScoreB     int             `json:"total_score_b"`
-			SetPointsA      int             `json:"set_points_a"`
-			SetPointsB      int             `json:"set_points_b"`
-			ShootOffA       *string         `json:"shoot_off_a"`
-			ShootOffB       *string         `json:"shoot_off_b"`
-			Ends            []MatchEndScore `json:"ends"`
-		}
-
-		var matches []Match
+		var matches []models.EliminationMatch
 		err = db.Select(&matches, `
 			SELECT 
 				em.uuid,
@@ -416,7 +368,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 					scA := mEnds[en]["A"]
 					scB := mEnds[en]["B"]
 					
-					matches[i].Ends = append(matches[i].Ends, MatchEndScore{
+					matches[i].Ends = append(matches[i].Ends, models.EliminationMatchEndScore{
 						EndNo:  en,
 						ScoreA: scA,
 						ScoreB: scB,
@@ -488,23 +440,68 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Group matches by round
-		matchesByRound := make(map[int][]Match)
+		matchesByRound := make(map[int][]models.EliminationMatch)
 		for _, match := range matches {
 			matchesByRound[match.RoundNo] = append(matchesByRound[match.RoundNo], match)
 		}
 
-		bracket_result := gin.H{
-			"uuid":           bracket.UUID,
-			"bracket_id":     bracket.BracketID,
-			"bracket_type":   bracket.BracketType,
-			"format":         bracket.Format,
-			"bracket_size":   bracket.BracketSize,
-			"ends_per_match": bracket.EndsPerMatch,
-			"arrows_per_end": bracket.ArrowsPerEnd,
-			"generated_at":   bracket.GeneratedAt,
-			"matches":        matchesByRound,
+		c.JSON(http.StatusOK, gin.H{
+			"bracket": models.EliminationResultsResponse{
+				UUID:           bracket.UUID,
+				BracketID:      bracket.BracketID,
+				BracketType:    bracket.BracketType,
+				Format:         bracket.Format,
+				BracketSize:    bracket.BracketSize,
+				EndsPerMatch:   bracket.EndsPerMatch,
+				ArrowsPerEnd:   bracket.ArrowsPerEnd,
+				GeneratedAt:    bracket.GeneratedAt,
+				MatchesByRound: matchesByRound,
+			},
+		})
+	}
+}
+
+// GetEventResultFiles returns result files associated with an event
+// @Summary Get Event Result Files
+// @Description Get list of result files (PDF/XLSX) uploaded for an event
+// @Tags Mobile - Events
+// @Produce json
+// @Param slug path string true "Event Slug or UUID"
+// @Success 200 {object} mobile.MobileEventResultFilesResponse
+// @Router /mobile/events/{slug}/results/files [get]
+func GetEventResultFiles(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("slug")
+
+		var pageSettingsRaw *string
+		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM events WHERE uuid = ? OR slug = ?", id, id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"bracket": bracket_result})
+		if pageSettingsRaw == nil || *pageSettingsRaw == "" {
+			c.JSON(http.StatusOK, gin.H{"files": []interface{}{}})
+			return
+		}
+
+		var settings struct {
+			Results []struct {
+				Name  string `json:"name"`
+				Title string `json:"title"`
+				URL   string `json:"url"`
+				Type  string `json:"type"`
+				Size  int64  `json:"size"`
+			} `json:"results"`
+		}
+
+		if err := json.Unmarshal([]byte(*pageSettingsRaw), &settings); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses data event"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"files": settings.Results,
+		})
 	}
 }

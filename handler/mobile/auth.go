@@ -292,16 +292,7 @@ func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 // @Router /mobile/auth/archer/register [post]
 func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req struct {
-			Email       string `json:"email" binding:"required,email"`
-			Password    string `json:"password" binding:"required,min=6"`
-			FullName    string `json:"full_name" binding:"required"`
-			Phone       string `json:"phone"`
-			Gender      string `json:"gender"`
-			DateOfBirth string `json:"date_of_birth"`
-			City        string `json:"city"`
-			BowType     string `json:"bow_type"`
-		}
+		var req MobileArcherRegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return

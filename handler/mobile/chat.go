@@ -17,8 +17,8 @@ import (
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
-// @Param request body object true "Conversation Details"
-// @Success 200 {object} map[string]interface{}
+// @Param request body MobileChatCreateConversationRequest true "Conversation Details"
+// @Success 200 {object} ChatConversation
 // @Router /mobile/chat/conversations [post]
 func MobileStartOrGetConversation(db *sqlx.DB) gin.HandlerFunc {
 	return handler.StartOrGetConversation(db)
@@ -30,7 +30,7 @@ func MobileStartOrGetConversation(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Chat
 // @Produce json
 // @Security ApiKeyAuth
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MobileConversationListResponse
 // @Router /mobile/chat/conversations [get]
 func MobileListConversations(db *sqlx.DB) gin.HandlerFunc {
 	return handler.ListConversations(db)
@@ -43,7 +43,7 @@ func MobileListConversations(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Conversation UUID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MobileConversationMessagesResponse
 // @Router /mobile/chat/conversations/{id}/messages [get]
 func MobileGetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 	return handler.GetConversationMessages(db)
@@ -57,8 +57,8 @@ func MobileGetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Conversation UUID"
-// @Param request body object true "Message Content"
-// @Success 201 {object} map[string]interface{}
+// @Param request body MobileChatSendMessageRequest true "Message Content"
+// @Success 201 {object} ChatMessage
 // @Router /mobile/chat/conversations/{id}/messages [post]
 func MobileSendMessage(db *sqlx.DB) gin.HandlerFunc {
 	return handler.SendMessage(db)
@@ -70,7 +70,7 @@ func MobileSendMessage(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Chat
 // @Produce json
 // @Security ApiKeyAuth
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MobileChatUnreadCountResponse
 // @Router /mobile/chat/unread [get]
 func MobileGetChatUnreadCount(db *sqlx.DB) gin.HandlerFunc {
 	return handler.GetChatUnreadCount(db)
@@ -84,7 +84,7 @@ func MobileGetChatUnreadCount(db *sqlx.DB) gin.HandlerFunc {
 // @Security ApiKeyAuth
 // @Param peer_type query string true "seller or archer"
 // @Param peer_id query string true "Peer UUID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MobilePeerLastActiveResponse
 // @Router /mobile/chat/last-active [get]
 func MobileGetPeerLastActive(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

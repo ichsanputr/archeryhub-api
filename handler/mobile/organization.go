@@ -8,53 +8,19 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type OrganizationDashboard struct {
-	Stats struct {
-		TotalEvents       int     `json:"total_events"`
-		ActiveEvents      int     `json:"active_events"`
-		TotalParticipants int     `json:"total_participants"`
-		TotalRevenue      float64 `json:"total_revenue"`
-		MonthlyRevenue    float64 `json:"monthly_revenue"`
-		PendingRevenue    float64 `json:"pending_revenue"`
-	} `json:"stats"`
-	RecentParticipants []RecentParticipant `json:"recent_participants"`
-	RecentPayments     []RecentPayment     `json:"recent_payments"`
-	UpcomingDeadlines  []UpcomingDeadline  `json:"upcoming_deadlines"`
-}
-
-type UpcomingDeadline struct {
-	EventName string    `json:"event_name" db:"name"`
-	Deadline  time.Time `json:"deadline" db:"registration_deadline"`
-	DaysLeft  int       `json:"days_left" json:"days_left"`
-}
-
-type RecentParticipant struct {
-	Name      string    `json:"name" db:"full_name"`
-	EventName string    `json:"event_name" db:"event_name"`
-	Date      time.Time `json:"date" db:"created_at"`
-}
-
-type RecentPayment struct {
-	Amount    float64    `json:"amount" db:"amount"`
-	Athlete   string     `json:"athlete" db:"full_name"`
-	EventName string     `json:"event_name" db:"event_name"`
-	Date      *time.Time `json:"date" db:"paid_at"`
-	Status    string     `json:"status" db:"status"`
-}
-
 // @Summary Get Organization Dashboard Statistics
 // @Description Get dashboard statistics, recent participants and payments for organization
 // @Tags Mobile - Organization
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
-// @Success 200 {object} OrganizationDashboard
+// @Success 200 {object} MobileOrganizationDashboardResponse
 // @Router /mobile/organization/dashboard [get]
 func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 
-		var dashboard OrganizationDashboard
+		var dashboard MobileOrganizationDashboardResponse
 
 		// 1. Stats
 		// Events

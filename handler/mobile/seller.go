@@ -78,7 +78,7 @@ func MobileGetSellerDashboard(db *sqlx.DB) gin.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MobileSellerProductsResponse
 // @Router /mobile/seller/products [get]
 func MobileGetSellerProducts(db *sqlx.DB) gin.HandlerFunc {
 	return handler.GetMyProducts(db)
@@ -90,8 +90,8 @@ func MobileGetSellerProducts(db *sqlx.DB) gin.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
-// @Param product body interface{} true "Product object"
-// @Success 201 {object} map[string]interface{}
+// @Param product body models.CreateProductRequest true "Product object"
+// @Success 201 {object} ProductActionResponse
 // @Router /mobile/seller/products [post]
 func MobileCreateProduct(db *sqlx.DB) gin.HandlerFunc {
 	return handler.CreateProduct(db)
@@ -104,8 +104,8 @@ func MobileCreateProduct(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Product UUID"
-// @Param product body interface{} true "Product object"
-// @Success 200 {object} map[string]interface{}
+// @Param product body models.UpdateProductRequest true "Product object"
+// @Success 200 {object} MessageResponse
 // @Router /mobile/seller/products/{id} [put]
 func MobileUpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 	return handler.UpdateProduct(db)
@@ -118,7 +118,7 @@ func MobileUpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Product UUID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MessageResponse
 // @Router /mobile/seller/products/{id} [delete]
 func MobileDeleteProduct(db *sqlx.DB) gin.HandlerFunc {
 	return handler.DeleteProduct(db)

@@ -171,9 +171,7 @@ func MobileChatbotMessage() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loadChatbotIntentsFromFile()
 
-		var req struct {
-			Message string `json:"message" binding:"required"`
-		}
+		var req MobileChatbotMessageRequest
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Pesan wajib diisi"})

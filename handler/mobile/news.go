@@ -163,11 +163,7 @@ func MobileAddNewsComment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 		
-		var req struct {
-			UserID    string `json:"user_id"`
-			GuestName string `json:"guest_name"`
-			Content   string `json:"content" binding:"required"`
-		}
+		var req MobileAddNewsCommentRequest
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Data komentar tidak valid"})

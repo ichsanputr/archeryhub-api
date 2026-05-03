@@ -20,7 +20,7 @@ import (
 
 // @title ArcheryHub Mobile API
 // @version 1.1
-// @description Dedicated API for ArcheryHub Mobile App (Archer & Scorekeeper)
+// @description Dedicated API for ArcheryHub Mobile App
 // @termsOfService http://archeryhub.id/terms/
 
 // @contact.name ArcheryHub Support
@@ -575,6 +575,7 @@ func main() {
 			mobile.GET("/events/:slug/gallery", mobilehandler.MobileGetEventGallery(db))
 			mobile.GET("/events/:slug/results/qualification", handler.GetPublicQualificationResults(db))
 			mobile.GET("/events/:slug/results/elimination", handler.GetPublicEliminationResults(db))
+			mobile.GET("/events/:slug/results/files", handler.GetEventResultFiles(db))
 
 			// 2b. News (public read-only)
 			mobile.GET("/news", mobilehandler.MobileListNews(db))

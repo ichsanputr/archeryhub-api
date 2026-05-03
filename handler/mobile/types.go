@@ -1,6 +1,9 @@
 package mobile
 
-import "archeryhub-api/models"
+import (
+	"archeryhub-api/models"
+	"time"
+)
  
 // MobileResponse is a generic response for mobile API.
 type MobileResponse struct {
@@ -13,10 +16,25 @@ type MessageResponse struct {
 	Message string `json:"message" example:"Operation successful"`
 }
 
+type OptionData struct {
+	UUID string `db:"uuid" json:"id"`
+	Name string `db:"name" json:"name"`
+}
+
+type OptionsResponse struct {
+	Data []OptionData `json:"data"`
+}
+
 type Intent struct {
 	Name     string   `json:"name"`
 	Examples []string `json:"examples"`
 	Answer   string   `json:"answer"`
+}
+
+// ProductActionResponse represents the response for create/update product.
+type ProductActionResponse struct {
+	Message string `json:"message" example:"Operation successful"`
+	ID      string `json:"id,omitempty" example:"uuid-string"`
 }
 
 // MobileUser represents user information in mobile login response.
@@ -40,14 +58,14 @@ type MobileLoginResponse struct {
 
 // MobileArcherRegisterRequest represents the registration payload for a new archer.
 type MobileArcherRegisterRequest struct {
-	Email     string `json:"email" example:"archer@example.com"`
-	Password  string `json:"password" example:"securepassword123"`
-	FullName  string `json:"full_name" example:"Rizky Pratama"`
-	Phone     string `json:"phone" example:"081234567890"`
-	Username  string `json:"username" example:"rizky-pratama"`
-	Gender    string `json:"gender" example:"male"`
-	BirthDate string `json:"birth_date" example:"1995-05-18"`
-	AvatarURL string `json:"avatar_url" example:"https://cdn.archeryhub.id/media/archers/rizky.jpg"`
+	Email       string `json:"email" binding:"required,email" example:"archer@example.com"`
+	Password    string `json:"password" binding:"required,min=6" example:"securepassword123"`
+	FullName    string `json:"full_name" binding:"required" example:"Rizky Pratama"`
+	Phone       string `json:"phone" example:"081234567890"`
+	Gender      string `json:"gender" example:"male"`
+	DateOfBirth string `json:"date_of_birth" example:"1995-05-18"`
+	City        string `json:"city" example:"Jakarta"`
+	BowType     string `json:"bow_type" example:"recurve"`
 }
 
 // MobileEventRegistrationRequest represents the payload for event registration.
@@ -251,14 +269,14 @@ type MobilePaymentTransactionResponse struct {
 
 // MobileCartResponse represents cart contents.
 type MobileCartResponse struct {
-	Data interface{} `json:"data"`
+	Data []models.CartItem `json:"data"`
 }
 
 // MobileCheckoutResponse represents checkout result.
 type MobileCheckoutResponse struct {
-	Message   string      `json:"message"`
-	Reference string      `json:"reference"`
-	Payment   interface{} `json:"payment"`
+	Message   string                           `json:"message"`
+	Reference string                           `json:"reference"`
+	Payment   MobilePaymentTransactionResponse `json:"payment"`
 }
 
 // MobileArcherOrdersResponse represents orders for an archer.
@@ -300,25 +318,122 @@ type MobileScorekeeperEventsResponse struct {
 	TotalCount int           `json:"total_count"`
 }
 
+type MobileScannedBoard struct {
+	UUID         string `json:"uuid"`
+	SessionUUID  string `json:"session_uuid,omitempty"`
+	BracketUUID  string `json:"bracket_uuid,omitempty"`
+	CategoryUUID string `json:"category_uuid,omitempty"`
+	CategoryName string `json:"category_name,omitempty"`
+	BoardNumber  int    `json:"board_number"`
+	Code         string `json:"code"`
+	SessionName  string `json:"session_name,omitempty"`
+	EventUUID    string `json:"event_uuid"`
+	EventName    string `json:"event_name"`
+}
+
+type MobileScannedArcherQualification struct {
+	AssignmentUUID  string  `json:"assignment_uuid"`
+	ParticipantUUID string  `json:"participant_uuid"`
+	Position        string  `json:"position"`
+	TargetName      string  `json:"target_name"`
+	Name            string  `json:"name"`
+	Division        string  `json:"division"`
+	AvatarURL       *string `json:"avatar_url"`
+	CurrentScore    int     `json:"current_score"`
+	EndsCompleted   int     `json:"ends_completed"`
+	TotalEnds       int     `json:"total_ends"`
+}
+
+type MobileScannedArcherElimination struct {
+	MatchUUID  string  `json:"match_uuid"`
+	MatchID    string  `json:"match_id"`
+	Side       string  `json:"side"`
+	TargetName string  `json:"target_name"`
+	Name       string  `json:"name"`
+	Club       string  `json:"club"`
+	AvatarURL  *string `json:"avatar_url"`
+	Score      int     `json:"score"`
+	Status     string  `json:"status"`
+}
+
 // MobileScanTargetResponse represents the result of scanning a target QR.
 type MobileScanTargetResponse struct {
-	Type    string      `json:"type" example:"qualification"`
-	Board   interface{} `json:"board"`
-	Archers interface{} `json:"archers"`
-	Matches interface{} `json:"matches,omitempty"`
+	Type    string             `json:"type" example:"qualification"`
+	Board   MobileScannedBoard `json:"board"`
+	Archers interface{}        `json:"archers" swaggertype:"array,object"` // Can be []MobileScannedArcherQualification or []MobileScannedArcherElimination
+}
+
+type MobileSessionInfo struct {
+	UUID         string `json:"uuid"`
+	Name         string `json:"name"`
+	EventUUID    string `json:"event_uuid"`
+	EventName    string `json:"event_name"`
+	TotalEnds    int    `json:"total_ends"`
+	ArrowsPerEnd int    `json:"arrows_per_end"`
+}
+
+type MobileArcherAtBoard struct {
+	AssignmentUUID  string  `json:"assignment_uuid"`
+	ParticipantUUID string  `json:"participant_uuid"`
+	TargetName      string  `json:"target_name"`
+	BoardNumber     int     `json:"board_number"`
+	Position        string  `json:"position"`
+	Name            string  `json:"name"`
+	Division        string  `json:"division"`
+	AvatarURL       *string `json:"avatar_url"`
+	CurrentScore    int     `json:"current_score"`
+	EndsCompleted   int     `json:"ends_completed"`
+	LastEndScore    int     `json:"last_end_score"`
+	Rank            int     `json:"rank,omitempty"`
 }
 
 // MobileSessionBoardsResponse represents the leaderboard for a session.
 type MobileSessionBoardsResponse struct {
-	Session interface{} `json:"session"`
-	Archers interface{} `json:"archers"`
+	Session MobileSessionInfo     `json:"session"`
+	Archers []MobileArcherAtBoard `json:"archers"`
+}
+
+type MobileAssignmentMeta struct {
+	UUID         string  `json:"uuid"`
+	SessionUUID  string  `json:"session_uuid"`
+	SessionName  string  `json:"session_name"`
+	EventName    string  `json:"event_name"`
+	TargetName   string  `json:"target_name"`
+	ArcherName   string  `json:"archer_name"`
+	Division     string  `json:"division"`
+	AvatarURL    *string `json:"avatar_url"`
+	TotalEnds    int     `json:"total_ends"`
+	ArrowsPerEnd int     `json:"arrows_per_end"`
+}
+
+type MobileArrowScore struct {
+	ArrowNumber int  `json:"arrow_number"`
+	Score       int  `json:"score"`
+	IsX         bool `json:"is_x"`
+}
+
+type MobileEndScore struct {
+	EndNumber       int                `json:"end_number"`
+	EndScoreUUID    string             `json:"end_score_uuid"`
+	EndTotal        int                `json:"end_total"`
+	XCount          int                `json:"x_count"`
+	TenCount        int                `json:"ten_count"`
+	CumulativeTotal int                `json:"cumulative_total"`
+	Arrows          []MobileArrowScore `json:"arrows"`
+}
+
+type MobileScoreSummary struct {
+	TotalScore    int `json:"total_score"`
+	TotalX        int `json:"total_x"`
+	TotalTenPlusX int `json:"total_ten_plus_x"`
+	EndsCompleted int `json:"ends_completed"`
 }
 
 // MobileAssignmentScoreDetailResponse represents arrow-by-arrow scores.
 type MobileAssignmentScoreDetailResponse struct {
-	Assignment interface{} `json:"assignment"`
-	Summary    interface{} `json:"summary"`
-	Ends       interface{} `json:"ends"`
+	Assignment MobileAssignmentMeta `json:"assignment"`
+	Summary    MobileScoreSummary   `json:"summary"`
+	Ends       []MobileEndScore     `json:"ends"`
 }
 
 // MobileMyRegistrationResponse represents registrations for a specific event.
@@ -412,10 +527,8 @@ type MobileSellerProfileResponse struct {
 
 // MobileSellerProductsResponse represents /mobile/seller/products.
 type MobileSellerProductsResponse struct {
-	Products []models.Product `json:"products"`
-	Total    int              `json:"total"`
-	Limit    int              `json:"limit"`
-	Offset   int              `json:"offset"`
+	Data []models.Product `json:"data"`
+	Meta interface{}      `json:"meta"`
 }
 
 // MobileOrganizationProfileData represents organization profile data for mobile.
@@ -614,6 +727,99 @@ type MobileUpdateArcherProfileRequest struct {
 	AvatarURL   *string `json:"avatar_url"`
 }
 
+// ChatConversation represents a chat between archer and seller.
+type ChatConversation struct {
+	ID            string     `json:"id"`
+	ArcherID      string     `json:"archer_id"`
+	SellerID      string     `json:"seller_id"`
+	ProductID     *string    `json:"product_id"`
+	ProductName   *string    `json:"product_name"`
+	ProductImage  *string    `json:"product_image"`
+	LastMessage   *string    `json:"last_message"`
+	LastMessageAt time.Time  `json:"last_message_at"`
+	ArcherUnread  int        `json:"archer_unread"`
+	SellerUnread  int        `json:"seller_unread"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	ArcherName    string     `json:"archer_name"`
+	ArcherAvatar  *string    `json:"archer_avatar"`
+	SellerName    string     `json:"seller_name"`
+	SellerAvatar  *string    `json:"seller_avatar"`
+}
+
+// ChatMessage represents a single chat message.
+type ChatMessage struct {
+	ID             string    `json:"id"`
+	ConversationID string    `json:"conversation_id"`
+	SenderType     string    `json:"sender_type"`
+	SenderID       string    `json:"sender_id"`
+	Message        string    `json:"message"`
+	IsRead         bool      `json:"is_read"`
+	CreatedAt      time.Time `json:"created_at"`
+	SenderName     string    `json:"sender_name"`
+	SenderAvatar   *string   `json:"sender_avatar"`
+}
+
+// MobileConversationListResponse represents /mobile/chat/conversations [get].
+type MobileConversationListResponse struct {
+	Conversations []ChatConversation `json:"conversations"`
+	UnreadTotal   int                `json:"unread_total"`
+}
+
+// MobileConversationMessagesResponse represents /mobile/chat/conversations/{id}/messages [get].
+type MobileConversationMessagesResponse struct {
+	Conversation *ChatConversation `json:"conversation"`
+	Messages     []ChatMessage     `json:"messages"`
+}
+
+// MobileChatUnreadCountResponse represents /mobile/chat/unread.
+type MobileChatUnreadCountResponse struct {
+	Unread int `json:"unread"`
+}
+
+// MobilePeerLastActiveResponse represents /mobile/chat/last-active.
+type MobilePeerLastActiveResponse struct {
+	PeerType   string     `json:"peer_type"`
+	PeerID     string     `json:"peer_id"`
+	LastSeenAt *time.Time `json:"last_seen_at"`
+	IsOnline   bool       `json:"is_online"`
+	ServerTime string     `json:"server_time"`
+}
+
+type QualificationSessionScore struct {
+	AssignmentUUID string `json:"assignment_id"`
+	SessionCode    string `json:"session_code"`
+	SessionName    string `json:"session_name"`
+	EndScores      string `json:"end_scores"`
+	TotalEnds      int    `json:"total_ends"`
+	TotalScore     int    `json:"total_score"`
+	TotalTenX      int    `json:"total_10x"`
+	TotalX         int    `json:"total_x"`
+}
+
+type QualificationEntry struct {
+	Rank            int                         `json:"rank"`
+	ParticipantUUID string                      `json:"participant_id"`
+	ArcherUUID      string                      `json:"archer_uuid"`
+	ArcherName      string                      `json:"archer_name"`
+	AvatarURL       *string                     `json:"avatar_url"`
+	ClubName        *string                     `json:"club_name"`
+	TotalScore      int                         `json:"total_score"`
+	TotalTenX       int                         `json:"total_10x"`
+	TotalX          int                         `json:"total_x"`
+	EndsCompleted   int                         `json:"ends_completed"`
+	Sessions        []QualificationSessionScore `json:"sessions"`
+}
+
+type QualificationResultsResponse struct {
+	TotalCumulativeEnds int                  `json:"total_cumulative_ends"`
+	Leaderboard         []QualificationEntry `json:"leaderboard"`
+}
+
+type EliminationResultsResponse struct {
+	Data interface{} `json:"data"`
+}
+
 // MobileOrganizationScanRegistrationRequest represents registration scan payload.
 type MobileOrganizationScanRegistrationRequest struct {
 	Code string `json:"code" binding:"required" example:"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
@@ -629,4 +835,90 @@ type MobileOrganizationScanRegistrationResponse struct {
 	ClubName             *string `json:"club_name" example:"ArcheryHub Club Jakarta"`
 	PaymentStatus        string  `json:"payment_status" example:"lunas"`
 	LastReregistrationAt *string `json:"last_reregistration_at" example:"2026-03-27T10:00:00Z"`
+}
+type MobileUpcomingDeadline struct {
+	EventName string    `json:"event_name" db:"name"`
+	Deadline  time.Time `json:"deadline" db:"registration_deadline"`
+	DaysLeft  int       `json:"days_left"`
+}
+
+type MobileRecentParticipant struct {
+	Name      string    `json:"name" db:"full_name"`
+	EventName string    `json:"event_name" db:"event_name"`
+	Date      time.Time `json:"date" db:"created_at"`
+}
+
+type MobileRecentPayment struct {
+	Amount    float64    `json:"amount" db:"amount"`
+	Athlete   string     `json:"athlete" db:"full_name"`
+	EventName string     `json:"event_name" db:"event_name"`
+	Date      *time.Time `json:"date" db:"paid_at"`
+	Status    string     `json:"status" db:"status"`
+}
+
+// MobileOrganizationDashboardResponse represents dashboard statistics for organization.
+type MobileOrganizationDashboardResponse struct {
+	Stats struct {
+		TotalEvents       int     `json:"total_events"`
+		ActiveEvents      int     `json:"active_events"`
+		TotalParticipants int     `json:"total_participants"`
+		TotalRevenue      float64 `json:"total_revenue"`
+		MonthlyRevenue    float64 `json:"monthly_revenue"`
+		PendingRevenue    float64 `json:"pending_revenue"`
+	} `json:"stats"`
+	RecentParticipants []MobileRecentParticipant `json:"recent_participants"`
+	RecentPayments     []MobileRecentPayment     `json:"recent_payments"`
+	UpcomingDeadlines  []MobileUpcomingDeadline  `json:"upcoming_deadlines"`
+}
+type MobileArcherEventDetailResponse struct {
+	Event        MobileEventDetail `json:"event"`
+	IsRegistered bool              `json:"is_registered"`
+	Registration struct {
+		ID            string  `json:"id"`
+		PaymentStatus string  `json:"payment_status"`
+		TargetName    *string `json:"target_name"`
+		PaymentAmount float64 `json:"payment_amount"`
+	} `json:"registration"`
+}
+
+type MobileEventParticipantsResponse struct {
+	Participants []models.EventParticipantPreview `json:"participants"`
+}
+
+type MobileEventScheduleResponse struct {
+	Schedules []models.EventSchedule `json:"schedules"`
+}
+
+
+type MobileChatCreateConversationRequest struct {
+	SellerID     string  `json:"seller_id" binding:"required"`
+	ProductID    *string `json:"product_id"`
+	ProductName  *string `json:"product_name"`
+	ProductImage *string `json:"product_image"`
+}
+
+type MobileChatSendMessageRequest struct {
+	Message string `json:"message" binding:"required"`
+}
+
+type MobileEventCategoriesResponse struct {
+	CompetitionCategories []models.EventCompetitionCategory `json:"competition_categories"`
+}
+
+type MobileEventGalleryResponse struct {
+	Gallery []models.EventImage `json:"gallery"`
+}
+
+// MobileEventResultFile represents a result file associated with an event.
+type MobileEventResultFile struct {
+	Name  string `json:"name"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
+	Type  string `json:"type"`
+	Size  int64  `json:"size"`
+}
+
+// MobileEventResultFilesResponse represents the list of result files.
+type MobileEventResultFilesResponse struct {
+	Files []MobileEventResultFile `json:"files"`
 }

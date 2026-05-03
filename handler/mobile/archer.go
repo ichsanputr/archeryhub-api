@@ -42,17 +42,7 @@ func MobileRegisterForEvent(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		userID, _ := c.Get("user_id")
 
-		var req struct {
-			EventID            string   `json:"event_id"`
-			AthleteID          string   `json:"athlete_id"`
-			EventCategoryID    string   `json:"event_category_id"`
-			EventCategoryIDs   []string `json:"event_category_ids"`
-			PaymentAmount      float64  `json:"payment_amount"`
-			PaymentProofURLs   []string `json:"payment_proof_urls"`
-			PaymentStatus      string   `json:"payment_status"`
-			RegistrationSource string   `json:"registration_source"`
-			PaymentType        string   `json:"payment_type"` // manual, online, gateway
-		}
+		var req MobileEventRegistrationRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return

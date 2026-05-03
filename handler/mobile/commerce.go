@@ -480,7 +480,15 @@ func MobileArcherCheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, MobileCheckoutResponse{
 			Message:   "Pesanan berhasil dibuat",
 			Reference: merchantRef,
-			Payment:   tripayResult,
+			Payment: MobilePaymentTransactionResponse{
+				ID:              transactionID,
+				Reference:       merchantRef,
+				TripayReference: utils.InterfaceToStringPtr(tripayResult["reference"]),
+				Amount:          totalAmount,
+				VANumber:        utils.InterfaceToStringPtr(tripayResult["pay_code"]),
+				CheckoutURL:     utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
+				Status:          "pending",
+			},
 		})
 	}
 }

@@ -101,7 +101,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} MobileArcherEventDetailResponse
 // @Router /mobile/archer/events/{id}/detail [get]
 func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -256,7 +256,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Events
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
-// @Success 200 {object} map[string][]models.EventParticipantPreview
+// @Success 200 {object} MobileEventParticipantsResponse
 // @Router /mobile/events/{slug}/participants [get]
 func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -283,7 +283,7 @@ func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Events
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
-// @Success 200 {object} map[string][]models.EventSchedule
+// @Success 200 {object} MobileEventScheduleResponse
 // @Router /mobile/events/{slug}/schedule [get]
 func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -310,7 +310,7 @@ func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Events
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
-// @Success 200 {object} map[string][]models.EventCompetitionCategory
+// @Success 200 {object} MobileEventCategoriesResponse
 // @Router /mobile/events/{slug}/categories [get]
 func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -337,7 +337,7 @@ func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 // @Tags Mobile - Events
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
-// @Success 200 {object} map[string][]models.EventImage
+// @Success 200 {object} MobileEventGalleryResponse
 // @Router /mobile/events/{slug}/gallery [get]
 func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

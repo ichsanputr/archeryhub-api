@@ -55,7 +55,16 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 			sk.AvatarURL = &masked
 		}
 
-		c.JSON(http.StatusOK, sk)
+		c.JSON(http.StatusOK, MobileScorekeeperMeResponse{
+			UUID:             sk.UUID,
+			OrganizationUUID: sk.OrganizationUUID,
+			Code:             sk.Code,
+			Name:             sk.Name,
+			Email:            sk.Email,
+			AvatarURL:        sk.AvatarURL,
+			Status:           sk.Status,
+			OrganizationName: sk.OrgName,
+		})
 	}
 }
 
@@ -109,9 +118,9 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"events":      events,
-			"total_count": len(events),
+		c.JSON(http.StatusOK, MobileScorekeeperEventsResponse{
+			Events:     events,
+			TotalCount: len(events),
 		})
 	}
 }
