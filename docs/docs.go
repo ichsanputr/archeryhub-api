@@ -24,6 +24,578 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/archer/events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get list of all events the archer is registered in",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Get My Events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileMyEventsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/archer/events/{id}/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get event details including registration status for the authenticated archer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Get Event Detail (Archer)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileArcherEventDetailResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/archer/events/{id}/qr": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get the digital ID / QR code for event check-in",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Get Event QR Code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/archer/events/{id}/register/manual": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Register the authenticated archer for an event using manual transfer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Register for Event (Manual)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID or Slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Registration Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventManualRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/archer/events/{id}/register/payment-gateway": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Register the authenticated archer for an event using online payment gateway",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Register for Event (Payment Gateway)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID or Slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Registration Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventGatewayRegistrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/archer/events/{id}/registration": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get current user's registration and payment status for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Archer"
+                ],
+                "summary": "Get My Registration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileMyRegistrationResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events": {
+            "get": {
+                "description": "Get a list of active or past events optimized for mobile",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "List Mobile Events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Pagination limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name or location",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter past events",
+                        "name": "history",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}": {
+            "get": {
+                "description": "Get summary and location details for a specific event\nGet summary details for a specific event without location, FAQ, or other granular info",
+                "produces": [
+                    "application/json",
+                    "application/json"
+                ],
+                "tags": [
+                    "Events",
+                    "Events"
+                ],
+                "summary": "Get Mobile Event Detail (Slim)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventDetailSlim"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/categories": {
+            "get": {
+                "description": "Get list of divisions and age groups in this event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Categories",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventCategoriesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/faq": {
+            "get": {
+                "description": "Get the list of frequently asked questions for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event FAQ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventFAQResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/gallery": {
+            "get": {
+                "description": "Get event gallery and documentation images",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Gallery",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventGalleryResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/location": {
+            "get": {
+                "description": "Get detailed location information and accessibility for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Location",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventLocationResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/participants": {
+            "get": {
+                "description": "Get the list of registered archers for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Participants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventParticipantsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/payment-method": {
+            "get": {
+                "description": "Get a list of available payment methods (manual bank transfer and online gateway) for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Payment Methods",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventPaymentMethodsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/registration-fee": {
+            "get": {
+                "description": "Get the list of registration fees and categories for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Registration Fees",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventFeesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/rewards": {
+            "get": {
+                "description": "Get the list of prizes and rewards for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Rewards",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventRewardsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/{slug}/schedule": {
+            "get": {
+                "description": "Get the daily schedule and rundown for an event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get Event Schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event Slug or UUID",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mobile.MobileEventScheduleResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/archer/cart": {
             "get": {
                 "security": [
@@ -226,31 +798,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get list of all events the archer is registered in",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Archer"
-                ],
-                "summary": "Get My Events",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileMyEventsResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/mobile/archer/events/payments": {
             "get": {
                 "security": [
@@ -324,83 +871,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/{id}/detail": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get event details including registration status for the authenticated archer",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Archer"
-                ],
-                "summary": "Get Event Detail (Archer)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileArcherEventDetailResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/archer/events/{id}/qr": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get the digital ID / QR code for event check-in",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Archer"
-                ],
-                "summary": "Get Event QR Code",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/archer/events/{id}/register/manual": {
+        "/mobile/archer/events/register": {
             "post": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Register the authenticated archer for an event using manual transfer",
+                "description": "Register the authenticated archer for an event (handles both manual and gateway)",
                 "consumes": [
                     "application/json"
                 ],
@@ -410,22 +888,15 @@ const docTemplate = `{
                 "tags": [
                     "Mobile - Archer"
                 ],
-                "summary": "Register for Event (Manual)",
+                "summary": "Register for Event (Unified)",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event UUID or Slug",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "Registration Details",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventManualRegistrationRequest"
+                            "$ref": "#/definitions/mobile.MobileRegisterEventRequest"
                         }
                     }
                 ],
@@ -434,86 +905,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/archer/events/{id}/register/payment-gateway": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Register the authenticated archer for an event using online payment gateway",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Archer"
-                ],
-                "summary": "Register for Event (Payment Gateway)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event UUID or Slug",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Registration Details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventGatewayRegistrationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/archer/events/{id}/registration": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get current user's registration and payment status for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Archer"
-                ],
-                "summary": "Get My Registration",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileMyRegistrationResponse"
                         }
                     }
                 }
@@ -1560,52 +1951,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events": {
-            "get": {
-                "description": "Get a list of active or past events optimized for mobile",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "List Mobile Events",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Pagination limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Pagination offset",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search by name or location",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Filter past events",
-                        "name": "history",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventsResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/mobile/events/payments/{reference}/instructions": {
             "get": {
                 "security": [
@@ -1636,254 +1981,6 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}": {
-            "get": {
-                "description": "Get summary and location details for a specific event\nGet summary details for a specific event without location, FAQ, or other granular info",
-                "produces": [
-                    "application/json",
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events",
-                    "Mobile - Events"
-                ],
-                "summary": "Get Mobile Event Detail (Slim)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventDetailSlim"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/categories": {
-            "get": {
-                "description": "Get list of divisions and age groups in this event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Categories",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventCategoriesResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/faq": {
-            "get": {
-                "description": "Get the list of frequently asked questions for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event FAQ",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventFAQResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/gallery": {
-            "get": {
-                "description": "Get event gallery and documentation images",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Gallery",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventGalleryResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/location": {
-            "get": {
-                "description": "Get detailed location information and accessibility for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Location",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventLocationResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/participants": {
-            "get": {
-                "description": "Get the list of registered archers for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Participants",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventParticipantsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/payment-method": {
-            "get": {
-                "description": "Get a list of available payment methods (manual bank transfer and online gateway) for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Payment Methods",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventPaymentMethodsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/registration-fee": {
-            "get": {
-                "description": "Get the list of registration fees and categories for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Registration Fees",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventFeesResponse"
                         }
                     }
                 }
@@ -1985,64 +2082,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.QualificationResultsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/rewards": {
-            "get": {
-                "description": "Get the list of prizes and rewards for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Rewards",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventRewardsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mobile/events/{slug}/schedule": {
-            "get": {
-                "description": "Get the daily schedule and rundown for an event",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Mobile - Events"
-                ],
-                "summary": "Get Event Schedule",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event Slug or UUID",
-                        "name": "slug",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventScheduleResponse"
                         }
                     }
                 }
@@ -2658,6 +2697,43 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/mobile.MobileOrganizationParticipantDetail"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove a participant and all their associated scores/assignments from an event",
+                "tags": [
+                    "Mobile - Organization"
+                ],
+                "summary": "Kick Participant from Event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Archer UUID or Participant UUID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4637,6 +4713,14 @@ const docTemplate = `{
                 "payment_method": {
                     "type": "string",
                     "example": "BCAVA"
+                },
+                "payment_type": {
+                    "type": "string",
+                    "example": "online"
+                },
+                "registration_source": {
+                    "type": "string",
+                    "example": "mobile_app"
                 }
             }
         },
@@ -5898,6 +5982,39 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "mobile.MobileRegisterEventRequest": {
+            "type": "object",
+            "required": [
+                "event_id"
+            ],
+            "properties": {
+                "athlete_id": {
+                    "type": "string"
+                },
+                "event_category_id": {
+                    "type": "string"
+                },
+                "event_category_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
+                "payment_type": {
+                    "description": "\"online\" or \"manual\"",
+                    "type": "string"
+                },
+                "registration_source": {
                     "type": "string"
                 }
             }

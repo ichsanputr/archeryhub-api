@@ -773,6 +773,12 @@ definitions:
       payment_method:
         example: BCAVA
         type: string
+      payment_type:
+        example: online
+        type: string
+      registration_source:
+        example: mobile_app
+        type: string
     type: object
   mobile.MobileEventLocationResponse:
     properties:
@@ -1628,6 +1634,28 @@ definitions:
         type: string
       status:
         type: string
+    type: object
+  mobile.MobileRegisterEventRequest:
+    properties:
+      athlete_id:
+        type: string
+      event_category_id:
+        type: string
+      event_category_ids:
+        items:
+          type: string
+        type: array
+      event_id:
+        type: string
+      payment_method:
+        type: string
+      payment_type:
+        description: '"online" or "manual"'
+        type: string
+      registration_source:
+        type: string
+    required:
+    - event_id
     type: object
   mobile.MobileRegisterEventResponse:
     properties:
@@ -2554,6 +2582,380 @@ info:
   title: ArcheryHub Mobile API
   version: "1.1"
 paths:
+  /archer/events:
+    get:
+      description: Get list of all events the archer is registered in
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMyEventsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get My Events
+      tags:
+      - Archer
+  /archer/events/{id}/detail:
+    get:
+      description: Get event details including registration status for the authenticated
+        archer
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileArcherEventDetailResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get Event Detail (Archer)
+      tags:
+      - Archer
+  /archer/events/{id}/qr:
+    get:
+      description: Get the digital ID / QR code for event check-in
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get Event QR Code
+      tags:
+      - Archer
+  /archer/events/{id}/register/manual:
+    post:
+      consumes:
+      - application/json
+      description: Register the authenticated archer for an event using manual transfer
+      parameters:
+      - description: Event UUID or Slug
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Registration Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileEventManualRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Register for Event (Manual)
+      tags:
+      - Archer
+  /archer/events/{id}/register/payment-gateway:
+    post:
+      consumes:
+      - application/json
+      description: Register the authenticated archer for an event using online payment
+        gateway
+      parameters:
+      - description: Event UUID or Slug
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Registration Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileEventGatewayRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Register for Event (Payment Gateway)
+      tags:
+      - Archer
+  /archer/events/{id}/registration:
+    get:
+      description: Get current user's registration and payment status for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileMyRegistrationResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get My Registration
+      tags:
+      - Archer
+  /events:
+    get:
+      description: Get a list of active or past events optimized for mobile
+      parameters:
+      - description: Pagination limit
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search by name or location
+        in: query
+        name: search
+        type: string
+      - description: Filter past events
+        in: query
+        name: history
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventsResponse'
+      summary: List Mobile Events
+      tags:
+      - Events
+  /events/{slug}:
+    get:
+      description: |-
+        Get summary and location details for a specific event
+        Get summary details for a specific event without location, FAQ, or other granular info
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventDetailSlim'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Mobile Event Detail (Slim)
+      tags:
+      - Events
+      - Events
+  /events/{slug}/categories:
+    get:
+      description: Get list of divisions and age groups in this event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventCategoriesResponse'
+      summary: Get Event Categories
+      tags:
+      - Events
+  /events/{slug}/faq:
+    get:
+      description: Get the list of frequently asked questions for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventFAQResponse'
+      summary: Get Event FAQ
+      tags:
+      - Events
+  /events/{slug}/gallery:
+    get:
+      description: Get event gallery and documentation images
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventGalleryResponse'
+      summary: Get Event Gallery
+      tags:
+      - Events
+  /events/{slug}/location:
+    get:
+      description: Get detailed location information and accessibility for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventLocationResponse'
+      summary: Get Event Location
+      tags:
+      - Events
+  /events/{slug}/participants:
+    get:
+      description: Get the list of registered archers for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventParticipantsResponse'
+      summary: Get Event Participants
+      tags:
+      - Events
+  /events/{slug}/payment-method:
+    get:
+      description: Get a list of available payment methods (manual bank transfer and
+        online gateway) for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventPaymentMethodsResponse'
+      summary: Get Event Payment Methods
+      tags:
+      - Events
+  /events/{slug}/registration-fee:
+    get:
+      description: Get the list of registration fees and categories for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventFeesResponse'
+      summary: Get Event Registration Fees
+      tags:
+      - Events
+  /events/{slug}/rewards:
+    get:
+      description: Get the list of prizes and rewards for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventRewardsResponse'
+      summary: Get Event Rewards
+      tags:
+      - Events
+  /events/{slug}/schedule:
+    get:
+      description: Get the daily schedule and rundown for an event
+      parameters:
+      - description: Event Slug or UUID
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileEventScheduleResponse'
+      summary: Get Event Schedule
+      tags:
+      - Events
   /mobile/archer/cart:
     delete:
       description: Delete all items from the shopping cart for the current archer
@@ -2681,145 +3083,6 @@ paths:
       summary: Checkout Cart
       tags:
       - Mobile - Archer
-  /mobile/archer/events:
-    get:
-      description: Get list of all events the archer is registered in
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileMyEventsResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Get My Events
-      tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/detail:
-    get:
-      description: Get event details including registration status for the authenticated
-        archer
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileArcherEventDetailResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Get Event Detail (Archer)
-      tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/qr:
-    get:
-      description: Get the digital ID / QR code for event check-in
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - ApiKeyAuth: []
-      summary: Get Event QR Code
-      tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/register/manual:
-    post:
-      consumes:
-      - application/json
-      description: Register the authenticated archer for an event using manual transfer
-      parameters:
-      - description: Event UUID or Slug
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Registration Details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileEventManualRegistrationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Register for Event (Manual)
-      tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/register/payment-gateway:
-    post:
-      consumes:
-      - application/json
-      description: Register the authenticated archer for an event using online payment
-        gateway
-      parameters:
-      - description: Event UUID or Slug
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Registration Details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileEventGatewayRegistrationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Register for Event (Payment Gateway)
-      tags:
-      - Mobile - Archer
-  /mobile/archer/events/{id}/registration:
-    get:
-      description: Get current user's registration and payment status for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileMyRegistrationResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Get My Registration
-      tags:
-      - Mobile - Archer
   /mobile/archer/events/payments:
     get:
       description: Get a list of all payment transactions made for event registrations
@@ -2864,6 +3127,31 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get Event Payments by Slug
+      tags:
+      - Mobile - Archer
+  /mobile/archer/events/register:
+    post:
+      consumes:
+      - application/json
+      description: Register the authenticated archer for an event (handles both manual
+        and gateway)
+      parameters:
+      - description: Registration Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mobile.MobileRegisterEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Register for Event (Unified)
       tags:
       - Mobile - Archer
   /mobile/archer/me:
@@ -3534,203 +3822,6 @@ paths:
       summary: Update Match Score
       tags:
       - Mobile - Scorekeeper
-  /mobile/events:
-    get:
-      description: Get a list of active or past events optimized for mobile
-      parameters:
-      - description: Pagination limit
-        in: query
-        name: limit
-        type: integer
-      - description: Pagination offset
-        in: query
-        name: offset
-        type: integer
-      - description: Search by name or location
-        in: query
-        name: search
-        type: string
-      - description: Filter past events
-        in: query
-        name: history
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventsResponse'
-      summary: List Mobile Events
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}:
-    get:
-      description: |-
-        Get summary and location details for a specific event
-        Get summary details for a specific event without location, FAQ, or other granular info
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventDetailSlim'
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get Mobile Event Detail (Slim)
-      tags:
-      - Mobile - Events
-      - Mobile - Events
-  /mobile/events/{slug}/categories:
-    get:
-      description: Get list of divisions and age groups in this event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventCategoriesResponse'
-      summary: Get Event Categories
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/faq:
-    get:
-      description: Get the list of frequently asked questions for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventFAQResponse'
-      summary: Get Event FAQ
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/gallery:
-    get:
-      description: Get event gallery and documentation images
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventGalleryResponse'
-      summary: Get Event Gallery
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/location:
-    get:
-      description: Get detailed location information and accessibility for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventLocationResponse'
-      summary: Get Event Location
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/participants:
-    get:
-      description: Get the list of registered archers for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventParticipantsResponse'
-      summary: Get Event Participants
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/payment-method:
-    get:
-      description: Get a list of available payment methods (manual bank transfer and
-        online gateway) for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventPaymentMethodsResponse'
-      summary: Get Event Payment Methods
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/registration-fee:
-    get:
-      description: Get the list of registration fees and categories for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventFeesResponse'
-      summary: Get Event Registration Fees
-      tags:
-      - Mobile - Events
   /mobile/events/{slug}/results/elimination:
     get:
       description: Get the elimination match brackets and results for a specific category
@@ -3797,44 +3888,6 @@ paths:
           schema:
             $ref: '#/definitions/models.QualificationResultsResponse'
       summary: Get Qualification Results
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/rewards:
-    get:
-      description: Get the list of prizes and rewards for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventRewardsResponse'
-      summary: Get Event Rewards
-      tags:
-      - Mobile - Events
-  /mobile/events/{slug}/schedule:
-    get:
-      description: Get the daily schedule and rundown for an event
-      parameters:
-      - description: Event Slug or UUID
-        in: path
-        name: slug
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileEventScheduleResponse'
-      summary: Get Event Schedule
       tags:
       - Mobile - Events
   /mobile/events/payments/{reference}/instructions:
@@ -4234,6 +4287,31 @@ paths:
       tags:
       - Mobile - Organization
   /mobile/organization/events/{id}/participants/{user_id}:
+    delete:
+      description: Remove a participant and all their associated scores/assignments
+        from an event
+      parameters:
+      - description: Event UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Archer UUID or Participant UUID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Kick Participant from Event
+      tags:
+      - Mobile - Organization
     get:
       description: Get full details of a specific participant for an organization
         event

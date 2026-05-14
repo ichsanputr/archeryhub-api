@@ -26,12 +26,12 @@ func buildMobileQRCodeDataURL(qrRaw *string) *string {
 // MobileGetMyRegistration returns registration status for an event
 // @Summary Get My Registration
 // @Description Get current user's registration and payment status for an event
-// @Tags Mobile - Archer
+// @Tags         Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
 // @Success 200 {object} MobileMyRegistrationResponse
-// @Router /mobile/archer/events/{id}/registration [get]
+// @Router       /archer/events/{id}/registration [get]
 func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -91,11 +91,11 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetMyEvents returns list of registered events
 // @Summary Get My Events
 // @Description Get list of all events the archer is registered in
-// @Tags Mobile - Archer
+// @Tags         Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileMyEventsResponse
-// @Router /mobile/archer/events [get]
+// @Router       /archer/events [get]
 func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -149,12 +149,12 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetEventQRCode returns registration QR code
 // @Summary Get Event QR Code
 // @Description Get the digital ID / QR code for event check-in
-// @Tags Mobile - Archer
+// @Tags         Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
 // @Success 200 {object} map[string]interface{}
-// @Router /mobile/archer/events/{id}/qr [get]
+// @Router       /archer/events/{id}/qr [get]
 func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
