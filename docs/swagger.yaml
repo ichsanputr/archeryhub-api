@@ -26,6 +26,21 @@ definitions:
     required:
     - end_no
     type: object
+  handler.MediaUploadResponse:
+    properties:
+      created_at:
+        type: string
+      filename:
+        type: string
+      id:
+        type: string
+      mime_type:
+        type: string
+      size:
+        type: integer
+      url:
+        type: string
+    type: object
   handler.MessageResponse:
     properties:
       message:
@@ -672,7 +687,7 @@ definitions:
         format: date-time
         type: string
       status:
-        description: draft, active
+        description: draft, active, published
         example: published
         type: string
       technical_guidebook_url:
@@ -759,27 +774,6 @@ definitions:
           $ref: '#/definitions/models.EventImage'
         type: array
     type: object
-  mobile.MobileEventGatewayRegistrationRequest:
-    properties:
-      event_category_id:
-        example: cat-recurve-adult-putra
-        type: string
-      event_category_ids:
-        example:
-        - '["cat-recurve-adult-team"]'
-        items:
-          type: string
-        type: array
-      payment_method:
-        example: BCAVA
-        type: string
-      payment_type:
-        example: online
-        type: string
-      registration_source:
-        example: mobile_app
-        type: string
-    type: object
   mobile.MobileEventLocationResponse:
     properties:
       address:
@@ -798,27 +792,6 @@ definitions:
         type: string
       venue:
         type: string
-    type: object
-  mobile.MobileEventManualRegistrationRequest:
-    properties:
-      event_category_id:
-        example: cat-recurve-adult-putra
-        type: string
-      event_category_ids:
-        example:
-        - '["cat-recurve-adult-team"]'
-        items:
-          type: string
-        type: array
-      payment_amount:
-        example: 450000
-        type: number
-      payment_proof_urls:
-        example:
-        - '["https://cdn.archeryhub.id/media/proofs/receipt-001.jpg"]'
-        items:
-          type: string
-        type: array
     type: object
   mobile.MobileEventParticipantsResponse:
     properties:
@@ -2641,65 +2614,6 @@ paths:
       summary: Get Event QR Code
       tags:
       - Archer
-  /archer/events/{id}/register/manual:
-    post:
-      consumes:
-      - application/json
-      description: Register the authenticated archer for an event using manual transfer
-      parameters:
-      - description: Event UUID or Slug
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Registration Details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileEventManualRegistrationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Register for Event (Manual)
-      tags:
-      - Archer
-  /archer/events/{id}/register/payment-gateway:
-    post:
-      consumes:
-      - application/json
-      description: Register the authenticated archer for an event using online payment
-        gateway
-      parameters:
-      - description: Event UUID or Slug
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Registration Details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/mobile.MobileEventGatewayRegistrationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/mobile.MobileRegisterEventResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Register for Event (Payment Gateway)
-      tags:
-      - Archer
   /archer/events/{id}/registration:
     get:
       description: Get current user's registration and payment status for an event
@@ -3966,6 +3880,34 @@ paths:
       summary: Get Product Detail
       tags:
       - Mobile - Marketplace
+  /mobile/media/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a file (image/pdf/doc) and get a masked URL. Optimized for
+        mobile app.
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Optional caption/title for the file
+        in: formData
+        name: caption
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.MediaUploadResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Upload Media (Mobile)
+      tags:
+      - Mobile - Media
   /mobile/news:
     get:
       description: Get a list of published news articles

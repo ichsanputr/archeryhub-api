@@ -81,7 +81,7 @@ type Event struct {
 	NumDistances          *int       `json:"num_distances" db:"num_distances" example:"2"`
 	NumSessions           *int       `json:"num_sessions" db:"num_sessions" example:"4"`
 	EntryFee              float64    `json:"entry_fee" db:"entry_fee" example:"350000"`
-	Status                string     `json:"status" db:"status" example:"published"` // draft, active
+	Status                string     `json:"status" db:"status" example:"published"` // draft, active, published
 	OrganizerID           *string    `json:"organizer_id" db:"organizer_id" example:"org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"`
 	CreatedAt             time.Time  `json:"created_at" db:"created_at" swaggertype:"string" format:"date-time" example:"2026-03-01T10:30:00Z"`
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at" swaggertype:"string" format:"date-time" example:"2026-03-12T13:10:00Z"`

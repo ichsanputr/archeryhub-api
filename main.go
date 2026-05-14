@@ -645,8 +645,6 @@ func main() {
 				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
 				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterEvent(db))
-				mobileArcher.POST("/events/:id/register/manual", mobilehandler.MobileRegisterEventManual(db))
-				mobileArcher.POST("/events/:id/register/payment-gateway", mobilehandler.MobileRegisterEventGateway(db))
 			}
 
 			mobileOrganization := mobile.Group("/organization")
@@ -729,7 +727,7 @@ func main() {
 			mobileMedia := mobile.Group("/media")
 			mobileMedia.Use(middleware.AuthMiddleware())
 			{
-				mobileMedia.POST("/upload", handler.UploadMedia(db))
+				mobileMedia.POST("/upload", mobilehandler.MobileUploadMedia(db))
 				mobileMedia.GET("", handler.ListMedia(db))
 				mobileMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}

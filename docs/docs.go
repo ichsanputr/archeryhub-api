@@ -118,98 +118,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/archer/events/{id}/register/manual": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Register the authenticated archer for an event using manual transfer",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Archer"
-                ],
-                "summary": "Register for Event (Manual)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event UUID or Slug",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Registration Details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventManualRegistrationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/archer/events/{id}/register/payment-gateway": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Register the authenticated archer for an event using online payment gateway",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Archer"
-                ],
-                "summary": "Register for Event (Payment Gateway)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event UUID or Slug",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Registration Details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileEventGatewayRegistrationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/mobile.MobileRegisterEventResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/archer/events/{id}/registration": {
             "get": {
                 "security": [
@@ -2169,6 +2077,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/mobile/media/upload": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Upload a file (image/pdf/doc) and get a masked URL. Optimized for mobile app.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Mobile - Media"
+                ],
+                "summary": "Upload Media (Mobile)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "File to upload",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional caption/title for the file",
+                        "name": "caption",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handler.MediaUploadResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mobile/news": {
             "get": {
                 "description": "Get a list of published news articles",
@@ -3605,6 +3556,29 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.MediaUploadResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.MessageResponse": {
             "type": "object",
             "properties": {
@@ -4564,7 +4538,7 @@ const docTemplate = `{
                     "example": "2026-05-18T08:00:00Z"
                 },
                 "status": {
-                    "description": "draft, active",
+                    "description": "draft, active, published",
                     "type": "string",
                     "example": "published"
                 },
@@ -4694,36 +4668,6 @@ const docTemplate = `{
                 }
             }
         },
-        "mobile.MobileEventGatewayRegistrationRequest": {
-            "type": "object",
-            "properties": {
-                "event_category_id": {
-                    "type": "string",
-                    "example": "cat-recurve-adult-putra"
-                },
-                "event_category_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "[\"cat-recurve-adult-team\"]"
-                    ]
-                },
-                "payment_method": {
-                    "type": "string",
-                    "example": "BCAVA"
-                },
-                "payment_type": {
-                    "type": "string",
-                    "example": "online"
-                },
-                "registration_source": {
-                    "type": "string",
-                    "example": "mobile_app"
-                }
-            }
-        },
         "mobile.MobileEventLocationResponse": {
             "type": "object",
             "properties": {
@@ -4750,37 +4694,6 @@ const docTemplate = `{
                 },
                 "venue": {
                     "type": "string"
-                }
-            }
-        },
-        "mobile.MobileEventManualRegistrationRequest": {
-            "type": "object",
-            "properties": {
-                "event_category_id": {
-                    "type": "string",
-                    "example": "cat-recurve-adult-putra"
-                },
-                "event_category_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "[\"cat-recurve-adult-team\"]"
-                    ]
-                },
-                "payment_amount": {
-                    "type": "number",
-                    "example": 450000
-                },
-                "payment_proof_urls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"
-                    ]
                 }
             }
         },

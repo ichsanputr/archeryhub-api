@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -516,88 +515,19 @@ func MobileRegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		paymentType := "manual"
-		if req.PaymentType == "online" || req.PaymentType == "gateway" {
-			paymentType = "gateway"
-		}
-
 		internalReq := mobileRegistrationInternal{
 			EventID:          req.EventID,
 			AthleteID:        req.AthleteID,
 			EventCategoryID:  req.EventCategoryID,
 			EventCategoryIDs: req.EventCategoryIDs,
 			PaymentMethod:    req.PaymentMethod,
-			PaymentType:      paymentType,
-		}
-
-		processMobileRegistration(c, db, internalReq)
-	}
-}
-
-// MobileRegisterEventManual handles archer registration with manual transfer
-// @Summary Register for Event (Manual)
-// @Description Register the authenticated archer for an event using manual transfer
-// @Tags         Archer
-// @Accept json
-// @Produce json
-// @Security ApiKeyAuth
-// @Param id path string true "Event UUID or Slug"
-// @Param request body MobileEventManualRegistrationRequest true "Registration Details"
-// @Success 200 {object} MobileRegisterEventResponse
-// @Router       /archer/events/{id}/register/manual [post]
-func MobileRegisterEventManual(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("id")
-		var req MobileEventManualRegistrationRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		internalReq := mobileRegistrationInternal{
-			EventID:          id,
-			EventCategoryID:  req.EventCategoryID,
-			EventCategoryIDs: req.EventCategoryIDs,
-			PaymentAmount:    req.PaymentAmount,
-			PaymentProofURLs: req.PaymentProofURLs,
-			PaymentType:      "manual",
-		}
-		
-		processMobileRegistration(c, db, internalReq)
-	}
-}
-
-// MobileRegisterEventGateway handles archer registration with payment gateway
-// @Summary Register for Event (Payment Gateway)
-// @Description Register the authenticated archer for an event using online payment gateway
-// @Tags         Archer
-// @Accept json
-// @Produce json
-// @Security ApiKeyAuth
-// @Param id path string true "Event UUID or Slug"
-// @Param request body MobileEventGatewayRegistrationRequest true "Registration Details"
-// @Success 200 {object} MobileRegisterEventResponse
-// @Router       /archer/events/{id}/register/payment-gateway [post]
-func MobileRegisterEventGateway(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("id")
-		var req MobileEventGatewayRegistrationRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		internalReq := mobileRegistrationInternal{
-			EventID:          id,
-			EventCategoryID:  req.EventCategoryID,
-			EventCategoryIDs: req.EventCategoryIDs,
-			PaymentMethod:    req.PaymentMethod,
 			PaymentType:      "gateway",
 		}
-		
+
 		processMobileRegistration(c, db, internalReq)
 	}
 }
+
 
 type mobileRegistrationInternal struct {
 	EventID          string
@@ -605,7 +535,6 @@ type mobileRegistrationInternal struct {
 	EventCategoryID  string
 	EventCategoryIDs []string
 	PaymentAmount    float64
-	PaymentProofURLs []string
 	PaymentMethod    string
 	PaymentType      string
 }
@@ -667,10 +596,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 	defer tx.Rollback()
 
 	registrationDate := time.Now()
-	paymentStatus := "menunggu acc"
-	if req.PaymentType == "gateway" {
-		paymentStatus = "unpaid"
-	}
+	paymentStatus := "unpaid"
 
 	var firstRegID string
 	registeredCats := []string{}
@@ -684,18 +610,14 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		regUUID := uuid.New().String()
 		if i == 0 { firstRegID = regUUID }
 
-		proofs := ""
-		if len(req.PaymentProofURLs) > 0 {
-			proofs = strings.Join(req.PaymentProofURLs, ",")
-		}
 
 		_, err = tx.Exec(`
 			INSERT INTO event_participants (
 				uuid, event_id, archer_id, category_id, 
-				registration_date, payment_status, payment_amount, payment_proof_urls,
+				registration_date, payment_status, payment_amount,
 				registration_source
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, regUUID, event.UUID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofs, "mobile_app")
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, regUUID, event.UUID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, "self_register")
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan ke kategori: " + catID})

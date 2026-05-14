@@ -373,6 +373,8 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		status := req.Status
 		if status == "" {
 			status = "draft"
+		} else if status == "published" {
+			status = "active"
 		}
 
 		// Use location_type if provided, otherwise fallback to type for backward compatibility
@@ -1737,10 +1739,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			EventCategoryID    string   `json:"event_category_id"`
 			EventCategoryIDs   []string `json:"event_category_ids"`
 			PaymentAmount      float64  `json:"payment_amount"`
-			PaymentProofURLs   []string `json:"payment_proof_urls"`
 			PaymentStatus      string   `json:"payment_status"`
 			RegistrationSource string   `json:"registration_source"`
-			PaymentType        string   `json:"payment_type"` // manual or gateway
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1828,16 +1828,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		registrationDate := time.Now()
-		proofURLs := ""
-		if len(req.PaymentProofURLs) > 0 {
-			proofURLs = strings.Join(req.PaymentProofURLs, ",")
-		}
 
 		// Determine payment status
-		paymentStatus := "menunggu acc"
-		if req.PaymentType == "gateway" {
-			paymentStatus = "unpaid"
-		}
+		paymentStatus := "unpaid"
 		userID, _ := c.Get("user_id")
 		userRole, _ := c.Get("role")
 		orgID, _ := c.Get("org_id")
@@ -1901,10 +1894,10 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			_, err = tx.Exec(`
 				INSERT INTO event_participants (
 					uuid, event_id, archer_id, category_id, 
-					registration_date, payment_status, payment_amount, payment_proof_urls, qr_raw,
+					registration_date, payment_status, payment_amount, qr_raw,
 					registration_source
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofURLs, qrRaw, registrationSource)
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, qrRaw, registrationSource)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan peserta", "details": err.Error()})
@@ -1944,7 +1937,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			AthleteIDs         []string `json:"athlete_ids" binding:"required"`
 			EventCategoryIDs   []string `json:"event_category_ids" binding:"required"`
 			PaymentAmount      float64  `json:"payment_amount"`
-			PaymentProofURLs   []string `json:"payment_proof_urls"`
 			PaymentStatus      string   `json:"payment_status"`
 			RegistrationSource string   `json:"registration_source"`
 		}
@@ -1977,10 +1969,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		isPrivileged := userRole == "admin" || (userRole == "organizer" && orgID != nil && fmt.Sprintf("%v", orgID) == event.OrganizerID)
 
-		paymentStatus := "menunggu acc"
-		if req.PaymentStatus != "" && isPrivileged {
-			paymentStatus = req.PaymentStatus
-		}
+		paymentStatus := "unpaid"
 
 		registrationSource := "self_register"
 		if isPrivileged {
@@ -1991,10 +1980,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		proofURLs := ""
-		if len(req.PaymentProofURLs) > 0 {
-			proofURLs = strings.Join(req.PaymentProofURLs, ",")
-		}
 
 		// Resolve all archer UUIDs in one query
 		cleanedIDs := make([]string, 0, len(req.AthleteIDs))
@@ -2083,12 +2068,12 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 				participantUUID := uuid.New().String()
 				_, err = tx.Exec(`
-					INSERT INTO event_participants (
+						INSERT INTO event_participants (
 						uuid, event_id, archer_id, category_id,
-						registration_date, payment_status, payment_amount, payment_proof_urls, qr_raw,
+						registration_date, payment_status, payment_amount, qr_raw,
 						registration_source
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-				`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, proofURLs, qrRaw, registrationSource)
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`, participantUUID, actualEventID, archerUUID, catID, registrationDate, paymentStatus, req.PaymentAmount, qrRaw, registrationSource)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan peserta", "details": err.Error()})
 					return
@@ -2496,13 +2481,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.BackNumber)
 		}
 
-		// Payment status triggers QR generation if paid
-		// Check if proof URLs are provided to auto-set status
-		hasProof := (req.PaymentProofURLs != nil && len(*req.PaymentProofURLs) > 0)
-		if hasProof && (req.PaymentStatus == nil || *req.PaymentStatus == "menunggu acc") {
-			statusLunas := "lunas"
-			req.PaymentStatus = &statusLunas
-		}
 
 		if req.PaymentStatus != nil {
 			query += ", payment_status = ?"
@@ -2526,11 +2504,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if req.PaymentAmount != nil {
 			query += ", payment_amount = ?"
 			args = append(args, *req.PaymentAmount)
-		}
-		if req.PaymentProofURLs != nil {
-			proofURLs := strings.Join(*req.PaymentProofURLs, ",")
-			query += ", payment_proof_urls = ?"
-			args = append(args, proofURLs)
 		}
 		if req.AccreditationStatus != nil {
 			query += ", accreditation_status = ?"
