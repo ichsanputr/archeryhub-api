@@ -189,7 +189,7 @@ func main() {
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Welcome to Archeryhub.id API",
+			"message": "Welcome to Archeryhub.id API - TEST DEPLOY",
 			"status":  "running",
 		})
 	})
@@ -644,6 +644,7 @@ func main() {
 				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
 				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
+				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterEvent(db))
 				mobileArcher.POST("/events/:id/register/manual", mobilehandler.MobileRegisterEventManual(db))
 				mobileArcher.POST("/events/:id/register/payment-gateway", mobilehandler.MobileRegisterEventGateway(db))
 			}
@@ -656,6 +657,7 @@ func main() {
 				mobileOrganization.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
 				mobileOrganization.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
 				mobileOrganization.GET("/events/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
+				mobileOrganization.DELETE("/events/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
 				mobileOrganization.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
 				mobileOrganization.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
 

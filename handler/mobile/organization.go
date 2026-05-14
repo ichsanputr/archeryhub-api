@@ -341,6 +341,75 @@ func MobileDeleteOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileOrganizationKickParticipant removes a participant from an event
+// @Summary Kick Participant from Event
+// @Description Remove a participant and all their associated scores/assignments from an event
+// @Tags Mobile - Organization
+// @Security ApiKeyAuth
+// @Param id path string true "Event UUID"
+// @Param user_id path string true "Archer UUID or Participant UUID"
+// @Success 200 {object} map[string]interface{}
+// @Router /mobile/organization/events/{id}/participants/{user_id} [delete]
+func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		organizationUUID, _ := c.Get("user_id")
+		eventID := c.Param("id")
+		participantUserID := c.Param("user_id")
+
+		// 1. Verify Event ownership
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE (uuid = ? OR slug = ?) AND organizer_id = ?", eventID, eventID, organizationUUID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses ke event ini"})
+			return
+		}
+
+		// 2. Find participant UUID(s) - could be multiple categories for one archer
+		// We support participant UUID, archer UUID, or athlete code (archers.id)
+		var participantUUIDs []string
+		_ = db.Select(&participantUUIDs, `
+			SELECT tp.uuid 
+			FROM event_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			WHERE tp.event_id = ? AND (tp.uuid = ? OR tp.archer_id = ? OR a.id = ?)
+		`, eventUUID, participantUserID, participantUserID, participantUserID)
+
+		if len(participantUUIDs) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Peserta tidak ditemukan"})
+			return
+		}
+
+		// 3. Start Transaction for cleanup
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			return
+		}
+		defer tx.Rollback()
+
+		for _, pUUID := range participantUUIDs {
+			// A. Qualification scores
+			_, _ = tx.Exec("DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (SELECT uuid FROM qualification_end_scores WHERE participant_uuid = ?)", pUUID)
+			_, _ = tx.Exec("DELETE FROM qualification_end_scores WHERE participant_uuid = ?", pUUID)
+			_, _ = tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid = ?", pUUID)
+			
+			// B. Finally remove the participant record
+			_, err = tx.Exec("DELETE FROM event_participants WHERE uuid = ?", pUUID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus peserta: " + pUUID})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Peserta berhasil dikeluarkan dari event"})
+	}
+}
+
 // MobileGetBankOptions returns a list of supported banks with logos
 // @Summary Get Bank Options
 // @Description Get a list of supported Indonesian banks with their logo URLs

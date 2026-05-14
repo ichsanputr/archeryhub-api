@@ -81,6 +81,19 @@ type MobileEventGatewayRegistrationRequest struct {
 	EventCategoryID  string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
 	EventCategoryIDs []string `json:"event_category_ids" example:"[\"cat-recurve-adult-team\"]"`
 	PaymentMethod    string   `json:"payment_method" example:"BCAVA"`
+	PaymentType      string   `json:"payment_type" example:"online"`
+	RegistrationSource string `json:"registration_source" example:"mobile_app"`
+}
+
+// MobileRegisterEventRequest represents the unified payload for event registration from mobile app.
+type MobileRegisterEventRequest struct {
+	EventID            string   `json:"event_id" binding:"required"`
+	AthleteID          string   `json:"athlete_id"`
+	EventCategoryID    string   `json:"event_category_id"`
+	EventCategoryIDs   []string `json:"event_category_ids"`
+	PaymentType        string   `json:"payment_type"` // "online" or "manual"
+	PaymentMethod      string   `json:"payment_method"`
+	RegistrationSource string   `json:"registration_source"`
 }
 
 // MobileAddNewsCommentRequest represents the payload for adding a news comment.
@@ -582,20 +595,20 @@ type MobileOrganizationProfileResponse struct {
 
 // MobileOrganizationEventItem represents one event owned by the authenticated organization.
 type MobileOrganizationEventItem struct {
-	UUID               string  `json:"uuid" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
-	Name               string  `json:"name" example:"ArcheryHub Jakarta Open 2026"`
-	Slug               string  `json:"slug" example:"archeryhub-jakarta-open-2026"`
-	Location           *string `json:"location" example:"Jakarta Selatan"`
-	Venue              *string `json:"venue" example:"Lapangan ABC Senayan"`
-	StartDate          *string `json:"start_date" example:"2026-05-18T08:00:00Z"`
-	EndDate            *string `json:"end_date" example:"2026-05-21T17:00:00Z"`
-	Status             string  `json:"status" example:"published"`
-	LogoURL            *string `json:"logo_url" example:"https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png"`
-	BannerURL          *string `json:"banner_url" example:"https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg"`
-	ParticipantCount   int     `json:"participant_count" example:"128"`
-	VerifiedCount      int     `json:"verified_count" example:"96"`
-	PendingCount       int     `json:"pending_count" example:"32"`
-	RegistrationClosed bool    `json:"registration_closed" example:"false"`
+	UUID               string  `json:"uuid" db:"uuid" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	Name               string  `json:"name" db:"name" example:"ArcheryHub Jakarta Open 2026"`
+	Slug               string  `json:"slug" db:"slug" example:"archeryhub-jakarta-open-2026"`
+	Location           *string `json:"location" db:"location" example:"Jakarta Selatan"`
+	Venue              *string `json:"venue" db:"venue" example:"Lapangan ABC Senayan"`
+	StartDate          *string `json:"start_date" db:"start_date" example:"2026-05-18T08:00:00Z"`
+	EndDate            *string `json:"end_date" db:"end_date" example:"2026-05-21T17:00:00Z"`
+	Status             string  `json:"status" db:"status" example:"published"`
+	LogoURL            *string `json:"logo_url" db:"logo_url" example:"https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png"`
+	BannerURL          *string `json:"banner_url" db:"banner_url" example:"https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg"`
+	ParticipantCount   int     `json:"participant_count" db:"participant_count" example:"128"`
+	VerifiedCount      int     `json:"verified_count" db:"verified_count" example:"96"`
+	PendingCount       int     `json:"pending_count" db:"pending_count" example:"32"`
+	RegistrationClosed bool    `json:"registration_closed" db:"registration_closed" example:"false"`
 }
 
 // MobileOrganizationEventsResponse represents /mobile/organization/events.

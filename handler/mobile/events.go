@@ -498,6 +498,42 @@ func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 
 
 
+// MobileRegisterEvent handles unified archer registration from mobile app
+// @Summary Register for Event (Unified)
+// @Description Register the authenticated archer for an event (handles both manual and gateway)
+// @Tags Mobile - Archer
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body MobileRegisterEventRequest true "Registration Details"
+// @Success 200 {object} MobileRegisterEventResponse
+// @Router /mobile/archer/events/register [post]
+func MobileRegisterEvent(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req MobileRegisterEventRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		paymentType := "manual"
+		if req.PaymentType == "online" || req.PaymentType == "gateway" {
+			paymentType = "gateway"
+		}
+
+		internalReq := mobileRegistrationInternal{
+			EventID:          req.EventID,
+			AthleteID:        req.AthleteID,
+			EventCategoryID:  req.EventCategoryID,
+			EventCategoryIDs: req.EventCategoryIDs,
+			PaymentMethod:    req.PaymentMethod,
+			PaymentType:      paymentType,
+		}
+
+		processMobileRegistration(c, db, internalReq)
+	}
+}
+
 // MobileRegisterEventManual handles archer registration with manual transfer
 // @Summary Register for Event (Manual)
 // @Description Register the authenticated archer for an event using manual transfer
@@ -565,6 +601,7 @@ func MobileRegisterEventGateway(db *sqlx.DB) gin.HandlerFunc {
 
 type mobileRegistrationInternal struct {
 	EventID          string
+	AthleteID        string
 	EventCategoryID  string
 	EventCategoryIDs []string
 	PaymentAmount    float64
@@ -590,9 +627,14 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 	// 2. Resolve Archer
 	userID := c.GetString("user_id")
 	var archerUUID string
-	err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ?", userID)
+	if req.AthleteID != "" {
+		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
+	} else {
+		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ?", userID)
+	}
+	
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Profil pemanah tidak ditemukan"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Profil pemanah tidak ditemukan atau tidak valid"})
 		return
 	}
 
