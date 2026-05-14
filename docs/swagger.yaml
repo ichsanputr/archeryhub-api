@@ -1,4 +1,4 @@
-basePath: /api/v1
+﻿basePath: /api/v1
 definitions:
   handler.FinishMatchRequest:
     properties:
@@ -286,7 +286,7 @@ definitions:
         example: Jl. Panahan No. 10
         type: string
       avatar_url:
-        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        example: https://cdn.archeris.net/media/archers/rizky.jpg
         type: string
       bow_type:
         example: recurve
@@ -298,7 +298,7 @@ definitions:
         example: club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29
         type: string
       club_name:
-        example: ArcheryHub Club Jakarta
+        example: Archeris Club Jakarta
         type: string
       date_of_birth:
         example: "1995-05-18"
@@ -605,7 +605,7 @@ definitions:
         example: Jl. Asia Afrika No.8, Jakarta
         type: string
       banner_url:
-        example: https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg
+        example: https://cdn.archeris.net/media/banner-jkt-open-2026.jpg
         type: string
       city:
         example: Jakarta
@@ -646,10 +646,10 @@ definitions:
         example: Outdoor
         type: string
       logo_url:
-        example: https://cdn.archeryhub.id/media/logo-jkt-open-2026.png
+        example: https://cdn.archeris.net/media/logo-jkt-open-2026.png
         type: string
       name:
-        example: ArcheryHub Jakarta Open 2026
+        example: Archeris Jakarta Open 2026
         type: string
       num_distances:
         example: 2
@@ -680,7 +680,7 @@ definitions:
         example: JKT Open 2026
         type: string
       slug:
-        example: archeryhub-jakarta-open-2026
+        example: Archeris-jakarta-open-2026
         type: string
       start_date:
         example: "2026-05-18T08:00:00Z"
@@ -691,7 +691,7 @@ definitions:
         example: published
         type: string
       technical_guidebook_url:
-        example: https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf
+        example: https://cdn.archeris.net/media/technical-guidebook-jkt-open-2026.pdf
         type: string
       total_prize:
         example: 50000000
@@ -1208,7 +1208,7 @@ definitions:
   mobile.MobileOrganizationEventItem:
     properties:
       banner_url:
-        example: https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg
+        example: https://cdn.archeris.net/media/events/banner-jkt-open-2026.jpg
         type: string
       end_date:
         example: "2026-05-21T17:00:00Z"
@@ -1217,10 +1217,10 @@ definitions:
         example: Jakarta Selatan
         type: string
       logo_url:
-        example: https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png
+        example: https://cdn.archeris.net/media/events/logo-jkt-open-2026.png
         type: string
       name:
-        example: ArcheryHub Jakarta Open 2026
+        example: Archeris Jakarta Open 2026
         type: string
       participant_count:
         example: 128
@@ -1232,7 +1232,7 @@ definitions:
         example: false
         type: boolean
       slug:
-        example: archeryhub-jakarta-open-2026
+        example: Archeris-jakarta-open-2026
         type: string
       start_date:
         example: "2026-05-18T08:00:00Z"
@@ -1339,7 +1339,7 @@ definitions:
         example: ARC-0042
         type: string
       avatar_url:
-        example: https://cdn.archeryhub.id/media/archers/rizky.jpg
+        example: https://cdn.archeris.net/media/archers/rizky.jpg
         type: string
       category_id:
         example: cat-44f67d53-032f-428f-a8f2-8db5672a7a9d
@@ -1354,7 +1354,7 @@ definitions:
         example: club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29
         type: string
       club_name:
-        example: ArcheryHub Club Jakarta
+        example: Archeris Club Jakarta
         type: string
       division_name:
         example: Recurve
@@ -1405,16 +1405,16 @@ definitions:
         example: Jl. Stadion Utama No. 1, Jakarta
         type: string
       avatar_url:
-        example: https://cdn.archeryhub.id/media/organization/logo.png
+        example: https://cdn.archeris.net/media/organization/logo.png
         type: string
       banner_url:
-        example: https://cdn.archeryhub.id/media/organization/banner.jpg
+        example: https://cdn.archeris.net/media/organization/banner.jpg
         type: string
       city:
         example: Jakarta
         type: string
       contact_person_email:
-        example: budi@archeryhub.id
+        example: budi@archeris.net
         type: string
       contact_person_name:
         example: Budi Santoso
@@ -1433,7 +1433,7 @@ definitions:
           event.
         type: string
       email:
-        example: event@archeryhub.id
+        example: event@archeris.net
         type: string
       established_date:
         example: "2020-08-17"
@@ -1451,7 +1451,7 @@ definitions:
         example: Membina atlet, pelatih, dan penyelenggaraan kompetisi yang profesional.
         type: string
       name:
-        example: ArcheryHub Jakarta
+        example: Archeris Jakarta
         type: string
       page_settings:
         type: object
@@ -1459,18 +1459,18 @@ definitions:
         example: AHJ-2026-001
         type: string
       slug:
-        example: archeryhub-jakarta
+        example: Archeris-jakarta
         type: string
       social_facebook:
-        example: archeryhubjakarta
+        example: Archerisjakarta
         type: string
       social_instagram:
-        example: archeryhub.jakarta
+        example: Archeris.jakarta
         type: string
       social_media:
         type: object
       social_twitter:
-        example: archeryhubjkt
+        example: Archerisjkt
         type: string
       status:
         example: active
@@ -1497,7 +1497,7 @@ definitions:
         example: Menjadi pusat pembinaan panahan modern di Indonesia.
         type: string
       website:
-        example: https://archeryhub.id
+        example: https://archeris.net
         type: string
       whatsapp_no:
         example: "081234567890"
@@ -1525,10 +1525,10 @@ definitions:
         example: Recurve Umum Putra
         type: string
       club_name:
-        example: ArcheryHub Club Jakarta
+        example: Archeris Club Jakarta
         type: string
       event_name:
-        example: ArcheryHub Jakarta Open 2026
+        example: Archeris Jakarta Open 2026
         type: string
       full_name:
         example: Rizky Pratama
@@ -1815,16 +1815,16 @@ definitions:
         example: Jl. Panahan No. 10, Jakarta
         type: string
       avatar_url:
-        example: https://cdn.archeryhub.id/media/seller/logo-store.png
+        example: https://cdn.archeris.net/media/seller/logo-store.png
         type: string
       banner:
-        example: https://cdn.archeryhub.id/media/seller/banner-store.jpg
+        example: https://cdn.archeris.net/media/seller/banner-store.jpg
         type: string
       banner_text:
         example: Perlengkapan panahan lengkap untuk semua level
         type: string
       banner_url:
-        example: https://cdn.archeryhub.id/media/seller/banner-store.jpg
+        example: https://cdn.archeris.net/media/seller/banner-store.jpg
         type: string
       catalog_config:
         type: object
@@ -1835,16 +1835,16 @@ definitions:
         example: Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi.
         type: string
       email:
-        example: seller@archeryhub.id
+        example: seller@archeris.net
         type: string
       id:
         example: sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e
         type: string
       logo:
-        example: https://cdn.archeryhub.id/media/seller/logo-store.png
+        example: https://cdn.archeris.net/media/seller/logo-store.png
         type: string
       name:
-        example: ArcheryHub Store Jakarta
+        example: Archeris Store Jakarta
         type: string
       page_settings:
         type: object
@@ -1857,13 +1857,13 @@ definitions:
       sections:
         type: object
       slug:
-        example: archeryhub-store-jakarta
+        example: Archeris-store-jakarta
         type: string
       store_name:
-        example: ArcheryHub Store Jakarta
+        example: Archeris Store Jakarta
         type: string
       store_slug:
-        example: archeryhub-store-jakarta
+        example: Archeris-store-jakarta
         type: string
       theme_color:
         example: '#C1121F'
@@ -1872,7 +1872,7 @@ definitions:
         example: seller
         type: string
       username:
-        example: archeryhub-store-jakarta
+        example: Archeris-store-jakarta
         type: string
       uuid:
         example: sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e
@@ -2355,13 +2355,13 @@ definitions:
         example: arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9
         type: string
       avatar_url:
-        example: https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg
+        example: https://cdn.archeris.net/media/archer/rizky-pratama.jpg
         type: string
       category_name:
         example: Recurve Umum Putra
         type: string
       club_name:
-        example: ArcheryHub Club Jakarta
+        example: Archeris Club Jakarta
         type: string
       full_name:
         example: Rizky Pratama
@@ -2541,18 +2541,18 @@ definitions:
       stock:
         type: integer
     type: object
-host: api.archeryhub.id
+host: api.archeris.net
 info:
   contact:
-    email: support@archeryhub.id
-    name: ArcheryHub Support
-    url: https://archeryhub.id
-  description: Dedicated API for ArcheryHub Mobile App
+    email: support@archeris.net
+    name: Archeris Support
+    url: https://archeris.net
+  description: Dedicated API for Archeris Mobile App
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  termsOfService: http://archeryhub.id/terms/
-  title: ArcheryHub Mobile API
+  termsOfService: http://archeris.net/terms/
+  title: Archeris Mobile API
   version: "1.1"
 paths:
   /archer/events:
@@ -4811,3 +4811,5 @@ securityDefinitions:
     name: Authorization
     type: apiKey
 swagger: "2.0"
+
+

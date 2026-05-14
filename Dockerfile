@@ -1,4 +1,4 @@
-# Use Ubuntu 20.04 as base image for building
+﻿# Use Ubuntu 20.04 as base image for building
 FROM ubuntu:20.04
 
 # Set environment variables
@@ -36,7 +36,8 @@ RUN go mod download
 COPY . .
 
 # Build the application (static binary)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o archeryhub-api .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o Archeris-api .
 
 # Keep the binary in the container for extraction
 # The binary will be extracted by the GitHub Actions workflow
+

@@ -1,8 +1,8 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -541,7 +541,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID   string  `json:"category_id" binding:"required"`
 			BracketType  string  `json:"bracket_type" binding:"required"`         // individual, team3, mixed2
 			Format       string  `json:"format" binding:"required"`               // recurve_set, compound_total
-			BracketSize  int     `json:"bracket_size" binding:"required,min=4"`   // chosen by admin; must be power of 2 and ≤ max
+			BracketSize  int     `json:"bracket_size" binding:"required,min=4"`   // chosen by admin; must be power of 2 and â‰¤ max
 			EndsPerMatch int     `json:"ends_per_match" binding:"required,min=1"` // default 5
 			ArrowsPerEnd int     `json:"arrows_per_end" binding:"required,min=1"` // default 3
 			StartTime    *string `json:"start_time"`                              // ISO datetime, optional
@@ -577,7 +577,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Validate chosen bracket size: must be power of 2 and ≤ calcBracketSize(participantCount)
+		// Validate chosen bracket size: must be power of 2 and â‰¤ calcBracketSize(participantCount)
 		maxBracketSize := calcBracketSize(participantCount)
 		// Check power of 2
 		if req.BracketSize < 4 || (req.BracketSize&(req.BracketSize-1)) != 0 {
@@ -768,7 +768,7 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// bracket_size is intentionally NOT updated — it is fixed at creation based on participant count
+		// bracket_size is intentionally NOT updated â€” it is fixed at creation based on participant count
 		_, err = db.Exec(`
 			UPDATE elimination_brackets 
 			SET category_uuid = ?, bracket_type = ?, format = ?, ends_per_match = ?, arrows_per_end = ?, start_time = ?, end_time = ?
@@ -979,7 +979,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// calcBracketSize returns the smallest power of 2 that is >= n (per docs: Bracket Size = 2^⌈log₂(N)⌉)
+// calcBracketSize returns the smallest power of 2 that is >= n (per docs: Bracket Size = 2^âŒˆlogâ‚‚(N)âŒ‰)
 func calcBracketSize(n int) int {
 	if n <= 0 {
 		return 0
@@ -2723,7 +2723,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// ─── Elimination Scoresheet ────────────────────────────────────────────────────
+// â”€â”€â”€ Elimination Scoresheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // ElimMatchCard holds data for one match panel on the scoresheet
 type ElimMatchCard struct {
@@ -2732,7 +2732,7 @@ type ElimMatchCard struct {
 	RoundLabel string
 	TargetName string
 	BoardCode  string
-	QRDataURI  string // base64‑encoded PNG data URI for QR code
+	QRDataURI  string // base64â€‘encoded PNG data URI for QR code
 	NameA      string
 	ClubA      string
 	SeedA      int
@@ -2773,7 +2773,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		bracketID := c.Param("bracketId")
 
-		// ── 1. Resolve event ──────────────────────────────────────────────────
+		// â”€â”€ 1. Resolve event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		type EventInfo struct {
 			UUID      string         `db:"uuid"`
 			Name      string         `db:"name"`
@@ -2813,7 +2813,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 
 			if ev.EndDate.Valid && ev.EndDate.Time.Format("2006-01-02") != ev.StartDate.Time.Format("2006-01-02") {
 				ed := ev.EndDate.Time.Format("02") + " " + months[ev.EndDate.Time.Format("January")] + " " + ev.EndDate.Time.Format("2006")
-				eventDates = fmt.Sprintf("%s – %s", sd, ed)
+				eventDates = fmt.Sprintf("%s â€“ %s", sd, ed)
 			} else {
 				eventDates = fmt.Sprintf("%s, %s", sd, dayName)
 			}
@@ -2828,7 +2828,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			location = ev.City.String
 		}
 
-		// ── 2. Fetch bracket ──────────────────────────────────────────────────
+		// â”€â”€ 2. Fetch bracket â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		type BracketInfo struct {
 			UUID         string `db:"uuid"`
 			CategoryUUID string `db:"category_uuid"`
@@ -2860,7 +2860,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// ── 2.5. Auto-generate board codes so they appear on scoresheet ────────
+		// â”€â”€ 2.5. Auto-generate board codes so they appear on scoresheet â”€â”€â”€â”€â”€â”€â”€â”€
 		{
 			var suffix string
 			_ = db.Get(&suffix, `SELECT RIGHT(code, 3) FROM target_board_elimination WHERE bracket_uuid = ? LIMIT 1`, bracket.UUID)
@@ -2890,7 +2890,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// ── 3. Fetch matches ──────────────────────────────────────────────────
+		// â”€â”€ 3. Fetch matches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		type MatchRow struct {
 			MatchUUID  string         `db:"match_uuid"`
 			RoundNo    int            `db:"round_no"`
@@ -2948,7 +2948,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// ── 4. Build match cards ──────────────────────────────────────────────
+		// â”€â”€ 4. Build match cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		arrowRange := makeRange(1, bracket.ArrowsPerEnd)
 		endRange := makeRange(1, bracket.EndsPerMatch)
 		isSet := bracket.Format == "recurve_set"
@@ -3015,7 +3015,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			cards = append(cards, card)
 		}
 
-		// ── 5. Prepare data for templates ────────────────────────────────────
+		// â”€â”€ 5. Prepare data for templates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		matches := make([]ElimMatchCard, 0, len(cards))
 		for _, c2 := range cards {
 			matches = append(matches, *c2)
@@ -3053,3 +3053,4 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		c.HTML(http.StatusOK, templateName, data)
 	}
 }
+

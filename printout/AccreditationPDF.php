@@ -2,7 +2,7 @@
 /**
  * AccreditationPDF.php
  *
- * PDF class for ArcheryHub Accreditation / Check-in lists.
+ * PDF class for Archeris Accreditation / Check-in lists.
  * Template modeled after ianseo's Accreditation PrintOut module.
  *
  * Supports three layouts selected via type:
@@ -39,7 +39,7 @@ class AccreditationPDF extends TCPDF
     const SECT_H   = 6.0;   // mm – section/group header height
     const LEFT_M   = 15;    // mm – left margin
 
-    // Column widths – alpha/by-club layout
+    // Column widths â€“ alpha/by-club layout
     const AW_NO    = 8;
     const AW_NAME  = 52;
     const AW_CLUB  = 38;
@@ -49,7 +49,7 @@ class AccreditationPDF extends TCPDF
     const AW_DIV   = 30;
     const AW_CHK   = 18;   // single check-in box
 
-    // Column widths – session layout
+    // Column widths â€“ session layout
     const SW_TGT   = 12;
     const SW_NAME  = 54;
     const SW_CLUB  = 40;
@@ -74,7 +74,7 @@ class AccreditationPDF extends TCPDF
     }
 
     // -------------------------------------------------------
-    // Header – printed on every page
+    // Header â€“ printed on every page
     // -------------------------------------------------------
     public function Header(): void
     {
@@ -97,7 +97,7 @@ class AccreditationPDF extends TCPDF
 
         $this->Ln(1.5);
 
-        // Document title bar (dark – ianseo style)
+        // Document title bar (dark â€“ ianseo style)
         $this->SetFont('helvetica', 'B', 9.5);
         $this->SetFillColor(30, 30, 30);
         $this->SetTextColor(255, 255, 255);
@@ -107,7 +107,7 @@ class AccreditationPDF extends TCPDF
     }
 
     // -------------------------------------------------------
-    // Footer – printed on every page
+    // Footer â€“ printed on every page
     // -------------------------------------------------------
     public function Footer(): void
     {
@@ -116,11 +116,11 @@ class AccreditationPDF extends TCPDF
         $this->SetTextColor(110, 110, 110);
         $this->Cell(90, 8, '  [ ] = Belum hadir     [v] = Sudah hadir', 0, 0, 'L');
         $this->Cell(90, 8, 'Hal. ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages()
-            . '   ArcheryHub.id   ' . date('d/m/Y H:i'), 0, 0, 'R');
+            . '   archeris.net   ' . date('d/m/Y H:i'), 0, 0, 'R');
     }
 
     // -------------------------------------------------------
-    // Section header bar  (dark, white text – ianseo style)
+    // Section header bar  (dark, white text â€“ ianseo style)
     // Used for: alphabet letter blocks, session blocks, club blocks
     // -------------------------------------------------------
     public function DrawSectionHeader(string $label, bool $breakIfFull = true): void
@@ -157,7 +157,7 @@ class AccreditationPDF extends TCPDF
     }
 
     // -------------------------------------------------------
-    // Column header row – Alphabetical / By-club layout
+    // Column header row â€“ Alphabetical / By-club layout
     // -------------------------------------------------------
     public function DrawAlphaTableHeader(): void
     {
@@ -181,7 +181,7 @@ class AccreditationPDF extends TCPDF
     }
 
     // -------------------------------------------------------
-    // Column header row – Session layout
+    // Column header row â€“ Session layout
     // -------------------------------------------------------
     public function DrawSessionTableHeader(): void
     {
@@ -205,7 +205,7 @@ class AccreditationPDF extends TCPDF
     }
 
     // -------------------------------------------------------
-    // Data row – Alphabetical / By-club layout
+    // Data row â€“ Alphabetical / By-club layout
     // -------------------------------------------------------
     public function DrawAlphaRow(
         int    $no,
@@ -233,7 +233,7 @@ class AccreditationPDF extends TCPDF
     }
 
     // -------------------------------------------------------
-    // Data row – Session layout
+    // Data row â€“ Session layout
     // -------------------------------------------------------
     public function DrawSessionRow(
         string $target,
@@ -273,7 +273,7 @@ class AccreditationPDF extends TCPDF
     // -------------------------------------------------------
     public function CanFit(int $rows = 1): bool
     {
-        // 297mm page – 22mm autobreak zone – rows
+        // 297mm page â€“ 22mm autobreak zone â€“ rows
         return $this->GetY() <= (297 - 22 - ($rows * self::ROW_H));
     }
 
@@ -291,3 +291,5 @@ class AccreditationPDF extends TCPDF
         }
     }
 }
+
+

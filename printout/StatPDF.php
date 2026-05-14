@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once(__DIR__ . '/lib/tcpdf/tcpdf.php');
 
 class StatPDF extends TCPDF {
@@ -30,7 +30,7 @@ class StatPDF extends TCPDF {
     public function Footer() {
         $this->SetY(-15);
         $this->SetFont('helvetica', 'I', 8);
-        $this->Cell(0, 10, 'Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages() . ' - ArcheryHub.id - ' . date('Y-m-d H:i'), 0, 0, 'C');
+        $this->Cell(0, 10, 'Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages() . ' - archeris.net - ' . date('Y-m-d H:i'), 0, 0, 'C');
     }
 
     public function StyledTable($header, $data, $widths, $aligns = []) {
@@ -56,3 +56,4 @@ class StatPDF extends TCPDF {
     }
 }
 ?>
+

@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -199,3 +199,4 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

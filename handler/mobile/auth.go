@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -187,7 +187,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 
 // MobileListEvents godoc
 
-// Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Auth Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
+// ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ Archer Auth ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡
 
 // MobileArcherLogin godoc
 // MobileArcherLogin handles archer login for mobile
@@ -617,7 +617,7 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 
 		emailBody := fmt.Sprintf(`
 			<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-				<h3 style="color: #333;">Pemulihan Kata Sandi ArcheryHub</h3>
+				<h3 style="color: #333;">Pemulihan Kata Sandi Archeris</h3>
 				<p>Halo <strong>%s</strong>,</p>
 				<p>Anda telah meminta pemulihan kata sandi. Gunakan kode OTP berikut untuk melanjutkan:</p>
 				<div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
@@ -628,7 +628,7 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			</div>
 		`, userData.FullName, otp)
 
-		_ = utils.SendEmail(req.Email, "Kode OTP Pemulihan Kata Sandi - ArcheryHub", emailBody)
+		_ = utils.SendEmail(req.Email, "Kode OTP Pemulihan Kata Sandi - Archeris", emailBody)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email Anda"})
 	}
@@ -820,3 +820,4 @@ func MobileGoogleBind(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

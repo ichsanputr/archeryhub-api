@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -29,7 +29,7 @@ func setAuthCookie(c *gin.Context, token string, maxAge int) {
 	secure := false
 	
 	if isProduction && !isLocal {
-		domain = ".archeryhub.id"
+		domain = ".archeris.net"
 		secure = true
 	}
 
@@ -555,7 +555,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 func generateJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
-		secret = []byte("archeryhub-secret-key-change-in-production")
+		secret = []byte("Archeris-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
@@ -581,3 +581,4 @@ func generateRandomToken(length int) (string, error) {
 	}
 	return hex.EncodeToString(bytes), nil
 }
+

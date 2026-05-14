@@ -1,4 +1,4 @@
-package mobile
+﻿package mobile
 
 import (
 	"net/http"
@@ -9,8 +9,9 @@ import (
 func MobileHello() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Selamat datang di API Mobile ArcheryHub",
+			"message": "Selamat datang di API Mobile Archeris",
 			"status":  "active",
 		})
 	}
 }
+

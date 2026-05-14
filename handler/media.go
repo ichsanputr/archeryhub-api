@@ -1,4 +1,4 @@
-package handler
+﻿package handler
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -315,3 +315,4 @@ func DeleteMedia(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Media deleted successfully"})
 	}
 }
+

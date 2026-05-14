@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"database/sql"
 	"net/http"
 
@@ -261,7 +261,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetSessionBoards returns all target boards in a qualification session
-// with each archer's current score summary Î“Ã‡Ã¶ powers the "List Targets" leaderboard screen.
+// with each archer's current score summary ÃŽâ€œÃƒâ€¡ÃƒÂ¶ powers the "List Targets" leaderboard screen.
 //
 // MobileGetSessionBoards returns leaderboard for a session
 // @Summary List Session Targets
@@ -377,7 +377,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetAssignmentScoreDetail returns the full arrow-by-arrow score history for a
-// participant's target assignment Î“Ã‡Ã¶ powers the "Detail Score Target" screen.
+// participant's target assignment ÃŽâ€œÃƒâ€¡ÃƒÂ¶ powers the "Detail Score Target" screen.
 //
 // MobileGetAssignmentScoreDetail godoc
 
@@ -566,6 +566,7 @@ func castToScannedArchersElim(archers []ElimArcherInfo) []MobileScannedArcherEli
 	return res
 }
 
-// Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡ Archer Auth Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡Î“Ã¶Ã‡
+// ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ Archer Auth ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡
 
 // MobileArcherLogin godoc
+

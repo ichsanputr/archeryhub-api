@@ -1,9 +1,9 @@
-import os
+﻿import os
 import re
 
 directories = [
-    r"c:\E\ichsan\startup\app\archeryhub.id\api\handler\mobile",
-    r"c:\E\ichsan\startup\app\archeryhub.id\api\handler"
+    r"c:\E\ichsan\startup\app\archeris.net\api\handler\mobile",
+    r"c:\E\ichsan\startup\app\archeris.net\api\handler"
 ]
 
 for directory in directories:
@@ -28,7 +28,7 @@ for directory in directories:
                 print(f"Updated {filename}")
 
 # Also check main.go (redundant but safe)
-main_path = r"c:\E\ichsan\startup\app\archeryhub.id\api\main.go"
+main_path = r"c:\E\ichsan\startup\app\archeris.net\api\main.go"
 with open(main_path, 'r', encoding='utf-8') as f:
     content = f.read()
 new_content = re.sub(r"@Tags\s+Mobile - ", "@Tags         ", content)
@@ -37,3 +37,4 @@ if new_content != content:
     with open(main_path, 'w', encoding='utf-8') as f:
         f.write(new_content)
     print(f"Updated main.go")
+

@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -505,3 +505,4 @@ func GetEventResultFiles(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

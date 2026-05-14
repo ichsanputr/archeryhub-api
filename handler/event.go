@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 
 	"encoding/csv"
 	"encoding/json"
@@ -2005,7 +2005,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Map input IDs → resolved UUIDs (deduplicate)
+		// Map input IDs â†’ resolved UUIDs (deduplicate)
 		seenUUIDs := map[string]bool{}
 		archerUUIDs := []string{}
 		for _, row := range archerRows {
@@ -2042,7 +2042,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		skippedCount := 0
 
 		for _, archerUUID := range archerUUIDs {
-			// Get or generate a shared QR for this archer×event if status is lunas
+			// Get or generate a shared QR for this archerÃ—event if status is lunas
 			var qrRaw *string
 			if paymentStatus == "lunas" {
 				var existingQR sql.NullString
@@ -3591,3 +3591,4 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	}
 }
+

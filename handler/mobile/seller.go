@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/handler"
+	"Archeris-api/handler"
 	"net/http"
 	"time"
 
@@ -123,3 +123,4 @@ func MobileUpdateProduct(db *sqlx.DB) gin.HandlerFunc {
 func MobileDeleteProduct(db *sqlx.DB) gin.HandlerFunc {
 	return handler.DeleteProduct(db)
 }
+

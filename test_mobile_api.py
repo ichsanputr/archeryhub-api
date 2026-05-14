@@ -1,4 +1,4 @@
-import requests
+﻿import requests
 import json
 import os
 
@@ -41,7 +41,7 @@ def test_endpoint(name, method, path, payload=None, token=None):
         return None
 
 def main():
-    print("=== ArcheryHub Mobile API Test Script ===\n")
+    print("=== Archeris Mobile API Test Script ===\n")
 
     # 1. Public Hello
     test_endpoint("Mobile Hello", "GET", "/hello")
@@ -113,3 +113,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

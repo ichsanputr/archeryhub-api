@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"fmt"
@@ -21,14 +21,14 @@ type SeedData struct {
 }
 
 func main() {
-	dsn := "ichsan:12345@tcp(151.243.222.93:30036)/archeryhub?parseTime=true"
+	dsn := "ichsan:12345@tcp(151.243.222.93:30036)/Archeris?parseTime=true"
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
 	}
 	defer db.Close()
 
-	fmt.Println("🌱 Seeding 5 new events to VPS...")
+	fmt.Println("ðŸŒ± Seeding 5 new events to VPS...")
 
 	data := SeedData{
 		BowTypes: []string{
@@ -72,7 +72,7 @@ func main() {
 		{"Sleman Junior Cup 2026", fmt.Sprintf("sleman-junior-cup-2026-%d", ts), "Lapangan Kedulan", "Sleman"},
 		{"Solo Barebow Championship", fmt.Sprintf("solo-barebow-championship-%d", ts), "Sritex Arena Solo", "Solo"},
 		{"Sultan Hamengkubuwono Cup X", fmt.Sprintf("sultan-hb-cup-x-2026-%d", ts), "Stadion Mandala Krida", "Yogyakarta"},
-		{"ArcheryHub Pro Series Jakarta", fmt.Sprintf("archeryhub-pro-jakarta-2026-%d", ts), "Gelora Bung Karno", "Jakarta"},
+		{"Archeris Pro Series Jakarta", fmt.Sprintf("Archeris-pro-jakarta-2026-%d", ts), "Gelora Bung Karno", "Jakarta"},
 		{"Brawijaya Traditional Open", fmt.Sprintf("brawijaya-traditional-open-2026-%d", ts), "Universitas Brawijaya", "Malang"},
 	}
 
@@ -139,8 +139,9 @@ func main() {
 			`, imgUUID, eventUUID, imgURL, fmt.Sprintf("Action Shot %d", j), j, j == 1)
 		}
 
-		fmt.Printf("✅ Seeded Event: %s (%s)\n", e.Name, eventUUID)
+		fmt.Printf("âœ… Seeded Event: %s (%s)\n", e.Name, eventUUID)
 	}
 
-	fmt.Println("🚀 Seeding complete!")
+	fmt.Println("ðŸš€ Seeding complete!")
 }
+

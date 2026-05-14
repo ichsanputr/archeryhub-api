@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"net/http"
 	"strconv"
 
@@ -264,3 +264,4 @@ func MobileListRelatedNews(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

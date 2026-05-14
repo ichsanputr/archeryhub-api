@@ -1,4 +1,4 @@
-package handler
+﻿package handler
 
 import (
 	"encoding/json"
@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -1147,3 +1147,4 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil dihapus"})
 	}
 }
+

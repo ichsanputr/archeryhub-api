@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 )
 
 // GetProducts returns all products (public)
@@ -449,3 +449,4 @@ func IncrementProductViews(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Analitik diperbarui"})
 	}
 }
+

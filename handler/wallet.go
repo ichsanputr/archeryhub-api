@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -169,3 +169,4 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{"message": "Permintaan penarikan berhasil diajukan", "id": withdrawalID, "reference_no": refNo})
 	}
 }
+

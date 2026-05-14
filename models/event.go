@@ -1,4 +1,4 @@
-package models
+﻿package models
 
 import (
 	"database/sql/driver"
@@ -62,9 +62,9 @@ func (ft *FlexibleTime) UnmarshalJSON(data []byte) error {
 type Event struct {
 	UUID                  string     `json:"id" db:"uuid" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
 	Code                  string     `json:"code" db:"code" example:"AHC-2026-JKT-OPEN"`
-	Name                  string     `json:"name" db:"name" example:"ArcheryHub Jakarta Open 2026"`
+	Name                  string     `json:"name" db:"name" example:"Archeris Jakarta Open 2026"`
 	ShortName             *string    `json:"short_name" db:"short_name" example:"JKT Open 2026"`
-	Slug                  string     `json:"slug" db:"slug" example:"archeryhub-jakarta-open-2026"`
+	Slug                  string     `json:"slug" db:"slug" example:"Archeris-jakarta-open-2026"`
 	Venue                 *string    `json:"venue" db:"venue" example:"Lapangan ABC Senayan"`
 	Address               *string    `json:"address" db:"address" example:"Jl. Asia Afrika No.8, Jakarta"`
 	GmapLink              *string    `json:"gmaps_link" db:"gmaps_link" example:"https://maps.google.com/?q=-6.2185,106.8022"`
@@ -74,8 +74,8 @@ type Event struct {
 	EndDate               *time.Time `json:"end_date" db:"end_date" swaggertype:"string" format:"date-time" example:"2026-05-21T17:00:00Z"`
 	RegistrationDeadline  *time.Time `json:"registration_deadline" db:"registration_deadline" swaggertype:"string" format:"date-time" example:"2026-05-10T23:59:59Z"`
 	Description           *string    `json:"description" db:"description" example:"Kejuaraan terbuka nasional untuk kategori recurve, compound, dan barebow."`
-	BannerURL             *string    `json:"banner_url" db:"banner_url" example:"https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg"`
-	LogoURL               *string    `json:"logo_url" db:"logo_url" example:"https://cdn.archeryhub.id/media/logo-jkt-open-2026.png"`
+	BannerURL             *string    `json:"banner_url" db:"banner_url" example:"https://cdn.archeris.net/media/banner-jkt-open-2026.jpg"`
+	LogoURL               *string    `json:"logo_url" db:"logo_url" example:"https://cdn.archeris.net/media/logo-jkt-open-2026.png"`
 	Type                  *string    `json:"type" db:"type" example:"Outdoor"`                   // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
 	LocationType          *string    `json:"location_type" db:"location_type" example:"Outdoor"` // Location type: Indoor, Outdoor, Field, 3D, etc.
 	NumDistances          *int       `json:"num_distances" db:"num_distances" example:"2"`
@@ -86,7 +86,7 @@ type Event struct {
 	CreatedAt             time.Time  `json:"created_at" db:"created_at" swaggertype:"string" format:"date-time" example:"2026-03-01T10:30:00Z"`
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at" swaggertype:"string" format:"date-time" example:"2026-03-12T13:10:00Z"`
 	TotalPrize            float64    `json:"total_prize" db:"total_prize" example:"50000000"`
-	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url" example:"https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf"`
+	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url" example:"https://cdn.archeris.net/media/technical-guidebook-jkt-open-2026.pdf"`
 	PageSettings          *string    `json:"page_settings_raw" db:"page_settings"`
 	FAQ                   *string    `json:"faq_raw" db:"faq"`
 }
@@ -94,10 +94,10 @@ type Event struct {
 // EventWithDetails includes organizer information
 type EventWithDetails struct {
 	Event
-	OrganizerName         *string                    `json:"organizer_name" db:"organizer_name" example:"ArcheryHub Club Jakarta"`
-	OrganizerEmail        *string                    `json:"organizer_email" db:"organizer_email" example:"event@archeryhub.id"`
-	OrganizerAvatarURL    *string                    `json:"organizer_avatar_url" db:"organizer_avatar_url" example:"https://cdn.archeryhub.id/media/organizer-avatar.png"`
-	OrganizerSlug         *string                    `json:"organizer_slug" db:"organizer_slug" example:"archeryhub-jakarta"`
+	OrganizerName         *string                    `json:"organizer_name" db:"organizer_name" example:"Archeris Club Jakarta"`
+	OrganizerEmail        *string                    `json:"organizer_email" db:"organizer_email" example:"event@archeris.net"`
+	OrganizerAvatarURL    *string                    `json:"organizer_avatar_url" db:"organizer_avatar_url" example:"https://cdn.archeris.net/media/organizer-avatar.png"`
+	OrganizerSlug         *string                    `json:"organizer_slug" db:"organizer_slug" example:"Archeris-jakarta"`
 	OrganizerPhone        *string                    `json:"organizer_phone" db:"organizer_phone" example:"081234567890"`
 	ParticipantCount      int                        `json:"participant_count" db:"participant_count" example:"128"`
 	EventCount            int                        `json:"event_count" db:"event_count" example:"12"`
@@ -133,12 +133,12 @@ type EventParticipantPreview struct {
 	ParticipantID string  `json:"participant_id" db:"participant_id" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
 	ArcherID      *string `json:"archer_id" db:"archer_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
 	FullName      string  `json:"full_name" db:"full_name" example:"Rizky Pratama"`
-	ClubName      *string `json:"club_name" db:"club_name" example:"ArcheryHub Club Jakarta"`
+	ClubName      *string `json:"club_name" db:"club_name" example:"Archeris Club Jakarta"`
 	CategoryName  *string `json:"category_name" db:"category_name" example:"Recurve Umum Putra"`
 	PaymentStatus string  `json:"payment_status" db:"payment_status" example:"lunas"`
 	QualRank      *int    `json:"qual_rank" db:"qual_rank" example:"1"`
 	QualScore     *int    `json:"qual_score" db:"qual_score" example:"668"`
-	AvatarURL     *string `json:"avatar_url" db:"avatar_url" example:"https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg"`
+	AvatarURL     *string `json:"avatar_url" db:"avatar_url" example:"https://cdn.archeris.net/media/archer/rizky-pratama.jpg"`
 }
 
 type EventResultPreview struct {
@@ -322,3 +322,5 @@ type QualificationResultsResponse struct {
 	TotalCumulativeEnds int                  `json:"total_cumulative_ends"`
 	Leaderboard         []QualificationEntry `json:"leaderboard"`
 }
+
+

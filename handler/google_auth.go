@@ -1,4 +1,4 @@
-package handler
+﻿package handler
 
 import (
 	"crypto/rand"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
@@ -427,7 +427,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		isProduction := os.Getenv("ENV") == "production"
 		domain := ""
 		if isProduction {
-			domain = ".archeryhub.id"
+			domain = ".archeris.net"
 		}
 
 		c.SetSameSite(http.SameSiteLaxMode)
@@ -561,7 +561,7 @@ func splitState(stateData string) []string {
 func generateGoogleJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
-		secret = []byte("archeryhub-secret-key-change-in-production")
+		secret = []byte("Archeris-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
@@ -579,3 +579,4 @@ func generateGoogleJWT(userID, email, role, userType, name, avatar, orgUUID stri
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
 }
+

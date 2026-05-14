@@ -1,8 +1,8 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"crypto/rand"
 	"fmt"
 	"net/http"
@@ -204,3 +204,4 @@ func DeleteScorekeeper(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Scorekeeper deleted successfully"})
 	}
 }
+

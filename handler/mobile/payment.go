@@ -1,8 +1,8 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -200,3 +200,4 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

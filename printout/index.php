@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 $startTime = microtime(true);
 require_once(__DIR__ . '/db.php');
 require_once(__DIR__ . '/ScorePDF.php');
@@ -38,7 +38,7 @@ function getAcronym($name) {
 // ---------------------------------------------------------
 if ($requestUri == '/' || $requestUri == '/index.php' || preg_match('/\/api\/v1\/printout\/?$/', $requestUri)) {
     header('Content-Type: text/html');
-    echo "<h1>ArcheryHub Printout Server</h1>";
+    echo "<h1>Archeris Printout Server</h1>";
     echo "<p style='font-size: 1.2em; color: green;'>System working</p>";
 
     echo "<h3>Extensions Check:</h3><ul>";
@@ -500,7 +500,7 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
         }
 
         // 2. Build participant query
-        // Joins: archer → club → category → age_group + bow_type → target assignment → session
+        // Joins: archer â†’ club â†’ category â†’ age_group + bow_type â†’ target assignment â†’ session
         $query = "
             SELECT
                 a.full_name                                      AS athlete_name,
@@ -545,9 +545,9 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
 
         // 3. Build PDF title
         $typeLabels = [
-            'alphabetical' => 'Daftar Peserta – Urutan Abjad',
-            'by-club'      => 'Daftar Peserta – Per Klub / Organisasi',
-            'session'      => 'Daftar Akreditasi – Per Sesi',
+            'alphabetical' => 'Daftar Peserta â€“ Urutan Abjad',
+            'by-club'      => 'Daftar Peserta â€“ Per Klub / Organisasi',
+            'session'      => 'Daftar Akreditasi â€“ Per Sesi',
         ];
         $docTitle = $typeLabels[$type] ?? 'Daftar Peserta';
 
@@ -570,7 +570,7 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
         $pdf->AddPage();
 
         // -------------------------------------------------------
-        // 5A. ALPHABETICAL – grouped by first initial (ianseo style)
+        // 5A. ALPHABETICAL â€“ grouped by first initial (ianseo style)
         // -------------------------------------------------------
         if ($type === 'alphabetical') {
             $currentInitial = null;
@@ -600,7 +600,7 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
                     $groupCount     = 0;
                     $fill           = false;
                 } elseif (!$pdf->CanFit(1)) {
-                    // Page break mid-group – reprint header (ianseo "Segue" behaviour)
+                    // Page break mid-group â€“ reprint header (ianseo "Segue" behaviour)
                     $pdf->RepeatHeaderOnNewPage('alphabetical');
                     $fill = false;
                 }
@@ -625,7 +625,7 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
             }
 
         // -------------------------------------------------------
-        // 5B. BY-CLUB – grouped by club name (ianseo PrnCountry style)
+        // 5B. BY-CLUB â€“ grouped by club name (ianseo PrnCountry style)
         // -------------------------------------------------------
         } elseif ($type === 'by-club') {
             $currentClub = null;
@@ -677,7 +677,7 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
             }
 
         // -------------------------------------------------------
-        // 5C. SESSION – grouped by session, then by target (ianseo PrnSession style)
+        // 5C. SESSION â€“ grouped by session, then by target (ianseo PrnSession style)
         // -------------------------------------------------------
         } else {
             $currentSession = null;
@@ -753,4 +753,5 @@ if (preg_match('/\/api\/v1\/events\/([^\/]+)\/accreditation\/printout/', $reques
 header('Content-Type: application/json');
 echo json_encode(['error' => 'Endpoint not found', 'uri' => $requestUri]);
 ?>
+
 

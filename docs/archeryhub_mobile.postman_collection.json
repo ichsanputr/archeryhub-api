@@ -1,7 +1,7 @@
-{
+﻿{
     "info": {
-        "_postman_id": "archeryhub-mobile-v1",
-        "name": "ArcheryHub Mobile API (Official)",
+        "_postman_id": "Archeris-mobile-v1",
+        "name": "Archeris Mobile API (Official)",
         "description": "Comprehensive collection reflecting all endpoints in api/main.go. Single source of truth.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
@@ -2712,7 +2712,7 @@
     "variable": [
         {
             "key": "base_url",
-            "value": "http://api.archeryhub.id/api/v1/mobile",
+            "value": "http://api.archeris.net/api/v1/mobile",
             "type": "string"
         },
         {
@@ -2722,3 +2722,4 @@
         }
     ]
 }
+

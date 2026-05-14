@@ -1,8 +1,8 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -1635,7 +1635,7 @@ func generateUniqueBoardCodeWithTx(tx *sqlx.Tx, sessionUUID string) (string, err
 	return "", fmt.Errorf("failed to generate unique code")
 }
 
-// ─── Scoresheet Data Structures ───────────────────────────────────────────────
+// â”€â”€â”€ Scoresheet Data Structures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type ScoresheetPosition struct {
 	TargetName string
@@ -1716,3 +1716,4 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	}
 }
+

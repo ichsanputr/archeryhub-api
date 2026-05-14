@@ -1,4 +1,4 @@
-name: Deploy Go App
+﻿name: Deploy Go App
 
 on:
   push:
@@ -9,32 +9,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout source
+      # 1ï¸âƒ£ Checkout source
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Build Docker image
+      # 2ï¸âƒ£ Build Docker image
       - name: Build Docker image
         run: |
-          docker build -t archeryhub-api:latest .
+          docker build -t Archeris-api:latest .
           echo "Docker image built successfully"
 
-      # 3️⃣ Extract binary from Docker image
+      # 3ï¸âƒ£ Extract binary from Docker image
       - name: Extract binary from Docker image
         run: |
           # Create a temporary container from the image
-          docker create --name temp-container archeryhub-api:latest
+          docker create --name temp-container Archeris-api:latest
           # Copy the binary from container to host
-          docker cp temp-container:/app/archeryhub-api ./archeryhub-api
+          docker cp temp-container:/app/Archeris-api ./Archeris-api
           # Remove the temporary container
           docker rm temp-container
           # Make the binary executable
-          chmod +x ./archeryhub-api
+          chmod +x ./Archeris-api
           # Verify binary was extracted
-          ls -la ./archeryhub-api
+          ls -la ./Archeris-api
           echo "Binary extracted successfully"
 
-      # 4️⃣ Verify .env.production exists
+      # 4ï¸âƒ£ Verify .env.production exists
       - name: Verify .env.production file exists
         run: |
           if [ ! -f ./.env.production ]; then
@@ -45,43 +45,44 @@ jobs:
           echo "First 3 lines of .env.production:"
           head -3 ./.env.production
 
-      # 5️⃣ Setup SSH agent using your GitHub secret
+      # 5ï¸âƒ£ Setup SSH agent using your GitHub secret
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # 6️⃣ Create directory and deploy binary and production env to VPS
+      # 6ï¸âƒ£ Create directory and deploy binary and production env to VPS
       - name: Create directory and sync binary and production env to VPS
         run: |
           # Create the directory if it doesn't exist
-          ssh -p 30221 -o StrictHostKeyChecking=no root@151.243.222.93 "mkdir -p /root/archeryhub-api"
+          ssh -p 30221 -o StrictHostKeyChecking=no root@151.243.222.93 "mkdir -p /root/Archeris-api"
           # Sync the binary
           rsync -avz --delete -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
-          ./archeryhub-api root@151.243.222.93:/root/archeryhub-api/archeryhub-api
+          ./Archeris-api root@151.243.222.93:/root/Archeris-api/Archeris-api
           # Copy .env.production as .env to the server
           rsync -avz -e "ssh -p 30221 -o StrictHostKeyChecking=no" \
-          ./.env.production root@151.243.222.93:/root/archeryhub-api/.env
+          ./.env.production root@151.243.222.93:/root/Archeris-api/.env
 
-      # 7️⃣ Verify deployment and restart the systemd service on VPS
-      - name: Verify deployment and restart archeryhub-api service
+      # 7ï¸âƒ£ Verify deployment and restart the systemd service on VPS
+      - name: Verify deployment and restart Archeris-api service
         run: |
           ssh -p 30221 -o StrictHostKeyChecking=no root@151.243.222.93 << 'EOF'
             # Verify files are deployed correctly
             echo "Verifying deployed files:"
-            ls -la /root/archeryhub-api/
+            ls -la /root/Archeris-api/
             echo "Environment file contents (first 3 lines):"
-            head -3 /root/archeryhub-api/.env || echo ".env file not found"
+            head -3 /root/Archeris-api/.env || echo ".env file not found"
             
             # Pull latest changes
-            cd /home/ichsan/archeryhub.id/api
+            cd /home/ichsan/archeris.net/api
             git pull
 
             # Kill any PHP instance running on port 8002
             fuser -k 8002/tcp || echo "No process found on port 8002"
 
             # Restart the service
-            systemctl stop archeryhub-api
-            systemctl start archeryhub-api
-            systemctl status archeryhub-api --no-pager
+            systemctl stop Archeris-api
+            systemctl start Archeris-api
+            systemctl status Archeris-api --no-pager
           EOF
+

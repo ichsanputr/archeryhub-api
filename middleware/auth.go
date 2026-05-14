@@ -1,4 +1,4 @@
-package middleware
+﻿package middleware
 
 import (
 	"fmt"
@@ -49,7 +49,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		secret := []byte(os.Getenv("JWT_SECRET"))
 		if len(secret) == 0 {
-			secret = []byte("archeryhub-secret-key-change-in-production") // Fallback for dev only
+			secret = []byte("Archeris-secret-key-change-in-production") // Fallback for dev only
 		}
 
 		// Parse and validate token
@@ -148,7 +148,7 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 
 		secret := []byte(os.Getenv("JWT_SECRET"))
 		if len(secret) == 0 {
-			secret = []byte("archeryhub-secret-key-change-in-production")
+			secret = []byte("Archeris-secret-key-change-in-production")
 		}
 
 		// Parse and validate token (ignore errors, just don't set user_id)
@@ -174,3 +174,4 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+

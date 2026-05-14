@@ -1,4 +1,4 @@
-package handler
+﻿package handler
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -636,3 +636,4 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, stats)
 	}
 }
+

@@ -1,8 +1,8 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -935,3 +935,4 @@ func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, stats)
 	}
 }
+

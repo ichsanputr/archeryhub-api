@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"encoding/json"
 	"net/http"
 
@@ -254,3 +254,4 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Profil toko berhasil diperbarui"})
 	}
 }
+

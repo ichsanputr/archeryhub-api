@@ -1,4 +1,4 @@
-package handler
+﻿package handler
 
 import (
 	"encoding/json"
@@ -180,7 +180,7 @@ func ChatbotMessage() gin.HandlerFunc {
 			c.JSON(http.StatusOK, gin.H{
 				"intent":        "fallback",
 				"confidence":    confidence,
-				"answer":        "Aku siap bantu customer service Archeryhub. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
+				"answer":        "Aku siap bantu customer service Archeris. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
 				"quick_actions": recommendedQuickActions(),
 			})
 			return
@@ -201,3 +201,4 @@ func ChatbotIntents() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"intents": chatbotIntents})
 	}
 }
+

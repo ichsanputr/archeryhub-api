@@ -1,4 +1,4 @@
-package mobile
+﻿package mobile
 
 import (
 	"encoding/json"
@@ -183,7 +183,7 @@ func MobileChatbotMessage() gin.HandlerFunc {
 			c.JSON(http.StatusOK, MobileChatbotResponse{
 				Intent:       "fallback",
 				Confidence:   confidence,
-				Answer:       "Aku siap bantu customer service Archeryhub. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
+				Answer:       "Aku siap bantu customer service Archeris. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
 				QuickActions: recommendedQuickActions(),
 			})
 			return
@@ -211,3 +211,4 @@ func MobileChatbotIntents() gin.HandlerFunc {
 		c.JSON(http.StatusOK, MobileChatbotIntentsResponse{Intents: chatbotIntents})
 	}
 }
+

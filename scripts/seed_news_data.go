@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"fmt"
@@ -11,30 +11,30 @@ import (
 )
 
 func main() {
-	dsn := "ichsan:12345@tcp(151.243.222.93:30036)/archeryhub?parseTime=true"
+	dsn := "ichsan:12345@tcp(151.243.222.93:30036)/Archeris?parseTime=true"
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
 	}
 	defer db.Close()
 
-	fmt.Println("📰 Seeding 10 news articles to VPS...")
+	fmt.Println("ðŸ“° Seeding 10 news articles to VPS...")
 
 	titles := []string{
 		"Tips Memilih Busur Pertama untuk Pemula",
 		"Persiapan Mental Sebelum Turnamen Panahan Besar",
 		"Mengenal Perbedaan Recurve dan Compound untuk Atlet Muda",
-		"Jadwal Turnamen ArcheryHub Seri Nasional 2026",
-		"Review: Stabilizer Karbon Terbaru di Marketplace ArcheryHub",
+		"Jadwal Turnamen Archeris Seri Nasional 2026",
+		"Review: Stabilizer Karbon Terbaru di Marketplace Archeris",
 		"Bagaimana Cara Menghitung Skor Panahan yang Benar?",
 		"Kisah Inspiratif: Perjalanan Menuju Medali Emas POPDA",
 		"Pentingnya Latihan Fisik di Luar Area Panahan",
-		"Inovasi Teknologi Scoring Real-time di ArcheryHub",
+		"Inovasi Teknologi Scoring Real-time di Archeris",
 		"Daftar Klub Panahan Terverifikasi di Indonesia",
 	}
 
 	authorID := "a1fdd1c4-632a-44d9-9be4-c96461e4530e"
-	authorName := "Admin ArcheryHub"
+	authorName := "Admin Archeris"
 	orgID := "a1fdd1c4-632a-44d9-9be4-c96461e4530e"
 
 	for i, title := range titles {
@@ -51,9 +51,10 @@ func main() {
 		if err != nil {
 			fmt.Printf("Error inserting news %s: %v\n", title, err)
 		} else {
-			fmt.Printf("✅ Seeded News: %s\n", title)
+			fmt.Printf("âœ… Seeded News: %s\n", title)
 		}
 	}
 
-	fmt.Println("🚀 News seeding complete!")
+	fmt.Println("ðŸš€ News seeding complete!")
 }
+

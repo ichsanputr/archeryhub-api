@@ -1,8 +1,8 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"time"
@@ -408,19 +408,19 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Send Email
-		subject := "Kode OTP Verifikasi Perubahan Email - ArcheryHub"
+		subject := "Kode OTP Verifikasi Perubahan Email - Archeris"
 		body := fmt.Sprintf(`
 			<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
 				<h2 style="color: #0ea5e9; text-align: center;">Verifikasi Email Baru Anda</h2>
 				<p>Halo,</p>
-				<p>Kami menerima permintaan untuk mengubah alamat email akun ArcheryHub Anda ke <strong>%s</strong>.</p>
+				<p>Kami menerima permintaan untuk mengubah alamat email akun Archeris Anda ke <strong>%s</strong>.</p>
 				<p>Silakan gunakan kode OTP di bawah ini untuk memverifikasi perubahan ini:</p>
 				<div style="background: #f0f9ff; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
 					<span style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: #0369a1;">%s</span>
 				</div>
 				<p style="color: #666; font-size: 14px;">Kode ini akan kedaluwarsa dalam 15 menit. Jika Anda tidak merasa melakukan permintaan ini, silakan abaikan email ini.</p>
 				<hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-				<p style="text-align: center; color: #999; font-size: 12px;">&copy; 2026 ArcheryHub.id - Platform Panahan Indonesia</p>
+				<p style="text-align: center; color: #999; font-size: 12px;">&copy; 2026 archeris.net - Platform Panahan Indonesia</p>
 			</div>
 		`, req.NewEmail, otp)
 
@@ -505,3 +505,5 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Email berhasil diperbarui. Silakan gunakan email baru untuk login berikutnya."})
 	}
 }
+
+

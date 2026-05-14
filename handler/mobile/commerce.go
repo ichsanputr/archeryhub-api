@@ -1,8 +1,8 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -567,3 +567,4 @@ func MobileArcherGetOrderHistory(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

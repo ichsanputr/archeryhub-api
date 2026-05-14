@@ -1,7 +1,7 @@
-package utils
+﻿package utils
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -210,3 +210,4 @@ func InterfaceToStringPtr(i interface{}) *string {
 	s := fmt.Sprintf("%v", i)
 	return &s
 }
+

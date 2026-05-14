@@ -1,8 +1,8 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -259,7 +259,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 			amount = int(reg.PaymentAmount)
 			customerName = reg.FullName
-			customerEmail = utils.StringValue(reg.Email, "user@archeryhub.id")
+			customerEmail = utils.StringValue(reg.Email, "user@archeris.net")
 			customerPhone = utils.StringValue(reg.Phone, "")
 			registrationID = req.RegistrationID
 
@@ -613,7 +613,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
 					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
 					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
-					ELSE 'Transaksi Archeryhub'
+					ELSE 'Transaksi Archeris'
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
@@ -1121,7 +1121,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		amount := int(reg.PaymentAmount)
 		customerName := reg.FullName
-		customerEmail := utils.StringValue(reg.Email, "user@archeryhub.id")
+		customerEmail := utils.StringValue(reg.Email, "user@archeris.net")
 		customerPhone := utils.StringValue(reg.Phone, "08123456789")
 
 		tripay := utils.NewTripayClient()
@@ -1219,3 +1219,5 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, transaction)
 	}
 }
+
+

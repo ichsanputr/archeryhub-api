@@ -1,4 +1,4 @@
-package mobile
+﻿package mobile
 
 import (
 	"net/http"
@@ -420,17 +420,18 @@ func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
 func MobileGetBankOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		banks := []MobileBankOption{
-			{ID: "BCA", Name: "Bank Central Asia (BCA)", LogoURL: "https://cdn.archeryhub.id/media/banks/bca.png"},
-			{ID: "MANDIRI", Name: "Bank Mandiri", LogoURL: "https://cdn.archeryhub.id/media/banks/mandiri.png"},
-			{ID: "BNI", Name: "Bank Negara Indonesia (BNI)", LogoURL: "https://cdn.archeryhub.id/media/banks/bni.png"},
-			{ID: "BRI", Name: "Bank Rakyat Indonesia (BRI)", LogoURL: "https://cdn.archeryhub.id/media/banks/bri.png"},
-			{ID: "BTN", Name: "Bank Tabungan Negara (BTN)", LogoURL: "https://cdn.archeryhub.id/media/banks/btn.png"},
-			{ID: "CIMB", Name: "CIMB Niaga", LogoURL: "https://cdn.archeryhub.id/media/banks/cimb.png"},
-			{ID: "DANAMON", Name: "Bank Danamon", LogoURL: "https://cdn.archeryhub.id/media/banks/danamon.png"},
-			{ID: "PERMATA", Name: "Bank Permata", LogoURL: "https://cdn.archeryhub.id/media/banks/permata.png"},
-			{ID: "BSI", Name: "Bank Syariah Indonesia (BSI)", LogoURL: "https://cdn.archeryhub.id/media/banks/bsi.png"},
+			{ID: "BCA", Name: "Bank Central Asia (BCA)", LogoURL: "https://cdn.archeris.net/media/banks/bca.png"},
+			{ID: "MANDIRI", Name: "Bank Mandiri", LogoURL: "https://cdn.archeris.net/media/banks/mandiri.png"},
+			{ID: "BNI", Name: "Bank Negara Indonesia (BNI)", LogoURL: "https://cdn.archeris.net/media/banks/bni.png"},
+			{ID: "BRI", Name: "Bank Rakyat Indonesia (BRI)", LogoURL: "https://cdn.archeris.net/media/banks/bri.png"},
+			{ID: "BTN", Name: "Bank Tabungan Negara (BTN)", LogoURL: "https://cdn.archeris.net/media/banks/btn.png"},
+			{ID: "CIMB", Name: "CIMB Niaga", LogoURL: "https://cdn.archeris.net/media/banks/cimb.png"},
+			{ID: "DANAMON", Name: "Bank Danamon", LogoURL: "https://cdn.archeris.net/media/banks/danamon.png"},
+			{ID: "PERMATA", Name: "Bank Permata", LogoURL: "https://cdn.archeris.net/media/banks/permata.png"},
+			{ID: "BSI", Name: "Bank Syariah Indonesia (BSI)", LogoURL: "https://cdn.archeris.net/media/banks/bsi.png"},
 		}
 
 		c.JSON(http.StatusOK, MobileBankOptionsResponse{Data: banks})
 	}
 }
+

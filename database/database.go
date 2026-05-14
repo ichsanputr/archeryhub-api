@@ -1,4 +1,4 @@
-package database
+﻿package database
 
 import (
 	"os"
@@ -20,7 +20,7 @@ func InitDB() (*sqlx.DB, error) {
 	port := getEnv("DB_PORT", "3306")
 	user := getEnv("DB_USER", "root")
 	password := getEnv("DB_PASSWORD", "")
-	dbname := getEnv("DB_NAME", "archeryhub")
+	dbname := getEnv("DB_NAME", "Archeris")
 
 	dsn := user + ":" + password + "@tcp(" + host + ":" + port + ")/" + dbname + "?parseTime=true"
 	db, err := sqlx.Connect("mysql", dsn)
@@ -30,3 +30,4 @@ func InitDB() (*sqlx.DB, error) {
 
 	return db, nil
 }
+

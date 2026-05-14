@@ -1,10 +1,10 @@
-# ArcheryHub.id Mobile API Specification (v1)
+# archeris.net Mobile API Specification (v1)
 
 This document provides the technical specification for mobile-exclusive API endpoints.
 
 ---
 
-## 🔐 1. Authentication
+## 🔍 1. Authentication
 Mobile apps use specific login endpoints that return a flat `Token` and `User` object.
 
 ### Archer Login
@@ -48,7 +48,7 @@ Public event listing and details.
 
 ---
 
-## 🛍️ 5. Marketplace
+## 🛠️ 5. Marketplace
 Public marketplace listing for archers to buy equipment.
 
 `GET /mobile/marketplace/products`
@@ -99,7 +99,7 @@ This endpoint provides the complete leaderboard for a specific category, includi
       "participant_id": "reg-uuid-...",
       "archer_uuid": "arc-uuid-...",
       "archer_name": "Rizky Pratama",
-      "avatar_url": "https://cdn.archeryhub.id/media/archers/rizky.jpg",
+      "avatar_url": "https://cdn.archeris.net/media/archers/rizky.jpg",
       "club_name": "Jakarta Archery",
       "total_score": 675,
       "total_10x": 18,
@@ -124,28 +124,28 @@ This endpoint provides the complete leaderboard for a specific category, includi
 
 ---
 
-## 🔐 10. Auth Logout
+## ðŸ” 10. Auth Logout
 **Endpoint**: `POST /mobile/auth/logout`
 
 Clears the session on the server (for cookie-based sessions) and returns success.
 
 ---
 
-## 💳 11. List Payment Channels
+## ðŸ’³ 11. List Payment Channels
 **Endpoint**: `GET /mobile/payment/channels`
 
 Returns a list of available Tripay payment channels.
 
 ---
 
-## 🛍️ 12. Seller Product Management
+## ðŸ›ï¸ 12. Seller Product Management
 **Base Path**: `/mobile/seller/products` (Requires Auth)
 
 CRUD for seller products. Supports `POST`, `PUT`, `DELETE`.
 
 ---
 
-## ⚙️ 13. Mobile Options (Public)
+## âš™ï¸ 13. Mobile Options (Public)
 **Base Path**: `/mobile/options`
 
 Endpoints for dropdown selections: 
@@ -160,21 +160,21 @@ Endpoints for dropdown selections:
 
 ---
 
-## 🏛️ 14. Mobile Organization Dashboard
+## ðŸ›ï¸ 14. Mobile Organization Dashboard
 **Endpoint**: `GET /mobile/organization/dashboard` (Requires Auth)
 
 Returns statistics, upcoming deadlines, and recent activities for the organization.
 
 ---
 
-## 🏬 15. Mobile Seller Dashboard
+## ðŸ¬ 15. Mobile Seller Dashboard
 **Endpoint**: `GET /mobile/seller/dashboard` (Requires Auth)
 
 Returns statistics and recent orders for the seller.
 
 ---
 
-## 📁 16. Mobile Media Upload
+## ðŸ“ 16. Mobile Media Upload
 **Base Path**: `/mobile/media` (Requires Auth)
 
 ### Upload File
@@ -186,3 +186,4 @@ Returns statistics and recent orders for the seller.
 
 ### Delete Media
 **Endpoint**: `DELETE /mobile/media/:id`
+

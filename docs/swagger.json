@@ -1,17 +1,17 @@
-{
+﻿{
     "schemes": [
         "https",
         "http"
     ],
     "swagger": "2.0",
     "info": {
-        "description": "Dedicated API for ArcheryHub Mobile App",
-        "title": "ArcheryHub Mobile API",
-        "termsOfService": "http://archeryhub.id/terms/",
+        "description": "Dedicated API for Archeris Mobile App",
+        "title": "Archeris Mobile API",
+        "termsOfService": "http://archeris.net/terms/",
         "contact": {
-            "name": "ArcheryHub Support",
-            "url": "https://archeryhub.id",
-            "email": "support@archeryhub.id"
+            "name": "Archeris Support",
+            "url": "https://archeris.net",
+            "email": "support@archeris.net"
         },
         "license": {
             "name": "Apache 2.0",
@@ -19,7 +19,7 @@
         },
         "version": "1.1"
     },
-    "host": "api.archeryhub.id",
+    "host": "api.archeris.net",
     "basePath": "/api/v1",
     "paths": {
         "/archer/events": {
@@ -3950,7 +3950,7 @@
                 },
                 "avatar_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                    "example": "https://cdn.archeris.net/media/archers/rizky.jpg"
                 },
                 "bow_type": {
                     "type": "string",
@@ -3966,7 +3966,7 @@
                 },
                 "club_name": {
                     "type": "string",
-                    "example": "ArcheryHub Club Jakarta"
+                    "example": "Archeris Club Jakarta"
                 },
                 "date_of_birth": {
                     "type": "string",
@@ -4428,7 +4428,7 @@
                 },
                 "banner_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/banner-jkt-open-2026.jpg"
+                    "example": "https://cdn.archeris.net/media/banner-jkt-open-2026.jpg"
                 },
                 "city": {
                     "type": "string",
@@ -4481,11 +4481,11 @@
                 },
                 "logo_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/logo-jkt-open-2026.png"
+                    "example": "https://cdn.archeris.net/media/logo-jkt-open-2026.png"
                 },
                 "name": {
                     "type": "string",
-                    "example": "ArcheryHub Jakarta Open 2026"
+                    "example": "Archeris Jakarta Open 2026"
                 },
                 "num_distances": {
                     "type": "integer",
@@ -4528,7 +4528,7 @@
                 },
                 "slug": {
                     "type": "string",
-                    "example": "archeryhub-jakarta-open-2026"
+                    "example": "Archeris-jakarta-open-2026"
                 },
                 "start_date": {
                     "type": "string",
@@ -4542,7 +4542,7 @@
                 },
                 "technical_guidebook_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/technical-guidebook-jkt-open-2026.pdf"
+                    "example": "https://cdn.archeris.net/media/technical-guidebook-jkt-open-2026.pdf"
                 },
                 "total_prize": {
                     "type": "number",
@@ -5330,7 +5330,7 @@
             "properties": {
                 "banner_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg"
+                    "example": "https://cdn.archeris.net/media/events/banner-jkt-open-2026.jpg"
                 },
                 "end_date": {
                     "type": "string",
@@ -5342,11 +5342,11 @@
                 },
                 "logo_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png"
+                    "example": "https://cdn.archeris.net/media/events/logo-jkt-open-2026.png"
                 },
                 "name": {
                     "type": "string",
-                    "example": "ArcheryHub Jakarta Open 2026"
+                    "example": "Archeris Jakarta Open 2026"
                 },
                 "participant_count": {
                     "type": "integer",
@@ -5362,7 +5362,7 @@
                 },
                 "slug": {
                     "type": "string",
-                    "example": "archeryhub-jakarta-open-2026"
+                    "example": "Archeris-jakarta-open-2026"
                 },
                 "start_date": {
                     "type": "string",
@@ -5521,7 +5521,7 @@
                 },
                 "avatar_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/archers/rizky.jpg"
+                    "example": "https://cdn.archeris.net/media/archers/rizky.jpg"
                 },
                 "category_id": {
                     "type": "string",
@@ -5541,7 +5541,7 @@
                 },
                 "club_name": {
                     "type": "string",
-                    "example": "ArcheryHub Club Jakarta"
+                    "example": "Archeris Club Jakarta"
                 },
                 "division_name": {
                     "type": "string",
@@ -5610,11 +5610,11 @@
                 },
                 "avatar_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/organization/logo.png"
+                    "example": "https://cdn.archeris.net/media/organization/logo.png"
                 },
                 "banner_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/organization/banner.jpg"
+                    "example": "https://cdn.archeris.net/media/organization/banner.jpg"
                 },
                 "city": {
                     "type": "string",
@@ -5622,7 +5622,7 @@
                 },
                 "contact_person_email": {
                     "type": "string",
-                    "example": "budi@archeryhub.id"
+                    "example": "budi@archeris.net"
                 },
                 "contact_person_name": {
                     "type": "string",
@@ -5646,7 +5646,7 @@
                 },
                 "email": {
                     "type": "string",
-                    "example": "event@archeryhub.id"
+                    "example": "event@archeris.net"
                 },
                 "established_date": {
                     "type": "string",
@@ -5670,7 +5670,7 @@
                 },
                 "name": {
                     "type": "string",
-                    "example": "ArcheryHub Jakarta"
+                    "example": "Archeris Jakarta"
                 },
                 "page_settings": {
                     "type": "object"
@@ -5681,22 +5681,22 @@
                 },
                 "slug": {
                     "type": "string",
-                    "example": "archeryhub-jakarta"
+                    "example": "Archeris-jakarta"
                 },
                 "social_facebook": {
                     "type": "string",
-                    "example": "archeryhubjakarta"
+                    "example": "Archerisjakarta"
                 },
                 "social_instagram": {
                     "type": "string",
-                    "example": "archeryhub.jakarta"
+                    "example": "Archeris.jakarta"
                 },
                 "social_media": {
                     "type": "object"
                 },
                 "social_twitter": {
                     "type": "string",
-                    "example": "archeryhubjkt"
+                    "example": "Archerisjkt"
                 },
                 "status": {
                     "type": "string",
@@ -5732,7 +5732,7 @@
                 },
                 "website": {
                     "type": "string",
-                    "example": "https://archeryhub.id"
+                    "example": "https://archeris.net"
                 },
                 "whatsapp_no": {
                     "type": "string",
@@ -5773,11 +5773,11 @@
                 },
                 "club_name": {
                     "type": "string",
-                    "example": "ArcheryHub Club Jakarta"
+                    "example": "Archeris Club Jakarta"
                 },
                 "event_name": {
                     "type": "string",
-                    "example": "ArcheryHub Jakarta Open 2026"
+                    "example": "Archeris Jakarta Open 2026"
                 },
                 "full_name": {
                     "type": "string",
@@ -6210,11 +6210,11 @@
                 },
                 "avatar_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/seller/logo-store.png"
+                    "example": "https://cdn.archeris.net/media/seller/logo-store.png"
                 },
                 "banner": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/seller/banner-store.jpg"
+                    "example": "https://cdn.archeris.net/media/seller/banner-store.jpg"
                 },
                 "banner_text": {
                     "type": "string",
@@ -6222,7 +6222,7 @@
                 },
                 "banner_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/seller/banner-store.jpg"
+                    "example": "https://cdn.archeris.net/media/seller/banner-store.jpg"
                 },
                 "catalog_config": {
                     "type": "object"
@@ -6237,7 +6237,7 @@
                 },
                 "email": {
                     "type": "string",
-                    "example": "seller@archeryhub.id"
+                    "example": "seller@archeris.net"
                 },
                 "id": {
                     "type": "string",
@@ -6245,11 +6245,11 @@
                 },
                 "logo": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/seller/logo-store.png"
+                    "example": "https://cdn.archeris.net/media/seller/logo-store.png"
                 },
                 "name": {
                     "type": "string",
-                    "example": "ArcheryHub Store Jakarta"
+                    "example": "Archeris Store Jakarta"
                 },
                 "page_settings": {
                     "type": "object"
@@ -6267,15 +6267,15 @@
                 },
                 "slug": {
                     "type": "string",
-                    "example": "archeryhub-store-jakarta"
+                    "example": "Archeris-store-jakarta"
                 },
                 "store_name": {
                     "type": "string",
-                    "example": "ArcheryHub Store Jakarta"
+                    "example": "Archeris Store Jakarta"
                 },
                 "store_slug": {
                     "type": "string",
-                    "example": "archeryhub-store-jakarta"
+                    "example": "Archeris-store-jakarta"
                 },
                 "theme_color": {
                     "type": "string",
@@ -6287,7 +6287,7 @@
                 },
                 "username": {
                     "type": "string",
-                    "example": "archeryhub-store-jakarta"
+                    "example": "Archeris-store-jakarta"
                 },
                 "uuid": {
                     "type": "string",
@@ -7009,7 +7009,7 @@
                 },
                 "avatar_url": {
                     "type": "string",
-                    "example": "https://cdn.archeryhub.id/media/archer/rizky-pratama.jpg"
+                    "example": "https://cdn.archeris.net/media/archer/rizky-pratama.jpg"
                 },
                 "category_name": {
                     "type": "string",
@@ -7017,7 +7017,7 @@
                 },
                 "club_name": {
                     "type": "string",
-                    "example": "ArcheryHub Club Jakarta"
+                    "example": "Archeris Club Jakarta"
                 },
                 "full_name": {
                     "type": "string",
@@ -7293,3 +7293,4 @@
         }
     }
 }
+

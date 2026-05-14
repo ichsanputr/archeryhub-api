@@ -1,4 +1,4 @@
-package mobile
+﻿package mobile
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 func generateJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
-		secret = []byte("archeryhub-secret-key-change-in-production")
+		secret = []byte("Archeris-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
@@ -28,3 +28,4 @@ func generateJWT(userID, email, role, userType, name, avatar, orgUUID string) (s
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
 }
+

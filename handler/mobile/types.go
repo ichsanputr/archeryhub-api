@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"time"
 )
  
@@ -73,7 +73,7 @@ type MobileEventManualRegistrationRequest struct {
 	EventCategoryID  string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
 	EventCategoryIDs []string `json:"event_category_ids" example:"[\"cat-recurve-adult-team\"]"`
 	PaymentAmount    float64  `json:"payment_amount" example:"450000"`
-	PaymentProofURLs []string `json:"payment_proof_urls" example:"[\"https://cdn.archeryhub.id/media/proofs/receipt-001.jpg\"]"`
+	PaymentProofURLs []string `json:"payment_proof_urls" example:"[\"https://cdn.archeris.net/media/proofs/receipt-001.jpg\"]"`
 }
 
 // MobileEventGatewayRegistrationRequest represents the payload for gateway event registration.
@@ -515,18 +515,18 @@ type ErrorResponse struct {
 type MobileSellerProfileData struct {
 	ID            string                 `json:"id" example:"sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"`
 	UUID          string                 `json:"uuid" example:"sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"`
-	StoreName     string                 `json:"store_name" example:"ArcheryHub Store Jakarta"`
-	Slug          *string                `json:"slug" example:"archeryhub-store-jakarta"`
-	StoreSlug     *string                `json:"store_slug" example:"archeryhub-store-jakarta"`
-	Name          string                 `json:"name" example:"ArcheryHub Store Jakarta"`
-	Username      *string                `json:"username" example:"archeryhub-store-jakarta"`
+	StoreName     string                 `json:"store_name" example:"Archeris Store Jakarta"`
+	Slug          *string                `json:"slug" example:"Archeris-store-jakarta"`
+	StoreSlug     *string                `json:"store_slug" example:"Archeris-store-jakarta"`
+	Name          string                 `json:"name" example:"Archeris Store Jakarta"`
+	Username      *string                `json:"username" example:"Archeris-store-jakarta"`
 	Description   *string                `json:"description" example:"Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi."`
-	AvatarURL     *string                `json:"avatar_url" example:"https://cdn.archeryhub.id/media/seller/logo-store.png"`
-	BannerURL     *string                `json:"banner_url" example:"https://cdn.archeryhub.id/media/seller/banner-store.jpg"`
-	Logo          *string                `json:"logo" example:"https://cdn.archeryhub.id/media/seller/logo-store.png"`
-	Banner        *string                `json:"banner" example:"https://cdn.archeryhub.id/media/seller/banner-store.jpg"`
+	AvatarURL     *string                `json:"avatar_url" example:"https://cdn.archeris.net/media/seller/logo-store.png"`
+	BannerURL     *string                `json:"banner_url" example:"https://cdn.archeris.net/media/seller/banner-store.jpg"`
+	Logo          *string                `json:"logo" example:"https://cdn.archeris.net/media/seller/logo-store.png"`
+	Banner        *string                `json:"banner" example:"https://cdn.archeris.net/media/seller/banner-store.jpg"`
 	Phone         *string                `json:"phone" example:"081234567890"`
-	Email         *string                `json:"email" example:"seller@archeryhub.id"`
+	Email         *string                `json:"email" example:"seller@archeris.net"`
 	Address       *string                `json:"address" example:"Jl. Panahan No. 10, Jakarta"`
 	City          *string                `json:"city" example:"Jakarta"`
 	Province      *string                `json:"province" example:"DKI Jakarta"`
@@ -553,26 +553,26 @@ type MobileSellerProductsResponse struct {
 type MobileOrganizationProfileData struct {
 	ID                    string                 `json:"id" example:"org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"`
 	UUID                  string                 `json:"uuid" example:"org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"`
-	Slug                  *string                `json:"slug" example:"archeryhub-jakarta"`
-	Name                  string                 `json:"name" example:"ArcheryHub Jakarta"`
+	Slug                  *string                `json:"slug" example:"Archeris-jakarta"`
+	Name                  string                 `json:"name" example:"Archeris Jakarta"`
 	Acronym               *string                `json:"acronym" example:"AHJ"`
 	Description           *string                `json:"description" example:"Organisasi panahan yang fokus pada pembinaan atlet dan penyelenggaraan event."`
-	Website               *string                `json:"website" example:"https://archeryhub.id"`
-	Email                 string                 `json:"email" example:"event@archeryhub.id"`
+	Website               *string                `json:"website" example:"https://archeris.net"`
+	Email                 string                 `json:"email" example:"event@archeris.net"`
 	WhatsAppNo            *string                `json:"whatsapp_no" example:"081234567890"`
-	AvatarURL             *string                `json:"avatar_url" example:"https://cdn.archeryhub.id/media/organization/logo.png"`
-	BannerURL             *string                `json:"banner_url" example:"https://cdn.archeryhub.id/media/organization/banner.jpg"`
+	AvatarURL             *string                `json:"avatar_url" example:"https://cdn.archeris.net/media/organization/logo.png"`
+	BannerURL             *string                `json:"banner_url" example:"https://cdn.archeris.net/media/organization/banner.jpg"`
 	Address               *string                `json:"address" example:"Jl. Stadion Utama No. 1, Jakarta"`
 	City                  *string                `json:"city" example:"Jakarta"`
 	Country               *string                `json:"country" example:"Indonesia"`
 	RegistrationNumber    *string                `json:"registration_number" example:"AHJ-2026-001"`
 	EstablishedDate       *string                `json:"established_date" example:"2020-08-17"`
 	ContactPersonName     *string                `json:"contact_person_name" example:"Budi Santoso"`
-	ContactPersonEmail    *string                `json:"contact_person_email" example:"budi@archeryhub.id"`
+	ContactPersonEmail    *string                `json:"contact_person_email" example:"budi@archeris.net"`
 	ContactPersonPhone    *string                `json:"contact_person_phone" example:"081298765432"`
-	SocialFacebook        *string                `json:"social_facebook" example:"archeryhubjakarta"`
-	SocialInstagram       *string                `json:"social_instagram" example:"archeryhub.jakarta"`
-	SocialTwitter         *string                `json:"social_twitter" example:"archeryhubjkt"`
+	SocialFacebook        *string                `json:"social_facebook" example:"Archerisjakarta"`
+	SocialInstagram       *string                `json:"social_instagram" example:"Archeris.jakarta"`
+	SocialTwitter         *string                `json:"social_twitter" example:"Archerisjkt"`
 	SocialMedia           interface{}            `json:"social_media,omitempty" swaggertype:"object"`
 	Vision                *string                `json:"vision" example:"Menjadi pusat pembinaan panahan modern di Indonesia."`
 	Mission               *string                `json:"mission" example:"Membina atlet, pelatih, dan penyelenggaraan kompetisi yang profesional."`
@@ -596,15 +596,15 @@ type MobileOrganizationProfileResponse struct {
 // MobileOrganizationEventItem represents one event owned by the authenticated organization.
 type MobileOrganizationEventItem struct {
 	UUID               string  `json:"uuid" db:"uuid" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
-	Name               string  `json:"name" db:"name" example:"ArcheryHub Jakarta Open 2026"`
-	Slug               string  `json:"slug" db:"slug" example:"archeryhub-jakarta-open-2026"`
+	Name               string  `json:"name" db:"name" example:"Archeris Jakarta Open 2026"`
+	Slug               string  `json:"slug" db:"slug" example:"Archeris-jakarta-open-2026"`
 	Location           *string `json:"location" db:"location" example:"Jakarta Selatan"`
 	Venue              *string `json:"venue" db:"venue" example:"Lapangan ABC Senayan"`
 	StartDate          *string `json:"start_date" db:"start_date" example:"2026-05-18T08:00:00Z"`
 	EndDate            *string `json:"end_date" db:"end_date" example:"2026-05-21T17:00:00Z"`
 	Status             string  `json:"status" db:"status" example:"published"`
-	LogoURL            *string `json:"logo_url" db:"logo_url" example:"https://cdn.archeryhub.id/media/events/logo-jkt-open-2026.png"`
-	BannerURL          *string `json:"banner_url" db:"banner_url" example:"https://cdn.archeryhub.id/media/events/banner-jkt-open-2026.jpg"`
+	LogoURL            *string `json:"logo_url" db:"logo_url" example:"https://cdn.archeris.net/media/events/logo-jkt-open-2026.png"`
+	BannerURL          *string `json:"banner_url" db:"banner_url" example:"https://cdn.archeris.net/media/events/banner-jkt-open-2026.jpg"`
 	ParticipantCount   int     `json:"participant_count" db:"participant_count" example:"128"`
 	VerifiedCount      int     `json:"verified_count" db:"verified_count" example:"96"`
 	PendingCount       int     `json:"pending_count" db:"pending_count" example:"32"`
@@ -629,7 +629,7 @@ type MobileOrganizationParticipantItem struct {
 	Email              string  `json:"email" example:"rizky@example.com"`
 	City               *string `json:"city" example:"Jakarta"`
 	ClubID             *string `json:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
-	ClubName           *string `json:"club_name" example:"ArcheryHub Club Jakarta"`
+	ClubName           *string `json:"club_name" example:"Archeris Club Jakarta"`
 	EventID            string  `json:"event_id" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
 	CategoryID         string  `json:"category_id" example:"cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"`
 	DivisionName       string  `json:"division_name" example:"Recurve"`
@@ -639,7 +639,7 @@ type MobileOrganizationParticipantItem struct {
 	TargetName         *string `json:"target_name" example:"A-12"`
 	QRRaw              *string `json:"qr_raw" example:"EVT2026-ARC-0001"`
 	QRCodeDataURL      *string `json:"qr_code_data_url" example:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."`
-	AvatarURL          *string `json:"avatar_url" example:"https://cdn.archeryhub.id/media/archers/rizky.jpg"`
+	AvatarURL          *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
 	RegistrationDate   string  `json:"registration_date" example:"2026-05-01T09:30:00Z"`
 	PaymentStatus      string  `json:"payment_status" example:"lunas"`
 }
@@ -716,7 +716,7 @@ type MobileArcherProfileData struct {
 	Username    *string `json:"username" example:"rizky-pratama"`
 	FullName    string  `json:"full_name" example:"Rizky Pratama"`
 	Email       *string `json:"email" example:"rizky@example.com"`
-	AvatarURL   *string `json:"avatar_url" example:"https://cdn.archeryhub.id/media/archers/rizky.jpg"`
+	AvatarURL   *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
 	Phone       *string `json:"phone" example:"081234567890"`
 	Gender      *string `json:"gender" example:"male"`
 	DateOfBirth *string `json:"date_of_birth" example:"1995-05-18"`
@@ -724,7 +724,7 @@ type MobileArcherProfileData struct {
 	Address     *string `json:"address" example:"Jl. Panahan No. 10"`
 	BowType     *string `json:"bow_type" example:"recurve"`
 	ClubID      *string `json:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
-	ClubName    *string `json:"club_name" example:"ArcheryHub Club Jakarta"`
+	ClubName    *string `json:"club_name" example:"Archeris Club Jakarta"`
 	UserType    string  `json:"user_type" example:"archer"`
 }
 
@@ -848,9 +848,9 @@ type MobileOrganizationScanRegistrationResponse struct {
 	ParticipantUUID      string  `json:"participant_uuid" example:"f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
 	FullName             string  `json:"full_name" example:"Rizky Pratama"`
 	AthleteCode          string  `json:"athlete_code" example:"ARC-0042"`
-	EventName            string  `json:"event_name" example:"ArcheryHub Jakarta Open 2026"`
+	EventName            string  `json:"event_name" example:"Archeris Jakarta Open 2026"`
 	CategoryName         string  `json:"category_name" example:"Recurve Umum Putra"`
-	ClubName             *string `json:"club_name" example:"ArcheryHub Club Jakarta"`
+	ClubName             *string `json:"club_name" example:"Archeris Club Jakarta"`
 	PaymentStatus        string  `json:"payment_status" example:"lunas"`
 	LastReregistrationAt *string `json:"last_reregistration_at" example:"2026-03-27T10:00:00Z"`
 }
@@ -1199,3 +1199,5 @@ type MobileOrganizationParticipantDetail struct {
 	LastReregistrationAt *string  `json:"last_reregistration_at"`
 	CheckInStatus        bool     `json:"check_in_status"`
 }
+
+

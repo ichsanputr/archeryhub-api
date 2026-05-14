@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"net/http"
@@ -163,3 +163,4 @@ func CreateNotification(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusCreated, gin.H{"message": "Notifikasi dibuat"})
 	}
 }
+

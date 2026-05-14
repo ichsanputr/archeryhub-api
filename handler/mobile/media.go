@@ -1,8 +1,8 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/handler"
-	"archeryhub-api/utils"
+	"Archeris-api/handler"
+	"Archeris-api/utils"
 	"fmt"
 	"io"
 	"net/http"
@@ -154,3 +154,4 @@ func MobileUploadMedia(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

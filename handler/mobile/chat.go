@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/handler"
+	"Archeris-api/handler"
 	"fmt"
 	"net/http"
 	"time"
@@ -128,3 +128,4 @@ func MobileGetPeerLastActive(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

@@ -1,9 +1,9 @@
-<?php
+﻿<?php
 $host = '151.243.222.93';
 $port = '30036';
 $user = 'ichsan';
 $pass = '12345';
-$dbname = 'archeryhub';
+$dbname = 'Archeris';
 
 try {
     $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $user, $pass);
@@ -13,3 +13,4 @@ try {
     die(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
 }
 ?>
+

@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"time"
@@ -549,3 +549,4 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"plans": plans, "total": len(plans)})
 	}
 }
+

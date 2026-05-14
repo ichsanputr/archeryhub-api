@@ -1,7 +1,7 @@
-package utils
+﻿package utils
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"encoding/json"
 
 	"github.com/jmoiron/sqlx"
@@ -125,3 +125,4 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 		_ = json.Unmarshal([]byte(*event.Event.FAQ), &event.FAQ)
 	}
 }
+

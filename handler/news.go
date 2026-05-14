@@ -1,4 +1,4 @@
-package handler
+﻿package handler
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -436,7 +436,7 @@ func notifySubscribers(db *sqlx.DB, article News) {
 
 	appURL := os.Getenv("APP_URL")
 	if appURL == "" {
-		appURL = "https://archeryhub.id"
+		appURL = "https://archeris.net"
 	}
 
 	subject := "Berita Baru: " + article.Title
@@ -458,7 +458,7 @@ func notifySubscribers(db *sqlx.DB, article News) {
 			</div>
 			<hr style="margin-top: 40px; border: 0; border-top: 1px solid #eee;">
 			<p style="font-size: 12px; color: #999;">
-				Anda menerima email ini karena Anda berlangganan berita di ArcheryHub.id.
+				Anda menerima email ini karena Anda berlangganan berita di archeris.net.
 			</p>
 		</div>
 	`, article.Title, excerpt, appURL, article.Slug)
@@ -497,3 +497,5 @@ func IncrementNewsViews(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Analitik diperbarui"})
 	}
 }
+
+

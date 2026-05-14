@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/models"
+	"Archeris-api/models"
 	"fmt"
 	"net/http"
 
@@ -34,7 +34,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
 					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
 					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
-					ELSE 'Transaksi Archeryhub'
+					ELSE 'Transaksi Archeris'
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
@@ -82,11 +82,11 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		// Logo / Title
 		pdf.SetTextColor(217, 255, 0) // Neon Primary
 		pdf.SetFont("Arial", "B", 24)
-		pdf.Text(20, 25, "Archeryhub.id")
+		pdf.Text(20, 25, "archeris.net")
 		
 		pdf.SetTextColor(255, 255, 255)
 		pdf.SetFont("Arial", "", 10)
-		pdf.Text(20, 32, "PT. Archeryhub Teknologi Indonesia")
+		pdf.Text(20, 32, "PT. Archeris Teknologi Indonesia")
 		pdf.Text(20, 37, "Official Payment Receipt")
 
 		// Invoice Title
@@ -171,7 +171,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		pdf.SetY(260)
 		pdf.SetTextColor(148, 163, 184)
 		pdf.SetFont("Arial", "B", 8)
-		pdf.CellFormat(170, 10, "TERIMA KASIH TELAH MENGGUNAKAN LAYANAN ARCHERYHUB.ID", "", 0, "C", false, 0, "")
+		pdf.CellFormat(170, 10, "TERIMA KASIH TELAH MENGGUNAKAN LAYANAN archeris.net", "", 0, "C", false, 0, "")
 
 		// Output to browser
 		c.Header("Content-Type", "application/pdf")
@@ -183,3 +183,5 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		}
 	}
 }
+
+

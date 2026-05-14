@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "name": "greeting",
     "examples": [
@@ -10,7 +10,7 @@
       "permisi",
       "hello admin"
     ],
-    "answer": "Halo! Saya asisten Archeryhub. Saya bisa bantu soal event, pendaftaran, hasil skor, organisasi, pembayaran, dan paket membership."
+    "answer": "Halo! Saya asisten Archeris. Saya bisa bantu soal event, pendaftaran, hasil skor, organisasi, pembayaran, dan paket membership."
   },
   {
     "name": "scoring_offline",
@@ -22,7 +22,7 @@
       "penilaian tanpa internet",
       "scorecard offline"
     ],
-    "answer": "Bisa. Archeryhub mendukung scoring digital untuk lomba offline. Scorekeeper dapat input skor per end, lalu hasil akan tersinkron saat koneksi stabil."
+    "answer": "Bisa. Archeris mendukung scoring digital untuk lomba offline. Scorekeeper dapat input skor per end, lalu hasil akan tersinkron saat koneksi stabil."
   },
   {
     "name": "pembayaran_event",
@@ -57,7 +57,7 @@
       "website error",
       "ga bisa submit"
     ],
-    "answer": "Jika ada kendala teknis, kirim detail masalah (halaman, waktu kejadian, dan screenshot) lewat halaman Kontak atau email support@archeryhub.id agar tim bisa bantu lebih cepat."
+    "answer": "Jika ada kendala teknis, kirim detail masalah (halaman, waktu kejadian, dan screenshot) lewat halaman Kontak atau email support@archeris.net agar tim bisa bantu lebih cepat."
   },
   {
     "name": "event_schedule",
@@ -131,7 +131,7 @@
       "keuntungan langganan",
       "cara beli paket"
     ],
-    "answer": "Archeryhub menyediakan berbagai pilihan Paket Membership (Event Management) untuk organisasi penyelenggara. Fitur utamanya meliputi pendaftaran online terintegrasi, sistem iuran/pembayaran otomatis, hingga dashboard statistik event yang lengkap. Anda bisa cek detail harga dan fitur di menu 'Subscription' pada dashboard organisasi Anda."
+    "answer": "Archeris menyediakan berbagai pilihan Paket Membership (Event Management) untuk organisasi penyelenggara. Fitur utamanya meliputi pendaftaran online terintegrasi, sistem iuran/pembayaran otomatis, hingga dashboard statistik event yang lengkap. Anda bisa cek detail harga dan fitur di menu 'Subscription' pada dashboard organisasi Anda."
   },
   {
     "name": "invoice_help",
@@ -185,11 +185,12 @@
     "name": "contact_support",
     "examples": [
       "kontak admin",
-      "hubungi archeryhub",
+      "hubungi Archeris",
       "customer service",
       "email support",
       "butuh bantuan cepat"
     ],
-    "answer": "Anda bisa hubungi tim Archeryhub lewat halaman Kontak atau email support@archeryhub.id. Sertakan nama event/akun and kendala agar penanganan lebih cepat."
+    "answer": "Anda bisa hubungi tim Archeris lewat halaman Kontak atau email support@archeris.net. Sertakan nama event/akun and kendala agar penanganan lebih cepat."
   }
 ]
+

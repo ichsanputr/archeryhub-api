@@ -1,7 +1,7 @@
-package handler
+﻿package handler
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -12,7 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// ForgotPassword — Step 1: user submits email, we find their account and send OTP
+// ForgotPassword â€” Step 1: user submits email, we find their account and send OTP
 func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -79,7 +79,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Send OTP email
-		subject := "Kode Reset Password – Archeryhub.id"
+		subject := "Kode Reset Password â€“ archeris.net"
 		body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -125,7 +125,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	<div class="wrapper">
 		<div class="container">
 			<div class="hero">
-				<h2 class="brand">Archeryhub<span class="brand-accent">.id</span></h2>
+				<h2 class="brand">Archeris<span class="brand-accent">.id</span></h2>
 				<h3 class="hero-title">Atur Ulang Akses Akun Kamu</h3>
 				<p class="hero-sub">Kami menjaga akunmu tetap aman dengan verifikasi OTP sekali pakai.</p>
 			</div>
@@ -133,7 +133,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			<div class="content">
 				<span class="badge">Reset Password</span>
 				<h1 class="title">Hai, %s!</h1>
-				<p class="text">Kami menerima permintaan untuk mereset password akun kamu. Masukkan kode OTP berikut ke halaman reset password Archeryhub.id.</p>
+				<p class="text">Kami menerima permintaan untuk mereset password akun kamu. Masukkan kode OTP berikut ke halaman reset password archeris.net.</p>
 
 				<div class="otp-card">
 					<div class="otp-label">Kode OTP Kamu</div>
@@ -145,8 +145,8 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 
 			<div class="footer">
 				<div class="footer-box">
-					<p class="footer-text">Email ini dikirim otomatis oleh sistem Archeryhub.id untuk keamanan akun kamu.</p>
-					<p class="copyright">&copy; 2026 Archeryhub.id &bull; Platform Panahan No. 1 Indonesia</p>
+					<p class="footer-text">Email ini dikirim otomatis oleh sistem archeris.net untuk keamanan akun kamu.</p>
+					<p class="copyright">&copy; 2026 archeris.net &bull; Platform Panahan No. 1 Indonesia</p>
 				</div>
 			</div>
 		</div>
@@ -161,7 +161,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// VerifyResetOTP — Step 2: validate OTP only (returns a short-lived token)
+// VerifyResetOTP â€” Step 2: validate OTP only (returns a short-lived token)
 func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -215,7 +215,7 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// ResetPassword — Step 3: set the new password using the verified reset token
+// ResetPassword â€” Step 3: set the new password using the verified reset token
 func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -284,7 +284,7 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// ChangePasswordWithOTP — public endpoint to set new password directly using email + OTP
+// ChangePasswordWithOTP â€” public endpoint to set new password directly using email + OTP
 func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -369,3 +369,5 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan masuk dengan password baru."})
 	}
 }
+
+

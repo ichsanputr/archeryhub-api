@@ -1,15 +1,15 @@
-package main
+﻿package main
 
 import (
 	"net/http"
 	"os"
 
-	"archeryhub-api/database"
-	"archeryhub-api/handler"
-	mobilehandler "archeryhub-api/handler/mobile"
-	"archeryhub-api/middleware"
+	"Archeris-api/database"
+	"Archeris-api/handler"
+	mobilehandler "Archeris-api/handler/mobile"
+	"Archeris-api/middleware"
 
-	_ "archeryhub-api/docs"
+	_ "Archeris-api/docs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -18,19 +18,19 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title ArcheryHub Mobile API
+// @title Archeris Mobile API
 // @version 1.1
-// @description Dedicated API for ArcheryHub Mobile App
-// @termsOfService http://archeryhub.id/terms/
+// @description Dedicated API for Archeris Mobile App
+// @termsOfService http://archeris.net/terms/
 
-// @contact.name ArcheryHub Support
-// @contact.url https://archeryhub.id
-// @contact.email support@archeryhub.id
+// @contact.name Archeris Support
+// @contact.url https://archeris.net
+// @contact.email support@archeris.net
 
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host api.archeryhub.id
+// @host api.archeris.net
 // @BasePath /api/v1
 // @schemes https http
 
@@ -140,7 +140,7 @@ func main() {
 		origin := c.Request.Header.Get("Origin")
 
 		allowedOrigins := []string{
-			"https://archeryhub.id",
+			"https://archeris.net",
 			"http://localhost:9000",
 			"http://localhost:3000",
 			"http://127.0.0.1:9000",
@@ -189,7 +189,7 @@ func main() {
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Welcome to Archeryhub.id API - TEST DEPLOY",
+			"message": "Welcome to Archeris.net API - TEST DEPLOY",
 			"status":  "running",
 		})
 	})
@@ -207,7 +207,7 @@ func main() {
 		api.GET("/", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status":  "ok",
-				"message": "Archery Hub API is Running",
+				"message": "Archeris API is Running",
 				"version": "1.0.0",
 			})
 		})
@@ -250,7 +250,7 @@ func main() {
 
 			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
 
-			// Forgot / Reset password (public â€” no auth required)
+			// Forgot / Reset password (public Ã¢â‚¬â€ no auth required)
 			auth.POST("/forgot-password", handler.ForgotPassword(db))
 			auth.POST("/verify-reset-otp", handler.VerifyResetOTP(db))
 			auth.POST("/reset-password", handler.ResetPassword(db))
@@ -496,7 +496,7 @@ func main() {
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
-		// Chat routes (archer â†” seller)
+		// Chat routes (archer Ã¢â€ â€ seller)
 		chat := api.Group("/chat")
 		chat.Use(middleware.AuthMiddleware())
 		{
@@ -788,7 +788,7 @@ func main() {
 			cbr.GET("/:id", handler.GetClubByID(db))
 		}
 
-		// Product routes â€” /my must be registered BEFORE /:id to avoid wildcard conflict
+		// Product routes Ã¢â‚¬â€ /my must be registered BEFORE /:id to avoid wildcard conflict
 		products := api.Group("/products")
 		{
 			products.GET("", handler.GetProducts(db))
@@ -840,7 +840,7 @@ func main() {
 			sellersProtected.POST("/wallet/withdrawals", handler.CreateWithdrawal(db))
 		}
 
-		// Order routes (seller) â€” also accessible as /api/v1/orders
+		// Order routes (seller) Ã¢â‚¬â€ also accessible as /api/v1/orders
 		ordersGroup := api.Group("/orders")
 		ordersGroup.Use(middleware.AuthMiddleware())
 		{
@@ -885,3 +885,4 @@ func main() {
 		logger.Fatal(r.Run(":" + port))
 	}
 }
+

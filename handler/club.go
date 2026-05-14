@@ -1,11 +1,11 @@
-package handler
+﻿package handler
 
 import (
 	"fmt"
 	"net/http"
 
-	"archeryhub-api/models"
-	"archeryhub-api/utils"
+	"Archeris-api/models"
+	"Archeris-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -74,3 +74,4 @@ func GetClubByID(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"data": club})
 	}
 }
+

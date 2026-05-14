@@ -1,7 +1,7 @@
-package mobile
+﻿package mobile
 
 import (
-	"archeryhub-api/utils"
+	"Archeris-api/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -124,3 +124,4 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+
