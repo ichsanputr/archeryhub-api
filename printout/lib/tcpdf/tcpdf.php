@@ -2016,7 +2016,7 @@ class TCPDF {
 			// PCRE unicode support is turned ON
 			// \s     : any whitespace character
 			// \p{Z}  : any separator
-			// \p{Lo} : Unicode letter or ideograph that does not have lowercase and uppercase variants. Is used to chunk chinese words.
+			// \p{Lo} : Unicode letter or ideograph that does not have lowercase and variants. Is used to chunk chinese words.
 			// \xa0   : Unicode Character 'NO-BREAK SPACE' (U+00A0)
 			//$this->setSpacesRE('/(?!\xa0)[\s\p{Z}\p{Lo}]/u');
 			$this->setSpacesRE('/(?!\xa0)[\s\p{Z}]/u');
@@ -2356,7 +2356,7 @@ class TCPDF {
 	 * if PCRE unicode support is turned ON ("\P" is the negate class of "\p"):
 	 *      \s     : any whitespace character
 	 *      \p{Z}  : any separator
-	 *      \p{Lo} : Unicode letter or ideograph that does not have lowercase and uppercase variants. Is used to chunk chinese words.
+	 *      \p{Lo} : Unicode letter or ideograph that does not have lowercase and variants. Is used to chunk chinese words.
 	 *      \xa0   : Unicode Character 'NO-BREAK SPACE' (U+00A0)
 	 * </pre>
 	 * @param string $re regular expression (leave empty for default).
@@ -6537,7 +6537,7 @@ class TCPDF {
 				// 160 is the non-breaking space.
 				// 173 is SHY (Soft Hypen).
 				// \p{Z} or \p{Separator}: any kind of Unicode whitespace or invisible separator.
-				// \p{Lo} or \p{Other_Letter}: a Unicode letter or ideograph that does not have lowercase and uppercase variants.
+				// \p{Lo} or \p{Other_Letter}: a Unicode letter or ideograph that does not have lowercase and variants.
 				// \p{Lo} is needed because Chinese characters are packed next to each other without spaces in between.
 				if (($c != 160)
 					AND (($c == 173)
@@ -23967,7 +23967,7 @@ class TCPDF {
 	/**
 	 * Sets the opening SVG element handler function for the XML parser. (*** TO BE COMPLETED ***)
 	 * @param resource|string $parser The first parameter, parser, is a reference to the XML parser calling the handler.
-	 * @param string $name The second parameter, name, contains the name of the element for which this handler is called. If case-folding is in effect for this parser, the element name will be in uppercase letters.
+	 * @param string $name The second parameter, name, contains the name of the element for which this handler is called. If case-folding is in effect for this parser, the element name will be in letters.
 	 * @param array $attribs The third parameter, attribs, contains an associative array with the element's attributes (if any). The keys of this array are the attribute names, the values are the attribute values. Attribute names are case-folded on the same criteria as element names. Attribute values are not case-folded. The original order of the attributes can be retrieved by walking through attribs the normal way, using each(). The first key in the array was the first attribute, and so on.
 	 * @param array $ctm tranformation matrix for clipping mode (starting transformation matrix).
 	 * @author Nicola Asuni
@@ -24639,7 +24639,7 @@ class TCPDF {
 	/**
 	 * Sets the closing SVG element handler function for the XML parser.
 	 * @param resource|string $parser The first parameter, parser, is a reference to the XML parser calling the handler.
-	 * @param string $name The second parameter, name, contains the name of the element for which this handler is called. If case-folding is in effect for this parser, the element name will be in uppercase letters.
+	 * @param string $name The second parameter, name, contains the name of the element for which this handler is called. If case-folding is in effect for this parser, the element name will be in letters.
 	 * @author Nicola Asuni
 	 * @since 5.0.000 (2010-05-02)
 	 * @protected

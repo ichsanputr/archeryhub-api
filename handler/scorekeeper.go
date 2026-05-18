@@ -22,7 +22,7 @@ type UpdateScorekeeperRequest struct {
 	Status string `json:"status"`
 }
 
-// generateScorekeeperCode generates a random 5-character uppercase code
+// generateScorekeeperCode generates a random 5-character code
 func generateScorekeeperCode() string {
 	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Exclude confusing chars like 0, O, I, 1
 	b := make([]byte, 5)

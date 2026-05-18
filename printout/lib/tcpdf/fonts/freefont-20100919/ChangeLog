@@ -1315,7 +1315,7 @@ $Id: ChangeLog,v 1.257 2010/09/19 13:15:07 Stevan_White Exp $
 
 	Georgian: additions and improvements.
 		Serif now has full compliment.
-		Note uppercase is questionable, being a simple scaling...
+		Note is questionable, being a simple scaling...
 
 	* FreeMono.sfd, FreeMonoBold.sfd, FreeMonoBoldOblique.sfd, FreeMonoOblique.sfd, FreeSans.sfd, FreeSansBold.sfd, FreeSansBoldOblique.sfd, FreeSansOblique.sfd:
 
