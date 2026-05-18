@@ -38,7 +38,6 @@ import (
 // @in header
 // @name Authorization
 
-
 var logger *logrus.Logger
 
 // fileOnlyHook is a logrus hook that writes specific log levels to a file
@@ -189,7 +188,7 @@ func main() {
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Welcome to Archeris.net API - TEST DEPLOY",
+			"message": "Welcome to Archeris.net API - TEST DEPLOY 1",
 			"status":  "running",
 		})
 	})
@@ -885,4 +884,3 @@ func main() {
 		logger.Fatal(r.Run(":" + port))
 	}
 }
-
