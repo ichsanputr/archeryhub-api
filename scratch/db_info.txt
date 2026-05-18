@@ -1,0 +1,1048 @@
+successfully connected to the archeris database
+
+found 65 tables in the database:
+- activity_logs: 166 rows
+- archers: 71 rows
+- assignment_history: 0 rows
+- bank_accounts: 1 rows
+- blog_comments: 0 rows
+- cart_items: 1 rows
+- chat_conversations: 1 rows
+- chat_messages: 3 rows
+- clubs: 6 rows
+- contact_messages: 0 rows
+- elimination_brackets: 2 rows
+- elimination_entries: 11 rows
+- elimination_match_arrow_scores: 156 rows
+- elimination_match_ends: 52 rows
+- elimination_matches: 12 rows
+- email_otps: 0 rows
+- event_categories: 4 rows
+- event_category_refs: 0 rows
+- event_images: 9 rows
+- event_participants: 16 rows
+- event_schedule: 5 rows
+- event_target_boards: 0 rows
+- event_targets: 45 rows
+- events: 1 rows
+- laporan_cs: 0 rows
+- laporan_cs_detail: 0 rows
+- media: 31 rows
+- news: 12 rows
+- news_comments: 2 rows
+- news_subscribers: 0 rows
+- notifications: 0 rows
+- order_items: 1 rows
+- orders: 1 rows
+- organizations: 1 rows
+- password_resets: 7 rows
+- payment_transactions: 12 rows
+- pengawasan_cs: 0 rows
+- products: 14 rows
+- qualification_arrow_scores: 186 rows
+- qualification_end_scores: 62 rows
+- qualification_session_categories: 1 rows
+- qualification_sessions: 1 rows
+- qualification_target_assignments: 13 rows
+- ref_age_groups: 5 rows
+- ref_bow_types: 5 rows
+- ref_disciplines: 4 rows
+- ref_event_types: 3 rows
+- ref_gender_divisions: 3 rows
+- roots: 1 rows
+- scorekeeper_logs: 40 rows
+- scorekeepers: 1 rows
+- sellers: 1 rows
+- store: 0 rows
+- subscription_plans: 6 rows
+- target_board_elimination: 4 rows
+- target_board_qualification: 5 rows
+- team_members: 21 rows
+- teams: 7 rows
+- user_refresh_tokens: 0 rows
+- user_settings: 6 rows
+- users: 0 rows
+- vendors: 578 rows
+- verification_codes: 0 rows
+- wallets: 3 rows
+- withdrawals: 2 rows
+
+--- schemas for all tables ---
+
+columns for table: activity_logs
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | YES   | MUL |            |                
+event_id                  | varchar(36)     | YES   | MUL |            |                
+action                    | varchar(50)     | NO    | MUL |            |                
+entity_type               | varchar(50)     | YES   |     |            |                
+entity_id                 | varchar(36)     | YES   |     |            |                
+description               | text            | YES   |     |            |                
+ip_address                | varchar(45)     | YES   |     |            |                
+user_agent                | text            | YES   |     |            |                
+created_at                | timestamp       | NO    | MUL | current_timestamp() |                
+
+columns for table: archers
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+id                        | varchar(20)     | YES   | UNI |            |                
+username                  | varchar(100)    | YES   | UNI |            |                
+email                     | varchar(100)    | YES   | UNI |            |                
+google_id                 | varchar(100)    | YES   |     |            |                
+avatar_url                | varchar(255)    | YES   |     |            |                
+banner_url                | varchar(255)    | YES   |     |            |                
+bio                       | text            | YES   |     |            |                
+social_instagram          | varchar(255)    | YES   |     |            |                
+social_tiktok             | varchar(255)    | YES   |     |            |                
+social_whatsapp           | varchar(20)     | YES   |     |            |                
+social_facebook           | varchar(255)    | YES   |     |            |                
+social_twitter            | varchar(255)    | YES   |     |            |                
+achievements              | text            | YES   |     |            |                
+equipment                 | text            | YES   |     |            |                
+password                  | varchar(255)    | YES   |     |            |                
+full_name                 | varchar(255)    | NO    |     |            |                
+nickname                  | varchar(100)    | YES   |     |            |                
+date_of_birth             | date            | YES   |     |            |                
+gender                    | enum('male','female') | YES   |     | male       |                
+phone                     | varchar(20)     | YES   |     |            |                
+address                   | mediumtext      | YES   |     |            |                
+city                      | varchar(100)    | YES   |     |            |                
+school                    | varchar(255)    | YES   |     |            |                
+bow_type                  | enum('recurve','compound','barebow','traditional') | YES   | MUL | recurve    |                
+club_id                   | varchar(36)     | YES   | MUL |            |                
+status                    | enum('active','inactive','suspended') | YES   |     | active     |                
+is_verified               | tinyint(1)      | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+page_settings             | longtext        | YES   |     |            |                
+birth_date                | date            | YES   |     |            | VIRTUAL GENERATED
+last_seen_at              | timestamp       | YES   |     |            |                
+
+columns for table: assignment_history
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | char(36)        | NO    | PRI |            |                
+event_uuid                | char(36)        | NO    | MUL |            |                
+entity_type               | varchar(50)     | NO    | MUL |            |                
+entity_uuid               | char(36)        | NO    |     |            |                
+previous_assignment       | text            | YES   |     |            |                
+new_assignment            | text            | YES   |     |            |                
+changed_by                | char(36)        | YES   |     |            |                
+reason                    | varchar(255)    | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: bank_accounts
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | NO    | MUL |            |                
+bank_name                 | varchar(100)    | NO    |     |            |                
+account_number            | varchar(50)     | NO    |     |            |                
+account_name              | varchar(100)    | NO    |     |            |                
+is_primary                | tinyint(1)      | YES   |     | 0          |                
+status                    | enum('pending','verified','rejected') | YES   |     | pending    |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: blog_comments
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+article_slug              | varchar(255)    | NO    | MUL |            |                
+user_id                   | varchar(36)     | YES   |     |            |                
+user_type                 | enum('archer','organization','seller','guest') | YES   |     | guest      |                
+guest_name                | varchar(100)    | YES   |     |            |                
+content                   | text            | NO    |     |            |                
+status                    | enum('pending','approved','spam','deleted') | YES   | MUL | approved   |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: cart_items
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | NO    | MUL |            |                
+product_id                | varchar(36)     | NO    |     |            |                
+quantity                  | int(11)         | NO    |     | 1          |                
+color                     | varchar(100)    | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: chat_conversations
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+archer_id                 | varchar(36)     | NO    | MUL |            |                
+seller_id                 | varchar(36)     | NO    | MUL |            |                
+product_id                | varchar(36)     | YES   |     |            |                
+product_name              | varchar(255)    | YES   |     |            |                
+product_image             | varchar(500)    | YES   |     |            |                
+last_message              | text            | YES   |     |            |                
+last_message_at           | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+archer_unread             | int(11)         | YES   |     | 0          |                
+seller_unread             | int(11)         | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: chat_messages
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+conversation_id           | varchar(36)     | NO    | MUL |            |                
+sender_type               | enum('archer','seller') | NO    |     |            |                
+sender_id                 | varchar(36)     | NO    |     |            |                
+message                   | text            | NO    |     |            |                
+is_read                   | tinyint(1)      | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: clubs
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+slug                      | varchar(255)    | YES   | UNI |            |                
+name                      | varchar(255)    | NO    |     |            |                
+abbreviation              | varchar(20)     | YES   |     |            |                
+description               | mediumtext      | YES   |     |            |                
+banner_url                | varchar(500)    | YES   |     |            |                
+logo_url                  | varchar(500)    | YES   |     |            |                
+phone                     | varchar(20)     | YES   |     |            |                
+address                   | mediumtext      | YES   |     |            |                
+city                      | varchar(100)    | YES   | MUL |            |                
+province                  | varchar(100)    | YES   |     |            |                
+postal_code               | varchar(10)     | YES   |     |            |                
+established_date          | date            | YES   |     |            |                
+registration_number       | varchar(100)    | YES   |     |            |                
+organization_id           | varchar(36)     | YES   | MUL |            |                
+head_coach_name           | varchar(255)    | YES   |     |            |                
+head_coach_phone          | varchar(20)     | YES   |     |            |                
+training_schedule         | mediumtext      | YES   |     |            |                
+facilities                | mediumtext      | YES   |     |            |                
+website                   | varchar(255)    | YES   |     |            |                
+status                    | enum('active','inactive','suspended') | YES   |     | active     |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: contact_messages
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+name                      | varchar(255)    | NO    |     |            |                
+email                     | varchar(255)    | NO    |     |            |                
+subject                   | varchar(100)    | NO    |     |            |                
+message                   | text            | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: elimination_brackets
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | char(36)        | NO    | PRI |            |                
+bracket_id                | varchar(50)     | YES   | UNI |            |                
+event_uuid                | char(36)        | NO    | MUL |            |                
+category_uuid             | char(36)        | NO    |     |            |                
+bracket_type              | enum('individual','team3','mixed2') | NO    |     |            |                
+format                    | enum('recurve_set','compound_total') | NO    |     |            |                
+bracket_size              | int(10) unsigned | NO    |     |            |                
+status                    | enum('draft','generated','running','completed') | YES   |     | draft      |                
+ends_per_match            | int(11)         | YES   |     | 5          |                
+arrows_per_end            | int(11)         | YES   |     | 3          |                
+start_time                | datetime        | YES   |     |            |                
+end_time                  | datetime        | YES   |     |            |                
+generated_at              | datetime        | YES   |     |            |                
+created_at                | datetime        | NO    |     | current_timestamp() |                
+updated_at                | datetime        | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: elimination_entries
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | char(36)        | NO    | PRI |            |                
+bracket_uuid              | char(36)        | NO    | MUL |            |                
+participant_type          | enum('archer','team') | NO    |     |            |                
+participant_uuid          | char(36)        | NO    |     |            |                
+seed                      | int(10) unsigned | NO    |     |            |                
+qual_total_score          | int(10) unsigned | YES   |     |            |                
+qual_total_x              | int(10) unsigned | YES   |     |            |                
+qual_total_10             | int(10) unsigned | YES   |     |            |                
+created_at                | datetime        | NO    |     | current_timestamp() |                
+
+columns for table: elimination_match_arrow_scores
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | char(36)        | NO    | PRI |            |                
+match_end_uuid            | char(36)        | NO    | MUL |            |                
+arrow_no                  | int(10) unsigned | NO    |     |            |                
+score                     | tinyint(3) unsigned | NO    |     |            |                
+is_x                      | tinyint(1)      | NO    |     | 0          |                
+created_at                | datetime        | NO    |     | current_timestamp() |                
+
+columns for table: elimination_match_ends
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | char(36)        | NO    | PRI |            |                
+match_uuid                | char(36)        | NO    | MUL |            |                
+end_no                    | int(10) unsigned | NO    |     |            |                
+side                      | enum('A','B')   | NO    |     |            |                
+end_total                 | int(10) unsigned | NO    |     | 0          |                
+x_count                   | int(10) unsigned | NO    |     | 0          |                
+ten_count                 | int(10) unsigned | NO    |     | 0          |                
+created_at                | datetime        | NO    |     | current_timestamp() |                
+updated_at                | datetime        | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: elimination_matches
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | char(36)        | NO    | PRI |            |                
+match_id                  | varchar(50)     | YES   | UNI |            |                
+bracket_uuid              | char(36)        | NO    | MUL |            |                
+round_no                  | int(10) unsigned | NO    |     |            |                
+match_no                  | int(10) unsigned | NO    |     |            |                
+entry_a_uuid              | char(36)        | YES   |     |            |                
+entry_b_uuid              | char(36)        | YES   |     |            |                
+winner_entry_uuid         | char(36)        | YES   |     |            |                
+status                    | enum('pending','in_progress','finished') | NO    |     | pending    |                
+is_bye                    | tinyint(1)      | NO    |     | 0          |                
+scheduled_at              | datetime        | YES   |     |            |                
+target_uuid               | varchar(36)     | YES   | MUL |            |                
+target_board_id           | varchar(36)     | YES   |     |            |                
+created_at                | datetime        | NO    |     | current_timestamp() |                
+updated_at                | datetime        | NO    |     | current_timestamp() | on update current_timestamp()
+total_score_a             | int(11)         | YES   |     | 0          |                
+total_score_b             | int(11)         | YES   |     | 0          |                
+total_points_a            | int(11)         | YES   |     | 0          |                
+total_points_b            | int(11)         | YES   |     | 0          |                
+
+columns for table: email_otps
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | NO    |     |            |                
+user_type                 | varchar(20)     | NO    |     |            |                
+old_email                 | varchar(255)    | NO    |     |            |                
+new_email                 | varchar(255)    | NO    |     |            |                
+otp_code                  | varchar(10)     | NO    |     |            |                
+expires_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+is_used                   | tinyint(1)      | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: event_categories
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_id                  | varchar(36)     | NO    | MUL |            |                
+division_uuid             | varchar(36)     | YES   |     |            |                
+category_uuid             | varchar(36)     | YES   |     |            |                
+category_name_custom      | varchar(100)    | YES   |     |            |                
+event_type_uuid           | varchar(36)     | YES   |     |            |                
+gender_division_uuid      | varchar(36)     | YES   |     |            |                
+max_participants          | int(11)         | YES   |     |            |                
+status                    | enum('active','inactive') | YES   |     | active     |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: event_category_refs
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+name                      | varchar(200)    | NO    |     |            |                
+bow_type_id               | varchar(36)     | NO    |     |            |                
+age_group_id              | varchar(36)     | NO    |     |            |                
+status                    | enum('active','inactive') | NO    |     | active     |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: event_images
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_id                  | varchar(36)     | NO    | MUL |            |                
+url                       | varchar(500)    | NO    |     |            |                
+caption                   | varchar(255)    | YES   |     |            |                
+alt_text                  | varchar(255)    | YES   |     |            |                
+display_order             | int(11)         | YES   |     | 0          |                
+is_primary                | tinyint(1)      | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: event_participants
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_id                  | varchar(36)     | NO    | MUL |            |                
+archer_id                 | varchar(36)     | YES   | MUL |            |                
+category_id               | varchar(36)     | YES   | MUL |            |                
+payment_amount            | decimal(10,2)   | YES   |     | 0.00       |                
+payment_status            | varchar(20)     | YES   |     | unpaid     |                
+target_name               | varchar(10)     | YES   |     |            |                
+back_number               | varchar(20)     | YES   |     |            |                
+qr_raw                    | varchar(255)    | YES   |     |            |                
+last_reregistration_at    | timestamp       | YES   |     |            |                
+registration_date         | timestamp       | NO    |     | current_timestamp() |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+registration_source       | enum('invited','admin_created','self_register') | YES   |     | self_register |                
+qual_score                | int(11)         | YES   |     |            |                
+qual_rank                 | int(11)         | YES   |     |            |                
+payment_id                | varchar(36)     | YES   | MUL |            |                
+
+columns for table: event_schedule
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_id                  | varchar(36)     | NO    | MUL |            |                
+title                     | varchar(200)    | NO    |     |            |                
+description               | text            | YES   |     |            |                
+start_time                | datetime        | NO    |     |            |                
+end_time                  | datetime        | YES   |     |            |                
+day_order                 | tinyint(4)      | YES   |     |            |                
+sort_order                | int(11)         | YES   |     |            |                
+location                  | varchar(255)    | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: event_target_boards
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_uuid                | varchar(36)     | NO    | MUL |            |                
+board_number              | int(11)         | NO    |     |            |                
+board_name                | varchar(100)    | YES   |     |            |                
+code                      | varchar(20)     | YES   |     |            |                
+target_uuid               | varchar(36)     | YES   | MUL |            |                
+bracket_uuid              | varchar(36)     | YES   | MUL |            |                
+session_uuid              | varchar(36)     | YES   | MUL |            |                
+category_uuid             | varchar(36)     | YES   | MUL |            |                
+is_active                 | tinyint(1)      | NO    |     | 1          |                
+notes                     | text            | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: event_targets
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_uuid                | varchar(36)     | NO    | MUL |            |                
+target_name               | varchar(100)    | NO    |     |            |                
+board_number              | int(11)         | NO    |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: events
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+slug                      | varchar(255)    | YES   | UNI |            |                
+code                      | varchar(20)     | NO    | UNI |            |                
+name                      | varchar(200)    | NO    |     |            |                
+short_name                | varchar(100)    | YES   |     |            |                
+venue                     | varchar(200)    | YES   |     |            |                
+gmaps_link                | varchar(255)    | YES   |     |            |                
+location                  | varchar(200)    | YES   |     |            |                
+address                   | text            | YES   |     |            |                
+city                      | varchar(255)    | YES   |     |            |                
+start_date                | datetime        | YES   | MUL |            |                
+end_date                  | datetime        | YES   |     |            |                
+registration_deadline     | datetime        | YES   |     |            |                
+description               | text            | YES   |     |            |                
+banner_url                | varchar(255)    | YES   |     |            |                
+logo_url                  | varchar(255)    | YES   |     |            |                
+type                      | varchar(36)     | YES   |     |            |                
+num_distances             | tinyint(4)      | YES   |     | 1          |                
+num_sessions              | tinyint(4)      | YES   |     | 1          |                
+entry_fee                 | decimal(10,2)   | YES   |     | 0.00       |                
+status                    | enum('draft','active','published') | YES   | MUL | draft      |                
+organizer_id              | varchar(36)     | YES   | MUL |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+total_prize               | decimal(15,2)   | YES   |     | 0.00       |                
+technical_guidebook_url   | varchar(255)    | YES   |     |            |                
+page_settings             | longtext        | YES   |     |            |                
+faq                       | longtext        | YES   |     |            |                
+whatsapp_number           | varchar(50)     | YES   |     |            |                
+venue_type                | varchar(50)     | YES   |     |            |                
+location_type             | varchar(100)    | YES   |     |            |                
+
+columns for table: laporan_cs
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+submission_id             | varchar(100)    | YES   | UNI |            |                
+nomor                     | varchar(50)     | YES   |     |            |                
+tanggal                   | date            | YES   |     |            |                
+nama                      | varchar(100)    | YES   |     |            |                
+toko                      | varchar(100)    | YES   |     |            |                
+shift                     | varchar(50)     | YES   |     |            |                
+jam_mulai_aktif           | varchar(10)     | YES   |     |            |                
+jam_selesai_aktif         | varchar(10)     | YES   |     |            |                
+hp_rolling                | enum('Ya','Tidak') | YES   |     | Tidak      |                
+call_new_reg              | int(11)         | YES   |     | 0          |                
+call_ro_reg               | int(11)         | YES   |     | 0          |                
+call_hjhl_reg             | int(11)         | YES   |     | 0          |                
+call_complain_reg         | int(11)         | YES   |     | 0          |                
+call_vendor_reg           | int(11)         | YES   |     | 0          |                
+wa_new_reg                | int(11)         | YES   |     | 0          |                
+wa_ro_reg                 | int(11)         | YES   |     | 0          |                
+wa_hjhl_reg               | int(11)         | YES   |     | 0          |                
+wa_complain_reg           | int(11)         | YES   |     | 0          |                
+wa_vendor_reg             | int(11)         | YES   |     | 0          |                
+wa_kabur_reg              | int(11)         | YES   |     | 0          |                
+call_new_roll             | int(11)         | YES   |     | 0          |                
+call_ro_roll              | int(11)         | YES   |     | 0          |                
+call_hjhl_roll            | int(11)         | YES   |     | 0          |                
+call_complain_roll        | int(11)         | YES   |     | 0          |                
+call_vendor_roll          | int(11)         | YES   |     | 0          |                
+wa_new_roll               | int(11)         | YES   |     | 0          |                
+wa_ro_roll                | int(11)         | YES   |     | 0          |                
+wa_hjhl_roll              | int(11)         | YES   |     | 0          |                
+wa_complain_roll          | int(11)         | YES   |     | 0          |                
+wa_vendor_roll            | int(11)         | YES   |     | 0          |                
+wa_kabur_roll             | int(11)         | YES   |     | 0          |                
+closing_new_reg           | int(11)         | YES   |     | 0          |                
+closing_ro_reg            | int(11)         | YES   |     | 0          |                
+closing_new_roll          | int(11)         | YES   |     | 0          |                
+closing_ro_roll           | int(11)         | YES   |     | 0          |                
+location                  | text            | YES   |     |            |                
+photo_url                 | text            | YES   |     |            |                
+ip_address                | varchar(50)     | YES   |     |            |                
+status_validasi           | varchar(50)     | YES   |     | Belum Dicek |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: laporan_cs_detail
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+laporan_id                | int(11)         | YES   | MUL |            |                
+type                      | enum('kasus','tidak_closing') | YES   |     |            |                
+detail                    | text            | YES   |     |            |                
+jenis_kasus               | varchar(50)     | YES   |     |            |                
+waktu_kejadian            | varchar(10)     | YES   |     |            |                
+waktu_chat                | varchar(10)     | YES   |     |            |                
+alasan                    | varchar(100)    | YES   |     |            |                
+nama_customer             | varchar(100)    | YES   |     |            |                
+toko_kasus                | varchar(100)    | YES   |     |            |                
+penanganan_kasus          | text            | YES   |     |            |                
+nama_customer_kabur       | varchar(100)    | YES   |     |            |                
+toko_kabur                | varchar(100)    | YES   |     |            |                
+cs_pemilik                | varchar(100)    | YES   |     |            |                
+sumber_hp                 | varchar(50)     | YES   |     |            |                
+jenis_customer            | varchar(50)     | YES   |     |            |                
+jumlah_follow_up          | int(11)         | YES   |     | 0          |                
+
+columns for table: media
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | NO    | MUL |            |                
+user_type                 | varchar(50)     | NO    |     |            |                
+url                       | text            | NO    |     |            |                
+caption                   | varchar(255)    | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+mime_type                 | varchar(100)    | NO    |     | image/jpeg |                
+size                      | bigint(20)      | NO    |     | 0          |                
+
+columns for table: news
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+organization_id           | varchar(36)     | YES   | MUL |            |                
+club_id                   | varchar(36)     | YES   | MUL |            |                
+title                     | varchar(500)    | NO    |     |            |                
+slug                      | varchar(500)    | YES   | UNI |            |                
+excerpt                   | text            | YES   |     |            |                
+content                   | longtext        | YES   |     |            |                
+image_url                 | varchar(500)    | YES   |     |            |                
+category                  | enum('event','pengumuman','prestasi','lainnya') | YES   | MUL | pengumuman |                
+tags                      | text            | YES   |     |            |                
+status                    | enum('draft','published') | YES   | MUL | draft      |                
+views                     | int(11)         | YES   |     | 0          |                
+author_name               | varchar(255)    | YES   |     |            |                
+author_id                 | varchar(36)     | YES   |     |            |                
+meta_title                | varchar(255)    | YES   |     |            |                
+meta_description          | text            | YES   |     |            |                
+published_at              | timestamp       | YES   | MUL |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: news_comments
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+news_id                   | varchar(36)     | NO    | MUL |            |                
+user_id                   | varchar(36)     | YES   |     |            |                
+user_type                 | enum('archer','organization','seller','guest') | YES   |     | guest      |                
+guest_name                | varchar(100)    | YES   |     |            |                
+content                   | text            | NO    |     |            |                
+status                    | enum('pending','approved','spam','deleted') | YES   | MUL | approved   |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: news_subscribers
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+email                     | varchar(255)    | NO    | UNI |            |                
+is_active                 | tinyint(1)      | YES   |     | 1          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: notifications
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+user_id                   | varchar(36)     | NO    | MUL |            |                
+user_role                 | enum('club','organization','archer','admin') | NO    | MUL |            |                
+type                      | enum('success','warning','danger','info','default') | YES   |     | default    |                
+title                     | varchar(255)    | NO    |     |            |                
+message                   | text            | NO    |     |            |                
+link                      | varchar(500)    | YES   |     |            |                
+is_read                   | tinyint(1)      | YES   | MUL | 0          |                
+created_at                | timestamp       | NO    | MUL | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: order_items
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+order_id                  | varchar(36)     | NO    | MUL |            |                
+product_id                | varchar(36)     | NO    | MUL |            |                
+quantity                  | int(11)         | NO    |     |            |                
+price                     | decimal(12,2)   | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: orders
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+seller_id                 | varchar(36)     | NO    | MUL |            |                
+buyer_id                  | varchar(36)     | NO    | MUL |            |                
+total_amount              | decimal(12,2)   | NO    |     |            |                
+status                    | enum('pending','processing','shipped','done','cancelled') | YES   | MUL | pending    |                
+payment_status            | enum('unpaid','paid','expired','failed') | YES   |     | unpaid     |                
+payment_id                | varchar(36)     | YES   |     |            |                
+shipping_address          | text            | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: organizations
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+slug                      | varchar(255)    | YES   | UNI |            |                
+user_id                   | varchar(36)     | YES   | MUL |            |                
+name                      | varchar(255)    | NO    |     |            |                
+acronym                   | varchar(20)     | YES   |     |            |                
+description               | text            | YES   |     |            |                
+vision                    | text            | YES   |     |            |                
+mission                   | text            | YES   |     |            |                
+history                   | text            | YES   |     |            |                
+website                   | varchar(255)    | YES   |     |            |                
+email                     | varchar(255)    | NO    | UNI |            |                
+google_id                 | varchar(100)    | YES   |     |            |                
+avatar_url                | varchar(255)    | YES   |     |            |                
+banner_url                | varchar(255)    | YES   |     |            |                
+password                  | varchar(255)    | YES   |     |            |                
+whatsapp_no               | varchar(20)     | YES   |     |            |                
+address                   | text            | YES   |     |            |                
+city                      | varchar(100)    | YES   |     |            |                
+postal_code               | varchar(10)     | YES   |     |            |                
+country                   | varchar(100)    | YES   |     | Indonesia  |                
+registration_number       | varchar(100)    | YES   |     |            |                
+established_date          | date            | YES   |     |            |                
+contact_person_name       | varchar(255)    | YES   |     |            |                
+contact_person_email      | varchar(255)    | YES   |     |            |                
+contact_person_phone      | varchar(20)     | YES   |     |            |                
+social_facebook           | varchar(255)    | YES   |     |            |                
+social_instagram          | varchar(255)    | YES   |     |            |                
+social_twitter            | varchar(255)    | YES   |     |            |                
+social_media              | longtext        | YES   |     |            |                
+verification_status       | enum('pending','verified','rejected') | YES   | MUL | pending    |                
+status                    | enum('active','inactive','suspended') | YES   |     | active     |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+page_settings             | longtext        | YES   |     |            |                
+faq                       | longtext        | YES   |     |            |                
+subscription_plan_id      | int(11)         | YES   |     |            |                
+subscription_status       | varchar(50)     | YES   |     | trial      |                
+subscription_expires_at   | datetime        | YES   |     |            |                
+
+columns for table: password_resets
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+email                     | varchar(255)    | NO    | MUL |            |                
+user_id                   | varchar(36)     | NO    |     |            |                
+user_type                 | varchar(20)     | NO    |     |            |                
+otp_code                  | varchar(10)     | NO    | MUL |            |                
+is_used                   | tinyint(1)      | NO    |     | 0          |                
+expires_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: payment_transactions
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+reference                 | varchar(100)    | NO    | UNI |            |                
+tripay_reference          | varchar(100)    | YES   | MUL |            |                
+user_id                   | varchar(36)     | NO    | MUL |            |                
+event_id                  | varchar(36)     | YES   | MUL |            |                
+registration_id           | varchar(36)     | YES   |     |            |                
+subscription_plan_id      | int(11)         | YES   |     |            |                
+amount                    | decimal(12,2)   | NO    |     |            |                
+fee_amount                | decimal(12,2)   | YES   |     | 0.00       |                
+total_amount              | decimal(12,2)   | NO    |     |            |                
+payment_method            | varchar(50)     | YES   |     |            |                
+payment_channel           | varchar(50)     | YES   |     |            |                
+va_number                 | varchar(100)    | YES   |     |            |                
+qr_url                    | text            | YES   |     |            |                
+checkout_url              | text            | YES   |     |            |                
+pay_code                  | varchar(100)    | YES   |     |            |                
+instructions              | text            | YES   |     |            |                
+months                    | int(11)         | YES   |     | 1          |                
+status                    | enum('pending','paid','expired','failed','refunded') | YES   | MUL | pending    |                
+paid_at                   | timestamp       | YES   |     |            |                
+expired_at                | timestamp       | NO    |     | 0000-00-00 00:00:00 |                
+callback_data             | longtext        | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: pengawasan_cs
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id_monitoring             | int(11)         | NO    | PRI |            | auto_increment 
+tanggal_pengawasan        | date            | NO    |     |            |                
+id_pengawas               | int(11)         | YES   | MUL |            |                
+nama_cs                   | varchar(100)    | YES   |     |            |                
+skor_kecepatan            | int(11)         | YES   |     |            |                
+skor_keramahan            | int(11)         | YES   |     |            |                
+catatan_pengawas          | text            | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: products
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+seller_id                 | varchar(36)     | YES   |     |            |                
+name                      | varchar(255)    | NO    |     |            |                
+slug                      | varchar(255)    | YES   | UNI |            |                
+description               | text            | YES   |     |            |                
+price                     | decimal(12,2)   | NO    |     |            |                
+sale_price                | decimal(12,2)   | YES   |     |            |                
+category                  | enum('equipment','apparel','accessories','training','other') | YES   | MUL | other      |                
+stock                     | int(11)         | YES   |     | 0          |                
+status                    | enum('draft','active','sold_out','archived') | YES   | MUL | draft      |                
+image_url                 | varchar(500)    | YES   |     |            |                
+images                    | longtext        | YES   |     |            |                
+colors                    | longtext        | YES   |     |            |                
+specifications            | longtext        | YES   |     |            |                
+views                     | int(11)         | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: qualification_arrow_scores
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+end_score_uuid            | varchar(36)     | NO    | MUL |            |                
+arrow_number              | int(10) unsigned | NO    |     |            |                
+score                     | tinyint(3) unsigned | NO    | MUL |            |                
+is_x                      | tinyint(1)      | NO    |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: qualification_end_scores
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+session_uuid              | varchar(36)     | NO    | MUL |            |                
+participant_uuid          | varchar(36)     | NO    | MUL |            |                
+end_number                | int(10) unsigned | NO    | MUL |            |                
+total_score_end           | int(10) unsigned | NO    |     | 0          |                
+x_count_end               | int(10) unsigned | NO    |     | 0          |                
+ten_count_end             | int(10) unsigned | NO    |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: qualification_session_categories
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+session_uuid              | varchar(36)     | NO    | PRI |            |                
+category_uuid             | varchar(36)     | NO    | PRI |            |                
+
+columns for table: qualification_sessions
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+event_uuid                | varchar(36)     | NO    | MUL |            |                
+session_code              | varchar(20)     | YES   | UNI |            |                
+session_date              | date            | YES   |     |            |                
+name                      | varchar(50)     | NO    |     |            |                
+start_time                | datetime        | YES   |     |            |                
+end_time                  | datetime        | YES   |     |            |                
+total_ends                | int(10) unsigned | NO    |     | 12         |                
+arrows_per_end            | int(10) unsigned | NO    |     | 6          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: qualification_target_assignments
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+session_uuid              | varchar(36)     | NO    | MUL |            |                
+participant_uuid          | varchar(36)     | NO    | MUL |            |                
+target_uuid               | varchar(36)     | NO    | MUL |            |                
+target_board_id           | varchar(36)     | YES   |     |            |                
+created_by                | varchar(36)     | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: ref_age_groups
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+code                      | varchar(50)     | NO    | UNI |            |                
+name                      | varchar(100)    | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: ref_bow_types
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+code                      | varchar(50)     | NO    | UNI |            |                
+name                      | varchar(100)    | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: ref_disciplines
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+code                      | varchar(50)     | NO    | UNI |            |                
+name                      | varchar(100)    | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: ref_event_types
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+code                      | varchar(50)     | NO    | UNI |            |                
+name                      | varchar(100)    | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: ref_gender_divisions
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+code                      | varchar(50)     | NO    | UNI |            |                
+name                      | varchar(100)    | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: roots
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+email                     | varchar(255)    | NO    | UNI |            |                
+password                  | varchar(255)    | NO    |     |            |                
+name                      | varchar(255)    | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: scorekeeper_logs
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | bigint(20)      | NO    | PRI |            | auto_increment 
+scorekeeper_uuid          | varchar(36)     | NO    | MUL |            |                
+organization_uuid         | varchar(36)     | NO    | MUL |            |                
+event_uuid                | varchar(36)     | YES   | MUL |            |                
+action                    | varchar(255)    | NO    |     |            |                
+details                   | text            | YES   |     |            |                
+ip_address                | varchar(45)     | YES   |     |            |                
+user_agent                | text            | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: scorekeepers
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+organization_uuid         | varchar(36)     | NO    | MUL |            |                
+code                      | varchar(5)      | NO    | UNI |            |                
+name                      | varchar(255)    | NO    |     |            |                
+email                     | varchar(255)    | YES   |     |            |                
+password                  | varchar(255)    | YES   |     |            |                
+google_id                 | varchar(100)    | YES   |     |            |                
+avatar_url                | varchar(255)    | YES   |     |            |                
+status                    | enum('active','inactive') | YES   |     | active     |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: sellers
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+slug                      | varchar(255)    | YES   | UNI |            |                
+google_id                 | varchar(100)    | YES   |     |            |                
+user_id                   | varchar(36)     | YES   |     |            |                
+store_name                | varchar(255)    | NO    |     |            |                
+password                  | varchar(255)    | YES   |     |            |                
+description               | text            | YES   |     |            |                
+avatar_url                | varchar(500)    | YES   |     |            |                
+banner_url                | varchar(500)    | YES   |     |            |                
+phone                     | varchar(20)     | YES   |     |            |                
+email                     | varchar(255)    | YES   |     |            |                
+address                   | text            | YES   |     |            |                
+city                      | varchar(100)    | YES   |     |            |                
+province                  | varchar(100)    | YES   |     |            |                
+is_verified               | tinyint(1)      | YES   |     | 0          |                
+rating                    | decimal(3,2)    | YES   |     | 0.00       |                
+total_sales               | int(11)         | YES   |     | 0          |                
+followers_count           | int(11)         | YES   |     | 0          |                
+product_count             | int(11)         | YES   |     | 0          |                
+chat_response_rate        | varchar(10)     | YES   |     | 100%       |                
+chat_response_time        | varchar(50)     | YES   |     | beberapa jam |                
+last_active_at            | timestamp       | YES   |     |            |                
+status                    | enum('pending','active','suspended') | YES   | MUL | pending    |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+page_settings             | longtext        | YES   |     |            |                
+last_seen_at              | timestamp       | YES   |     |            |                
+
+columns for table: store
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | varchar(36)     | NO    | PRI |            |                
+name                      | varchar(255)    | NO    | UNI |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: subscription_plans
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+name                      | varchar(255)    | NO    |     |            |                
+price                     | decimal(12,2)   | NO    |     |            |                
+features                  | text            | YES   |     |            |                
+type                      | enum('monthly','yearly') | YES   |     | monthly    |                
+target_type               | enum('club','organization') | YES   |     | club       |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: target_board_elimination
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+bracket_uuid              | varchar(36)     | NO    | MUL |            |                
+category_uuid             | varchar(36)     | NO    | MUL |            |                
+board_number              | int(11)         | NO    |     |            |                
+code                      | varchar(10)     | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: target_board_qualification
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+session_uuid              | varchar(36)     | NO    | MUL |            |                
+category_uuid             | varchar(36)     | NO    |     |            |                
+board_number              | int(11)         | NO    |     |            |                
+code                      | varchar(10)     | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: team_members
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+team_id                   | varchar(36)     | YES   | MUL |            |                
+participant_id            | varchar(36)     | NO    | MUL |            |                
+member_order              | int(11)         | NO    |     |            |                
+total_score               | int(11)         | YES   |     | 0          |                
+total_x_count             | int(11)         | YES   |     | 0          |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: teams
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+tournament_id             | varchar(36)     | NO    | MUL |            |                
+event_id                  | varchar(36)     | NO    | MUL |            |                
+team_name                 | varchar(100)    | NO    |     |            |                
+team_rank                 | int(11)         | YES   |     |            |                
+total_score               | int(11)         | YES   |     | 0          |                
+total_x_count             | int(11)         | YES   |     | 0          |                
+status                    | enum('active','eliminated','qualified') | YES   |     | active     |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: user_refresh_tokens
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+user_uuid                 | varchar(36)     | NO    | MUL |            |                
+token                     | varchar(255)    | NO    | UNI |            |                
+user_type                 | varchar(20)     | NO    |     |            |                
+expires_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: user_settings
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+user_uuid                 | varchar(36)     | NO    | PRI |            |                
+dashboard_theme           | varchar(50)     | YES   |     | default    |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: users
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id_user                   | int(11)         | NO    | PRI |            | auto_increment 
+username                  | varchar(50)     | NO    | UNI |            |                
+password                  | varchar(255)    | NO    |     |            |                
+nama_lengkap              | varchar(100)    | YES   |     |            |                
+role                      | enum('Admin','Pengawas') | NO    |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: vendors
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id_vendor                 | varchar(50)     | NO    | PRI |            |                
+nama_vendor               | varchar(255)    | NO    |     |            |                
+pic_vendor                | varchar(255)    | YES   |     |            |                
+kota_vendor               | varchar(100)    | NO    |     |            |                
+no_whatsapp_vendor        | varchar(20)     | NO    |     |            |                
+alamat_vendor             | text            | YES   |     |            |                
+koordinat_vendor          | varchar(255)    | YES   |     |            |                
+jenis_produk              | text            | YES   |     |            |                
+nama_rekening_vendor      | varchar(255)    | YES   |     |            |                
+bank_vendor               | varchar(100)    | YES   |     |            |                
+nomor_rekening_vendor     | varchar(50)     | YES   |     |            |                
+nama_pemilik_rekening     | varchar(255)    | YES   |     |            |                
+status_vendor             | enum('Aktif','Tidak Aktif','Blacklist') | YES   |     | Aktif      |                
+catatan_vendor            | text            | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: verification_codes
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+id                        | int(11)         | NO    | PRI |            | auto_increment 
+email                     | varchar(255)    | NO    |     |            |                
+code                      | varchar(10)     | NO    |     |            |                
+expires_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+
+columns for table: wallets
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | NO    | UNI |            |                
+balance                   | decimal(15,2)   | YES   |     | 0.00       |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
+
+columns for table: withdrawals
+field                     | type            | null  | key | default    | extra          
+--------------------------------------------------------------------------------------------------------
+uuid                      | varchar(36)     | NO    | PRI |            |                
+user_id                   | varchar(36)     | NO    | MUL |            |                
+bank_account_id           | varchar(36)     | NO    |     |            |                
+amount                    | decimal(15,2)   | NO    |     |            |                
+status                    | enum('pending','completed','failed') | YES   |     | pending    |                
+reference_no              | varchar(50)     | YES   | UNI |            |                
+notes                     | text            | YES   |     |            |                
+created_at                | timestamp       | NO    |     | current_timestamp() |                
+updated_at                | timestamp       | NO    |     | current_timestamp() | on update current_timestamp()
