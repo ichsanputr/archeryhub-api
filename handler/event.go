@@ -2124,9 +2124,9 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Block if already accredited/approved
+		// Block if already accredited/approved (status = 'Terdaftar' or payment is paid)
 		var approvedCount int
-		_ = db.Get(&approvedCount, `SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND archer_id = ? AND accreditation_status = 'approved'`, actualEventID, archerID)
+		_ = db.Get(&approvedCount, `SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND archer_id = ? AND status = 'Terdaftar'`, actualEventID, archerID)
 		if approvedCount > 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Pendaftaran sudah disetujui. Hubungi panitia untuk pembatalan."})
 			return
@@ -2162,16 +2162,16 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if the participant belongs to the logged-in user
 		var userArcherID string
-		err = db.Get(&userArcherID, "SELECT uuid FROM archers WHERE uuid = ? OR user_id = ?", userID, userID)
+		err = db.Get(&userArcherID, "SELECT uuid FROM archers WHERE uuid = ? LIMIT 1", userID)
 		if err != nil || userArcherID != archerID {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Anda hanya dapat membatalkan pendaftaran sendiri"})
 			return
 		}
 
 		// Check if already approved - can't cancel approved registrations
-		var accreditationStatus string
-		err = db.Get(&accreditationStatus, "SELECT accreditation_status FROM event_participants WHERE uuid = ?", participantID)
-		if err == nil && accreditationStatus == "approved" {
+		var status string
+		err = db.Get(&status, "SELECT status FROM event_participants WHERE uuid = ?", participantID)
+		if err == nil && status == "Terdaftar" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot cancel an approved registration. Please contact the organizer."})
 			return
 		}

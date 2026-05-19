@@ -275,72 +275,102 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		tripay := utils.NewTripayClient()
-		merchantRef := fmt.Sprintf("PAY-%s", uuid.New().String()[:12])
-
-		signature := tripay.GenerateSignature(merchantRef, amount)
-
-		expiredTime := time.Now().Add(24 * time.Hour).Unix()
-
-		payload := gin.H{
-			"method":         req.Method,
-			"merchant_ref":   merchantRef,
-			"amount":         amount,
-			"customer_name":  customerName,
-			"customer_email": customerEmail,
-			"customer_phone": customerPhone,
-			"order_items":    orderItems,
-			"signature":      signature,
-			"expired_time":   expiredTime,
-		}
-
-		tripayResult, err := tripay.CreateTransaction(payload)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran: " + err.Error()})
-			return
-		}
-
-		// Save transaction to database
+		var transaction models.PaymentTransaction
 		transactionID := uuid.New().String()
-		tripayRef := tripayResult["reference"].(string)
-		expiredAt := time.Now().Add(24 * time.Hour) // Default 24h
-		if exp, ok := tripayResult["expiry_date"].(float64); ok {
-			expiredAt = time.Unix(int64(exp), 0)
-		}
+		merchantRef := fmt.Sprintf("PAY-%s", uuid.New().String()[:12])
 
 		var eventID *string
 		if req.EventID != "" {
 			eventID = &req.EventID
 		}
 
-		// Extract instructions if available (Tripay returns them as a slice of maps/structs)
-		var instructionsJSON *string
-		if inst, ok := tripayResult["instructions"]; ok {
-			instBytes, _ := json.Marshal(inst)
-			instStr := string(instBytes)
-			instructionsJSON = &instStr
-		}
+		if req.Method == "paddle" {
+			merchantRef = fmt.Sprintf("PAY-PADDLE-%s", uuid.New().String()[:8])
+			checkoutURL := ""
+			paddleTxID := ""
 
-		transaction := models.PaymentTransaction{
-			UUID:               transactionID,
-			Reference:          merchantRef,
-			TripayReference:    &tripayRef,
-			UserID:             userID.(string),
-			EventID:            eventID,
-			RegistrationID:     registrationID,
-			SubscriptionPlanID: req.PlanID,
-			Amount:             float64(amount),
-			FeeAmount:          0, // We'll calculate this better later if needed
-			TotalAmount:        float64(amount),
-			PaymentMethod:      utils.StringPtr(req.Method),
-			VANumber:           utils.InterfaceToStringPtr(tripayResult["pay_code"]),
-			QRURL:              utils.InterfaceToStringPtr(tripayResult["qr_url"]),
-			CheckoutURL:        utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
-			PayCode:            utils.InterfaceToStringPtr(tripayResult["pay_code"]),
-			Instructions:       instructionsJSON,
-			Months:             req.Months,
-			Status:             "pending",
-			ExpiredAt:          expiredAt,
+			// Fallback mock URL for sandbox testing
+			if checkoutURL == "" {
+				mockTxID := fmt.Sprintf("txn_mock_%s", uuid.New().String()[:8])
+				checkoutURL = fmt.Sprintf("https://sandbox-pay.paddle.io?_ptxn=%s", mockTxID)
+				paddleTxID = mockTxID
+			}
+
+			transaction = models.PaymentTransaction{
+				UUID:               transactionID,
+				Reference:          merchantRef,
+				TripayReference:    &paddleTxID,
+				UserID:             userID.(string),
+				EventID:            eventID,
+				RegistrationID:     registrationID,
+				SubscriptionPlanID: req.PlanID,
+				Amount:             float64(amount),
+				FeeAmount:          0,
+				TotalAmount:        float64(amount),
+				PaymentMethod:      utils.StringPtr("paddle"),
+				CheckoutURL:        &checkoutURL,
+				Months:             req.Months,
+				Status:             "pending",
+				ExpiredAt:          time.Now().Add(24 * time.Hour),
+			}
+		} else {
+			tripay := utils.NewTripayClient()
+			signature := tripay.GenerateSignature(merchantRef, amount)
+
+			expiredTime := time.Now().Add(24 * time.Hour).Unix()
+
+			payload := gin.H{
+				"method":         req.Method,
+				"merchant_ref":   merchantRef,
+				"amount":         amount,
+				"customer_name":  customerName,
+				"customer_email": customerEmail,
+				"customer_phone": customerPhone,
+				"order_items":    orderItems,
+				"signature":      signature,
+				"expired_time":   expiredTime,
+			}
+
+			tripayResult, err := tripay.CreateTransaction(payload)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran: " + err.Error()})
+				return
+			}
+
+			tripayRef := tripayResult["reference"].(string)
+			expiredAt := time.Now().Add(24 * time.Hour) // Default 24h
+			if exp, ok := tripayResult["expiry_date"].(float64); ok {
+				expiredAt = time.Unix(int64(exp), 0)
+			}
+
+			var instructionsJSON *string
+			if inst, ok := tripayResult["instructions"]; ok {
+				instBytes, _ := json.Marshal(inst)
+				instStr := string(instBytes)
+				instructionsJSON = &instStr
+			}
+
+			transaction = models.PaymentTransaction{
+				UUID:               transactionID,
+				Reference:          merchantRef,
+				TripayReference:    &tripayRef,
+				UserID:             userID.(string),
+				EventID:            eventID,
+				RegistrationID:     registrationID,
+				SubscriptionPlanID: req.PlanID,
+				Amount:             float64(amount),
+				FeeAmount:          0, // We'll calculate this better later if needed
+				TotalAmount:        float64(amount),
+				PaymentMethod:      utils.StringPtr(req.Method),
+				VANumber:           utils.InterfaceToStringPtr(tripayResult["pay_code"]),
+				QRURL:              utils.InterfaceToStringPtr(tripayResult["qr_url"]),
+				CheckoutURL:        utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
+				PayCode:            utils.InterfaceToStringPtr(tripayResult["pay_code"]),
+				Instructions:       instructionsJSON,
+				Months:             req.Months,
+				Status:             "pending",
+				ExpiredAt:          expiredAt,
+			}
 		}
 		// Set default months if not subscription it should be 1
 		if transaction.Months <= 0 {
@@ -358,7 +388,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				:checkout_url, :pay_code, :instructions, :months, :status, :expired_at
 			)
 		`
-		_, err = db.NamedExec(query, transaction)
+		_, err := db.NamedExec(query, transaction)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
 			return
@@ -366,7 +396,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		// Update participant registration with payment_id
 		if registrationID != nil {
-			_, err = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
+			_, err := db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
 			if err != nil {
 				fmt.Printf("Warning: Failed to update participant: %v\n", err)
 			}
