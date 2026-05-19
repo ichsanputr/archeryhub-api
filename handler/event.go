@@ -3682,11 +3682,41 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
+			// 5. Delete qualification session categories
+			_, err = tx.Exec(`
+				DELETE FROM qualification_session_categories 
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus kategori sesi kualifikasi", "details": err.Error()})
+				return
+			}
+
+			// 6. Delete target board qualification verification codes
+			_, err = tx.Exec(`
+				DELETE FROM target_board_qualification 
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus kode verifikasi papan target kualifikasi", "details": err.Error()})
+				return
+			}
+
+			// 7. Delete qualification sessions
+			_, err = tx.Exec(`
+				DELETE FROM qualification_sessions 
+				WHERE event_uuid = ?
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus sesi kualifikasi", "details": err.Error()})
+				return
+			}
+
 		case "elimination":
 			// 1. Delete elimination matches
 			_, err = tx.Exec(`
 				DELETE FROM elimination_matches 
-				WHERE category_uuid IN (SELECT uuid FROM event_categories WHERE event_id = ?)
+				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE event_uuid = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus match eliminasi", "details": err.Error()})
@@ -3702,6 +3732,13 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus entri eliminasi", "details": err.Error()})
 				return
 			}
+
+			// 3. Reset brackets to draft status
+			tx.Exec(`
+				UPDATE elimination_brackets 
+				SET status = 'draft', generated_at = NULL 
+				WHERE event_uuid = ?
+			`, actualEventID)
 
 		case "participants":
 			// Wipe qualification first due to foreign keys
@@ -3724,11 +3761,16 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// Wipe elimination due to foreign keys
 			tx.Exec(`
 				DELETE FROM elimination_matches 
-				WHERE category_uuid IN (SELECT uuid FROM event_categories WHERE event_id = ?)
+				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE event_uuid = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM elimination_entries 
 				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			tx.Exec(`
+				UPDATE elimination_brackets 
+				SET status = 'draft', generated_at = NULL 
+				WHERE event_uuid = ?
 			`, actualEventID)
 
 			// Delete all event participants
@@ -3756,14 +3798,32 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
 			`, actualEventID)
 
+			// Wipe qualification sessions & associated links
+			tx.Exec(`
+				DELETE FROM qualification_session_categories 
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM target_board_qualification 
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM qualification_sessions 
+				WHERE event_uuid = ?
+			`, actualEventID)
+
 			// Wipe elimination
 			tx.Exec(`
 				DELETE FROM elimination_matches 
-				WHERE category_uuid IN (SELECT uuid FROM event_categories WHERE event_id = ?)
+				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE event_uuid = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM elimination_entries 
 				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM elimination_brackets 
+				WHERE event_uuid = ?
 			`, actualEventID)
 
 			// Wipe participants
