@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -1188,7 +1188,6 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus               string        `db:"payment_status" json:"payment_status"`
 			AvatarURL                   *string       `db:"avatar_url" json:"avatar_url"`
 			PaymentAmount               float64       `db:"payment_amount" json:"payment_amount"`
-			PaymentProofUrlsRaw         *string       `db:"payment_proof_urls" json:"-"`
 			PaymentProofURLs            []string      `json:"payment_proof_urls"`
 			RegistrationDate            string        `db:"registration_date" json:"registration_date"`
 			IsVerified                  bool          `db:"is_verified" json:"is_verified"`
@@ -1201,7 +1200,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Get(&participant, `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_name, tp.qr_raw,
-				tp.payment_amount, tp.payment_proof_urls, tp.payment_status,
+				tp.payment_amount, tp.payment_status,
 				COALESCE(tp.registration_source, 'self_register') as registration_source,
 				tp.registration_date,
 				a.id as athlete_code,
@@ -1280,11 +1279,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		fmt.Printf("[DEBUG] Found participant: %s (UUID: %s)\n", participant.FullName, participant.ID)
 
 		// Parse payment proof URLs
-		if participant.PaymentProofUrlsRaw != nil && *participant.PaymentProofUrlsRaw != "" {
-			participant.PaymentProofURLs = strings.Split(*participant.PaymentProofUrlsRaw, ",")
-		} else {
-			participant.PaymentProofURLs = []string{}
-		}
+		participant.PaymentProofURLs = []string{}
 
 		// Parse categories if raw exists
 		if participant.CategoriesRaw != nil && *participant.CategoriesRaw != "" {
@@ -1363,7 +1358,6 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			TargetName          *string `db:"target_name"`
 			PaymentStatus       string  `db:"payment_status"`
 			PaymentAmount       float64 `db:"payment_amount"`
-			PaymentProofURLsRaw *string `db:"payment_proof_urls"`
 			RegistrationDate    string  `db:"registration_date"`
 			DivisionName        string  `db:"division_name"`
 			CategoryUUID        string  `db:"category_id"`
@@ -1382,7 +1376,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&rows, `
 			SELECT 
 				tp.uuid as id, tp.target_name, tp.category_id,
-				tp.payment_status, tp.payment_amount, tp.payment_proof_urls, tp.registration_date,
+				tp.payment_status, tp.payment_amount, tp.registration_date,
 				a.id as athlete_code, a.full_name, COALESCE(a.email, '') as email,
 				a.city as city, a.avatar_url, COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
@@ -1422,7 +1416,6 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 		// but we'll show per category anyway.
 		resp.PaymentStatus = firstRow.PaymentStatus
 
-		allProofs := make(map[string]bool)
 		for _, row := range rows {
 			resp.Categories = append(resp.Categories, MyRegistrationCategory{
 				ID:                 row.ID,
@@ -1437,27 +1430,15 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 				RegistrationDate:   row.RegistrationDate,
 			})
 			resp.PaymentAmount += row.PaymentAmount
-
-			if row.PaymentProofURLsRaw != nil && *row.PaymentProofURLsRaw != "" {
-				urls := strings.Split(*row.PaymentProofURLsRaw, ",")
-				for _, u := range urls {
-					allProofs[strings.TrimSpace(u)] = true
-				}
-			}
 		}
 
-		for u := range allProofs {
-			resp.PaymentProofURLs = append(resp.PaymentProofURLs, u)
-		}
+		resp.PaymentProofURLs = []string{}
 
 		// Fetch payment transaction for the first registration row (most common)
 		var transaction models.PaymentTransaction
 		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, firstRow.ID)
 		if errTx == nil {
 			resp.Transaction = &transaction
-		} else if len(resp.PaymentProofURLs) > 0 {
-			manual := "Manual Transfer"
-			resp.PaymentMethodManual = &manual
 		}
 
 		c.JSON(http.StatusOK, resp)
@@ -3589,6 +3570,294 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 
 		// Stream the PDF response
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+	}
+}
+
+// ResetEventData allows organizers or admins to reset specific data of an event
+func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		if userID == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var req struct {
+			Target      string `json:"target" binding:"required"`
+			ConfirmText string `json:"confirm_text" binding:"required"`
+			Code        string `json:"code" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
+			return
+		}
+
+		if strings.ToUpper(req.ConfirmText) != "RESET" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Teks konfirmasi harus 'RESET'"})
+			return
+		}
+
+		// Resolve event slug to UUID
+		var actualEventID string
+		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		// Verify the verification code
+		var savedCode struct {
+			Code      string    `db:"code"`
+			ExpiresAt time.Time `db:"expires_at"`
+		}
+		err = db.Get(&savedCode, `
+			SELECT code, expires_at FROM event_reset_codes 
+			WHERE event_id = ? AND user_id = ? AND code = ?
+			LIMIT 1
+		`, eventID, userID.(string), req.Code)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kode verifikasi salah atau tidak ditemukan"})
+			return
+		}
+
+		if time.Now().After(savedCode.ExpiresAt) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kode verifikasi telah kadaluarsa"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			return
+		}
+		defer tx.Rollback()
+
+		switch req.Target {
+		case "qualification":
+			// 1. Delete arrows
+			_, err = tx.Exec(`
+				DELETE FROM qualification_arrow_scores 
+				WHERE end_score_uuid IN (
+					SELECT uuid FROM qualification_end_scores 
+					WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus skor anak panah", "details": err.Error()})
+				return
+			}
+
+			// 2. Delete end scores
+			_, err = tx.Exec(`
+				DELETE FROM qualification_end_scores 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus skor kualifikasi", "details": err.Error()})
+				return
+			}
+
+			// 3. Delete target assignments
+			_, err = tx.Exec(`
+				DELETE FROM qualification_target_assignments 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus penugasan target kualifikasi", "details": err.Error()})
+				return
+			}
+
+			// 4. Reset target names and back numbers in event_participants
+			_, err = tx.Exec(`
+				UPDATE event_participants 
+				SET target_name = NULL, back_number = NULL 
+				WHERE event_id = ?
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset nomor bantalan", "details": err.Error()})
+				return
+			}
+
+		case "elimination":
+			// 1. Delete elimination matches
+			_, err = tx.Exec(`
+				DELETE FROM elimination_matches 
+				WHERE category_uuid IN (SELECT uuid FROM event_categories WHERE event_id = ?)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus match eliminasi", "details": err.Error()})
+				return
+			}
+
+			// 2. Delete elimination entries
+			_, err = tx.Exec(`
+				DELETE FROM elimination_entries 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus entri eliminasi", "details": err.Error()})
+				return
+			}
+
+		case "participants":
+			// Wipe qualification first due to foreign keys
+			tx.Exec(`
+				DELETE FROM qualification_arrow_scores 
+				WHERE end_score_uuid IN (
+					SELECT uuid FROM qualification_end_scores 
+					WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM qualification_end_scores 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM qualification_target_assignments 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+
+			// Wipe elimination due to foreign keys
+			tx.Exec(`
+				DELETE FROM elimination_matches 
+				WHERE category_uuid IN (SELECT uuid FROM event_categories WHERE event_id = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM elimination_entries 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+
+			// Delete all event participants
+			_, err = tx.Exec(`DELETE FROM event_participants WHERE event_id = ?`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data peserta", "details": err.Error()})
+				return
+			}
+
+		case "all":
+			// Wipe qualification
+			tx.Exec(`
+				DELETE FROM qualification_arrow_scores 
+				WHERE end_score_uuid IN (
+					SELECT uuid FROM qualification_end_scores 
+					WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM qualification_end_scores 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM qualification_target_assignments 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+
+			// Wipe elimination
+			tx.Exec(`
+				DELETE FROM elimination_matches 
+				WHERE category_uuid IN (SELECT uuid FROM event_categories WHERE event_id = ?)
+			`, actualEventID)
+			tx.Exec(`
+				DELETE FROM elimination_entries 
+				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+			`, actualEventID)
+
+			// Wipe participants
+			_, err = tx.Exec(`DELETE FROM event_participants WHERE event_id = ?`, actualEventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal melakukan factory reset", "details": err.Error()})
+				return
+			}
+
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Target reset tidak valid"})
+			return
+		}
+
+		// Delete the used verification code
+		tx.Exec("DELETE FROM event_reset_codes WHERE event_id = ? AND user_id = ?", eventID, userID.(string))
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan reset"})
+			return
+		}
+
+		// Log activity
+		if userID != nil {
+			utils.LogActivity(db, userID.(string), actualEventID, "event_reset", "event", actualEventID, "Reset target data: "+req.Target, c.ClientIP(), c.Request.UserAgent())
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Data event berhasil direset!"})
+	}
+}
+
+// RequestResetCode sends a 6-digit verification code to the organizer's email for event reset operations
+func RequestResetCode(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userID, _ := c.Get("user_id")
+
+		if userID == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Resolve user email
+		var userEmail string
+		err := db.Get(&userEmail, `SELECT email FROM users WHERE uuid = ?`, userID.(string))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data user", "details": err.Error()})
+			return
+		}
+
+		// Generate code
+		otpCode := utils.GenerateOTP()
+
+		// Save to event_reset_codes (delete any existing codes first)
+		_, _ = db.Exec("DELETE FROM event_reset_codes WHERE event_id = ? AND user_id = ?", eventID, userID.(string))
+
+		expiresAt := time.Now().Add(15 * time.Minute)
+		_, err = db.Exec(`
+			INSERT INTO event_reset_codes (uuid, event_id, user_id, code, expires_at)
+			VALUES (?, ?, ?, ?, ?)
+		`, uuid.New().String(), eventID, userID.(string), otpCode, expiresAt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat kode verifikasi", "details": err.Error()})
+			return
+		}
+
+		// Send email
+		subject := "Kode Verifikasi Reset Event - ArcheryHub"
+		body := fmt.Sprintf(`
+			<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px;">
+				<h2 style="color: #1e293b; margin-bottom: 20px;">Permintaan Reset Data Event</h2>
+				<p style="color: #64748b; font-size: 14px; line-height: 1.5;">
+					Anda menerima email ini karena ada permintaan untuk mereset data event di akun Anda.
+					Gunakan kode verifikasi berikut untuk mengonfirmasi tindakan ini:
+				</p>
+				<div style="background-color: #f1f5f9; padding: 15px; text-align: center; border-radius: 8px; margin: 25px 0;">
+					<span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #dc2626;">%s</span>
+				</div>
+				<p style="color: #ef4444; font-size: 12px; font-weight: bold;">
+					Peringatan: Reset data bersifat permanen dan tidak dapat dibatalkan. Jangan bagikan kode ini kepada siapapun.
+				</p>
+				<p style="color: #94a3b8; font-size: 11px; margin-top: 30px;">
+					Kode verifikasi ini akan kadaluarsa dalam 15 menit. Jika Anda tidak merasa mengajukan tindakan ini, silakan abaikan email ini.
+				</p>
+			</div>
+		`, otpCode)
+
+		err = utils.SendEmail(userEmail, subject, body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim email verifikasi", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Kode verifikasi telah dikirim ke email Anda"})
 	}
 }
 

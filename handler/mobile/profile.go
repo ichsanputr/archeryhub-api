@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/handler"
@@ -828,7 +828,7 @@ func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as participant_uuid, a.uuid as archer_uuid, a.full_name, a.gender, a.birth_date, 
 				a.email, a.phone, a.avatar_url, cl.name as club_name,
 				ec.uuid as category_uuid, COALESCE(ec.category_name_custom, r_ag.name, '') as category_name,
-				tp.target_name, tp.back_number, tp.payment_status, tp.payment_amount, tp.payment_proof_urls,
+				tp.target_name, tp.back_number, tp.payment_status, tp.payment_amount,
 				tp.registration_date, tp.last_reregistration_at
 			FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
@@ -855,7 +855,6 @@ func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 			BackNumber           *string        `db:"back_number"`
 			PaymentStatus        string         `db:"payment_status"`
 			PaymentAmount        float64        `db:"payment_amount"`
-			PaymentProofURLs     *string        `db:"payment_proof_urls"`
 			RegistrationDate     time.Time      `db:"registration_date"`
 			LastReregistrationAt *time.Time     `db:"last_reregistration_at"`
 		}
@@ -866,13 +865,7 @@ func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var proofs []string
-		if raw.PaymentProofURLs != nil && *raw.PaymentProofURLs != "" {
-			proofs = strings.Split(*raw.PaymentProofURLs, ",")
-			for i := range proofs {
-				proofs[i] = utils.MaskMediaURL(strings.TrimSpace(proofs[i]))
-			}
-		}
+		proofs := []string{}
 
 		var lastRereg *string
 		if raw.LastReregistrationAt != nil {

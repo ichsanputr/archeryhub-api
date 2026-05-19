@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"net/http"
@@ -313,6 +313,8 @@ func main() {
 				protected.PUT("/:id", handler.UpdateEvent(db))
 				protected.DELETE("/:id", handler.DeleteEvent(db))
 				protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
+				protected.POST("/:id/reset", handler.ResetEventData(db))
+				protected.POST("/:id/reset/request-code", handler.RequestResetCode(db))
 				protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
 				protected.POST("/:id/categories", handler.CreateEventCategory(db))
 				protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
@@ -515,6 +517,8 @@ func main() {
 			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
+			payment.POST("/paddle/initiate", middleware.AuthMiddleware(), handler.InitiatePaddlePayment(db))
+			payment.POST("/paddle/callback", handler.PaddleWebhookCallback(db))
 			payment.GET("/simulate-success/:reference", handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
 		}
