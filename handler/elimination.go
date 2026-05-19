@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -556,7 +556,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		// Count participants and auto-calculate bracket size (smallest power of 2 >= count)
 		var participantCount int
 		if req.BracketType == "individual" {
-			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('lunas', 'menunggu acc')`, req.CategoryID)
+			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')`, req.CategoryID)
 		} else {
 			// SyncTeams stores: tournament_id = eventUUID, event_id = categoryID
 			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE event_id = ? AND tournament_id = ?`, req.CategoryID, eventUUID)
@@ -1022,7 +1022,7 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 		teamSize := 1
 
 		if bracketType == "individual" {
-			db.Get(&effectiveCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('lunas', 'menunggu acc')`, categoryID)
+			db.Get(&effectiveCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')`, categoryID)
 		} else {
 			// Fetch category type info (same as SyncTeams does)
 			var catInfo struct {

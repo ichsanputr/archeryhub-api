@@ -435,8 +435,8 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 				SELECT
 					event_id,
 					COUNT(*) as participant_count,
-					SUM(CASE WHEN payment_status = 'lunas' THEN 1 ELSE 0 END) as verified_count,
-					SUM(CASE WHEN payment_status = 'menunggu acc' THEN 1 ELSE 0 END) as pending_count
+					SUM(CASE WHEN payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END) as verified_count,
+					SUM(CASE WHEN payment_status IN ('pending', 'menunggu_acc', 'menunggu acc') THEN 1 ELSE 0 END) as pending_count
 				FROM event_participants
 				GROUP BY event_id
 			) ps ON ps.event_id = e.uuid
@@ -521,9 +521,15 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
 		}
 		if paymentStatus != "" && paymentStatus != "Semua" {
-			whereClause += " AND tp.payment_status = ?"
-			args = append(args, paymentStatus)
-			countArgs = append(countArgs, paymentStatus)
+			if paymentStatus == "pending" || paymentStatus == "unpaid" {
+				whereClause += " AND tp.payment_status IN ('pending', 'unpaid', 'belum_lunas', 'menunggu_acc', 'menunggu acc')"
+			} else if paymentStatus == "paid" {
+				whereClause += " AND tp.payment_status IN ('paid', 'lunas')"
+			} else {
+				whereClause += " AND tp.payment_status = ?"
+				args = append(args, paymentStatus)
+				countArgs = append(countArgs, paymentStatus)
+			}
 		}
 		if reregistered == "true" {
 			whereClause += " AND tp.last_reregistration_at IS NOT NULL"
@@ -560,7 +566,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				tp.qr_raw,
 				a.avatar_url,
 				tp.registration_date,
-				COALESCE(tp.payment_status, 'menunggu acc') as payment_status
+				COALESCE(tp.payment_status, 'pending') as payment_status
 			FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -594,8 +600,8 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			statusArgs = append(statusArgs, categoryID)
 		}
 		var verifiedCount, pendingCount int
-		_ = db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants "+statusWhere+" AND payment_status = 'lunas'", statusArgs...)
-		_ = db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants "+statusWhere+" AND payment_status = 'menunggu acc'", statusArgs...)
+		_ = db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants "+statusWhere+" AND payment_status IN ('paid', 'lunas')", statusArgs...)
+		_ = db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants "+statusWhere+" AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", statusArgs...)
 
 		c.JSON(http.StatusOK, MobileOrganizationEventParticipantsResponse{
 			Participants:  participants,

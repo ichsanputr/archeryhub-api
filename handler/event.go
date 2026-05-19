@@ -898,7 +898,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 						'category_name', COALESCE(te.category_name_custom, c.name, ''),
 						'event_type_name', COALESCE(et.name, ''),
 						'gender_division_name', COALESCE(gd.name, ''),
-						'payment_status', COALESCE(tp.payment_status, 'menunggu acc'),
+						'payment_status', COALESCE(tp.payment_status, 'pending'),
 						'registration_source', COALESCE(tp.registration_source, 'self_register'),
 						'qr_raw', tp.qr_raw,
 						'registration_date', tp.registration_date,
@@ -953,8 +953,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			var verifiedCount, pendingCount int
-			verifiedQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status = 'lunas'"
-			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status = 'menunggu acc'"
+			verifiedQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status IN ('paid', 'lunas')"
+			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')"
 			_ = db.Get(&verifiedCount, verifiedQuery, statusArgs...)
 			_ = db.Get(&pendingCount, pendingQuery, statusArgs...)
 
@@ -1099,8 +1099,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get verified (paid) and pending counts
 		var verifiedCount, pendingCount int
-		db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND payment_status = 'lunas'", actualEventID)
-		db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND payment_status = 'menunggu acc'", actualEventID)
+		db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND payment_status IN ('paid', 'lunas')", actualEventID)
+		db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", actualEventID)
 
 		// Mask avatar URLs
 		for i := range participants {
@@ -1228,7 +1228,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 						'category_name', COALESCE(te2.category_name_custom, c2.name, ''),
 						'event_type_name', COALESCE(et2.name, ''),
 						'gender_division_name', COALESCE(gd2.name, ''),
-						'payment_status', COALESCE(tp2.payment_status, 'menunggu acc'),
+						'payment_status', COALESCE(tp2.payment_status, 'pending'),
 						'registration_date', tp2.registration_date
 					))
 					FROM event_participants tp2
@@ -1836,7 +1836,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Prepare QR code if status is lunas
 		var qrRaw *string
-		if paymentStatus == "lunas" {
+		if paymentStatus == "lunas" || paymentStatus == "paid" {
 			// Check if archer already has a QR for this event
 			var existingQR sql.NullString
 			err = tx.Get(&existingQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
@@ -2025,7 +2025,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		for _, archerUUID := range archerUUIDs {
 			// Get or generate a shared QR for this archerÃ—event if status is lunas
 			var qrRaw *string
-			if paymentStatus == "lunas" {
+			if paymentStatus == "lunas" || paymentStatus == "paid" {
 				var existingQR sql.NullString
 				_ = tx.Get(&existingQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
 				if existingQR.Valid {
@@ -2163,7 +2163,7 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 		// Check if already approved - can't cancel approved registrations
 		var status string
 		err = db.Get(&status, "SELECT status FROM event_participants WHERE uuid = ?", participantID)
-		if err == nil && status == "Terdaftar" {
+		if err == nil && (status == "registered" || status == "Terdaftar") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot cancel an approved registration. Please contact the organizer."})
 			return
 		}
@@ -2459,7 +2459,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			query += ", payment_status = ?"
 			args = append(args, *req.PaymentStatus)
 
-			if *req.PaymentStatus == "lunas" {
+			if *req.PaymentStatus == "lunas" || *req.PaymentStatus == "paid" {
 				// Generate QR raw string when payment is lunas (paid) for all entries if missing
 				var currentQR sql.NullString
 				err = db.Get(&currentQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, *pInfo.ArcherID)
@@ -3309,7 +3309,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(d.name, '') as division_name,
 				COALESCE(ec.category_name_custom, ag.name, '') as category_name,
 				e.name as event_name,
-				COALESCE(ep.payment_status, 'menunggu acc') as payment_status
+				COALESCE(ep.payment_status, 'pending') as payment_status
 			FROM event_participants ep
 			INNER JOIN archers a ON ep.archer_id = a.uuid
 			INNER JOIN events e ON ep.event_id = e.uuid
@@ -3330,8 +3330,8 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if participant is registered (payment_status = "lunas")
-		if participant.PaymentStatus != "lunas" {
+		// Check if participant is registered (payment_status = "lunas" or "paid")
+		if participant.PaymentStatus != "lunas" && participant.PaymentStatus != "paid" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "Peserta belum disetujui atau belum lunas. Status: " + participant.PaymentStatus,
 			})
@@ -3405,7 +3405,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.email, '') as email,
 				COALESCE(cl.name, '') as club_name,
 				COALESCE(a.city, '') as city,
-				COALESCE(MAX(tp.payment_status), 'menunggu acc') as payment_status,
+				COALESCE(MAX(tp.payment_status), 'pending') as payment_status,
 				COALESCE(MAX(tp.registration_source), 'self_register') as registration_source,
 				COALESCE(DATE_FORMAT(MIN(tp.registration_date), '%Y-%m-%d %H:%i:%s'), '') as registration_date,
 				GROUP_CONCAT(DISTINCT COALESCE(tp.target_name, '') ORDER BY tp.target_name SEPARATOR ', ') as target_names,
@@ -3471,11 +3471,13 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			s = strings.ToLower(strings.TrimSpace(s))
 			switch s {
 			case "lunas", "paid":
-				return "Lunas"
+				return "Paid"
 			case "menunggu", "menunggu acc", "pending":
-				return "Menunggu ACC"
+				return "Pending"
+			case "unpaid", "belum_lunas":
+				return "Unpaid"
 			case "expired":
-				return "Kedaluwarsa"
+				return "Expired"
 			default:
 				return capitalizeWords(s)
 			}
@@ -3485,11 +3487,11 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			s = strings.ToLower(strings.TrimSpace(s))
 			switch s {
 			case "self_register":
-				return "Daftar Mandiri"
+				return "Self Registered"
 			case "admin_created":
-				return "Ditambahkan Panitia"
+				return "Added by Admin"
 			case "invited":
-				return "Diundang"
+				return "Invited"
 			default:
 				return capitalizeWords(strings.ReplaceAll(s, "_", " "))
 			}

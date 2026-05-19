@@ -44,7 +44,7 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 			COALESCE(a.full_name, '') as full_name,
 			NULLIF(COALESCE(cl.name, ''), '') as club_name,
 			NULLIF(COALESCE(ec.category_name_custom, ag.name, ''), '') as category_name,
-			COALESCE(tp.payment_status, 'menunggu acc') as payment_status,
+			COALESCE(tp.payment_status, 'pending') as payment_status,
 			tp.qual_rank,
 			tp.qual_score,
 			a.avatar_url

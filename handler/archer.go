@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -288,7 +288,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT ep2.uuid) as participant_count,
 				COUNT(DISTINCT ec.uuid) as event_count,
 				MAX(ep.payment_status) as payment_status,
-				CASE WHEN MAX(ep.payment_status) = 'lunas' THEN 'Terdaftar' ELSE 'Menunggu Acc' END as participant_status,
+				CASE WHEN MAX(ep.payment_status) IN ('paid', 'lunas') THEN 'registered' ELSE 'pending' END as participant_status,
 				MAX(ep.uuid) as participant_uuid,
 				MAX(ep.qr_raw) as qr_raw
 			FROM events e

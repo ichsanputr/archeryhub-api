@@ -132,7 +132,7 @@ type RegisterParticipantRequest struct {
 	BackNumber    *string  `json:"back_number"`
 	TargetName    *string  `json:"target_name"`
 	Session       *int     `json:"session"`
-	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=belum_lunas lunas"`
+	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=belum_lunas lunas paid pending unpaid"`
 	PaymentAmount *float64 `json:"payment_amount"`
 	Notes         *string  `json:"notes"`
 }

@@ -644,13 +644,13 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 		// Update registration if applicable
 		if registrationID != nil {
 			statusMap := map[string]string{
-				"paid":    "lunas",
+				"paid":    "paid",
 				"expired": "expired",
 				"failed":  "failed",
 			}
 			regStatus := statusMap[status]
 			if regStatus == "" {
-				regStatus = "menunggu acc"
+				regStatus = "pending"
 			}
 
 			// Get the archer_id and event_id from this registration so we can
@@ -1202,12 +1202,12 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 			errInfo := db.Get(&regInfo, `SELECT archer_id, event_id FROM event_participants WHERE uuid = ?`, *transaction.RegistrationID)
 			if errInfo == nil && regInfo.ArcherID != "" {
 				_, err = tx.Exec(
-					"UPDATE event_participants SET payment_status = 'lunas' WHERE archer_id = ? AND event_id = ?",
+					"UPDATE event_participants SET payment_status = 'paid' WHERE archer_id = ? AND event_id = ?",
 					regInfo.ArcherID, regInfo.EventID,
 				)
 			} else {
 				_, err = tx.Exec(
-					"UPDATE event_participants SET payment_status = 'lunas' WHERE payment_id = ? OR uuid = ?",
+					"UPDATE event_participants SET payment_status = 'paid' WHERE payment_id = ? OR uuid = ?",
 					transaction.UUID, *transaction.RegistrationID,
 				)
 			}
@@ -2153,12 +2153,12 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 				errInfo := db.Get(&regInfo, `SELECT archer_id, event_id FROM event_participants WHERE uuid = ?`, *transaction.RegistrationID)
 				if errInfo == nil && regInfo.ArcherID != "" {
 					_, err = tx.Exec(
-						"UPDATE event_participants SET payment_status = 'lunas' WHERE archer_id = ? AND event_id = ?",
+						"UPDATE event_participants SET payment_status = 'paid' WHERE archer_id = ? AND event_id = ?",
 						regInfo.ArcherID, regInfo.EventID,
 					)
 				} else {
 					_, err = tx.Exec(
-						"UPDATE event_participants SET payment_status = 'lunas' WHERE payment_id = ? OR uuid = ?",
+						"UPDATE event_participants SET payment_status = 'paid' WHERE payment_id = ? OR uuid = ?",
 						transaction.UUID, *transaction.RegistrationID,
 					)
 				}
