@@ -49,8 +49,13 @@ type PaymentTransaction struct {
 	CheckoutURL      *string         `json:"checkout_url" db:"checkout_url"`
 	PayCode          *string         `json:"pay_code" db:"pay_code"`
 	Instructions     *string         `json:"instructions" db:"instructions"`
+	ProofURL         *string         `json:"proof_url" db:"proof_url"` // Manual payment proof upload
+	ProofUploadedAt  *time.Time      `json:"proof_uploaded_at" db:"proof_uploaded_at"`
+	VerifiedBy       *string         `json:"verified_by" db:"verified_by"` // Organizer who verified
+	VerifiedAt       *time.Time      `json:"verified_at" db:"verified_at"`
+	RejectionReason  *string         `json:"rejection_reason" db:"rejection_reason"`
 	Months           int             `json:"months" db:"months"`
-	Status           string          `json:"status" db:"status"` // pending, paid, expired, failed, refunded
+	Status           string          `json:"status" db:"status"` // pending, paid, expired, failed, refunded, awaiting_verification, rejected
 	PaidAt           *time.Time      `json:"paid_at" db:"paid_at"`
 	ExpiredAt        time.Time       `json:"expired_at" db:"expired_at"`
 	CallbackData     *json.RawMessage `json:"callback_data" db:"callback_data" swaggertype:"object"`
@@ -60,12 +65,23 @@ type PaymentTransaction struct {
 
 // CreatePaymentRequest represents the request to create a payment
 type CreatePaymentRequest struct {
-	Method         string  `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS)
+	Method         string  `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS, manual)
 	EventID        string  `json:"event_id"`
 	RegistrationID *string `json:"registration_id"`
 	PlanID         *int    `json:"plan_id"`
 	Type           string  `json:"type"` // e.g., "registration" (default), "platform_fee", or "subscription"
 	Months         int     `json:"months"` // Number of months for subscription
+}
+
+// UploadPaymentProofRequest represents the request to upload payment proof
+type UploadPaymentProofRequest struct {
+	ProofURL string `json:"proof_url" binding:"required"` // URL of uploaded proof image
+}
+
+// VerifyManualPaymentRequest represents the request to verify/reject manual payment
+type VerifyManualPaymentRequest struct {
+	Action          string  `json:"action" binding:"required"` // "approve" or "reject"
+	RejectionReason *string `json:"rejection_reason"`          // Required if action is "reject"
 }
 
 // PaymentChannelFee represents the fee details for a Tripay channel

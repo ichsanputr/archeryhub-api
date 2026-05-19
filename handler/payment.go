@@ -112,6 +112,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 		var customerName, customerEmail, customerPhone string
 		var registrationID *string
 		var orderItems []gin.H
+		var currencyCode = "IDR"
 
 		if req.Type == "platform_fee" {
 			// Get event details
@@ -259,6 +260,30 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
+			var eventName string
+			_ = db.Get(&eventName, "SELECT name FROM events WHERE uuid = ?", reg.EventID)
+			if eventName == "" {
+				eventName = "Event"
+			}
+
+			// Get organization settings / currency
+			var pageSettingsStr *string
+			errCurrency := db.Get(&pageSettingsStr, `
+				SELECT o.page_settings 
+				FROM organizations o
+				JOIN events e ON e.organizer_id = o.uuid
+				WHERE e.uuid = ? OR e.slug = ?
+				LIMIT 1
+			`, reg.EventID, reg.EventID)
+			if errCurrency == nil && pageSettingsStr != nil && *pageSettingsStr != "" {
+				var pageSettings struct {
+					Currency string `json:"currency"`
+				}
+				if errJson := json.Unmarshal([]byte(*pageSettingsStr), &pageSettings); errJson == nil && pageSettings.Currency != "" {
+					currencyCode = pageSettings.Currency
+				}
+			}
+
 			amount = int(reg.PaymentAmount)
 			customerName = reg.FullName
 			customerEmail = utils.StringValue(reg.Email, "user@archeris.net")
@@ -268,7 +293,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			orderItems = []gin.H{
 				{
 					"sku":      "EVENT-REG",
-					"name":     fmt.Sprintf("Event Registration - %s", reg.FullName),
+					"name":     fmt.Sprintf("Event Reg: %s - %s", eventName, reg.FullName),
 					"price":    amount,
 					"quantity": 1,
 				},
@@ -284,10 +309,119 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			eventID = &req.EventID
 		}
 
-		if req.Method == "paddle" {
+		if req.Method == "manual" {
+			// Handle manual payment - redirect to CreateManualPayment logic
+			merchantRef := fmt.Sprintf("PAY-MANUAL-%s", uuid.New().String()[:12])
+
+			transaction = models.PaymentTransaction{
+				UUID:               transactionID,
+				Reference:          merchantRef,
+				UserID:             userID.(string),
+				EventID:            eventID,
+				RegistrationID:     registrationID,
+				SubscriptionPlanID: req.PlanID,
+				Amount:             float64(amount),
+				FeeAmount:          0,
+				TotalAmount:        float64(amount),
+				PaymentMethod:      utils.StringPtr("manual"),
+				Months:             req.Months,
+				Status:             "pending",
+				ExpiredAt:          time.Now().Add(7 * 24 * time.Hour), // 7 days for manual payment
+			}
+		} else if req.Method == "paddle" {
 			merchantRef = fmt.Sprintf("PAY-PADDLE-%s", uuid.New().String()[:8])
 			checkoutURL := ""
 			paddleTxID := ""
+
+			// Try to initiate real Paddle transaction with dynamic inline price
+			apiKey := os.Getenv("PADDLE_API_KEY")
+			if apiKey != "" {
+				isSandbox := os.Getenv("PADDLE_ENV") != "production"
+				baseURL := "https://api.paddle.com"
+				if isSandbox {
+					baseURL = "https://sandbox-api.paddle.com"
+				}
+
+				var payloadMap map[string]interface{}
+				if req.Type == "subscription" {
+					priceMap := map[int]string{
+						3: "pri_01krz6sjs49pt8w5r3wq4tqj5j", // Standard (ARCPRO)
+						4: "pri_01krz6xzqtnfmnhz4kwakw9zyh", // Elite (ARCELITE)
+					}
+					priceID := ""
+					if req.PlanID != nil {
+						priceID = priceMap[*req.PlanID]
+					}
+					if priceID == "" {
+						priceID = "pri_01krz6sjs49pt8w5r3wq4tqj5j"
+					}
+
+					payloadMap = map[string]interface{}{
+						"items": []map[string]interface{}{
+							{
+								"price_id": priceID,
+								"quantity": 1,
+							},
+						},
+						"custom_data": map[string]interface{}{
+							"reference": merchantRef,
+						},
+					}
+				} else {
+					amountStr := fmt.Sprintf("%d", amount)
+					payloadMap = map[string]interface{}{
+						"items": []map[string]interface{}{
+							{
+								"quantity": 1,
+								"price": map[string]interface{}{
+									"description": "Event Registration Fee",
+									"name":        "Event Registration Fee",
+									"unit_price": map[string]interface{}{
+										"amount":        amountStr,
+										"currency_code": currencyCode,
+									},
+									"product": map[string]interface{}{
+										"name":         "Event Registration",
+										"tax_category": "standard",
+									},
+								},
+							},
+						},
+						"custom_data": map[string]interface{}{
+							"reference":       merchantRef,
+							"registration_id": utils.StringValue(registrationID, ""),
+						},
+					}
+				}
+
+				payloadBytes, _ := json.Marshal(payloadMap)
+				reqHTTP, errHTTP := http.NewRequest("POST", baseURL+"/transactions", bytes.NewBuffer(payloadBytes))
+				if errHTTP == nil {
+					reqHTTP.Header.Set("Authorization", "Bearer "+apiKey)
+					reqHTTP.Header.Set("Content-Type", "application/json")
+
+					client := &http.Client{Timeout: 10 * time.Second}
+					respHTTP, errResp := client.Do(reqHTTP)
+					if errResp == nil {
+						defer respHTTP.Body.Close()
+						if respHTTP.StatusCode == http.StatusCreated || respHTTP.StatusCode == http.StatusOK {
+							var result struct {
+								Data struct {
+									ID string `json:"id"`
+								} `json:"data"`
+							}
+							if json.NewDecoder(respHTTP.Body).Decode(&result) == nil && result.Data.ID != "" {
+								paddleTxID = result.Data.ID
+								if isSandbox {
+									checkoutURL = fmt.Sprintf("https://sandbox-pay.paddle.io?_ptxn=%s", result.Data.ID)
+								} else {
+									checkoutURL = fmt.Sprintf("https://pay.paddle.io?_ptxn=%s", result.Data.ID)
+								}
+							}
+						}
+					}
+				}
+			}
 
 			// Fallback mock URL for sandbox testing
 			if checkoutURL == "" {
@@ -865,7 +999,46 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Try to load payment methods from organization page_settings
+		var pageSettingsStr *string
+		err = db.Get(&pageSettingsStr, "SELECT page_settings FROM organizations WHERE uuid = ?", organizerID)
+		
 		var methods []EventPaymentMethod
+		if err == nil && pageSettingsStr != nil && *pageSettingsStr != "" {
+			var pageSettings struct {
+				PaymentMethods []struct {
+					UUID          string  `json:"uuid"`
+					BankName      string  `json:"bank_name"`
+					CustomName    string  `json:"custom_name"`
+					AccountName   *string `json:"account_name"`
+					AccountNumber *string `json:"account_number"`
+					Type          string  `json:"type"`
+					Instructions  *string `json:"instructions"`
+				} `json:"payment_methods"`
+			}
+			if errJson := json.Unmarshal([]byte(*pageSettingsStr), &pageSettings); errJson == nil && len(pageSettings.PaymentMethods) > 0 {
+				for _, pm := range pageSettings.PaymentMethods {
+					paymentMethod := pm.BankName
+					if pm.BankName == "Custom" && pm.CustomName != "" {
+						paymentMethod = pm.CustomName
+					}
+					methods = append(methods, EventPaymentMethod{
+						UUID:          pm.UUID,
+						EventID:       organizerID,
+						PaymentMethod: paymentMethod,
+						AccountName:   pm.AccountName,
+						AccountNumber: pm.AccountNumber,
+						Instructions:  pm.Instructions,
+						IsActive:      true,
+						DisplayOrder:  0,
+					})
+				}
+				c.JSON(http.StatusOK, gin.H{"data": methods})
+				return
+			}
+		}
+
+		// Fallback to verified bank accounts if organization hasn't configured custom payment methods
 		err = db.Select(&methods, `
 			SELECT uuid, user_id as event_id, bank_name as payment_method, account_name, account_number, 
 			       '' as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
@@ -1044,12 +1217,67 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		if transaction.SubscriptionPlanID != nil {
+			var plan struct {
+				Type       string `db:"type"`
+				TargetType string `db:"target_type"`
+			}
+			errPlan := db.Get(&plan, "SELECT type, target_type FROM subscription_plans WHERE id = ?", *transaction.SubscriptionPlanID)
+			if errPlan == nil {
+				months := 1
+				if plan.Type == "yearly" {
+					months = 12
+				}
+
+				table := "clubs"
+				if plan.TargetType == "organization" {
+					table = "organizations"
+				}
+
+				// Fetch current expiry date
+				var currentExpires *time.Time
+				_ = db.Get(&currentExpires, "SELECT subscription_expires_at FROM "+table+" WHERE user_id = ?", transaction.UserID)
+
+				effectiveMonths := transaction.Months
+				if effectiveMonths <= 0 {
+					effectiveMonths = months
+				}
+
+				now := time.Now()
+				baseTime := now
+				if currentExpires != nil && currentExpires.After(now) {
+					baseTime = *currentExpires
+				}
+
+				newExpiry := baseTime.AddDate(0, effectiveMonths, 0)
+
+				_, err = tx.Exec("UPDATE "+table+" SET subscription_plan_id = ?, subscription_status = 'active', subscription_expires_at = ? WHERE user_id = ?",
+					*transaction.SubscriptionPlanID, newExpiry, transaction.UserID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui masa langganan"})
+					return
+				}
+			}
+		}
+
+		// Update orders table if matching payment exists
+		_, err = tx.Exec("UPDATE orders SET payment_status = 'paid' WHERE payment_id = ?", transaction.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status pesanan"})
+			return
+		}
+
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Simulasi pembayaran berhasil", "reference": reference})
+		isSubscription := transaction.SubscriptionPlanID != nil
+		c.JSON(http.StatusOK, gin.H{
+			"message":         "Simulasi pembayaran berhasil",
+			"reference":       reference,
+			"is_subscription": isSubscription,
+		})
 	}
 }
 
@@ -1582,3 +1810,516 @@ func PaddleWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 }
 
 
+
+// CreateManualPayment creates a manual payment transaction for bank transfer
+func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		var req models.CreatePaymentRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Validate that method is "manual"
+		if req.Method != "manual" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Method harus 'manual' untuk pembayaran manual"})
+			return
+		}
+
+		var amount int
+		var registrationID *string
+		var eventID *string
+
+		if req.Type == "platform_fee" {
+			// Get event details
+			var event models.Event
+			err := db.Get(&event, "SELECT * FROM events WHERE uuid = ? AND organizer_id = ?", req.EventID, userID.(string))
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan atau tidak diizinkan"})
+				return
+			}
+
+			// Check if already has a pending platform fee for this event
+			var existingPending int
+			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status IN ('pending', 'awaiting_verification') AND expired_at > NOW()", req.EventID)
+			if err == nil && existingPending > 0 {
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "Anda memiliki pembayaran biaya platform untuk event ini yang masih tertunda",
+					"code":  "pending_platform_fee_exists",
+				})
+				return
+			}
+
+			amount = 50000
+			if req.EventID != "" {
+				eventID = &req.EventID
+			}
+		} else if req.Type == "subscription" {
+			if req.PlanID == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "PlanID wajib diisi untuk tipe langganan"})
+				return
+			}
+
+			// Check if user already has a pending subscription payment
+			var existingPending int
+			err := db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE user_id = ? AND subscription_plan_id IS NOT NULL AND status IN ('pending', 'awaiting_verification') AND expired_at > NOW()", userID.(string))
+			if err == nil && existingPending > 0 {
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "Anda memiliki pembayaran langganan yang masih tertunda",
+					"code":  "pending_subscription_exists",
+				})
+				return
+			}
+
+			var plan struct {
+				ID    int     `db:"id"`
+				Name  string  `db:"name"`
+				Price float64 `db:"price"`
+			}
+			err = db.Get(&plan, "SELECT id, name, price FROM subscription_plans WHERE id = ?", *req.PlanID)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Paket tidak ditemukan"})
+				return
+			}
+
+			amount = int(plan.Price)
+			months := req.Months
+			if months <= 0 {
+				months = 1
+			}
+			if months > 12 {
+				months = 12
+			}
+			totalPrice := amount * months
+			amount = totalPrice
+		} else {
+			// Default to registration
+			if req.RegistrationID == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID wajib diisi untuk tipe registrasi"})
+				return
+			}
+
+			type ParticipantReg struct {
+				UUID          string  `db:"uuid"`
+				EventID       string  `db:"event_id"`
+				ArcherID      string  `db:"archer_id"`
+				PaymentAmount float64 `db:"payment_amount"`
+			}
+			var reg ParticipantReg
+			err := db.Get(&reg, `
+				SELECT ep.uuid, ep.event_id, ep.archer_id, ep.payment_amount
+				FROM event_participants ep
+				JOIN archers a ON ep.archer_id = a.uuid
+				WHERE ep.uuid = ? AND (a.uuid = ? OR EXISTS(SELECT 1 FROM events e WHERE e.uuid = ep.event_id AND e.organizer_id = ?))
+			`, *req.RegistrationID, userID.(string), userID.(string))
+
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan"})
+				return
+			}
+
+			amount = int(reg.PaymentAmount)
+			registrationID = req.RegistrationID
+			eventID = &reg.EventID
+		}
+
+		transactionID := uuid.New().String()
+		merchantRef := fmt.Sprintf("PAY-MANUAL-%s", uuid.New().String()[:12])
+
+		transaction := models.PaymentTransaction{
+			UUID:               transactionID,
+			Reference:          merchantRef,
+			UserID:             userID.(string),
+			EventID:            eventID,
+			RegistrationID:     registrationID,
+			SubscriptionPlanID: req.PlanID,
+			Amount:             float64(amount),
+			FeeAmount:          0,
+			TotalAmount:        float64(amount),
+			PaymentMethod:      utils.StringPtr("manual"),
+			Months:             req.Months,
+			Status:             "pending", // Will change to awaiting_verification after proof upload
+			ExpiredAt:          time.Now().Add(7 * 24 * time.Hour), // 7 days for manual payment
+		}
+
+		if transaction.Months <= 0 {
+			transaction.Months = 1
+		}
+
+		query := `
+			INSERT INTO payment_transactions (
+				uuid, reference, user_id, event_id, registration_id, subscription_plan_id,
+				amount, fee_amount, total_amount, payment_method, months, status, expired_at
+			) VALUES (
+				:uuid, :reference, :user_id, :event_id, :registration_id, :subscription_plan_id,
+				:amount, :fee_amount, :total_amount, :payment_method, :months, :status, :expired_at
+			)
+		`
+		_, err := db.NamedExec(query, transaction)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
+			return
+		}
+
+		// Update participant registration with payment_id
+		if registrationID != nil {
+			_, err := db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
+			if err != nil {
+				fmt.Printf("Warning: Failed to update participant: %v\n", err)
+			}
+		}
+
+		c.JSON(http.StatusOK, transaction)
+	}
+}
+
+// UploadPaymentProof allows users to upload proof of manual payment
+func UploadPaymentProof(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		reference := c.Param("reference")
+
+		var req models.UploadPaymentProofRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Get transaction
+		var transaction struct {
+			UUID          string  `db:"uuid"`
+			UserID        string  `db:"user_id"`
+			PaymentMethod *string `db:"payment_method"`
+			Status        string  `db:"status"`
+		}
+		err := db.Get(&transaction, "SELECT uuid, user_id, payment_method, status FROM payment_transactions WHERE reference = ?", reference)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
+			return
+		}
+
+		// Verify ownership
+		if transaction.UserID != userID.(string) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses ke transaksi ini"})
+			return
+		}
+
+		// Verify payment method is manual
+		if transaction.PaymentMethod == nil || *transaction.PaymentMethod != "manual" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Upload bukti hanya untuk pembayaran manual"})
+			return
+		}
+
+		// Verify status is pending
+		if transaction.Status != "pending" && transaction.Status != "rejected" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Transaksi tidak dalam status yang dapat diupload bukti"})
+			return
+		}
+
+		// Update transaction with proof URL and change status to awaiting_verification
+		now := time.Now()
+		_, err = db.Exec(`
+			UPDATE payment_transactions 
+			SET proof_url = ?, proof_uploaded_at = ?, status = 'awaiting_verification', rejection_reason = NULL, updated_at = ?
+			WHERE uuid = ?
+		`, req.ProofURL, now, now, transaction.UUID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan bukti pembayaran: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":    "Bukti pembayaran berhasil diupload",
+			"status":     "awaiting_verification",
+			"proof_url":  req.ProofURL,
+			"uploaded_at": now,
+		})
+	}
+}
+
+// VerifyManualPayment allows organizers to approve or reject manual payments
+func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		reference := c.Param("reference")
+
+		var req models.VerifyManualPaymentRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Validate action
+		if req.Action != "approve" && req.Action != "reject" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Action harus 'approve' atau 'reject'"})
+			return
+		}
+
+		// Validate rejection reason if rejecting
+		if req.Action == "reject" && (req.RejectionReason == nil || *req.RejectionReason == "") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Alasan penolakan wajib diisi"})
+			return
+		}
+
+		// Get transaction with event details
+		var transaction struct {
+			UUID               string  `db:"uuid"`
+			UserID             string  `db:"user_id"`
+			EventID            *string `db:"event_id"`
+			RegistrationID     *string `db:"registration_id"`
+			SubscriptionPlanID *int    `db:"subscription_plan_id"`
+			PaymentMethod      *string `db:"payment_method"`
+			Status             string  `db:"status"`
+			Months             int     `db:"months"`
+			OrganizerID        *string `db:"organizer_id"`
+		}
+		query := `
+			SELECT 
+				pt.uuid, pt.user_id, pt.event_id, pt.registration_id, pt.subscription_plan_id,
+				pt.payment_method, pt.status, pt.months, e.organizer_id
+			FROM payment_transactions pt
+			LEFT JOIN events e ON pt.event_id = e.uuid
+			WHERE pt.reference = ?
+		`
+		err := db.Get(&transaction, query, reference)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
+			return
+		}
+
+		// Verify payment method is manual
+		if transaction.PaymentMethod == nil || *transaction.PaymentMethod != "manual" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Verifikasi hanya untuk pembayaran manual"})
+			return
+		}
+
+		// Verify status is awaiting_verification
+		if transaction.Status != "awaiting_verification" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Transaksi tidak dalam status menunggu verifikasi"})
+			return
+		}
+
+		// Verify user is the organizer of the event
+		if transaction.OrganizerID == nil || *transaction.OrganizerID != userID.(string) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses untuk memverifikasi pembayaran ini"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database"})
+			return
+		}
+
+		now := time.Now()
+
+		if req.Action == "approve" {
+			// Update transaction status to paid
+			_, err = tx.Exec(`
+				UPDATE payment_transactions 
+				SET status = 'paid', paid_at = ?, verified_by = ?, verified_at = ?, updated_at = ?
+				WHERE uuid = ?
+			`, now, userID.(string), now, now, transaction.UUID)
+
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status transaksi"})
+				return
+			}
+
+			// Update registration if applicable
+			if transaction.RegistrationID != nil {
+				var regInfo struct {
+					ArcherID string `db:"archer_id"`
+					EventID  string `db:"event_id"`
+				}
+				errInfo := db.Get(&regInfo, `SELECT archer_id, event_id FROM event_participants WHERE uuid = ?`, *transaction.RegistrationID)
+				if errInfo == nil && regInfo.ArcherID != "" {
+					_, err = tx.Exec(
+						"UPDATE event_participants SET payment_status = 'lunas' WHERE archer_id = ? AND event_id = ?",
+						regInfo.ArcherID, regInfo.EventID,
+					)
+				} else {
+					_, err = tx.Exec(
+						"UPDATE event_participants SET payment_status = 'lunas' WHERE payment_id = ? OR uuid = ?",
+						transaction.UUID, *transaction.RegistrationID,
+					)
+				}
+				if err != nil {
+					tx.Rollback()
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui registrasi peserta"})
+					return
+				}
+			}
+
+			// Update event status if platform fee is paid
+			if transaction.RegistrationID == nil && transaction.EventID != nil && transaction.SubscriptionPlanID == nil {
+				_, err = tx.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", *transaction.EventID)
+				if err != nil {
+					tx.Rollback()
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status event"})
+					return
+				}
+			}
+
+			// Update subscription if applicable
+			if transaction.SubscriptionPlanID != nil {
+				var plan struct {
+					Type       string `db:"type"`
+					TargetType string `db:"target_type"`
+				}
+				err = db.Get(&plan, "SELECT type, target_type FROM subscription_plans WHERE id = ?", *transaction.SubscriptionPlanID)
+				if err == nil {
+					months := 1
+					if plan.Type == "yearly" {
+						months = 12
+					}
+
+					table := "clubs"
+					if plan.TargetType == "organization" {
+						table = "organizations"
+					}
+
+					var currentExpires *time.Time
+					_ = db.Get(&currentExpires, "SELECT subscription_expires_at FROM "+table+" WHERE user_id = ?", transaction.UserID)
+
+					effectiveMonths := transaction.Months
+					if effectiveMonths <= 0 {
+						effectiveMonths = months
+					}
+
+					baseTime := now
+					if currentExpires != nil && currentExpires.After(now) {
+						baseTime = *currentExpires
+					}
+
+					newExpiry := baseTime.AddDate(0, effectiveMonths, 0)
+
+					_, err = tx.Exec("UPDATE "+table+" SET subscription_plan_id = ?, subscription_status = 'active', subscription_expires_at = ? WHERE user_id = ?",
+						*transaction.SubscriptionPlanID, newExpiry, transaction.UserID)
+					if err != nil {
+						tx.Rollback()
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui langganan"})
+						return
+					}
+				}
+			}
+
+			// Update orders if applicable
+			_, err = tx.Exec("UPDATE orders SET payment_status = 'paid' WHERE payment_id = ?", transaction.UUID)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status pesanan"})
+				return
+			}
+
+		} else {
+			// Reject payment
+			_, err = tx.Exec(`
+				UPDATE payment_transactions 
+				SET status = 'rejected', rejection_reason = ?, verified_by = ?, verified_at = ?, updated_at = ?
+				WHERE uuid = ?
+			`, *req.RejectionReason, userID.(string), now, now, transaction.UUID)
+
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menolak pembayaran"})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan"})
+			return
+		}
+
+		message := "Pembayaran berhasil disetujui"
+		if req.Action == "reject" {
+			message = "Pembayaran ditolak"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":     message,
+			"status":      req.Action,
+			"verified_at": now,
+		})
+	}
+}
+
+// GetPendingManualPayments returns all manual payments awaiting verification for organizer's events
+func GetPendingManualPayments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		eventID := c.Query("event_id")
+
+		type PendingPayment struct {
+			UUID            string     `json:"id" db:"uuid"`
+			Reference       string     `json:"reference" db:"reference"`
+			Amount          float64    `json:"amount" db:"amount"`
+			ProofURL        *string    `json:"proof_url" db:"proof_url"`
+			ProofUploadedAt *time.Time `json:"proof_uploaded_at" db:"proof_uploaded_at"`
+			Status          string     `json:"status" db:"status"`
+			CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+			EventName       *string    `json:"event_name" db:"event_name"`
+			ArcherName      *string    `json:"archer_name" db:"archer_name"`
+			ArcherEmail     *string    `json:"archer_email" db:"archer_email"`
+		}
+
+		var payments []PendingPayment
+		query := `
+			SELECT 
+				pt.uuid, pt.reference, pt.amount, pt.proof_url, pt.proof_uploaded_at,
+				pt.status, pt.created_at, e.name as event_name,
+				a.full_name as archer_name, a.email as archer_email
+			FROM payment_transactions pt
+			LEFT JOIN events e ON pt.event_id = e.uuid
+			LEFT JOIN event_participants ep ON pt.registration_id = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			WHERE pt.payment_method = 'manual' 
+			AND pt.status = 'awaiting_verification'
+			AND e.organizer_id = ?
+		`
+
+		args := []interface{}{userID.(string)}
+
+		if eventID != "" {
+			query += " AND pt.event_id = ?"
+			args = append(args, eventID)
+		}
+
+		query += " ORDER BY pt.proof_uploaded_at DESC"
+
+		err := db.Select(&payments, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pembayaran: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"payments": payments,
+			"count":    len(payments),
+		})
+	}
+}

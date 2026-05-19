@@ -1,4 +1,4 @@
-﻿package models
+package models
 
 import (
 	"database/sql/driver"
@@ -99,6 +99,7 @@ type EventWithDetails struct {
 	OrganizerAvatarURL    *string                    `json:"organizer_avatar_url" db:"organizer_avatar_url" example:"https://cdn.archeris.net/media/organizer-avatar.png"`
 	OrganizerSlug         *string                    `json:"organizer_slug" db:"organizer_slug" example:"Archeris-jakarta"`
 	OrganizerPhone        *string                    `json:"organizer_phone" db:"organizer_phone" example:"081234567890"`
+	Currency              string                     `json:"currency" db:"-"`
 	ParticipantCount      int                        `json:"participant_count" db:"participant_count" example:"128"`
 	EventCount            int                        `json:"event_count" db:"event_count" example:"12"`
 	AccreditationStatus   *string                    `json:"accreditation_status" db:"accreditation_status" example:"approved"`

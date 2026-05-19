@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"crypto/rand"
@@ -359,9 +359,9 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			switch userType {
 			case "organization":
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, city, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, created_at, updated_at)
+					INSERT INTO organizations (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 5, 'trial', DATE_ADD(NOW(), INTERVAL 90 DAY), NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["city"], metadata["address"], userInfo.Picture)
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], userInfo.Picture)
 			case "club":
 				_, insertErr = db.Exec(`
 					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, created_at, updated_at)

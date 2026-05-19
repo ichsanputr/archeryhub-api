@@ -1,4 +1,4 @@
-﻿package utils
+package utils
 
 import (
 	"Archeris-api/models"
@@ -20,6 +20,20 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 		Location:     event.Location,
 		City:         event.City,
 		LocationType: event.LocationType,
+	}
+
+	event.Currency = "IDR"
+	if event.OrganizerID != nil && *event.OrganizerID != "" {
+		var pageSettingsStr *string
+		err := db.Get(&pageSettingsStr, "SELECT page_settings FROM organizations WHERE uuid = ?", *event.OrganizerID)
+		if err == nil && pageSettingsStr != nil && *pageSettingsStr != "" {
+			var pageSettings struct {
+				Currency string `json:"currency"`
+			}
+			if errJson := json.Unmarshal([]byte(*pageSettingsStr), &pageSettings); errJson == nil && pageSettings.Currency != "" {
+				event.Currency = pageSettings.Currency
+			}
+		}
 	}
 
 	participants := []models.EventParticipantPreview{}

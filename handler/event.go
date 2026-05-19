@@ -2124,14 +2124,6 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Block if already accredited/approved (status = 'Terdaftar' or payment is paid)
-		var approvedCount int
-		_ = db.Get(&approvedCount, `SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND archer_id = ? AND status = 'Terdaftar'`, actualEventID, archerID)
-		if approvedCount > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Pendaftaran sudah disetujui. Hubungi panitia untuk pembatalan."})
-			return
-		}
-
 		// Delete all registrations for this archer in this event
 		if _, err := db.Exec(`DELETE FROM event_participants WHERE event_id = ? AND archer_id = ?`, actualEventID, archerID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membatalkan pendaftaran"})
@@ -3838,8 +3830,10 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Delete the used verification code
-		tx.Exec("DELETE FROM event_reset_codes WHERE event_id = ? AND user_id = ?", eventID, userID.(string))
+		// Instead of deleting the used verification code, set its expires_at to 5 minutes from now
+		// so the user can perform other resets within a 5-minute window without requesting a new code.
+		newExpiry := time.Now().Add(5 * time.Minute)
+		tx.Exec("UPDATE event_reset_codes SET expires_at = ? WHERE event_id = ? AND user_id = ?", newExpiry, eventID, userID.(string))
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan reset"})

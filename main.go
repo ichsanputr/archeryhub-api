@@ -521,6 +521,12 @@ func main() {
 			payment.POST("/paddle/callback", handler.PaddleWebhookCallback(db))
 			payment.GET("/simulate-success/:reference", handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
+			
+			// Manual payment routes
+			payment.POST("/manual/create", middleware.AuthMiddleware(), handler.CreateManualPayment(db))
+			payment.POST("/manual/:reference/upload-proof", middleware.AuthMiddleware(), handler.UploadPaymentProof(db))
+			payment.POST("/manual/:reference/verify", middleware.AuthMiddleware(), handler.VerifyManualPayment(db))
+			payment.GET("/manual/pending", middleware.AuthMiddleware(), handler.GetPendingManualPayments(db))
 		}
 
 		// Root/Admin routes
