@@ -19,6 +19,7 @@ type Archer struct {
 	Bio             *string    `json:"bio" db:"bio"`
 	Status          string     `json:"status" db:"status"` // active, inactive, suspended, pending
 	BowType         *string    `json:"bow_type" db:"bow_type"`
+	Country         *string    `json:"country" db:"country"`
 	City            *string    `json:"city" db:"city"`
 	School          *string    `json:"school" db:"school"`
 	ClubID          *string    `json:"club_id" db:"club_id"`
@@ -56,6 +57,7 @@ type CreateArcherRequest struct {
 	DateOfBirth *FlexibleTime `json:"date_of_birth"`
 	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
 	BowType     *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
+	Country     *string       `json:"country"`
 	City        *string       `json:"city"`
 	School      *string       `json:"school"`
 	ClubID      *string       `json:"club_id"`
@@ -72,6 +74,7 @@ type UpdateArcherRequest struct {
 	DateOfBirth     *FlexibleTime `json:"date_of_birth"`
 	Gender          *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
 	BowType         *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
+	Country         *string       `json:"country"`
 	City            *string       `json:"city"`
 	School          *string       `json:"school"`
 	ClubID          *string       `json:"club_id"`

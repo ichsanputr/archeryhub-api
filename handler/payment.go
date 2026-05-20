@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"time"
 
+	paddle "github.com/PaddleHQ/paddle-go-sdk/v5"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	paddle "github.com/PaddleHQ/paddle-go-sdk/v5"
 )
 
 // RegisterEvent handles event registration
@@ -368,7 +368,22 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 						},
 					}
 				} else {
-					amountStr := fmt.Sprintf("%d", amount)
+					currency := currencyCode
+					var amountStr string
+
+					// Paddle does not support IDR, convert to USD dynamically
+					if currency == "IDR" {
+						currency = "USD"
+						usdAmount := float64(amount) / 15000.0
+						if usdAmount < 1.0 {
+							usdAmount = 1.0
+						}
+						// Convert to cents for Paddle
+						amountStr = fmt.Sprintf("%d", int(usdAmount*100))
+					} else {
+						// Non-IDR: convert major currency units to cents/sub-units
+						amountStr = fmt.Sprintf("%d", int(float64(amount)*100))
+					}
 					payloadMap = map[string]interface{}{
 						"items": []map[string]interface{}{
 							{
@@ -378,7 +393,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 									"name":        "Event Registration Fee",
 									"unit_price": map[string]interface{}{
 										"amount":        amountStr,
-										"currency_code": currencyCode,
+										"currency_code": currency,
 									},
 									"product": map[string]interface{}{
 										"name":         "Event Registration",
@@ -418,7 +433,12 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 									checkoutURL = fmt.Sprintf("https://pay.paddle.io?_ptxn=%s", result.Data.ID)
 								}
 							}
+						} else {
+							bodyBytes, _ := io.ReadAll(respHTTP.Body)
+							fmt.Printf("[PADDLE ERROR] transaction status: %d, body: %s\n", respHTTP.StatusCode, string(bodyBytes))
 						}
+					} else {
+						fmt.Printf("[PADDLE ERROR] client request fail: %v\n", errResp)
 					}
 				}
 			}
@@ -1002,7 +1022,7 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		// Try to load payment methods from organization page_settings
 		var pageSettingsStr *string
 		err = db.Get(&pageSettingsStr, "SELECT page_settings FROM organizations WHERE uuid = ?", organizerID)
-		
+
 		var methods []EventPaymentMethod
 		if err == nil && pageSettingsStr != nil && *pageSettingsStr != "" {
 			var pageSettings struct {
@@ -1711,11 +1731,11 @@ func PaddleWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// 4. Fetch the matching local transaction record
 		var transaction struct {
-			UUID               string  `db:"uuid"`
-			UserID             string  `db:"user_id"`
-			SubscriptionPlanID *int    `db:"subscription_plan_id"`
-			Months             int     `db:"months"`
-			Status             string  `db:"status"`
+			UUID               string `db:"uuid"`
+			UserID             string `db:"user_id"`
+			SubscriptionPlanID *int   `db:"subscription_plan_id"`
+			Months             int    `db:"months"`
+			Status             string `db:"status"`
 		}
 		err = db.Get(&transaction, "SELECT uuid, user_id, subscription_plan_id, months, status FROM payment_transactions WHERE reference = ?", reference)
 		if err != nil {
@@ -1808,8 +1828,6 @@ func PaddleWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"success": true})
 	}
 }
-
-
 
 // CreateManualPayment creates a manual payment transaction for bank transfer
 func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
@@ -1944,7 +1962,7 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 			TotalAmount:        float64(amount),
 			PaymentMethod:      utils.StringPtr("manual"),
 			Months:             req.Months,
-			Status:             "pending", // Will change to awaiting_verification after proof upload
+			Status:             "pending",                          // Will change to awaiting_verification after proof upload
 			ExpiredAt:          time.Now().Add(7 * 24 * time.Hour), // 7 days for manual payment
 		}
 
@@ -2041,9 +2059,9 @@ func UploadPaymentProof(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":    "Bukti pembayaran berhasil diupload",
-			"status":     "awaiting_verification",
-			"proof_url":  req.ProofURL,
+			"message":     "Bukti pembayaran berhasil diupload",
+			"status":      "awaiting_verification",
+			"proof_url":   req.ProofURL,
 			"uploaded_at": now,
 		})
 	}

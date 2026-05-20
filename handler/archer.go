@@ -362,6 +362,7 @@ const (
 	archerFullNameLen  = 255
 	archerUsernameLen  = 100
 	archerNicknameLen  = 100
+	archerCountryLen   = 100
 	archerCityLen      = 100
 	archerSchoolLen    = 255
 	archerAvatarURLLen = 255
@@ -575,6 +576,11 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", gender = ?"
 			args = append(args, *req.Gender)
 		}
+		if req.Country != nil {
+			truncateStr(req.Country, archerCountryLen)
+			query += ", country = ?"
+			args = append(args, *req.Country)
+		}
 		if req.City != nil {
 			truncateStr(req.City, archerCityLen)
 			query += ", city = ?"
@@ -703,6 +709,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Gender          string  `json:"gender" db:"gender"`
 			Phone           *string `json:"phone" db:"phone"`
 			Address         *string `json:"address" db:"address"`
+			Country         *string `json:"country" db:"country"`
 			City            *string `json:"city" db:"city"`
 			School          *string `json:"school" db:"school"`
 			BowType         string  `json:"bow_type" db:"bow_type"`
@@ -725,7 +732,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, a.banner_url,
 		       a.full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.phone, a.address, a.city, a.school, 
+		       a.phone, a.address, a.country, a.city, a.school, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
 		       COALESCE(a.status, 'active') as status,
@@ -754,6 +761,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"gender":           archer.Gender,
 			"phone":            archer.Phone,
 			"address":          archer.Address,
+			"country":          archer.Country,
 			"city":             archer.City,
 			"school":           archer.School,
 			"bow_type":         archer.BowType,
@@ -935,4 +943,3 @@ func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, stats)
 	}
 }
-
