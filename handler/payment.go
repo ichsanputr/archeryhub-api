@@ -1058,12 +1058,13 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Fallback to verified bank accounts if organization hasn't configured custom payment methods
+		// Fallback to verified/active bank accounts if organization hasn't configured custom payment methods
 		err = db.Select(&methods, `
-			SELECT uuid, user_id as event_id, bank_name as payment_method, account_name, account_number, 
-			       '' as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
+			SELECT uuid, user_id as event_id, 
+			       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
+			       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
 			FROM bank_accounts
-			WHERE user_id = ? AND status = 'verified'
+			WHERE user_id = ? AND status IN ('active', 'verified')
 			ORDER BY is_primary DESC, created_at ASC
 		`, organizerID)
 
@@ -1073,10 +1074,11 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if len(methods) == 0 {
-			// If no verified bank accounts, fetch all bank accounts (fallback/for testing)
+			// If no active bank accounts, fetch all bank accounts (fallback/for testing)
 			err = db.Select(&methods, `
-				SELECT uuid, user_id as event_id, bank_name as payment_method, account_name, account_number, 
-				       '' as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
+				SELECT uuid, user_id as event_id, 
+				       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
+				       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
 				FROM bank_accounts
 				WHERE user_id = ?
 				ORDER BY is_primary DESC, created_at ASC

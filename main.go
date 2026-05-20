@@ -754,7 +754,7 @@ func main() {
 			protectedOrgs := orgs.Group("")
 			protectedOrgs.Use(middleware.AuthMiddleware())
 			{
-
+				protectedOrgs.GET("/me", handler.GetOrganizationProfile(db))
 				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
 				protectedOrgs.GET("/stats", handler.GetOrganizationDashboardStats(db))
 
@@ -772,6 +772,7 @@ func main() {
 				{
 					bankAccounts.GET("", handler.GetBankAccounts(db))
 					bankAccounts.POST("", handler.CreateBankAccount(db))
+					bankAccounts.PUT("", handler.SyncBankAccounts(db))
 					bankAccounts.PUT("/:id", handler.UpdateBankAccount(db))
 					bankAccounts.DELETE("/:id", handler.DeleteBankAccount(db))
 				}
