@@ -164,6 +164,10 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		requestedUserType := metadata["user_type"]
+		oauthMode := strings.TrimSpace(strings.ToLower(metadata["oauth_mode"]))
+		if oauthMode == "" {
+			oauthMode = "login"
+		}
 		// Validate user_type to prevent self-registration of restricted roles like scorekeeper
 		allowedTypes := map[string]bool{"archer": true, "organization": true, "club": true, "seller": true}
 		if !allowedTypes[requestedUserType] {
@@ -281,6 +285,20 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				found = true
 				break
 			}
+		}
+
+		// If this is a login flow, do not auto-create accounts.
+		if !found && oauthMode != "register" {
+			msg := "account_not_found"
+			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" || c.Request.Method == "POST" {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": "Akun tidak ditemukan. Silakan daftar terlebih dahulu.",
+					"code":  msg,
+				})
+			} else {
+				c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error="+msg)
+			}
+			return
 		}
 
 		if found {
