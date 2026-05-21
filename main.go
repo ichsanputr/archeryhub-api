@@ -31,7 +31,7 @@ import (
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host api.archeris.net
-// @BasePath /api/v1
+// @BasePath /
 // @schemes https http
 
 // @securityDefinitions.apikey ApiKeyAuth
@@ -193,17 +193,16 @@ func main() {
 		})
 	})
 
-	// Serve static media files
-	r.Static("/media", "./media")
+	// Media is served via handlers under /media (see routes below).
 
 	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// API routes
-	api := r.Group("/api/v1")
+	// API routes (no /api/v1 prefix)
+	api := r.Group("/")
 	{
 		// Health check
-		api.GET("/", func(c *gin.Context) {
+		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status":  "ok",
 				"message": "Archeris API is Running",
@@ -865,7 +864,6 @@ func main() {
 		media := api.Group("/media")
 		{
 			// Public media access
-			media.GET("/download/:filename", handler.DownloadMedia())
 			media.GET("/:filename", handler.GetMedia())
 
 			// Protected media routes
@@ -877,6 +875,9 @@ func main() {
 				protectedMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}
 		}
+
+		// Download endpoint moved outside `/media/*filepath` wildcard.
+		api.GET("/media-download/:filename", handler.DownloadMedia())
 
 		// Discovery routes
 		discovery := api.Group("/discovery")

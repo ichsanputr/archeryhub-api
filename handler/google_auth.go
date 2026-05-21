@@ -98,9 +98,8 @@ func InitiateGoogleAuth(db *sqlx.DB) gin.HandlerFunc {
 
 		redirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
 		if redirectURI == "" {
-			// Default to the API callback endpoint (mounted under /api/v1).
-			// Keeping this correct avoids production 404s when GOOGLE_REDIRECT_URI isn't set.
-			redirectURI = os.Getenv("API_URL") + "/api/v1/auth/google/callback"
+			// Default to the API callback endpoint.
+			redirectURI = os.Getenv("API_URL") + "/auth/google/callback"
 		}
 
 		// Build Google OAuth URL
@@ -465,7 +464,7 @@ func exchangeGoogleCode(code string) (*GoogleTokenResponse, error) {
 	redirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
 	if redirectURI == "" {
 		// Must match the redirect URI used during InitiateGoogleAuth.
-		redirectURI = os.Getenv("API_URL") + "/api/v1/auth/google/callback"
+		redirectURI = os.Getenv("API_URL") + "/auth/google/callback"
 	}
 
 	data := url.Values{}

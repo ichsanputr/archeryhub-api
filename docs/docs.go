@@ -7300,7 +7300,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.1",
 	Host:             "api.archeris.net",
-	BasePath:         "/api/v1",
+	BasePath:         "/",
 	Schemes:          []string{"https", "http"},
 	Title:            "Archeris Mobile API",
 	Description:      "Dedicated API for Archeris Mobile App",

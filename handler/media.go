@@ -210,7 +210,7 @@ func GetMedia() gin.HandlerFunc {
 }
 
 // DownloadMedia serves a media file as an attachment for download
-// GET /media/download/:filename
+// GET /media-download/:filename
 func DownloadMedia() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		filename := c.Param("filename")
