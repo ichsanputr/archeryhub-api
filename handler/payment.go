@@ -1542,6 +1542,8 @@ func InitiatePaddlePayment(db *sqlx.DB) gin.HandlerFunc {
 		priceMap := map[int]string{
 			3: "pri_01krz6sjs49pt8w5r3wq4tqj5j", // Standard (ARCPRO)
 			4: "pri_01krz6xzqtnfmnhz4kwakw9zyh", // Elite (ARCELITE)
+			5: "pri_01krz6sjs49pt8w5r3wq4tqj5j", // Standard Organization (ARCPRO)
+			6: "pri_01krz6xzqtnfmnhz4kwakw9zyh", // Elite Organization (ARCELITE)
 		}
 		priceID := priceMap[req.PlanID]
 		if priceID == "" {
