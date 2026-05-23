@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/utils"
@@ -229,7 +229,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		if req.UserType == "organization" {
 			orgID = userID
 		}
-		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar, orgID)
+		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar, orgID, 1)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
 			return
@@ -312,17 +312,18 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type UserResult struct {
-			UUID      string  `db:"uuid"`
-			ID        string  `db:"id"`
-			Username  string  `db:"slug"` // Use slug for frontend username field
-			Email     string  `db:"email"`
-			Password  string  `db:"password"`
-			FullName  string  `db:"full_name"`
-			AvatarURL *string `db:"avatar_url"`
-			Role      string  `db:"role"`
-			Status    string  `db:"status"`
-			Type      string
-			OrgUUID   string  `db:"organization_uuid"`
+			UUID         string  `db:"uuid"`
+			ID           string  `db:"id"`
+			Username     string  `db:"slug"` // Use slug for frontend username field
+			Email        string  `db:"email"`
+			Password     string  `db:"password"`
+			FullName     string  `db:"full_name"`
+			AvatarURL    *string `db:"avatar_url"`
+			Role         string  `db:"role"`
+			Status       string  `db:"status"`
+			Type         string
+			OrgUUID      string  `db:"organization_uuid"`
+			TokenVersion int     `db:"token_version"`
 		}
 
 		var user UserResult
@@ -330,7 +331,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// COALESCE(password,'') so NULL (e.g. Google-created org/club/seller) is handled as empty
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status, '' as organization_uuid FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
@@ -339,7 +340,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Check organizations (Google sign-up does not set password; only Register does)
 		// Use column alias "slug" so result matches UserResult (db:"slug" for Username)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status, uuid as organization_uuid FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status, uuid as organization_uuid, token_version FROM organizations WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "organization"
 				found = true
@@ -350,7 +351,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs (use slug so result matches UserResult)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status, '' as organization_uuid FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -359,7 +360,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check sellers
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status, '' as organization_uuid FROM sellers WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM sellers WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "seller"
 				found = true
@@ -405,7 +406,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		if user.AvatarURL != nil {
 			avatar = utils.MaskMediaURL(*user.AvatarURL)
 		}
-		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID)
+		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID, user.TokenVersion)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
 			return
@@ -552,22 +553,23 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // generateJWT generates a JWT token for the user
-func generateJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
+func generateJWT(userID, email, role, userType, name, avatar, orgUUID string, tokenVersion int) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("Archeris-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
-		"user_id":   userID,
-		"email":     email,
-		"name":      name,
-		"avatar":    avatar,
-		"role":      role,
-		"user_type": userType,
-		"org_id":    orgUUID,
-		"exp":       time.Now().Add(time.Hour * 24 * 60).Unix(), // 60 days
-		"iat":       time.Now().Unix(),
+		"user_id":       userID,
+		"email":         email,
+		"name":          name,
+		"avatar":        avatar,
+		"role":          role,
+		"user_type":     userType,
+		"org_id":        orgUUID,
+		"token_version": tokenVersion,
+		"exp":           time.Now().Add(time.Hour * 24 * 60).Unix(), // 60 days
+		"iat":           time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)

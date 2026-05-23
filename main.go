@@ -131,6 +131,9 @@ func main() {
 	}
 	defer db.Close()
 
+	// Assign DB connection for token version checks in auth middleware
+	middleware.DB = db
+
 	// Initialize Gin router
 	r := gin.Default()
 

@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -23,6 +23,11 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
+
+		if userType == "root" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Password root tidak dapat diubah dari panel ini"})
+			return
+		}
 
 		var req UpdatePasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -58,8 +63,8 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update the password (store as plain text)
-		updateQuery := "UPDATE " + table + " SET password = ?, updated_at = NOW() WHERE uuid = ?"
+		// Update the password (store as plain text) and increment token_version to invalidate other sessions
+		updateQuery := "UPDATE " + table + " SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?"
 		_, err = db.Exec(updateQuery, req.NewPassword, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui password"})
@@ -78,6 +83,27 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
+
+		if userType == "root" {
+			c.JSON(http.StatusOK, gin.H{
+				"uuid":         "00000000-0000-0000-0000-000000000000",
+				"email":        "root",
+				"full_name":    "Super Administrator",
+				"username":     "root",
+				"user_type":    "root",
+				"avatar_url":   nil,
+				"logo_url":     nil,
+				"has_password": true,
+				"google_id":    nil,
+				"club_id":      nil,
+				"phone":        nil,
+				"city":         nil,
+				"address":      nil,
+				"bio":          "Pusat Administrasi Sistem Archeris.id",
+				"school":       nil,
+			})
+			return
+		}
 
 		table := "archers"
 		nameField := "full_name"
@@ -156,6 +182,11 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
+
+		if userType == "root" {
+			c.JSON(http.StatusOK, gin.H{"message": "Profil root adalah statis dan tidak dapat diubah"})
+			return
+		}
 
 
 

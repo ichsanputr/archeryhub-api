@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/utils"
@@ -26,26 +26,20 @@ func RootLogin(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var root struct {
-			UUID     string `db:"uuid"`
-			Email    string `db:"email"`
-			Password string `db:"password"`
-			Name     string `db:"name"`
-		}
+		// Hardcoded root credentials (does not check database as requested)
+		const expectedEmail = "root"
+		const expectedPassword = "root"
 
-		err := db.Get(&root, "SELECT uuid, email, password, name FROM roots WHERE email = ?", req.Email)
-		if err != nil {
+		if req.Email != expectedEmail || req.Password != expectedPassword {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial root tidak valid"})
 			return
 		}
 
-		if root.Password != req.Password {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial root tidak valid"})
-			return
-		}
+		rootUUID := "00000000-0000-0000-0000-000000000000"
+		rootName := "Super Administrator"
 
 		// Generate JWT token
-		token, err := generateJWT(root.UUID, root.Email, "root", "root", root.Name, "", "")
+		token, err := generateJWT(rootUUID, expectedEmail, "root", "root", rootName, "", "", 1)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi"})
 			return
@@ -56,9 +50,9 @@ func RootLogin(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
 			User: gin.H{
-				"id":        root.UUID,
-				"email":     root.Email,
-				"full_name": root.Name,
+				"id":        rootUUID,
+				"email":     expectedEmail,
+				"full_name": rootName,
 				"role":      "root",
 				"user_type": "root",
 			},
@@ -547,6 +541,54 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		c.JSON(http.StatusOK, gin.H{"plans": plans, "total": len(plans)})
+	}
+}
+
+// RootChangeUserPassword allows the root administrator to change any user's password
+func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userUUID := c.Param("uuid")
+		userType := c.Param("type") // "archer", "club", "organization", "seller"
+
+		var req struct {
+			Password string `json:"password" binding:"required,min=5"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru wajib diisi dan minimal 5 karakter"})
+			return
+		}
+
+		table := ""
+		switch userType {
+		case "archer":
+			table = "archers"
+		case "club":
+			table = "clubs"
+		case "organization":
+			table = "organizations"
+		case "seller":
+			table = "sellers"
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
+			return
+		}
+
+		result, err := db.Exec("UPDATE "+table+" SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?", req.Password, userUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui password: " + err.Error()})
+			return
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Password user berhasil diperbarui",
+			"uuid":    userUUID,
+		})
 	}
 }
 

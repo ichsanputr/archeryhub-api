@@ -224,6 +224,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			currentEmail = metadata["current_email"]
 		}
 
+
 		// Linking enforcement: If specifically requested or logged in, check email matching
 		if (isCurrentlyLoggedIn || metadata["is_linking"] == "true") && currentEmail != "" {
 			if userInfo.Email != currentEmail {
@@ -248,40 +249,32 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		// Find existing user across all tables
 		type UserRecord struct {
-			UUID    string `db:"uuid"`
-			Role    string `db:"role"`
-			OrgUUID string `db:"organization_uuid"`
+			UUID         string `db:"uuid"`
+			Role         string `db:"role"`
+			OrgUUID      string `db:"organization_uuid"`
+			TokenVersion int    `db:"token_version"`
 		}
 		var record UserRecord
 
 		// Priority search
 		tables := []string{"archers", "organizations", "clubs", "sellers"}
 		for _, t := range tables {
-			typeToRole := t
-			if typeToRole == "archers" {
-				typeToRole = "archer"
-			} else if typeToRole == "organizations" {
-				typeToRole = "organization"
-			} else if typeToRole == "clubs" {
-				typeToRole = "club"
-			} else if typeToRole == "sellers" {
-				typeToRole = "seller"
-			} else if typeToRole == "scorekeepers" {
-				typeToRole = "scorekeeper"
-			}
-
 			var query string
 			if t == "organizations" {
-				query = "SELECT uuid, 'organization' as role, uuid as organization_uuid FROM organizations WHERE email = ? OR google_id = ?"
-			} else {
-				query = "SELECT uuid, '" + typeToRole + "' as role, '' as organization_uuid FROM " + t + " WHERE email = ? OR google_id = ?"
+				query = "SELECT uuid, 'organization' as role, uuid as organization_uuid, token_version FROM organizations WHERE email = ?"
+			} else if t == "archers" {
+				query = "SELECT uuid, 'archer' as role, '' as organization_uuid, token_version FROM archers WHERE email = ?"
+			} else if t == "clubs" {
+				query = "SELECT uuid, 'club' as role, '' as organization_uuid, token_version FROM clubs WHERE email = ?"
+			} else if t == "sellers" {
+				query = "SELECT uuid, 'seller' as role, '' as organization_uuid, token_version FROM sellers WHERE email = ?"
 			}
 
-			err = db.Get(&record, query, userInfo.Email, userInfo.ID)
-			if err == nil && record.UUID != "" {
-				userType = typeToRole
+			err = db.Get(&record, query, userInfo.Email)
+			if err == nil {
 				userID = record.UUID
 				role = record.Role
+				userType = record.Role
 				found = true
 				break
 			}
@@ -367,6 +360,11 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			isNewUser = true
 			username := generateUsername(userInfo.Email)
 
+			record.TokenVersion = 1
+			if userType == "organization" {
+				record.OrgUUID = userID
+			}
+
 			// Use requestedFullName if provided, otherwise use Google name
 			displayName := userInfo.Name
 			if requestedFullName != "" {
@@ -429,7 +427,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Generate JWT token (use displayNameForJWT so existing user keeps their name)
-		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture, record.OrgUUID)
+		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture, record.OrgUUID, record.TokenVersion)
 		if err != nil {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
@@ -578,25 +576,25 @@ func splitState(stateData string) []string {
 }
 
 // generateGoogleJWT generates a JWT token for Google OAuth users
-func generateGoogleJWT(userID, email, role, userType, name, avatar, orgUUID string) (string, error) {
+func generateGoogleJWT(userID, email, role, userType, name, avatar, orgUUID string, tokenVersion int) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
 		secret = []byte("Archeris-secret-key-change-in-production")
 	}
 
 	claims := jwt.MapClaims{
-		"user_id":   userID,
-		"email":     email,
-		"name":      name,
-		"avatar":    avatar,
-		"role":      role,
-		"user_type": userType,
-		"org_id":    orgUUID,
-		"exp":       time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
-		"iat":       time.Now().Unix(),
+		"user_id":       userID,
+		"email":         email,
+		"name":          name,
+		"avatar":        avatar,
+		"role":          role,
+		"user_type":     userType,
+		"org_id":        orgUUID,
+		"token_version": tokenVersion,
+		"exp":           time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
+		"iat":           time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
 }
-

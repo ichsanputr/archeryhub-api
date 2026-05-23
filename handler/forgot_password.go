@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/utils"
@@ -267,9 +267,9 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			table = "sellers"
 		}
 
-		// Update password (plain text, matching existing auth pattern)
+		// Update password (plain text, matching existing auth pattern) and increment token_version to invalidate other sessions
 		_, err = db.Exec(fmt.Sprintf(
-			"UPDATE %s SET password = ?, updated_at = NOW() WHERE uuid = ?",
+			"UPDATE %s SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?",
 			table,
 		), req.NewPassword, row.UserID)
 		if err != nil {
@@ -347,7 +347,7 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, execErr := tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, updated_at = NOW() WHERE uuid = ?", table), req.NewPassword, row.UserID)
+		_, execErr := tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?", table), req.NewPassword, row.UserID)
 		if execErr != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan password baru"})

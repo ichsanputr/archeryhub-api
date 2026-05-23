@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/utils"
@@ -27,14 +27,15 @@ type MobileOAuthLoginRequest struct {
 }
 
 type mobileLoginUser struct {
-	UUID      string  `db:"uuid"`
-	ID        string  `db:"id"`
-	Username  string  `db:"username"`
-	Email     string  `db:"email"`
-	Password  string  `db:"password"`
-	FullName  string  `db:"full_name"`
-	AvatarURL *string `db:"avatar_url"`
-	Status    string  `db:"status"`
+	UUID         string  `db:"uuid"`
+	ID           string  `db:"id"`
+	Username     string  `db:"username"`
+	Email        string  `db:"email"`
+	Password     string  `db:"password"`
+	FullName     string  `db:"full_name"`
+	AvatarURL    *string `db:"avatar_url"`
+	Status       string  `db:"status"`
+	TokenVersion int     `db:"token_version"`
 }
 
 func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, req mobileEmailPasswordRequest, role string, userType string) {
@@ -68,7 +69,7 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 		organizationUUID = user.UUID
 	}
 
-	token, err := generateJWT(user.UUID, user.Email, role, userType, user.FullName, avatar, organizationUUID)
+	token, err := generateJWT(user.UUID, user.Email, role, userType, user.FullName, avatar, organizationUUID, user.TokenVersion)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 		return
@@ -120,11 +121,12 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			AvatarURL        *string `db:"avatar_url"`
 			Status           string  `db:"status"`
 			OrgSubStatus     *string `db:"org_sub_status"`
+			TokenVersion     int     `db:"token_version"`
 		}
 
 		err := db.Get(&sk, `
 			SELECT sk.uuid, sk.organization_uuid, sk.code, sk.name, IFNULL(sk.email, '') as email, sk.avatar_url, COALESCE(sk.status, '') as status,
-                   o.subscription_status as org_sub_status
+                   o.subscription_status as org_sub_status, sk.token_version
 			FROM scorekeepers sk 
             JOIN organizations o ON sk.organization_uuid = o.uuid
             WHERE sk.code = ?`, req.Code)
@@ -159,7 +161,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			avatar = utils.MaskMediaURL(*sk.AvatarURL)
 		}
 
-		token, err := generateJWT(sk.UUID, sk.Email, "scorekeeper", "scorekeeper", sk.Name, avatar, sk.OrganizationUUID)
+		token, err := generateJWT(sk.UUID, sk.Email, "scorekeeper", "scorekeeper", sk.Name, avatar, sk.OrganizationUUID, sk.TokenVersion)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
@@ -211,7 +213,7 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 		handleMobileEmailPasswordLogin(
 			c,
 			db,
-			`SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status FROM archers WHERE email = ?`,
+			`SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status, token_version FROM archers WHERE email = ?`,
 			req,
 			"archer",
 			"archer",
@@ -241,7 +243,7 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 		handleMobileEmailPasswordLogin(
 			c,
 			db,
-			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, COALESCE(status,'') as status FROM organizations WHERE email = ?`,
+			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, COALESCE(status,'') as status, token_version FROM organizations WHERE email = ?`,
 			req,
 			"organization",
 			"organization",
@@ -271,7 +273,7 @@ func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
 		handleMobileEmailPasswordLogin(
 			c,
 			db,
-			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, COALESCE(status,'') as status FROM sellers WHERE email = ?`,
+			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, COALESCE(status,'') as status, token_version FROM sellers WHERE email = ?`,
 			req,
 			"seller",
 			"seller",
@@ -334,7 +336,7 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, "", "")
+		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, "", "", 1)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
@@ -397,7 +399,7 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		token, err := generateJWT(sellerUUID, req.Email, "seller", "seller", req.StoreName, "", "")
+		token, err := generateJWT(sellerUUID, req.Email, "seller", "seller", req.StoreName, "", "", 1)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
@@ -477,7 +479,7 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 
 		// Search for existing user (Archer only for now for mobile app)
 		var user mobileLoginUser
-		err = db.Get(&user, `SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status FROM archers WHERE email = ? OR google_id = ?`, googleInfo.Email, googleInfo.Sub)
+		err = db.Get(&user, `SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status, token_version FROM archers WHERE email = ? OR google_id = ?`, googleInfo.Email, googleInfo.Sub)
 
 		isNewUser := false
 		if err != nil {
@@ -506,8 +508,8 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			username = username + "-" + userID[:8]
 
 			_, err = db.Exec(`
-				INSERT INTO archers (uuid, id, username, email, google_id, full_name, avatar_url, status, is_verified, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW())
+				INSERT INTO archers (uuid, id, username, email, google_id, full_name, avatar_url, status, is_verified, created_at, updated_at, token_version)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW(), 1)
 			`, userID, athleteID, username, googleInfo.Email, googleInfo.Sub, googleInfo.Name, googleInfo.Picture)
 
 			if err != nil {
@@ -523,6 +525,7 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			user.FullName = googleInfo.Name
 			user.AvatarURL = &googleInfo.Picture
 			user.Status = "active"
+			user.TokenVersion = 1
 
 			utils.LogActivity(db, userID, "", "mobile_register_google", "archer", userID, "User registered via Google on mobile", c.ClientIP(), c.Request.UserAgent())
 		} else {
@@ -540,7 +543,7 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			avatar = *user.AvatarURL
 		}
 
-		token, err := generateJWT(user.UUID, user.Email, "archer", "archer", user.FullName, avatar, "")
+		token, err := generateJWT(user.UUID, user.Email, "archer", "archer", user.FullName, avatar, "", user.TokenVersion)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
@@ -714,7 +717,7 @@ func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		_, err = tx.Exec(fmt.Sprintf("UPDATE %s SET password = ? WHERE uuid = ?", tableName), req.NewPassword, reset.UserID)
+		_, err = tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, token_version = token_version + 1 WHERE uuid = ?", tableName), req.NewPassword, reset.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset kata sandi"})
 			return

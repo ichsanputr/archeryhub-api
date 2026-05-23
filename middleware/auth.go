@@ -1,4 +1,4 @@
-﻿package middleware
+package middleware
 
 import (
 	"fmt"
@@ -8,7 +8,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/jmoiron/sqlx"
 )
+
+// DB is the shared database connection
+var DB *sqlx.DB
 
 // AuthMiddleware validates JWT tokens from Authorization header or auth_token cookie.
 func AuthMiddleware() gin.HandlerFunc {
@@ -78,11 +82,50 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// Extract claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", claims["user_id"])
-			c.Set("email", claims["email"])
-			c.Set("role", claims["role"])
-			c.Set("user_type", claims["user_type"])
-			c.Set("org_id", claims["org_id"])
+			userID, _ := claims["user_id"].(string)
+			email, _ := claims["email"].(string)
+			role, _ := claims["role"].(string)
+			userType, _ := claims["user_type"].(string)
+			orgID, _ := claims["org_id"].(string)
+
+			// Check token version if DB is set and not root
+			if DB != nil && userType != "root" {
+				tokenVerFloat, hasVer := claims["token_version"].(float64)
+				tokenVersion := int(tokenVerFloat)
+
+				// Determine target table
+				table := "archers"
+				switch userType {
+				case "organization":
+					table = "organizations"
+				case "club":
+					table = "clubs"
+				case "seller":
+					table = "sellers"
+				case "scorekeeper":
+					table = "scorekeepers"
+				}
+
+				var dbVersion int
+				err := DB.Get(&dbVersion, "SELECT COALESCE(token_version, 1) FROM "+table+" WHERE uuid = ?", userID)
+				if err != nil {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid (user tidak ditemukan)", "code": "session_invalid"})
+					c.Abort()
+					return
+				}
+
+				if !hasVer || tokenVersion != dbVersion {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi kedaluwarsa (password telah diubah)", "code": "session_expired"})
+					c.Abort()
+					return
+				}
+			}
+
+			c.Set("user_id", userID)
+			c.Set("email", email)
+			c.Set("role", role)
+			c.Set("user_type", userType)
+			c.Set("org_id", orgID)
 			c.Next()
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
@@ -161,11 +204,39 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 
 		if err == nil && token.Valid {
 			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				fmt.Printf("[DEBUG OptionalAuth] Claims found. UserID: %v\n", claims["user_id"])
-				c.Set("user_id", claims["user_id"])
-				c.Set("email", claims["email"])
-				c.Set("role", claims["role"])
-				c.Set("user_type", claims["user_type"])
+				userType, _ := claims["user_type"].(string)
+				userID, _ := claims["user_id"].(string)
+				tokenVerFloat, hasVer := claims["token_version"].(float64)
+				tokenVersion := int(tokenVerFloat)
+
+				valid := true
+				if DB != nil && userType != "root" {
+					table := "archers"
+					switch userType {
+					case "organization":
+						table = "organizations"
+					case "club":
+						table = "clubs"
+					case "seller":
+						table = "sellers"
+					case "scorekeeper":
+						table = "scorekeepers"
+					}
+
+					var dbVersion int
+					err := DB.Get(&dbVersion, "SELECT COALESCE(token_version, 1) FROM "+table+" WHERE uuid = ?", userID)
+					if err != nil || !hasVer || tokenVersion != dbVersion {
+						valid = false
+					}
+				}
+
+				if valid {
+					fmt.Printf("[DEBUG OptionalAuth] Claims found. UserID: %v\n", claims["user_id"])
+					c.Set("user_id", claims["user_id"])
+					c.Set("email", claims["email"])
+					c.Set("role", claims["role"])
+					c.Set("user_type", claims["user_type"])
+				}
 			}
 		} else {
 			fmt.Println("[DEBUG OptionalAuth] Token invalid or parse error:", err)
