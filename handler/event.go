@@ -2486,10 +2486,12 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.AccreditationStatus)
 		}
 		if req.Reregistered != nil {
+			query += ", last_reregistration_at = ?"
 			if *req.Reregistered {
-				query += ", last_reregistration_at = NOW()"
+				now := time.Now()
+				args = append(args, now)
 			} else {
-				query += ", last_reregistration_at = NULL"
+				args = append(args, nil)
 			}
 		}
 

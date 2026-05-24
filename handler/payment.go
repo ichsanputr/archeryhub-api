@@ -1023,14 +1023,14 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		}
 		organizerID := event.OrganizerID
 
-		// Fetch all active bank accounts for this organizer
+		// Fetch all active payment methods for this organizer
 		var bankAccounts []EventPaymentMethod
 		err = db.Select(&bankAccounts, `
-			SELECT uuid, user_id as event_id, 
+			SELECT uuid, organization_id as event_id, 
 			       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 			       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
-			FROM bank_accounts
-			WHERE user_id = ? AND status IN ('active', 'verified')
+			FROM organization_payment_methods
+			WHERE organization_id = ? AND status IN ('active', 'verified')
 			ORDER BY is_primary DESC, created_at ASC
 		`, organizerID)
 
@@ -1040,13 +1040,13 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if len(bankAccounts) == 0 {
-			// If no active bank accounts, fetch all bank accounts (fallback/for testing)
+			// If no active payment methods, fetch all payment methods (fallback/for testing)
 			_ = db.Select(&bankAccounts, `
-				SELECT uuid, user_id as event_id, 
+				SELECT uuid, organization_id as event_id, 
 				       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 				       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
-				FROM bank_accounts
-				WHERE user_id = ?
+				FROM organization_payment_methods
+				WHERE organization_id = ?
 				ORDER BY is_primary DESC, created_at ASC
 			`, organizerID)
 		}

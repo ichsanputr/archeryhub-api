@@ -765,6 +765,15 @@ func main() {
 				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
 				protectedOrgs.GET("/stats", handler.GetOrganizationDashboardStats(db))
 
+				// Reports
+				reports := protectedOrgs.Group("/reports")
+				{
+					reports.GET("/participants", handler.GetOrganizationParticipantsReport(db))
+					reports.GET("/finance", handler.GetOrganizationFinanceReport(db))
+					reports.GET("/performance", handler.GetOrganizationPerformanceReport(db))
+					reports.GET("/attendance", handler.GetOrganizationAttendanceReport(db))
+				}
+
 				// Scorekeeper management
 				scorekeepers := protectedOrgs.Group("/scorekeepers")
 				{
@@ -782,6 +791,16 @@ func main() {
 					bankAccounts.PUT("", middleware.RequireActivePlan(db), handler.SyncBankAccounts(db))
 					bankAccounts.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateBankAccount(db))
 					bankAccounts.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteBankAccount(db))
+				}
+
+				// Payment methods
+				paymentMethods := protectedOrgs.Group("/payment-methods")
+				{
+					paymentMethods.GET("", handler.GetOrganizationPaymentMethods(db))
+					paymentMethods.POST("", middleware.RequireActivePlan(db), handler.CreateOrganizationPaymentMethod(db))
+					paymentMethods.PUT("", middleware.RequireActivePlan(db), handler.SyncOrganizationPaymentMethods(db))
+					paymentMethods.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateOrganizationPaymentMethod(db))
+					paymentMethods.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteOrganizationPaymentMethod(db))
 				}
 
 				// Wallet & Withdrawals

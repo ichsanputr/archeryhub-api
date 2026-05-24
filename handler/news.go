@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"fmt"
@@ -61,17 +61,22 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 		var err error
 
 		whereClause := ""
+		var queryArgs []interface{}
 		if userType == "organization" {
 			whereClause = "WHERE organization_id = (SELECT uuid FROM organizations WHERE uuid = ?)"
+			queryArgs = append(queryArgs, userID)
 		} else if userType == "club" {
 			whereClause = "WHERE club_id = (SELECT uuid FROM clubs WHERE uuid = ?)"
+			queryArgs = append(queryArgs, userID)
+		} else if userType == "root" {
+			whereClause = "WHERE organization_id IS NULL AND club_id IS NULL"
 		} else {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Tidak diizinkan untuk melihat berita"})
 			return
 		}
 
 		// Count total
-		err = db.Get(&totalCount, "SELECT COUNT(*) FROM news "+whereClause, userID)
+		err = db.Get(&totalCount, "SELECT COUNT(*) FROM news "+whereClause, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung berita"})
 			return
@@ -87,7 +92,8 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT ? OFFSET ?
 		`, whereClause)
 
-		err = db.Select(&news, query, userID, limit, offset)
+		selectArgs := append(queryArgs, limit, offset)
+		err = db.Select(&news, query, selectArgs...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita: " + err.Error()})
@@ -226,8 +232,10 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			db.Get(&authorName, "SELECT name FROM organizations WHERE uuid = ?", userID)
 		} else if userType == "club" {
 			db.Get(&authorName, "SELECT name FROM clubs WHERE uuid = ?", userID)
+		} else if userType == "root" {
+			authorName = "Archeris Admin"
 		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya organisasi dan klub yang bisa memposting berita"})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya organisasi, klub, dan admin yang bisa memposting berita"})
 			return
 		}
 
@@ -315,6 +323,8 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 			isOwner = true
 		} else if userType == "club" && article.ClubID != nil && *article.ClubID == userID.(string) {
 			isOwner = true
+		} else if userType == "root" {
+			isOwner = true
 		}
 
 		if !isOwner {
@@ -382,6 +392,8 @@ func DeleteNews(db *sqlx.DB) gin.HandlerFunc {
 		if userType == "organization" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
 			isOwner = true
 		} else if userType == "club" && article.ClubID != nil && *article.ClubID == userID.(string) {
+			isOwner = true
+		} else if userType == "root" {
 			isOwner = true
 		}
 
