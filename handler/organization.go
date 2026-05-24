@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -289,7 +289,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 				   social_facebook, social_instagram, social_twitter, social_media,
 				   verification_status, status, created_at, updated_at,
 				   vision, mission, history, faq,
-				   COALESCE(subscription_status, 'trial') as subscription_status,
+				   COALESCE(subscription_status, 'active') as subscription_status,
 				   subscription_expires_at
 			FROM organizations
 			WHERE uuid = ?

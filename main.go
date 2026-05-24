@@ -261,6 +261,9 @@ func main() {
 			auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 		}
 
+		// Public Subscription routes
+		api.GET("/public/subscription/comparison", handler.GetSubscriptionComparison())
+
 		// User routes
 		user := api.Group("/user")
 		user.Use(middleware.AuthMiddleware())
@@ -312,33 +315,33 @@ func main() {
 			{
 				protected.GET("/my", handler.GetMyEvents(db))
 				protected.POST("", middleware.RequireActivePlan(db), handler.CreateEvent(db))
-				protected.PUT("/:id", handler.UpdateEvent(db))
-				protected.DELETE("/:id", handler.DeleteEvent(db))
+				protected.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateEvent(db))
+				protected.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteEvent(db))
 				protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
-				protected.POST("/:id/reset", handler.ResetEventData(db))
-				protected.POST("/:id/reset/request-code", handler.RequestResetCode(db))
+				protected.POST("/:id/reset", middleware.RequireActivePlan(db), handler.ResetEventData(db))
+				protected.POST("/:id/reset/request-code", middleware.RequireActivePlan(db), handler.RequestResetCode(db))
 				protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
-				protected.POST("/:id/categories", handler.CreateEventCategory(db))
-				protected.POST("/:id/categories/batch", handler.CreateEventCategories(db))
+				protected.POST("/:id/categories", middleware.RequireActivePlan(db), handler.CreateEventCategory(db))
+				protected.POST("/:id/categories/batch", middleware.RequireActivePlan(db), handler.CreateEventCategories(db))
 				protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
-				protected.PUT("/:id/categories/:categoryId", handler.UpdateEventCategory(db))
-				protected.DELETE("/:id/categories/:categoryId", handler.DeleteEventCategory(db))
-				protected.POST("/:id/participants", handler.RegisterParticipant(db))
-				protected.POST("/:id/participants/batch", handler.BatchRegisterParticipants(db))
-				protected.PUT("/:id/images", handler.UpdateEventImages(db))
-				protected.PUT("/:id/schedule", handler.UpdateEventSchedule(db))
-				protected.POST("/:id/payment-methods", handler.CreateEventPaymentMethod(db))
-				protected.PUT("/:id/payment-methods/:methodId", handler.UpdateEventPaymentMethod(db))
-				protected.DELETE("/:id/payment-methods/:methodId", handler.DeleteEventPaymentMethod(db))
+				protected.PUT("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.UpdateEventCategory(db))
+				protected.DELETE("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.DeleteEventCategory(db))
+				protected.POST("/:id/participants", middleware.RequireActivePlan(db), handler.RegisterParticipant(db))
+				protected.POST("/:id/participants/batch", middleware.RequireActivePlan(db), handler.BatchRegisterParticipants(db))
+				protected.PUT("/:id/images", middleware.RequireActivePlan(db), handler.UpdateEventImages(db))
+				protected.PUT("/:id/schedule", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
+				protected.POST("/:id/payment-methods", middleware.RequireActivePlan(db), handler.CreateEventPaymentMethod(db))
+				protected.PUT("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.UpdateEventPaymentMethod(db))
+				protected.DELETE("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.DeleteEventPaymentMethod(db))
 
 				// Qualification target assignments - nested under events/:id/qualification/sessions/:sessionId
-				protected.POST("/:id/qualification/sessions/:sessionId/assignments", handler.CreateBulkTargetAssignments(db))
+				protected.POST("/:id/qualification/sessions/:sessionId/assignments", middleware.RequireActivePlan(db), handler.CreateBulkTargetAssignments(db))
 
 				// Target management
-				protected.POST("/:id/targets", handler.CreateEventTarget(db))
-				protected.PUT("/:id/targets/batch", handler.BatchUpdateTargets(db))
-				protected.PUT("/:id/targets/:target_id", handler.UpdateEventTarget(db))
-				protected.DELETE("/:id/targets/:target_id", handler.DeleteEventTarget(db))
+				protected.POST("/:id/targets", middleware.RequireActivePlan(db), handler.CreateEventTarget(db))
+				protected.PUT("/:id/targets/batch", middleware.RequireActivePlan(db), handler.BatchUpdateTargets(db))
+				protected.PUT("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.UpdateEventTarget(db))
+				protected.DELETE("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.DeleteEventTarget(db))
 			}
 		}
 
@@ -347,9 +350,9 @@ func main() {
 		qualification.Use(middleware.AuthMiddleware())
 		{
 			qualification.GET("/sessions", handler.GetQualificationSessions(db))
-			qualification.POST("/sessions", handler.CreateQualificationSession(db))
-			qualification.PATCH("/sessions/:sessionId", handler.UpdateQualificationSession(db))
-			qualification.DELETE("/sessions/:sessionId", handler.DeleteQualificationSession(db))
+			qualification.POST("/sessions", middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
+			qualification.PATCH("/sessions/:sessionId", middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
+			qualification.DELETE("/sessions/:sessionId", middleware.RequireActivePlan(db), handler.DeleteQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
 			qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
 		}
@@ -360,22 +363,22 @@ func main() {
 		{
 			elimination.GET("/brackets", handler.GetBrackets(db))
 			elimination.GET("/bracket-size", middleware.AuthMiddleware(), handler.GetBracketSizeRecommendation(db))
-			elimination.POST("/brackets", middleware.AuthMiddleware(), handler.CreateBracket(db))
+			elimination.POST("/brackets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateBracket(db))
 			elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
-			elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), handler.UpdateBracket(db))
-			elimination.DELETE("/brackets/:bracketId", middleware.AuthMiddleware(), handler.DeleteBracket(db))
-			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), handler.GenerateBracket(db))
+			elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateBracket(db))
+			elimination.DELETE("/brackets/:bracketId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.DeleteBracket(db))
+			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.GenerateBracket(db))
 			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
 			elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
 			elimination.GET("/brackets/:bracketId/scoresheet", handler.GetEliminationScoresheet(db))
 			elimination.GET("/brackets/:bracketId/team-members", handler.GetBracketTeamMembers(db))
-			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), handler.UpdateMatchTargets(db))
-			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), handler.AutoAssignMatchTargets(db))
+			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateMatchTargets(db))
+			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.AutoAssignMatchTargets(db))
 			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/score", middleware.AuthMiddleware(), handler.UpdateMatchScore(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/finish", middleware.AuthMiddleware(), handler.FinishMatch(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/end", middleware.AuthMiddleware(), handler.EndMatch(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/reset", middleware.AuthMiddleware(), handler.ResetMatch(db))
+			elimination.POST("/brackets/:bracketId/matches/:matchId/score", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateMatchScore(db))
+			elimination.POST("/brackets/:bracketId/matches/:matchId/finish", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.FinishMatch(db))
+			elimination.POST("/brackets/:bracketId/matches/:matchId/end", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.EndMatch(db))
+			elimination.POST("/brackets/:bracketId/matches/:matchId/reset", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ResetMatch(db))
 		}
 
 		// Public flat match details
@@ -387,17 +390,17 @@ func main() {
 			qualSessions.GET("/assignments", handler.GetSessionAssignments(db))
 			qualSessions.GET("/board-codes", handler.GetBoardCodes(db))
 			qualSessions.GET("/scores", handler.GetSessionScores(db))
-			qualSessions.POST("/auto-assign", handler.AutoAssignParticipants(db))
-			qualSessions.POST("/reset-assignments", handler.ResetSessionAssignments(db))
-			qualSessions.POST("/swap-assignments", handler.SwapTargetAssignments(db))
+			qualSessions.POST("/auto-assign", middleware.RequireActivePlan(db), handler.AutoAssignParticipants(db))
+			qualSessions.POST("/reset-assignments", middleware.RequireActivePlan(db), handler.ResetSessionAssignments(db))
+			qualSessions.POST("/swap-assignments", middleware.RequireActivePlan(db), handler.SwapTargetAssignments(db))
 		}
 
 		qualAssignments := api.Group("/qualification/assignments/:assignmentId")
 		qualAssignments.Use(middleware.AuthMiddleware())
 		{
 			qualAssignments.GET("/scores", handler.GetQualificationAssignmentScores(db))
-			qualAssignments.POST("/scores", handler.UpdateQualificationScore(db))
-			qualAssignments.DELETE("", handler.DeleteQualificationAssignment(db))
+			qualAssignments.POST("/scores", middleware.RequireActivePlan(db), handler.UpdateQualificationScore(db))
+			qualAssignments.DELETE("", middleware.RequireActivePlan(db), handler.DeleteQualificationAssignment(db))
 		}
 
 		// Target routes
@@ -490,10 +493,10 @@ func main() {
 			protectedTeams.Use(middleware.AuthMiddleware())
 			{
 				protectedTeams.GET("/my", handler.GetMyTeams(db))
-				protectedTeams.POST("/event/:eventId", handler.CreateTeam(db))
-				protectedTeams.PUT("/:teamId", handler.UpdateTeam(db))
-				protectedTeams.DELETE("/:teamId", handler.DeleteTeam(db))
-				protectedTeams.POST("/event/:eventId/sync", handler.SyncTeams(db))
+				protectedTeams.POST("/event/:eventId", middleware.RequireActivePlan(db), handler.CreateTeam(db))
+				protectedTeams.PUT("/:teamId", middleware.RequireActivePlan(db), handler.UpdateTeam(db))
+				protectedTeams.DELETE("/:teamId", middleware.RequireActivePlan(db), handler.DeleteTeam(db))
+				protectedTeams.POST("/event/:eventId/sync", middleware.RequireActivePlan(db), handler.SyncTeams(db))
 			}
 
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
@@ -773,10 +776,10 @@ func main() {
 				bankAccounts := protectedOrgs.Group("/bank-accounts")
 				{
 					bankAccounts.GET("", handler.GetBankAccounts(db))
-					bankAccounts.POST("", handler.CreateBankAccount(db))
-					bankAccounts.PUT("", handler.SyncBankAccounts(db))
-					bankAccounts.PUT("/:id", handler.UpdateBankAccount(db))
-					bankAccounts.DELETE("/:id", handler.DeleteBankAccount(db))
+					bankAccounts.POST("", middleware.RequireActivePlan(db), handler.CreateBankAccount(db))
+					bankAccounts.PUT("", middleware.RequireActivePlan(db), handler.SyncBankAccounts(db))
+					bankAccounts.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateBankAccount(db))
+					bankAccounts.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteBankAccount(db))
 				}
 
 				// Wallet & Withdrawals
@@ -784,7 +787,7 @@ func main() {
 				{
 					wallet.GET("", handler.GetMyWallet(db))
 					wallet.GET("/withdrawals", handler.GetWithdrawals(db))
-					wallet.POST("/withdrawals", handler.CreateWithdrawal(db))
+					wallet.POST("/withdrawals", middleware.RequireActivePlan(db), handler.CreateWithdrawal(db))
 				}
 
 				// Earnings

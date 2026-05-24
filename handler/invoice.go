@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -133,6 +133,13 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		pdf.SetTextColor(15, 23, 42)
 		pdf.SetFont("Arial", "B", 10)
 		
+		currencyPrefix := "Rp "
+		amountFormat := "%.0f"
+		if t.PaymentMethod != nil && *t.PaymentMethod == "paddle" {
+			currencyPrefix = "$"
+			amountFormat = "%.2f"
+		}
+
 		desc := t.Description
 		qty := "1 Item"
 		unitPrice := t.Amount
@@ -143,8 +150,8 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 
 		pdf.CellFormat(100, 15, " "+desc, "", 0, "L", false, 0, "")
 		pdf.CellFormat(20, 15, qty, "", 0, "C", false, 0, "")
-		pdf.CellFormat(25, 15, fmt.Sprintf("%.0f", unitPrice), "", 0, "R", false, 0, "")
-		pdf.CellFormat(25, 15, fmt.Sprintf("%.0f", t.Amount), "", 1, "R", false, 0, "")
+		pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, unitPrice), "", 0, "R", false, 0, "")
+		pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, t.Amount), "", 1, "R", false, 0, "")
 
 		// --- Summary Section ---
 		pdf.SetY(180)
@@ -153,11 +160,11 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		pdf.SetX(120)
 		pdf.SetFont("Arial", "", 10)
 		pdf.CellFormat(40, 10, "Subtotal", "", 0, "L", false, 0, "")
-		pdf.CellFormat(30, 10, fmt.Sprintf("Rp %.0f", t.Amount), "", 1, "R", false, 0, "")
+		pdf.CellFormat(30, 10, fmt.Sprintf("%s"+amountFormat, currencyPrefix, t.Amount), "", 1, "R", false, 0, "")
 
 		pdf.SetX(120)
 		pdf.CellFormat(40, 10, "Pajak / Admin", "", 0, "L", false, 0, "")
-		pdf.CellFormat(30, 10, "Rp 0", "", 1, "R", false, 0, "")
+		pdf.CellFormat(30, 10, fmt.Sprintf("%s"+amountFormat, currencyPrefix, 0.0), "", 1, "R", false, 0, "")
 
 		pdf.SetX(120)
 		pdf.SetFillColor(15, 23, 42)
@@ -165,7 +172,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		pdf.SetFont("Arial", "B", 12)
 		pdf.CellFormat(40, 12, " TOTAL", "", 0, "L", true, 0, "")
 		pdf.SetTextColor(217, 255, 0)
-		pdf.CellFormat(30, 12, fmt.Sprintf("Rp %.0f ", t.TotalAmount), "", 1, "R", true, 0, "")
+		pdf.CellFormat(30, 12, fmt.Sprintf("%s"+amountFormat+" ", currencyPrefix, t.TotalAmount), "", 1, "R", true, 0, "")
 
 		// --- Footer ---
 		pdf.SetY(260)
@@ -174,8 +181,13 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		pdf.CellFormat(170, 10, "TERIMA KASIH TELAH MENGGUNAKAN LAYANAN archeris.net", "", 0, "C", false, 0, "")
 
 		// Output to browser
+		download := c.Query("download")
+		disposition := "inline"
+		if download == "true" {
+			disposition = "attachment"
+		}
 		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("inline; filename=Invoice-%s.pdf", t.Reference))
+		c.Header("Content-Disposition", fmt.Sprintf("%s; filename=Invoice-%s.pdf", disposition, t.Reference))
 		
 		err = pdf.Output(c.Writer)
 		if err != nil {

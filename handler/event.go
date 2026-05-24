@@ -1778,13 +1778,13 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Verification sub status organizer (Organization or Club)
 		var orgStatus string
 		db.Get(&orgStatus, `
-			SELECT COALESCE(s, 'trial') FROM (
+			SELECT COALESCE(s, 'active') FROM (
 				SELECT subscription_status as s FROM organizations WHERE uuid = ?
 				UNION ALL
-				SELECT 'trial' as s FROM clubs WHERE uuid = ?
+				SELECT 'active' as s FROM clubs WHERE uuid = ?
 			) combined LIMIT 1`, organizerID, organizerID)
 
-		if orgStatus != "" && orgStatus != "active" && orgStatus != "trial" {
+		if orgStatus != "" && orgStatus != "active" {
 			c.JSON(http.StatusPaymentRequired, gin.H{
 				"error":   "Pendaftaran ditutup sementara",
 				"code":    "organizer_subscription_expired",

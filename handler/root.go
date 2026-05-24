@@ -160,7 +160,7 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(c.name,'')   as name,
 				COALESCE(c.email,'')  as email,
 				'club'                 as user_type,
-				COALESCE(c.subscription_status,'trial') as subscription_status,
+				COALESCE(c.subscription_status,'active') as subscription_status,
 				c.subscription_plan_id as plan_id,
 				sp.name                as plan_name,
 				DATE_FORMAT(c.subscription_expires_at,'%Y-%m-%d %H:%i:%s') as expires_at,
@@ -175,7 +175,7 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(o.name,'')   as name,
 				COALESCE(o.email,'')  as email,
 				'organization'         as user_type,
-				COALESCE(o.subscription_status,'trial') as subscription_status,
+				COALESCE(o.subscription_status,'active') as subscription_status,
 				o.subscription_plan_id as plan_id,
 				sp.name                as plan_name,
 				DATE_FORMAT(o.subscription_expires_at,'%Y-%m-%d %H:%i:%s') as expires_at,
@@ -231,12 +231,7 @@ func UpdateUserSubscription(db *sqlx.DB) gin.HandlerFunc {
 		userUUID := c.Param("uuid")
 		userType := c.Param("type") // "club" or "organization"
 
-		var req struct {
-			Status    string  `json:"status"`     // active, trial, expired, canceled
-			PlanID    *int    `json:"plan_id"`
-			ExpiresAt *string `json:"expires_at"` // "YYYY-MM-DD"
-			ExtendDays *int   `json:"extend_days"` // extend current expiry by N days
-		}
+		var req map[string]interface{}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Request tidak valid"})
 			return
@@ -256,23 +251,42 @@ func UpdateUserSubscription(db *sqlx.DB) gin.HandlerFunc {
 		setParts := []string{}
 		args := []interface{}{}
 
-		if req.Status != "" {
-			setParts = append(setParts, "subscription_status = ?")
-			args = append(args, req.Status)
-		}
-		if req.PlanID != nil {
-			setParts = append(setParts, "subscription_plan_id = ?")
-			args = append(args, *req.PlanID)
-		}
-		if req.ExpiresAt != nil {
-			setParts = append(setParts, "subscription_expires_at = ?")
-			args = append(args, *req.ExpiresAt)
-		}
-		if req.ExtendDays != nil {
-			setParts = append(setParts, fmt.Sprintf("subscription_expires_at = DATE_ADD(GREATEST(COALESCE(subscription_expires_at, NOW()), NOW()), INTERVAL %d DAY)", *req.ExtendDays))
-			// If extending and current status is expired, set to active
-			if req.Status == "" {
+		// Check if plan_id is in the body (nullable)
+		if planVal, ok := req["plan_id"]; ok {
+			if planVal == nil {
+				setParts = append(setParts, "subscription_plan_id = NULL")
+				setParts = append(setParts, "subscription_expires_at = NULL")
 				setParts = append(setParts, "subscription_status = 'active'")
+			} else if floatVal, isFloat := planVal.(float64); isFloat {
+				setParts = append(setParts, "subscription_plan_id = ?")
+				args = append(args, int(floatVal))
+				setParts = append(setParts, "subscription_status = 'active'")
+			}
+		}
+
+		// Check if expires_at is in the body (nullable string)
+		if expiresVal, ok := req["expires_at"]; ok {
+			if expiresVal == nil {
+				setParts = append(setParts, "subscription_expires_at = NULL")
+			} else if expiresStr, isStr := expiresVal.(string); isStr {
+				if expiresStr == "" {
+					setParts = append(setParts, "subscription_expires_at = NULL")
+				} else {
+					setParts = append(setParts, "subscription_expires_at = ?")
+					args = append(args, expiresStr)
+
+					// Dynamically adjust status to active/expired based on the date
+					parsedTime, parseErr := time.Parse("2006-01-02", expiresStr)
+					if parseErr == nil {
+						now := time.Now()
+						today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+						if parsedTime.Before(today) {
+							setParts = append(setParts, "subscription_status = 'expired'")
+						} else {
+							setParts = append(setParts, "subscription_status = 'active'")
+						}
+					}
+				}
 			}
 		}
 
@@ -434,25 +448,19 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			UserType    string `json:"user_type" binding:"required"` // "club", "organization", "seller"
-			Name        string `json:"name" binding:"required"`
-			Email       string `json:"email" binding:"required"`
-			Password    string `json:"password" binding:"required"`
-			Phone       string `json:"phone"`
-			City        string `json:"city"`
-			Address     string `json:"address"`
-			WhatsAppNo  string `json:"whatsapp_no"`
-			Acronym     string `json:"acronym"`
-			TrialDays   int    `json:"trial_days"` // 0 = use default 90 days
+			UserType   string `json:"user_type" binding:"required"` // "club", "organization", "seller"
+			Name       string `json:"name" binding:"required"`
+			Email      string `json:"email" binding:"required"`
+			Password   string `json:"password" binding:"required"`
+			Phone      string `json:"phone"`
+			City       string `json:"city"`
+			Address    string `json:"address"`
+			WhatsAppNo string `json:"whatsapp_no"`
+			Acronym    string `json:"acronym"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
-		}
-
-		trialDays := req.TrialDays
-		if trialDays <= 0 {
-			trialDays = 90
 		}
 
 		// Use proper UUID standard to fix "Data too long" error (varchar 36)
@@ -468,9 +476,9 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 		switch req.UserType {
 		case "club":
 			_, err = db.Exec(`
-				INSERT INTO clubs (uuid, user_id, slug, email, password, name, status, subscription_plan_id, subscription_status, subscription_expires_at)
-				VALUES (?, ?, ?, ?, ?, ?, 'active', 3, 'trial', DATE_ADD(NOW(), INTERVAL ? DAY))
-			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, trialDays)
+				INSERT INTO clubs (uuid, user_id, slug, email, password, name, status)
+				VALUES (?, ?, ?, ?, ?, ?, 'active')
+			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name)
 		case "organization":
 			whatsApp := req.WhatsAppNo
 			if whatsApp == "" {
@@ -478,8 +486,8 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 			}
 			_, err = db.Exec(`
 				INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 5, 'trial', DATE_ADD(NOW(), INTERVAL ? DAY))
-			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, req.Acronym, whatsApp, req.City, req.Address, trialDays)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL)
+			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, req.Acronym, whatsApp, req.City, req.Address)
 		case "seller":
 			_, err = db.Exec(`
 				INSERT INTO sellers (uuid, user_id, slug, email, password, store_name, status)

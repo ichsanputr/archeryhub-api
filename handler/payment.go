@@ -360,7 +360,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 						"items": []map[string]interface{}{
 							{
 								"price_id": priceID,
-								"quantity": 1,
+								"quantity": req.Months,
 							},
 						},
 						"custom_data": map[string]interface{}{
@@ -1567,7 +1567,7 @@ func InitiatePaddlePayment(db *sqlx.DB) gin.HandlerFunc {
 				"items": []map[string]interface{}{
 					{
 						"price_id": priceID,
-						"quantity": 1,
+						"quantity": req.Months,
 					},
 				},
 				"custom_data": map[string]interface{}{

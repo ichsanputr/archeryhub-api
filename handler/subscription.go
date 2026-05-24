@@ -48,7 +48,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 
 		if userType == "organization" {
 			err = db.Get(&subscription, `
-				SELECT o.subscription_plan_id, COALESCE(o.subscription_status, 'trial') as subscription_status,
+				SELECT o.subscription_plan_id, COALESCE(o.subscription_status, 'active') as subscription_status,
 				       p.name as plan_name, p.price as plan_price, p.type as billing_type,
 				       DATE_FORMAT(o.subscription_expires_at, '%d %b %Y') as next_billing_date
 				FROM organizations o
@@ -106,7 +106,10 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 					WHEN event_id IS NOT NULL THEN 'Pembayaran Layanan Event'
 					ELSE 'Transaksi Lainnya'
 				END as description,
-				CONCAT('Rp ', FORMAT(amount, 0, 'id_ID')) as amount,
+				CASE 
+					WHEN payment_method = 'paddle' THEN CONCAT('$', FORMAT(amount, 0, 'en_US'))
+					ELSE CONCAT('Rp ', FORMAT(amount, 0, 'id_ID'))
+				END as amount,
 				status,
 				COALESCE(payment_method, '-') as payment_method,
 				reference,
@@ -187,5 +190,93 @@ func ExportInvoicesCSV(db *sqlx.DB) gin.HandlerFunc {
 				v.Reference,
 			})
 		}
+	}
+}
+
+// GetSubscriptionComparison returns the comparison matrix for subscriptions
+func GetSubscriptionComparison() gin.HandlerFunc {
+	type FeatureRow struct {
+		FeatureKey  string      `json:"feature_key"`
+		FeatureName string      `json:"feature_name"`
+		Free        interface{} `json:"free"`
+		Standar     interface{} `json:"standar"`
+		Elite       interface{} `json:"elite"`
+	}
+
+	comparisonData := []FeatureRow{
+		{
+			FeatureKey:  "events_categories",
+			FeatureName: "Turnamen & Kategori",
+			Free:        "1 Event",
+			Standar:     "5 Event",
+			Elite:       "unlimited",
+		},
+		{
+			FeatureKey:  "online_reg",
+			FeatureName: "Pendaftaran Peserta Online",
+			Free:        "manual",
+			Standar:     "auto_local",
+			Elite:       "auto_global",
+		},
+		{
+			FeatureKey:  "participants_limit",
+			FeatureName: "Batas Peserta per Event",
+			Free:        "10 / Event",
+			Standar:     "50 / Event",
+			Elite:       "unlimited",
+		},
+		{
+			FeatureKey:  "referees_limit",
+			FeatureName: "Wasit & Pencatat Skor",
+			Free:        "referee_1",
+			Standar:     "referee_5",
+			Elite:       "unlimited",
+		},
+		{
+			FeatureKey:  "scoring_methods",
+			FeatureName: "Sistem Scoring Turnamen",
+			Free:        "scoring_basic",
+			Standar:     "scoring_elimination",
+			Elite:       "scoring_full",
+		},
+		{
+			FeatureKey:  "elimination_finals",
+			FeatureName: "Babak Eliminasi Match Finals",
+			Free:        false,
+			Standar:     false,
+			Elite:       true,
+		},
+		{
+			FeatureKey:  "team_club_mgmt",
+			FeatureName: "Manajemen Tim & Klub",
+			Free:        false,
+			Standar:     "standard_team",
+			Elite:       "mixed_teams",
+		},
+		{
+			FeatureKey:  "news_publishing",
+			FeatureName: "Berita & Pengumuman",
+			Free:        false,
+			Standar:     true,
+			Elite:       true,
+		},
+		{
+			FeatureKey:  "exports_reports",
+			FeatureName: "Laporan & Hasil Turnamen",
+			Free:        "export_basic",
+			Standar:     "export_standard",
+			Elite:       "export_elite",
+		},
+		{
+			FeatureKey:  "media_storage",
+			FeatureName: "Penyimpanan Media",
+			Free:        "250 MB",
+			Standar:     "1 GB",
+			Elite:       "5 GB",
+		},
+	}
+
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, comparisonData)
 	}
 }
