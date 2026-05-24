@@ -203,7 +203,7 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN event_categories te ON ep.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
-			LEFT JOIN ref_categories c ON te.category_uuid = c.uuid
+			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
