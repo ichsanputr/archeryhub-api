@@ -1011,55 +1011,21 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
-		// Check if it's a slug or UUID, get event organizer_id
-		var organizerID string
-		err := db.Get(&organizerID, "SELECT organizer_id FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		// Check if it's a slug or UUID, get event organizer_id and page_settings
+		var event struct {
+			OrganizerID  string  `db:"organizer_id"`
+			PageSettings *string `db:"page_settings"`
+		}
+		err := db.Get(&event, "SELECT organizer_id, page_settings FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
+		organizerID := event.OrganizerID
 
-		// Try to load payment methods from organization page_settings
-		var pageSettingsStr *string
-		err = db.Get(&pageSettingsStr, "SELECT page_settings FROM organizations WHERE uuid = ?", organizerID)
-
-		var methods []EventPaymentMethod
-		if err == nil && pageSettingsStr != nil && *pageSettingsStr != "" {
-			var pageSettings struct {
-				PaymentMethods []struct {
-					UUID          string  `json:"uuid"`
-					BankName      string  `json:"bank_name"`
-					CustomName    string  `json:"custom_name"`
-					AccountName   *string `json:"account_name"`
-					AccountNumber *string `json:"account_number"`
-					Type          string  `json:"type"`
-					Instructions  *string `json:"instructions"`
-				} `json:"payment_methods"`
-			}
-			if errJson := json.Unmarshal([]byte(*pageSettingsStr), &pageSettings); errJson == nil && len(pageSettings.PaymentMethods) > 0 {
-				for _, pm := range pageSettings.PaymentMethods {
-					paymentMethod := pm.BankName
-					if pm.BankName == "Custom" && pm.CustomName != "" {
-						paymentMethod = pm.CustomName
-					}
-					methods = append(methods, EventPaymentMethod{
-						UUID:          pm.UUID,
-						EventID:       organizerID,
-						PaymentMethod: paymentMethod,
-						AccountName:   pm.AccountName,
-						AccountNumber: pm.AccountNumber,
-						Instructions:  pm.Instructions,
-						IsActive:      true,
-						DisplayOrder:  0,
-					})
-				}
-				c.JSON(http.StatusOK, gin.H{"data": methods})
-				return
-			}
-		}
-
-		// Fallback to verified/active bank accounts if organization hasn't configured custom payment methods
-		err = db.Select(&methods, `
+		// Fetch all active bank accounts for this organizer
+		var bankAccounts []EventPaymentMethod
+		err = db.Select(&bankAccounts, `
 			SELECT uuid, user_id as event_id, 
 			       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 			       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
@@ -1073,9 +1039,9 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if len(methods) == 0 {
+		if len(bankAccounts) == 0 {
 			// If no active bank accounts, fetch all bank accounts (fallback/for testing)
-			err = db.Select(&methods, `
+			_ = db.Select(&bankAccounts, `
 				SELECT uuid, user_id as event_id, 
 				       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 				       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
@@ -1085,11 +1051,39 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			`, organizerID)
 		}
 
-		if methods == nil {
-			methods = []EventPaymentMethod{}
+		// Filter payment methods based on event page_settings selection if present
+		if event.PageSettings != nil && *event.PageSettings != "" {
+			var pageSettings struct {
+				PaymentMethods []string `json:"payment_methods"`
+			}
+			if errJson := json.Unmarshal([]byte(*event.PageSettings), &pageSettings); errJson == nil {
+				// If payment_methods array is defined, we filter the active bank accounts.
+				// If not present, we return all active bank accounts for backward compatibility.
+				if pageSettings.PaymentMethods != nil {
+					enabledMap := make(map[string]bool)
+					for _, uuid := range pageSettings.PaymentMethods {
+						enabledMap[uuid] = true
+					}
+					var enabledMethods []EventPaymentMethod
+					for _, ba := range bankAccounts {
+						if enabledMap[ba.UUID] {
+							enabledMethods = append(enabledMethods, ba)
+						}
+					}
+					if enabledMethods == nil {
+						enabledMethods = []EventPaymentMethod{}
+					}
+					c.JSON(http.StatusOK, gin.H{"data": enabledMethods})
+					return
+				}
+			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"data": methods})
+		if bankAccounts == nil {
+			bankAccounts = []EventPaymentMethod{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": bankAccounts})
 	}
 }
 

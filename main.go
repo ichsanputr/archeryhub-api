@@ -145,8 +145,10 @@ func main() {
 			"https://archeris.net",
 			"http://localhost:9000",
 			"http://localhost:3003",
+			"http://localhost:3000",
 			"http://127.0.0.1:9000",
 			"http://127.0.0.1:3003",
+			"http://127.0.0.1:3000",
 		}
 
 		isAllowed := false
@@ -526,7 +528,7 @@ func main() {
 			payment.POST("/paddle/callback", handler.PaddleWebhookCallback(db))
 			payment.GET("/simulate-success/:reference", handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
-			
+
 			// Manual payment routes
 			payment.POST("/manual/create", middleware.AuthMiddleware(), handler.CreateManualPayment(db))
 			payment.POST("/manual/:reference/upload-proof", middleware.AuthMiddleware(), handler.UploadPaymentProof(db))
