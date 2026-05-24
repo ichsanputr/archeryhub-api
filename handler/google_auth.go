@@ -375,10 +375,16 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			var insertErr error
 			switch userType {
 			case "organization":
+				currency := metadata["currency"]
+				if currency == "" {
+					currency = "IDR"
+				}
+				pageSettingsJSON := fmt.Sprintf(`{"currency": "%s"}`, currency)
+
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], userInfo.Picture)
+					INSERT INTO organizations (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, ?, NOW(), NOW())
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], userInfo.Picture, pageSettingsJSON)
 			case "club":
 				_, insertErr = db.Exec(`
 					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, status, created_at, updated_at)

@@ -868,16 +868,17 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			type GroupedParticipant struct {
-				ArcherID      string        `db:"archer_id" json:"archer_id"`
-				AthleteCode   string        `db:"athlete_code" json:"athlete_code"`
-				FullName      string        `db:"full_name" json:"full_name"`
-				Email         string        `db:"email" json:"email"`
-				AvatarURL     *string       `db:"avatar_url" json:"avatar_url"`
-				ClubName      *string       `db:"club_name" json:"club_name"`
-				City          *string       `db:"city" json:"city"`
-				PaymentStatus string        `db:"payment_status" json:"payment_status"`
-				Categories    string        `db:"categories" json:"-"`
-				CategoryList  []interface{} `json:"categories"`
+				ArcherID             string        `db:"archer_id" json:"archer_id"`
+				AthleteCode          string        `db:"athlete_code" json:"athlete_code"`
+				FullName             string        `db:"full_name" json:"full_name"`
+				Email                string        `db:"email" json:"email"`
+				AvatarURL            *string       `db:"avatar_url" json:"avatar_url"`
+				ClubName             *string       `db:"club_name" json:"club_name"`
+				City                 *string       `db:"city" json:"city"`
+				PaymentStatus        string        `db:"payment_status" json:"payment_status"`
+				LastReregistrationAt *string       `db:"last_reregistration_at" json:"last_reregistration_at"`
+				Categories           string        `db:"categories" json:"-"`
+				CategoryList         []interface{} `json:"categories"`
 			}
 
 			var participants []GroupedParticipant
@@ -891,6 +892,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(cl.name, '') as club_name,
 					a.city as city,
 					MAX(tp.payment_status) as payment_status,
+					MAX(tp.last_reregistration_at) as last_reregistration_at,
 					JSON_ARRAYAGG(JSON_OBJECT(
 						'participant_id', tp.uuid,
 						'category_id', tp.category_id,
@@ -2308,6 +2310,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			PaymentProofURLs    *[]string `json:"payment_proof_urls"`
 			AccreditationStatus *string   `json:"accreditation_status"`
 			IsVerified          *bool     `json:"is_verified"`
+			Reregistered        *bool     `json:"reregistered"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -2481,6 +2484,13 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if req.AccreditationStatus != nil {
 			query += ", accreditation_status = ?"
 			args = append(args, *req.AccreditationStatus)
+		}
+		if req.Reregistered != nil {
+			if *req.Reregistered {
+				query += ", last_reregistration_at = NOW()"
+			} else {
+				query += ", last_reregistration_at = NULL"
+			}
 		}
 
 		// Handle IsVerified
@@ -3290,6 +3300,8 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Find participant by qr_raw
 		type ParticipantInfo struct {
 			UUID          string  `db:"uuid"`
+			EventID       string  `db:"event_id"`
+			ArcherID      string  `db:"archer_id"`
 			FullName      string  `db:"full_name"`
 			Email         string  `db:"email"`
 			ClubName      *string `db:"club_name"`
@@ -3303,6 +3315,8 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&participant, `
 			SELECT 
 				ep.uuid,
+				ep.event_id,
+				ep.archer_id,
 				a.full_name,
 				a.email,
 				c.name as club_name,
@@ -3338,12 +3352,12 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update last_reregistration_at
+		// Update last_reregistration_at for all registrations of this archer in this event
 		_, err = db.Exec(`
 			UPDATE event_participants 
 			SET last_reregistration_at = NOW()
-			WHERE uuid = ?
-		`, participant.UUID)
+			WHERE event_id = ? AND archer_id = ?
+		`, participant.EventID, participant.ArcherID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui pendaftaran", "details": err.Error()})
