@@ -245,6 +245,7 @@ func main() {
 			auth.POST("/login", handler.Login(db))
 			auth.POST("/logout", handler.Logout())
 			auth.GET("/check-name", handler.CheckNameExists(db))
+			auth.GET("/check-username", handler.CheckUsernameExists(db))
 
 			// Google OAuth
 			auth.GET("/google", middleware.OptionalAuthMiddleware(), handler.InitiateGoogleAuth(db))

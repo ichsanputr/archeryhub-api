@@ -21,13 +21,17 @@ type Archer struct {
 	BowType         *string    `json:"bow_type" db:"bow_type"`
 	Country         *string    `json:"country" db:"country"`
 	City            *string    `json:"city" db:"city"`
-	School          *string    `json:"school" db:"school"`
 	ClubID          *string    `json:"club_id" db:"club_id"`
 	SocialInstagram *string    `json:"social_instagram" db:"social_instagram"`
 	SocialTiktok    *string    `json:"social_tiktok" db:"social_tiktok"`
 	SocialWhatsapp  *string    `json:"social_whatsapp" db:"social_whatsapp"`
 	SocialFacebook  *string    `json:"social_facebook" db:"social_facebook"`
 	SocialTwitter   *string    `json:"social_twitter" db:"social_twitter"`
+	SocialYoutube   *string    `json:"social_youtube" db:"social_youtube"`
+	SocialSpotify   *string    `json:"social_spotify" db:"social_spotify"`
+	SocialWebsite   *string    `json:"social_website" db:"social_website"`
+	SocialPinterest *string    `json:"social_pinterest" db:"social_pinterest"`
+	SocialLinkedin  *string    `json:"social_linkedin" db:"social_linkedin"`
 	Achievements    *string    `json:"achievements" db:"achievements"`
 	Equipment       *string    `json:"equipment" db:"equipment"`
 	PageSettings    *string    `json:"page_settings" db:"page_settings"`
@@ -59,7 +63,6 @@ type CreateArcherRequest struct {
 	BowType     *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country     *string       `json:"country"`
 	City        *string       `json:"city"`
-	School      *string       `json:"school"`
 	ClubID      *string       `json:"club_id"`
 
 	AvatarURL *string `json:"avatar_url"`
@@ -76,7 +79,6 @@ type UpdateArcherRequest struct {
 	BowType         *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country         *string       `json:"country"`
 	City            *string       `json:"city"`
-	School          *string       `json:"school"`
 	ClubID          *string       `json:"club_id"`
 	Email           *string       `json:"email" binding:"omitempty,email"`
 	Phone           *string       `json:"phone"`
@@ -89,6 +91,11 @@ type UpdateArcherRequest struct {
 	SocialWhatsapp  *string       `json:"social_whatsapp"`
 	SocialFacebook  *string       `json:"social_facebook"`
 	SocialTwitter   *string       `json:"social_twitter"`
+	SocialYoutube   *string       `json:"social_youtube"`
+	SocialSpotify   *string       `json:"social_spotify"`
+	SocialWebsite   *string       `json:"social_website"`
+	SocialPinterest *string       `json:"social_pinterest"`
+	SocialLinkedin  *string       `json:"social_linkedin"`
 	Achievements    *string       `json:"achievements"`
 	Equipment       *string       `json:"equipment"`
 	PageSettings    *string       `json:"page_settings"`

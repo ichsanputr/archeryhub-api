@@ -413,10 +413,32 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				}
 				username := cleaned.String() + "-" + userID[:8]
 
+				// Handle club logic for google register
+				clubID := metadata["club_id"]
+				if metadata["new_club_name"] != "" {
+					newClubUUID := uuid.New().String()
+					clubSlug := utils.CleanUsername(metadata["new_club_name"])
+					if clubSlug == "" {
+						clubSlug = "club-" + newClubUUID[:8]
+					}
+					dummyEmail := "club-" + newClubUUID[:8] + "@archeris.net"
+					dummyPassword := "club-secret-123!"
+
+					_, insertErr = db.Exec(`
+						INSERT INTO clubs (uuid, user_id, slug, email, password, name, abbreviation, status, created_at, updated_at)
+						VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+					`, newClubUUID, newClubUUID, clubSlug, dummyEmail, dummyPassword, metadata["new_club_name"], metadata["new_club_acronym"])
+					if insertErr != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub baru: " + insertErr.Error()})
+						return
+					}
+					clubID = newClubUUID
+				}
+
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, city, school, bow_type, status, created_at, updated_at)
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, city, bow_type, club_id, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture, metadata["gender"], metadata["date_of_birth"], metadata["city"], metadata["school"], metadata["bow_type"])
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture, metadata["gender"], metadata["date_of_birth"], metadata["city"], metadata["bow_type"], clubID)
 			}
 
 			if insertErr != nil {

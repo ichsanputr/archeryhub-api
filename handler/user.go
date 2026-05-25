@@ -100,7 +100,7 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				"city":         nil,
 				"address":      nil,
 				"bio":          "Pusat Administrasi Sistem Archeris.id",
-				"school":       nil,
+				"country":      nil,
 			})
 			return
 		}
@@ -131,10 +131,15 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			City            *string `json:"city" db:"city"`
 			Address         *string `json:"address" db:"address"`
 			Bio             *string `json:"bio" db:"bio"`
-			School          *string `json:"school" db:"school"`
+			Country         *string `json:"country" db:"country"`
 			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
 			SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
 			SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
+			SocialYoutube   *string `json:"social_youtube" db:"social_youtube"`
+			SocialSpotify   *string `json:"social_spotify" db:"social_spotify"`
+			SocialWebsite   *string `json:"social_website" db:"social_website"`
+			SocialPinterest *string `json:"social_pinterest" db:"social_pinterest"`
+			SocialLinkedin  *string `json:"social_linkedin" db:"social_linkedin"`
 		}
 
 		nameField = nameField // Already set above
@@ -143,16 +148,19 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if userType == "archer" {
 			selectFields = `uuid, email, full_name, username, 'archer' as user_type, avatar_url, NULL as logo_url,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
-				google_id, club_id, phone, city, address, bio, school, social_instagram, social_tiktok, social_whatsapp`
+				google_id, club_id, phone, city, address, bio, country, social_instagram, social_tiktok, social_whatsapp,
+				social_youtube, social_spotify, social_website, social_pinterest, social_linkedin`
 		} else if userType == "organization" {
 			selectFields = `uuid, email, name as full_name, slug as username, 'organization' as user_type, avatar_url, avatar_url as logo_url,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
-				google_id, NULL as club_id, whatsapp_no as phone, city, address, description as bio, NULL as school, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp`
+				google_id, NULL as club_id, whatsapp_no as phone, city, address, description as bio, country, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp,
+				NULL as social_youtube, NULL as social_spotify, NULL as social_website, NULL as social_pinterest, NULL as social_linkedin`
 		} else {
 			// seller
 			selectFields = `uuid, email, store_name as full_name, slug as username, 'seller' as user_type, avatar_url, NULL as logo_url,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
-				google_id, NULL as club_id, phone, city, address, description as bio, NULL as school, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp`
+				google_id, NULL as club_id, phone, city, address, description as bio, NULL as country, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp,
+				NULL as social_youtube, NULL as social_spotify, NULL as social_website, NULL as social_pinterest, NULL as social_linkedin`
 		}
 
 		query := `SELECT ` + selectFields + ` FROM ` + table + ` WHERE uuid = ?`
@@ -292,6 +300,43 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.Username != nil {
 			un := utils.CleanUsername(*req.Username)
 			if un != "" {
+				// check if username is taken in archers, organizations, or sellers
+				// excluding the current user UUID
+				var exists bool
+				
+				// Check in archers
+				err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE username = ? AND uuid != ?)", un, userID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database: " + err.Error()})
+					return
+				}
+				if exists {
+					c.JSON(http.StatusConflict, gin.H{"error": "Username sudah digunakan oleh pemanah lain"})
+					return
+				}
+
+				// Check in organizations
+				err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)", un, userID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database: " + err.Error()})
+					return
+				}
+				if exists {
+					c.JSON(http.StatusConflict, gin.H{"error": "Username sudah digunakan oleh organisasi lain"})
+					return
+				}
+
+				// Check in sellers
+				err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM sellers WHERE slug = ? AND uuid != ?)", un, userID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database: " + err.Error()})
+					return
+				}
+				if exists {
+					c.JSON(http.StatusConflict, gin.H{"error": "Username sudah digunakan oleh toko lain"})
+					return
+				}
+
 				field := "username"
 				if userType == "organization" || userType == "seller" {
 					field = "slug"
@@ -328,9 +373,9 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", city = ?"
 			args = append(args, *req.City)
 		}
-		if req.School != nil {
-			query += ", school = ?"
-			args = append(args, *req.School)
+		if req.Country != nil {
+			query += ", country = ?"
+			args = append(args, *req.Country)
 		}
 		if req.SocialInstagram != nil {
 			query += ", social_instagram = ?"

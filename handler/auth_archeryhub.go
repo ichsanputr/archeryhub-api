@@ -38,20 +38,22 @@ func setAuthCookie(c *gin.Context, token string, maxAge int) {
 }
 
 type RegisterRequest struct {
-	Username    string `json:"username" binding:"required"`
-	Email       string `json:"email" binding:"required,email"`
-	Password    string `json:"password" binding:"required,min=6"`
-	FullName    string `json:"full_name"`
-	Phone       string `json:"phone"`
-	UserType    string `json:"user_type" binding:"required"` // archer, organization, seller
-	Gender      string `json:"gender"`
-	DateOfBirth string `json:"date_of_birth"`
-	City        string `json:"city"`
-	School      string `json:"school"`
-	BowType     string `json:"bow_type"`
-	Acronym     string `json:"acronym"`
-	Address     string `json:"address"`
-	WhatsAppNo  string `json:"whatsapp_no"`
+	Username       string `json:"username" binding:"required"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required,min=6"`
+	FullName       string `json:"full_name"`
+	Phone          string `json:"phone"`
+	UserType       string `json:"user_type" binding:"required"` // archer, organization, seller
+	Gender         string `json:"gender"`
+	DateOfBirth    string `json:"date_of_birth"`
+	City           string `json:"city"`
+	BowType        string `json:"bow_type"`
+	Acronym        string `json:"acronym"`
+	Address        string `json:"address"`
+	WhatsAppNo     string `json:"whatsapp_no"`
+	ClubID         string `json:"club_id"`
+	NewClubName    string `json:"new_club_name"`
+	NewClubAcronym string `json:"new_club_acronym"`
 }
 
 type LoginRequest struct {
@@ -209,11 +211,33 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 				username = username + "-" + userID[:8]
 
+				// Handle club logic
+				clubID := req.ClubID
+				if req.NewClubName != "" {
+					newClubUUID := uuid.New().String()
+					clubSlug := utils.CleanUsername(req.NewClubName)
+					if clubSlug == "" {
+						clubSlug = "club-" + newClubUUID[:8]
+					}
+					dummyEmail := "club-" + newClubUUID[:8] + "@archeris.net"
+					dummyPassword := "club-secret-123!"
+
+					_, err = db.Exec(`
+						INSERT INTO clubs (uuid, user_id, slug, email, password, name, abbreviation, status, created_at, updated_at)
+						VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+					`, newClubUUID, newClubUUID, clubSlug, dummyEmail, dummyPassword, req.NewClubName, req.NewClubAcronym)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub baru: " + err.Error()})
+						return
+					}
+					clubID = newClubUUID
+				}
+
 				insertQuery := `
-					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, city, school, bow_type)
+					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, city, bow_type, club_id)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
 				`
-				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.City, req.School, req.BowType)
+				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.City, req.BowType, clubID)
 			}
 		}
 
@@ -295,6 +319,95 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"exists": exists})
+	}
+}
+
+// CheckUsernameExists checks if a username/slug is already taken
+func CheckUsernameExists(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := c.Query("username")
+		excludeUUID := c.Query("exclude_uuid")
+
+		if username == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Username is required"})
+			return
+		}
+
+		username = utils.CleanUsername(username)
+		if username == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Username is invalid"})
+			return
+		}
+
+		// check archers, organizations, sellers, clubs
+		var exists bool
+		var query string
+		var err error
+
+		// 1. Check archers
+		if excludeUUID != "" {
+			query = "SELECT EXISTS(SELECT 1 FROM archers WHERE username = ? AND uuid != ?)"
+			err = db.Get(&exists, query, username, excludeUUID)
+		} else {
+			query = "SELECT EXISTS(SELECT 1 FROM archers WHERE username = ?)"
+			err = db.Get(&exists, query, username)
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+			return
+		}
+		if exists {
+			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "archer"})
+			return
+		}
+
+		// 2. Check organizations
+		if excludeUUID != "" {
+			query = "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)"
+			err = db.Get(&exists, query, username, excludeUUID)
+		} else {
+			query = "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ?)"
+			err = db.Get(&exists, query, username)
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+			return
+		}
+		if exists {
+			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "organization"})
+			return
+		}
+
+		// 3. Check sellers
+		if excludeUUID != "" {
+			query = "SELECT EXISTS(SELECT 1 FROM sellers WHERE slug = ? AND uuid != ?)"
+			err = db.Get(&exists, query, username, excludeUUID)
+		} else {
+			query = "SELECT EXISTS(SELECT 1 FROM sellers WHERE slug = ?)"
+			err = db.Get(&exists, query, username)
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+			return
+		}
+		if exists {
+			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "seller"})
+			return
+		}
+
+		// 4. Check clubs
+		query = "SELECT EXISTS(SELECT 1 FROM clubs WHERE slug = ?)"
+		err = db.Get(&exists, query, username)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
+			return
+		}
+		if exists {
+			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "club"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"exists": false})
 	}
 }
 

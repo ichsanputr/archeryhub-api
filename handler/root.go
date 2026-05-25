@@ -476,9 +476,9 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 		switch req.UserType {
 		case "club":
 			_, err = db.Exec(`
-				INSERT INTO clubs (uuid, user_id, slug, email, password, name, status)
-				VALUES (?, ?, ?, ?, ?, ?, 'active')
-			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name)
+				INSERT INTO clubs (uuid, user_id, slug, email, password, name, abbreviation, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, req.Acronym)
 		case "organization":
 			whatsApp := req.WhatsAppNo
 			if whatsApp == "" {
