@@ -485,6 +485,13 @@ func main() {
 			blog.POST("/:slug/views", handler.IncrementBlogArticleViews(db))
 		}
 
+		// Docs routes
+		docs := api.Group("/docs")
+		{
+			docs.GET("/:slug/comments", handler.ListDocsComments(db))
+			docs.POST("/:slug/comments", middleware.OptionalAuthMiddleware(), handler.AddDocsComment(db))
+		}
+
 		// Team Management
 		teams := api.Group("/teams")
 		{

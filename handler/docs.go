@@ -1,0 +1,105 @@
+package handler
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+)
+
+type DocsComment struct {
+	UUID      string  `db:"uuid" json:"id"`
+	DocSlug   string  `db:"doc_slug" json:"doc_slug"`
+	UserID    *string `db:"user_id" json:"user_id,omitempty"`
+	UserType  string  `db:"user_type" json:"user_type"`
+	UserName  string  `db:"user_name" json:"user_name"`
+	GuestName *string `db:"guest_name" json:"guest_name,omitempty"`
+	Content   string  `db:"content" json:"content"`
+	Status    string  `db:"status" json:"status"`
+	CreatedAt string  `db:"created_at" json:"created_at"`
+}
+
+// ListDocsComments returns all approved comments for a specific docs article slug
+func ListDocsComments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Param("slug")
+
+		var comments []DocsComment
+		query := `
+			SELECT c.uuid, c.doc_slug, c.user_id, c.user_type, c.guest_name, c.content, c.created_at,
+				CASE 
+					WHEN c.user_type = 'archer' THEN (SELECT full_name FROM archers WHERE uuid = c.user_id)
+					WHEN c.user_type = 'organization' THEN (SELECT name FROM organizations WHERE uuid = c.user_id)
+					WHEN c.user_type = 'seller' THEN (SELECT store_name FROM sellers WHERE uuid = c.user_id)
+					ELSE c.guest_name
+				END as user_name
+			FROM docs_comments c
+			WHERE c.doc_slug = ? AND c.status = 'approved'
+			ORDER BY c.created_at DESC
+		`
+		err := db.Select(&comments, query, slug)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments", "details": err.Error()})
+			return
+		}
+
+		if comments == nil {
+			comments = []DocsComment{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"comments": comments,
+			"count":    len(comments),
+		})
+	}
+}
+
+// AddDocsComment adds a new comment to a docs article slug
+func AddDocsComment(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Param("slug")
+		
+		var req struct {
+			GuestName string `json:"guest_name"`
+			Content   string `json:"content" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment data"})
+			return
+		}
+
+		userIDInterface, exists := c.Get("user_id")
+		userTypeInterface, _ := c.Get("user_type")
+
+		var userID *string
+		userType := "guest"
+		guestName := &req.GuestName
+
+		if exists && userIDInterface != nil {
+			uid := userIDInterface.(string)
+			userID = &uid
+			userType = userTypeInterface.(string)
+			guestName = nil
+		} else {
+			if req.GuestName == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required for guest comments"})
+				return
+			}
+		}
+
+		commentUUID := uuid.New().String()
+		_, err := db.Exec(`
+			INSERT INTO docs_comments (uuid, doc_slug, user_id, user_type, guest_name, content, status)
+			VALUES (?, ?, ?, ?, ?, ?, 'approved')
+		`, commentUUID, slug, userID, userType, guestName, req.Content)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save comment", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"message": "Comment successfully added", "id": commentUUID})
+	}
+}
