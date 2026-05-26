@@ -2047,9 +2047,9 @@ func UploadPaymentProof(db *sqlx.DB) gin.HandlerFunc {
 		now := time.Now()
 		_, err = db.Exec(`
 			UPDATE payment_transactions 
-			SET proof_url = ?, proof_uploaded_at = ?, status = 'awaiting_verification', rejection_reason = NULL, updated_at = ?
+			SET proof_url = ?, proof_uploaded_at = ?, sender_name = ?, status = 'awaiting_verification', rejection_reason = NULL, updated_at = ?
 			WHERE uuid = ?
-		`, req.ProofURL, now, now, transaction.UUID)
+		`, req.ProofURL, now, req.SenderName, now, transaction.UUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan bukti pembayaran: " + err.Error()})
@@ -2301,13 +2301,14 @@ func GetPendingManualPayments(db *sqlx.DB) gin.HandlerFunc {
 			EventName       *string    `json:"event_name" db:"event_name"`
 			ArcherName      *string    `json:"archer_name" db:"archer_name"`
 			ArcherEmail     *string    `json:"archer_email" db:"archer_email"`
+			SenderName      *string    `json:"sender_name" db:"sender_name"`
 		}
 
 		var payments []PendingPayment
 		query := `
 			SELECT 
 				pt.uuid, pt.reference, pt.amount, pt.proof_url, pt.proof_uploaded_at,
-				pt.status, pt.created_at, e.name as event_name,
+				pt.status, pt.created_at, pt.sender_name, e.name as event_name,
 				a.full_name as archer_name, a.email as archer_email
 			FROM payment_transactions pt
 			LEFT JOIN events e ON pt.event_id = e.uuid

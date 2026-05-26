@@ -340,11 +340,12 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 			PaidAt        *string `db:"paid_at" json:"paid_at"`
 			EventName     string  `db:"event_name" json:"event_name"`
 			UserName      *string `db:"user_name" json:"user_name"`
+			SenderName    *string `db:"sender_name" json:"sender_name"`
 		}
 		var recent []transactionitem
 		_ = db.Select(&recent, fmt.Sprintf(`
 			SELECT pt.uuid, pt.reference, pt.amount, pt.payment_method, pt.status, pt.created_at, pt.paid_at,
-				   e.name as event_name, u.full_name as user_name
+				   pt.sender_name, e.name as event_name, u.full_name as user_name
 			FROM payment_transactions pt
 			JOIN events e ON pt.event_id = e.uuid
 			LEFT JOIN users u ON pt.user_id = u.uuid

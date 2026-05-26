@@ -59,6 +59,7 @@ type PaymentTransaction struct {
 	PaidAt           *time.Time      `json:"paid_at" db:"paid_at"`
 	ExpiredAt        time.Time       `json:"expired_at" db:"expired_at"`
 	CallbackData     *json.RawMessage `json:"callback_data" db:"callback_data" swaggertype:"object"`
+	SenderName       *string         `json:"sender_name" db:"sender_name"` // Sender bank account name (Atas Nama)
 	CreatedAt        time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at" db:"updated_at"`
 }
@@ -75,7 +76,8 @@ type CreatePaymentRequest struct {
 
 // UploadPaymentProofRequest represents the request to upload payment proof
 type UploadPaymentProofRequest struct {
-	ProofURL string `json:"proof_url" binding:"required"` // URL of uploaded proof image
+	ProofURL   string `json:"proof_url" binding:"required"` // URL of uploaded proof image
+	SenderName string `json:"sender_name"`                  // Sender bank account name (Atas Nama)
 }
 
 // VerifyManualPaymentRequest represents the request to verify/reject manual payment

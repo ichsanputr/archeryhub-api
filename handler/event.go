@@ -71,21 +71,22 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.slug as organizer_slug,
 				u.avatar_url as organizer_avatar_url,
 				u.phone as organizer_phone,
+				u.country as organizer_country,
 				COUNT(DISTINCT tp2.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
 				tp.payment_status,
 				tp.uuid as participant_uuid
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
 			` + whereClause + `
-			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url
+			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.country
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
@@ -103,18 +104,19 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.slug as organizer_slug,
 				u.avatar_url as organizer_avatar_url,
 				u.phone as organizer_phone,
+				u.country as organizer_country,
 				COUNT(DISTINCT tp.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
 			` + whereClause + `
-			GROUP BY t.uuid, u.full_name, u.email, u.slug, u.avatar_url
+			GROUP BY t.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.country
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
@@ -171,15 +173,16 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				u.avatar_url as organizer_avatar_url,
 				u.slug as organizer_slug,
 				u.phone as organizer_phone,
+				u.country as organizer_country,
 				COALESCE(participant_stats.participant_count, 0) as participant_count,
 				COALESCE(category_stats.event_count, 0) as event_count,
 				COALESCE(target_stats.target_count, 0) as target_count,
 				COALESCE(active_target_stats.active_target_count, 0) as active_target_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone FROM organizations
+				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone, country FROM organizations
 				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, phone FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(DISTINCT archer_id) as participant_count
