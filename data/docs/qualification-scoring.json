@@ -1,5 +1,5 @@
 {
-  "slug": "sistem-scoring-kualifikasi",
+  "slug": "qualification-scoring",
   "icon": "ph:chart-bar-bold",
   "category": "scoring",
   "readTime": "7 min",
@@ -34,38 +34,6 @@
       }
     ],
     "content": "\n                    <h2 id=\"qualification-session\">Qualification Session</h2>\n                    <p>The committee can hold one or more qualifying sessions in one event. Each session can have a different configuration of the number of ends and the number of arrows per end.</p>\n                    <img src=\"/docs/create-new-qualification-session.png\" alt=\"New Qualification-Session\" />\n                    <h2 id=\"pad-placement\">Pad Placement</h2>\n                    <p>Assignment of participants to pads can be done manually or using <strong>Auto-Assign</strong> for more even distribution.</p>\n                    <h2 id=\"input-score\">Input Score</h2>\n                    <p>Scores are input via mobile scoring or web dashboard. The value per arrow (including X/M if used) is automatically calculated into totals, hits, and tie-break indicators.</p>\n                    <h2 id=\"validate-score\">Validate Score</h2>\n                    <ul>\n                        <li>Make sure the number of arrows is filled according to the end configuration.</li>\n                        <li>Verify there are no duplicate/missed marks before submitting.</li>\n                        <li>Make corrections only by authorized personnel to ensure a consistent audit trail.</li>\n                    </ul>\n                    <h2 id=\"leaderboard\">Leaderboard</h2>\n                    <p>Leaderboard updates automatically in real-time. The ranking order follows the total score rules, then the tie-break indicator according to the competition format.</p>\n"
-  },
-  "id": {
-    "title": "Sistem Scoring Kualifikasi",
-    "excerpt": "Panduan operasional scoring kualifikasi dari setup sesi hingga validasi leaderboard.",
-    "toc": [
-      {
-        "id": "sesi-kualifikasi",
-        "level": 2,
-        "text": "Sesi Kualifikasi"
-      },
-      {
-        "id": "penempatan-bantalan",
-        "level": 2,
-        "text": "Penempatan Bantalan"
-      },
-      {
-        "id": "input-skor",
-        "level": 2,
-        "text": "Input Skor"
-      },
-      {
-        "id": "validasi-skor",
-        "level": 2,
-        "text": "Validasi Skor"
-      },
-      {
-        "id": "leaderboard",
-        "level": 2,
-        "text": "Leaderboard"
-      }
-    ],
-    "content": "\n                    <h2 id=\"sesi-kualifikasi\">Sesi Kualifikasi</h2>\n                    <p>Panitia dapat membuat satu atau lebih sesi kualifikasi dalam satu event. Tiap sesi dapat memiliki konfigurasi jumlah end dan jumlah anak panah per end yang berbeda.</p>\n                    <img src=\"/docs/membuat-sesi-kualifikasi-baru.png\" alt=\"Sesi Kualifikasi Baru\" />\n                    <h2 id=\"penempatan-bantalan\">Penempatan Bantalan</h2>\n                    <p>Penempatan peserta ke bantalan dapat dilakukan manual atau memakai <strong>Auto-Assign</strong> untuk distribusi yang lebih merata.</p>\n                    <h2 id=\"input-skor\">Input Skor</h2>\n                    <p>Skor diinput melalui mobile scoring atau dashboard web. Nilai per panah (termasuk X/M jika digunakan) dihitung otomatis menjadi total, hit, dan indikator tie-break.</p>\n                    <h2 id=\"validasi-skor\">Validasi Skor</h2>\n                    <ul>\n                        <li>Pastikan jumlah panah terisi sesuai konfigurasi end.</li>\n                        <li>Verifikasi tidak ada nilai ganda/terlewat sebelum submit.</li>\n                        <li>Lakukan koreksi hanya oleh petugas berwenang agar jejak audit tetap konsisten.</li>\n                    </ul>\n                    <h2 id=\"leaderboard\">Leaderboard</h2>\n                    <p>Leaderboard diperbarui otomatis secara real-time. Urutan ranking mengikuti aturan skor total, lalu indikator tie-break sesuai format kompetisi.</p>\n                "
   },
   "image_url": "doc-sistem-scoring-kualifikasi.jpg"
 }

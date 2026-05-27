@@ -1,5 +1,5 @@
 {
-  "slug": "pendaftaran-peserta",
+  "slug": "participant-registration",
   "icon": "ph:clipboard-text-bold",
   "category": "event",
   "readTime": "5 min",
@@ -24,28 +24,6 @@
       }
     ],
     "content": "\n                    <h2 id=\"individual-list\">Individual List</h2>\n                    <p>Archers can register for the event by selecting the appropriate category, then filling in the registration form provided by the organizing committee.</p>\n                    <h2 id=\"validate-registration\">Validation of Registration Data</h2>\n                    <ul>\n                        <li>Make sure the category is appropriate to the participant's age and type of bow.</li>\n                        <li>Check the participant's identity and contact data again before submitting the registration.</li>\n                        <li>Make sure supporting documents (if requested) have been uploaded correctly.</li>\n                    </ul>\n                    <h2 id=\"payment-status\">Payment Status</h2>\n                    <p>For paid events, registration will be considered valid after payment has been successfully verified by the system or committee. Save your invoice as proof of transaction.</p>\n"
-  },
-  "id": {
-    "title": "Pendaftaran Peserta ke Event",
-    "excerpt": "Panduan pendaftaran individu, validasi data, and status pembayaran peserta.",
-    "toc": [
-      {
-        "id": "daftar-individu",
-        "level": 2,
-        "text": "Daftar Individu"
-      },
-      {
-        "id": "validasi-pendaftaran",
-        "level": 2,
-        "text": "Validasi Data Pendaftaran"
-      },
-      {
-        "id": "status-pembayaran",
-        "level": 2,
-        "text": "Status Pembayaran"
-      }
-    ],
-    "content": "\n                    <h2 id=\"daftar-individu\">Daftar Individu</h2>\n                    <p>Pemanah dapat mendaftar ke event dengan memilih kategori yang sesuai, lalu mengisi formulir pendaftaran yang telah disediakan oleh panitia penyelenggara.</p>\n                    <h2 id=\"validasi-pendaftaran\">Validasi Data Pendaftaran</h2>\n                    <ul>\n                        <li>Pastikan kategori sesuai dengan usia dan jenis busur peserta.</li>\n                        <li>Cek kembali data identitas dan kontak peserta sebelum mengirimkan pendaftaran.</li>\n                        <li>Pastikan dokumen pendukung (jika diminta) telah diunggah dengan benar.</li>\n                    </ul>\n                    <h2 id=\"status-pembayaran\">Status Pembayaran</h2>\n                    <p>Untuk event yang berbayar, pendaftaran akan dianggap sah setelah pembayaran berhasil diverifikasi oleh sistem atau panitia. Simpan invoice Anda sebagai bukti transaksi.</p>\n                "
   },
   "image_url": "doc-pendaftaran-peserta.jpg"
 }

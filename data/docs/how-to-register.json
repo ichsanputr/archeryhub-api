@@ -2,40 +2,33 @@
   "slug": "how-to-register",
   "icon": "ph:user-plus-bold",
   "category": "platform",
-  "readTime": "3 min",
+  "readTime": "4 min",
   "en": {
     "title": "How to Register an Account",
-    "excerpt": "A step-by-step guide to registering a new account on the Archeris platform.",
+    "excerpt": "Step by step guide to register a new account on archeris.net.",
     "toc": [
       {
-        "id": "choose-account-type",
+        "id": "pilih-tipe",
         "level": 2,
-        "text": "Choose Account Type"
+        "text": "Select Account Type"
       },
       {
-        "id": "registration-steps",
+        "id": "daftar-email",
         "level": 2,
-        "text": "Registration Steps"
-      }
-    ],
-    "content": "<h2>1. Choose Account Type</h2><p>Choose between Archer (Athlete), Organization (Committee), or Seller (Vendor) account types depending on your needs.</p><h2>2. Registration Steps</h2><ol><li>Go to the signup page.</li><li>Fill in your credentials.</li><li>Click submit and verify your email.</li></ol>"
-  },
-  "id": {
-    "title": "Cara Mendaftar Akun",
-    "excerpt": "Panduan langkah demi langkah untuk mendaftarkan akun baru di platform Archeris.",
-    "toc": [
-      {
-        "id": "choose-account-type",
-        "level": 2,
-        "text": "Pilih Tipe Akun"
+        "text": "Register via Email"
       },
       {
-        "id": "registration-steps",
+        "id": "daftar-google",
         "level": 2,
-        "text": "Langkah Pendaftaran"
+        "text": "Register via Google"
+      },
+      {
+        "id": "verifikasi",
+        "level": 2,
+        "text": "Verify & Login"
       }
     ],
-    "content": "<h2>1. Pilih Tipe Akun</h2><p>Pilih tipe akun Pemanah (Atlet), Organisasi (Panitia), atau Penjual (Vendor) sesuai kebutuhan Anda.</p><h2>2. Langkah Pendaftaran</h2><ol><li>Buka halaman pendaftaran.</li><li>Isi data diri Anda.</li><li>Klik daftar dan verifikasi email Anda.</ol>"
+    "content": "\n          <h2 id=\"select-type\">Select Account Type</h2>\n          <p>archeris.net provides three main account types that can be selected during registration: <strong>Archer</strong>, <strong>Organization</strong> (Organizer), and <strong>Seller</strong>. Choose the type that suits your role in the archery ecosystem.</p>\n          <h2 id=\"register-email\">Register via Email</h2>\n          <ol>\n            <li>Visit the <a href=\"/auth/register\" class=\"text-primary font-semibold\">Register</a> page.</li>\n            <li>Fill in your full name, email address and strong password.</li>\n            <li>Select account type (Archer / Organization / Seller).</li>\n            <li>Click the <strong>Register Now</strong> button.</li>\n            <li>Check your email inbox and click the verification link.</li>\n          </ol>\n          <h2 id=\"register-google\">Register via Google</h2>\n          <p>You can also register quickly using a Google account. Click the <strong>Register with Google</strong> button on the registration page, and select the Google account you want to use. The platform will automatically fill in your name and email.</p>\n          <h2 id=\"verification\">Verify & Login</h2>\n          <p>After successful verification, you will be immediately directed to the dashboard according to the account type selected. Complete your profile so that information appears correctly on public pages.</p>\n"
   },
-  "image_url": "doc-how-to-register.jpg"
+  "image_url": "doc-cara-daftar.jpg"
 }

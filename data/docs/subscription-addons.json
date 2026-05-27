@@ -1,5 +1,5 @@
 {
-  "slug": "addon-langganan",
+  "slug": "subscription-addons",
   "icon": "ph:plus-circle-bold",
   "category": "subscription",
   "readTime": "5 min",
@@ -24,28 +24,6 @@
       }
     ],
     "content": "<h2 id=\"what-is-an-addon\">What is an Add-on?</h2><p>Add-ons are capacity expansions or additional features on top of the main package.</p><h2 id=\"when-needed\">When are Add-ons Needed?</h2><ul><li>When the number of participants/events exceeds the normal load of the package.</li><li>When special features are needed for a certain competition period.</li><li>When the organization wants to scale-up without switching packages. permanent.</li></ul><h2 id=\"upgrade-strategy\">Gradual Upgrade Strategy</h2><p>Start with the core package, monitor usage, then activate add-ons as they approach operational limits to maintain cost efficiency.</p>"
-  },
-  "id": {
-    "title": "Add-on & Upgrade Paket",
-    "excerpt": "Panduan kapan perlu add-on, contoh kasus penggunaan, dan strategi upgrade bertahap.",
-    "toc": [
-      {
-        "id": "apa-itu-addon",
-        "level": 2,
-        "text": "Apa itu Add-on?"
-      },
-      {
-        "id": "kapan-dibutuhkan",
-        "level": 2,
-        "text": "Kapan Add-on Dibutuhkan?"
-      },
-      {
-        "id": "strategi-upgrade",
-        "level": 2,
-        "text": "Strategi Upgrade Bertahap"
-      }
-    ],
-    "content": "<h2 id=\"apa-itu-addon\">Apa itu Add-on?</h2><p>Add-on adalah perluasan kapasitas atau fitur tambahan di atas paket utama.</p><h2 id=\"kapan-dibutuhkan\">Kapan Add-on Dibutuhkan?</h2><ul><li>Saat jumlah peserta/event melampaui beban normal paket.</li><li>Saat butuh fitur khusus untuk periode kompetisi tertentu.</li><li>Saat organisasi ingin scale-up tanpa pindah paket permanen.</li></ul><h2 id=\"strategi-upgrade\">Strategi Upgrade Bertahap</h2><p>Mulai dari paket inti, monitor pemakaian, lalu aktifkan add-on saat mendekati batas operasional untuk menjaga efisiensi biaya.</p>"
   },
   "image_url": "doc-addon-langganan.jpg"
 }

@@ -1,5 +1,5 @@
 {
-  "slug": "sistem-eliminasi",
+  "slug": "elimination-system",
   "icon": "ph:git-branch-bold",
   "category": "scoring",
   "readTime": "8 min",
@@ -34,38 +34,6 @@
       }
     ],
     "content": "\n          <h2 id=\"bracket\">Create Bracket</h2>\n          <p>After qualifying is complete, the committee creates elimination brackets per category/division. Placement of participants can be done manually or automatically based on ranking.</p>\n          <h2 id=\"generate-auto\">Generate Auto</h2>\n          <p>Generate mode automatically arranges seeding from qualification results. The system generally supports a large 32/16/8/4 format according to the number of qualifying participants.</p>\n          <h2 id=\"score-set\">Score Set System</h2>\n          <p>For recurve elimination, a set system is used: winner of the set gets 2 points, draw 1-1, loser 0. The winner of the match is determined when the set point threshold is reached (generally 6).</p>\n          <h2 id=\"tie-mechanism\">Tie Mechanism</h2>\n          <p>If the match score ends in a draw at the final threshold, the match goes into a tie-break mechanism. In field practice, the tie-break can be a shoot-off / additional end according to the event configuration and regulations.</p>\n          <p>Important principle: the system must record tie-break results explicitly so that the winner bracket is not ambiguous and the scoring history remains audit-friendly.</p>\n          <h2 id=\"additional-end\">Additional End (Additional End)</h2>\n          <p>In a situation where the match result remains a draw after all regular ends have been completed, the dashboard operator can add an <strong>Additional End</strong> as a winner.</p>\n          <p>This feature can be accessed directly via the control button on the Scoring Match screen on the Organization Dashboard. Once additional end values ​​are input, the system will automatically determine the winner and update the bracket chart to the next round without the need for additional manual intervention.</p>\n"
-  },
-  "id": {
-    "title": "Sistem Pertandingan Eliminasi",
-    "excerpt": "Bracket eliminasi, mekanisme tie, dan additional end pada mode scoring pertandingan.",
-    "toc": [
-      {
-        "id": "bracket",
-        "level": 2,
-        "text": "Membuat Bracket"
-      },
-      {
-        "id": "generate-otomatis",
-        "level": 2,
-        "text": "Generate Otomatis"
-      },
-      {
-        "id": "skor-set",
-        "level": 2,
-        "text": "Sistem Skor Set"
-      },
-      {
-        "id": "tie-mechanism",
-        "level": 2,
-        "text": "Mekanisme Tie (Seri)"
-      },
-      {
-        "id": "additional-end",
-        "level": 2,
-        "text": "Additional End di Dashboard"
-      }
-    ],
-    "content": "\n          <h2 id=\"bracket\">Membuat Bracket</h2>\n          <p>Setelah kualifikasi selesai, panitia membuat bracket eliminasi per kategori/divisi. Penempatan peserta dapat dilakukan manual atau otomatis berdasarkan ranking.</p>\n          <h2 id=\"generate-otomatis\">Generate Otomatis</h2>\n          <p>Mode generate otomatis menyusun seeding dari hasil kualifikasi. Sistem umumnya mendukung format 32/16/8/4 besar sesuai jumlah peserta lolos.</p>\n          <h2 id=\"skor-set\">Sistem Skor Set</h2>\n          <p>Untuk recurve eliminasi, set system digunakan: pemenang set mendapat 2 poin, seri 1-1, kalah 0. Pemenang match ditentukan saat mencapai ambang poin set (umumnya 6).</p>\n          <h2 id=\"tie-mechanism\">Mekanisme Tie (Seri)</h2>\n          <p>Jika skor match berakhir seri pada ambang akhir, pertandingan masuk ke mekanisme tie-break. Pada praktik lapangan, tie-break bisa berupa shoot-off / additional end sesuai konfigurasi dan regulasi event.</p>\n          <p>Prinsip pentingnya: sistem harus mencatat hasil tie-break secara eksplisit agar winner bracket tidak ambigu dan histori scoring tetap audit-friendly.</p>\n          <h2 id=\"additional-end\">Penambahan End (Additional End)</h2>\n          <p>Dalam situasi di mana hasil pertandingan tetap seri setelah seluruh end reguler selesai, operator dashboard dapat menambahkan <strong>Additional End</strong> (End Tambahan) sebagai penentu kemenangan.</p>\n          <p>Fitur ini dapat diakses langsung melalui tombol kontrol pada layar Scoring Match di Dashboard Organisasi. Setelah nilai end tambahan diinput, sistem akan secara otomatis menentukan pemenang dan memperbarui bagan bracket ke babak selanjutnya tanpa perlu intervensi manual tambahan.</p>\n        "
   },
   "image_url": "doc-sistem-eliminasi.jpg"
 }

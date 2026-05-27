@@ -1,5 +1,5 @@
 {
-  "slug": "status-pendaftaran",
+  "slug": "registration-status",
   "icon": "ph:magnifying-glass-bold",
   "category": "archer",
   "readTime": "4 min",
@@ -29,33 +29,6 @@
       }
     ],
     "content": "\n                    <h2 id=\"dashboard-access\">Access Event History</h2>\n                    <p>All events that you have registered for can be seen via <strong>Dashboard > My Events</strong>. This page summarizes all your competition activities, both those that are just taking place and those that have already been completed.</p>\n\n                    <h2 id=\"meaning-status\">Understanding Registration Status</h2>\n                    <p>There are several status stages that you need to pay attention to:</p>\n                    <ul>\n                        <li><strong>Pending:</strong> Registration has been recorded, but payment has not been made or has not been confirmed.</li>\n                        <li><strong>Paid:</strong> Payment has been received by the archeris.net system.</li>\n                        <li><strong>Verified:</strong> Your participation data has been checked and approved by the organizing committee.</li>\n                        <li><strong>Rejected:</strong> Registration rejected (usually due to category mismatch or invalid data).</li>\n                    </ul>\n\n                    <h2 id=\"manage-invoice\">Manage Invoices</h2>\n                    <p>If you need to see detailed cost details or change your payment method (as long as it has not expired), you can click on the invoice number listed on your registration list.</p>\n                    <img src=\"/docs/archer-dashboard-payment-history.png\" alt=\"Archer Payment History\" />\n\n                    <h2 id=\"download-ticket\">Download Ticket & QR Code</h2>\n                    <p>After your status becomes <strong>Verified</strong>, the button to download the E-Ticket will be active. This ticket contains a unique QR Code that you must show when checking in at the match location for the attendance process and equipment verification.</p>\n\n                    <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-8 flex gap-4\">\n                        <div class=\"text-primary text-2xl shrink-0\">📱</div>\n                        <div>\n                            <div class=\"font-bold text-navy text-sm mb-1\">Mobile Tips</div>\n                            <div class=\"text-gray-600 text-sm\">You can save a screenshot of the QR Code on your cellphone to speed up the check-in process at the field if the internet connection at the match location is unstable.</div>\n                        </div>\n                    </div>\n"
-  },
-  "id": {
-    "title": "Melihat Status Pendaftaran",
-    "excerpt": "Cara memantau status invoice, verifikasi peserta, dan mengunduh tiket elektronik di dashboard Pemanah.",
-    "toc": [
-      {
-        "id": "akses-dashboard",
-        "level": 2,
-        "text": "Akses Riwayat Event"
-      },
-      {
-        "id": "arti-status",
-        "level": 2,
-        "text": "Memahami Status Pendaftaran"
-      },
-      {
-        "id": "kelola-invoice",
-        "level": 2,
-        "text": "Mengelola Invoice"
-      },
-      {
-        "id": "unduh-tiket",
-        "level": 2,
-        "text": "Mengunduh Tiket & QR Code"
-      }
-    ],
-    "content": "\n                    <h2 id=\"akses-dashboard\">Akses Riwayat Event</h2>\n                    <p>Semua event yang pernah Anda daftar dapat dilihat melalui <strong>Dashboard > My Events</strong>. Halaman ini merangkum seluruh aktivitas kompetisi Anda, baik yang baru akan berlangsung maupun yang sudah selesai.</p>\n                    \n                    <h2 id=\"arti-status\">Memahami Status Pendaftaran</h2>\n                    <p>Ada beberapa tahapan status yang perlu Anda perhatikan:</p>\n                    <ul>\n                        <li><strong>Pending:</strong> Pendaftaran sudah tercatat, namun pembayaran belum dilakukan atau belum terkonfirmasi.</li>\n                        <li><strong>Paid:</strong> Pembayaran telah diterima oleh sistem archeris.net.</li>\n                        <li><strong>Verified:</strong> Data kepesertaan Anda telah diperiksa dan disetujui oleh panitia penyelenggara.</li>\n                        <li><strong>Rejected:</strong> Pendaftaran ditolak (biasanya karena ketidaksesuaian kategori atau data tidak valid).</li>\n                    </ul>\n\n                    <h2 id=\"kelola-invoice\">Mengelola Invoice</h2>\n                    <p>Jika Anda perlu melihat detail rincian biaya atau mengubah metode pembayaran (selama belum kadaluarsa), Anda dapat mengklik nomor invoice yang tertera pada daftar pendaftaran Anda.</p>\n                    <img src=\"/docs/archer-dashboard-riwayat-pembayaran.png\" alt=\"Riwayat Pembayaran Pemanah\" />\n\n                    <h2 id=\"unduh-tiket\">Mengunduh Tiket & QR Code</h2>\n                    <p>Setelah status Anda menjadi <strong>Verified</strong>, tombol untuk mengunduh E-Ticket akan aktif. Tiket ini berisi QR Code unik yang wajib Anda tunjukkan saat check-in di lokasi pertandingan untuk proses absensi dan verifikasi peralatan.</p>\n\n                    <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-8 flex gap-4\">\n                        <div class=\"text-primary text-2xl shrink-0\">📱</div>\n                        <div>\n                            <div class=\"font-bold text-navy text-sm mb-1\">Tips Mobile</div>\n                            <div class=\"text-gray-600 text-sm\">Anda dapat menyimpan screenshot QR Code di ponsel Anda untuk mempercepat proses check-in di lapangan jika koneksi internet di lokasi pertandingan tidak stabil.</div>\n                        </div>\n                    </div>\n                "
   },
   "image_url": "doc-status-pendaftaran.jpg"
 }

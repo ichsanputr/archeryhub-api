@@ -1,0 +1,34 @@
+{
+  "slug": "shopping-cart",
+  "icon": "ph:shopping-cart-bold",
+  "category": "archer",
+  "readTime": "3 min",
+  "en": {
+    "title": "Shopping Cart Management",
+    "excerpt": "A guide on how to use the shopping cart to organize archery equipment items before checkout.",
+    "toc": [
+      {
+        "id": "tambah-produk",
+        "level": 2,
+        "text": "Adding Products to Cart"
+      },
+      {
+        "id": "kelola-item",
+        "level": 2,
+        "text": "Manage Items in Cart"
+      },
+      {
+        "id": "multi-seller",
+        "level": 2,
+        "text": "Checkout from Various Sellers"
+      },
+      {
+        "id": "riwayat-order",
+        "level": 2,
+        "text": "Monitoring Goods Orders"
+      }
+    ],
+    "content": "\n                    <h2 id=\"add-product\">Adding Product to Cart</h2>\n                    <p>When browsing the Marketplace on archeris.net, you can add various supplies to your cart. Click the basket icon on the product you want. You can continue shopping and collecting items before deciding to make a payment.</p>\n\n                    <h2 id=\"manage-items\">Manage Items in Cart</h2>\n                    <p>You can access the shopping cart via the cart icon in the top navigation or via <strong>Dashboard > Cart</strong>. Here you can:</p>\n                    <ul>\n                        <li>Changing the quantity of products.</li>\n                        <li>Delete products that were not purchased.</li>\n                        <li>View subtotal details per item.</li>\n                    </ul>\n\n                    <h2 id=\"multi-seller\">Checkout from Multiple Sellers</h2>\n                    <p>archeris.net supports purchases from multiple sellers at once in one shopping session. Cart will automatically group products by sending store. Shipping costs will be calculated separately per store when you checkout.</p>\n\n                    <h2 id=\"order-history\">Monitoring Goods Orders</h2>\n                    <p>After checkout and payment has been verified, you can monitor the delivery status of your goods via the <strong>Orders</strong> tab on the dashboard. There is the receipt number and travel status of the package from the shop to your address.</p>\n\n                    <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-8 flex gap-4\">\n                        <div class=\"text-primary text-2xl shrink-0\">🛒</div>\n                        <div>\n                            <div class=\"font-bold text-navy text-sm mb-1\">Transaction Security</div>\n                            <div class=\"text-gray-600 text-sm\">Your funds will be held by the archeris.net system and will only be transferred to the seller after you confirm that the goods have been received properly.</div>\n                        </div>\n                    </div>\n"
+  },
+  "image_url": "doc-keranjang-belanja.jpg"
+}

@@ -127,7 +127,6 @@ type DocJSON struct {
 	Category string       `json:"category"`
 	ReadTime string       `json:"readTime"`
 	EN       DocLocalized `json:"en"`
-	ID       DocLocalized `json:"id"`
 }
 
 type DocResponse struct {
@@ -144,8 +143,6 @@ type DocResponse struct {
 // ListDocs returns metadata of all documentation articles
 func ListDocs() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		lang := c.DefaultQuery("lang", "en")
-
 		files, err := os.ReadDir("data/docs")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read docs directory", "details": err.Error()})
@@ -166,9 +163,6 @@ func ListDocs() gin.HandlerFunc {
 				}
 
 				localized := doc.EN
-				if lang == "id" {
-					localized = doc.ID
-				}
 
 				list = append(list, DocResponse{
 					Slug:     doc.Slug,
@@ -189,7 +183,6 @@ func ListDocs() gin.HandlerFunc {
 func GetDocDetail() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
-		lang := c.DefaultQuery("lang", "en")
 
 		filePath := filepath.Join("data/docs", slug+".json")
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -210,9 +203,6 @@ func GetDocDetail() gin.HandlerFunc {
 		}
 
 		localized := doc.EN
-		if lang == "id" {
-			localized = doc.ID
-		}
 
 		res := DocResponse{
 			Slug:     doc.Slug,
