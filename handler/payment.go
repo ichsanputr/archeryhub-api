@@ -1030,7 +1030,7 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 			       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
 			FROM organization_payment_methods
-			WHERE organization_id = ? AND status IN ('active', 'verified')
+			WHERE organization_id = ? AND status = 'active'
 			ORDER BY is_primary DESC, created_at ASC
 		`, organizerID)
 

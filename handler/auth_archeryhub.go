@@ -219,13 +219,10 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					if clubSlug == "" {
 						clubSlug = "club-" + newClubUUID[:8]
 					}
-					dummyEmail := "club-" + newClubUUID[:8] + "@archeris.net"
-					dummyPassword := "club-secret-123!"
-
 					_, err = db.Exec(`
-						INSERT INTO clubs (uuid, user_id, slug, email, password, name, abbreviation, status, created_at, updated_at)
-						VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-					`, newClubUUID, newClubUUID, clubSlug, dummyEmail, dummyPassword, req.NewClubName, req.NewClubAcronym)
+						INSERT INTO clubs (uuid, slug, name, abbreviation, status, created_at, updated_at)
+						VALUES (?, ?, ?, ?, 'active', NOW(), NOW())
+					`, newClubUUID, clubSlug, req.NewClubName, req.NewClubAcronym)
 					if err != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub baru: " + err.Error()})
 						return

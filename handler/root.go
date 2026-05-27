@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"Archeris-api/models"
 	"Archeris-api/utils"
 	"fmt"
 	"net/http"
@@ -91,16 +92,6 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(uuid,''),
 				COALESCE(email,''),
 				COALESCE(name,''),
-				'club',
-				COALESCE(status,''),
-				COALESCE(logo_url, avatar_url, ''),
-				COALESCE(created_at,'1970-01-01')
-			FROM clubs
-			UNION ALL
-			SELECT
-				COALESCE(uuid,''),
-				COALESCE(email,''),
-				COALESCE(name,''),
 				'organization',
 				COALESCE(status,''),
 				COALESCE(avatar_url,''),
@@ -153,22 +144,6 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 
 		var rows []SubRow
 
-		// COALESCE all string columns to avoid NULL scan panics
-		clubQuery := `
-			SELECT
-				COALESCE(c.uuid,'')   as uuid,
-				COALESCE(c.name,'')   as name,
-				COALESCE(c.email,'')  as email,
-				'club'                 as user_type,
-				COALESCE(c.subscription_status,'active') as subscription_status,
-				c.subscription_plan_id as plan_id,
-				sp.name                as plan_name,
-				DATE_FORMAT(c.subscription_expires_at,'%Y-%m-%d %H:%i:%s') as expires_at,
-				COALESCE(c.logo_url, c.avatar_url, '') as avatar_url,
-				COALESCE(c.created_at,'1970-01-01')                        as created_at
-			FROM clubs c
-			LEFT JOIN subscription_plans sp ON sp.id = c.subscription_plan_id
-		`
 		orgQuery := `
 			SELECT
 				COALESCE(o.uuid,'')   as uuid,
@@ -185,15 +160,8 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN subscription_plans sp ON sp.id = o.subscription_plan_id
 		`
 
-		var clubRows, orgRows []SubRow
+		var orgRows []SubRow
 
-		if typeFilter == "" || typeFilter == "club" {
-			if err := db.Select(&clubRows, clubQuery); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Club query error: " + err.Error()})
-				return
-			}
-			rows = append(rows, clubRows...)
-		}
 		if typeFilter == "" || typeFilter == "organization" {
 			if err := db.Select(&orgRows, orgQuery); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Org query error: " + err.Error()})
@@ -239,12 +207,10 @@ func UpdateUserSubscription(db *sqlx.DB) gin.HandlerFunc {
 
 		table := ""
 		switch userType {
-		case "club":
-			table = "clubs"
 		case "organization":
 			table = "organizations"
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user harus 'club' atau 'organization'"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user harus 'organization'"})
 			return
 		}
 
@@ -344,8 +310,6 @@ func AddSubscriptionAddon(db *sqlx.DB) gin.HandlerFunc {
 
 		table := ""
 		switch userType {
-		case "club":
-			table = "clubs"
 		case "organization":
 			table = "organizations"
 		default:
@@ -408,8 +372,6 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "archer":
 			table = "archers"
-		case "club":
-			table = "clubs"
 		case "organization":
 			table = "organizations"
 		case "seller":
@@ -474,11 +436,6 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 
 		var err error
 		switch req.UserType {
-		case "club":
-			_, err = db.Exec(`
-				INSERT INTO clubs (uuid, user_id, slug, email, password, name, abbreviation, status)
-				VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, req.Acronym)
 		case "organization":
 			whatsApp := req.WhatsAppNo
 			if whatsApp == "" {
@@ -494,7 +451,7 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 				VALUES (?, ?, ?, ?, ?, ?, 'active')
 			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name)
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus club, organization, atau seller"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus organization atau seller"})
 			return
 		}
 
@@ -570,8 +527,6 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "archer":
 			table = "archers"
-		case "club":
-			table = "clubs"
 		case "organization":
 			table = "organizations"
 		case "seller":
@@ -597,6 +552,151 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 			"message": "Password user berhasil diperbarui",
 			"uuid":    userUUID,
 		})
+	}
+}
+
+// RootGetClubs lists all clubs with search/pagination
+func RootGetClubs(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		limit, offset, page := utils.GetPaginationParams(c)
+		search := c.Query("search")
+
+		whereClause := ""
+		args := []interface{}{}
+
+		if search != "" {
+			whereClause = "WHERE name LIKE ? OR city LIKE ?"
+			searchParam := "%" + search + "%"
+			args = append(args, searchParam, searchParam)
+		}
+
+		var total int
+		err := db.Get(&total, "SELECT COUNT(*) FROM clubs "+whereClause, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung klub"})
+			return
+		}
+
+		var clubs []models.Club
+		query := fmt.Sprintf(`
+			SELECT uuid, slug, name, abbreviation, logo_url, city, status, created_at, updated_at
+			FROM clubs %s ORDER BY name ASC LIMIT ? OFFSET ?
+		`, whereClause)
+		queryArgs := append(args, limit, offset)
+
+		err = db.Select(&clubs, query, queryArgs...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data klub: " + err.Error()})
+			return
+		}
+
+		if clubs == nil {
+			clubs = []models.Club{}
+		}
+
+		meta := utils.CalculatePagination(total, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{
+			"data": clubs,
+			"meta": meta,
+		})
+	}
+}
+
+// RootCreateClub creates a new club (data master)
+func RootCreateClub(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Name         string  `json:"name" binding:"required"`
+			Abbreviation *string `json:"acronym"`
+			City         *string `json:"city"`
+			LogoURL      *string `json:"logo_url"`
+			Status       string  `json:"status"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		newUUID := uuid.New().String()
+		slug := utils.CleanUsername(req.Name)
+		if slug == "" {
+			slug = "club-" + newUUID[:8]
+		}
+
+		status := "active"
+		if req.Status != "" {
+			status = req.Status
+		}
+
+		_, err := db.Exec(`
+			INSERT INTO clubs (uuid, slug, name, abbreviation, logo_url, city, status)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, newUUID, slug, req.Name, req.Abbreviation, req.LogoURL, req.City, status)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Klub berhasil dibuat",
+			"uuid":    newUUID,
+			"name":    req.Name,
+		})
+	}
+}
+
+// RootUpdateClub updates club details
+func RootUpdateClub(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		var req struct {
+			Name         string  `json:"name" binding:"required"`
+			Abbreviation *string `json:"acronym"`
+			City         *string `json:"city"`
+			LogoURL      *string `json:"logo_url"`
+			Status       string  `json:"status"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		slug := utils.CleanUsername(req.Name)
+		if slug == "" {
+			slug = "club-" + id[:8]
+		}
+
+		status := "active"
+		if req.Status != "" {
+			status = req.Status
+		}
+
+		_, err := db.Exec(`
+			UPDATE clubs 
+			SET name = ?, slug = ?, abbreviation = ?, logo_url = ?, city = ?, status = ?, updated_at = NOW() 
+			WHERE uuid = ?
+		`, req.Name, slug, req.Abbreviation, req.LogoURL, req.City, status, id)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui klub: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Klub berhasil diperbarui"})
+	}
+}
+
+// RootDeleteClub deletes a club
+func RootDeleteClub(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		_, err := db.Exec("DELETE FROM clubs WHERE uuid = ?", id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus klub: " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Klub berhasil dihapus"})
 	}
 }
 

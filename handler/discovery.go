@@ -37,7 +37,7 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 
 
 		// Fetch Organization slugs
-		err = db.Select(&data.Organizations, "SELECT slug FROM organizations WHERE slug IS NOT NULL AND slug != '' AND verification_status = 'verified'")
+		err = db.Select(&data.Organizations, "SELECT slug FROM organizations WHERE slug IS NOT NULL AND slug != '' AND status = 'active'")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug organisasi: " + err.Error()})
 			return

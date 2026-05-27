@@ -564,6 +564,12 @@ func main() {
 
 				// Plans
 				protected.GET("/plans", handler.GetSubscriptionPlans(db))
+
+				// Club management (data master)
+				protected.GET("/clubs", handler.RootGetClubs(db))
+				protected.POST("/clubs", handler.RootCreateClub(db))
+				protected.PUT("/clubs/:id", handler.RootUpdateClub(db))
+				protected.DELETE("/clubs/:id", handler.RootDeleteClub(db))
 			}
 		}
 

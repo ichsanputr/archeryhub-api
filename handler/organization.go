@@ -40,7 +40,6 @@ type Organization struct {
 	SocialInstagram    *string `db:"social_instagram" json:"social_instagram"`
 	SocialTwitter      *string `db:"social_twitter" json:"social_twitter"`
 	SocialMedia        *string `db:"social_media" json:"social_media"`
-	VerificationStatus *string `db:"verification_status" json:"verification_status"`
 	Status             *string `db:"status" json:"status"`
 	CreatedAt          string  `db:"created_at" json:"created_at"`
 	UpdatedAt          string  `db:"updated_at" json:"updated_at"`
@@ -75,7 +74,7 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 		query := fmt.Sprintf(`
 			SELECT uuid, slug, name, acronym, description, vision, mission, history, website, email, whatsapp_no,
 				   avatar_url, banner_url, address, city, country,
-				   verification_status, status, created_at, social_media
+				   status, created_at, social_media
 			FROM organizations
 			%s
 			ORDER BY name ASC
@@ -124,7 +123,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
-				   verification_status, status, created_at, updated_at, page_settings,
+				   status, created_at, updated_at, page_settings,
 				   vision, mission, history, faq
 			FROM organizations
 			WHERE (slug = ? OR uuid = ?) AND status = 'active'
@@ -186,28 +185,6 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Get affiliated clubs
-		var clubs []struct {
-			UUID    string  `db:"uuid" json:"id"`
-			Name    string  `db:"name" json:"name"`
-			Slug    string  `db:"slug" json:"slug"`
-			City    *string `db:"city" json:"city"`
-			LogoURL *string `db:"logo_url" json:"logo_url"`
-		}
-		db.Select(&clubs, `
-			SELECT c.uuid, c.name, c.slug, c.city, c.logo_url
-			FROM clubs c
-			WHERE c.organization_id = ? AND c.status = 'active'
-			ORDER BY c.name ASC
-		`, org.UUID)
-
-		for i := range clubs {
-			if clubs[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*clubs[i].LogoURL)
-				clubs[i].LogoURL = &masked
-			}
-		}
-
 		// Build response with page_settings
 		response := gin.H{
 			"organization": gin.H{
@@ -236,14 +213,13 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"vision":               org.Vision,
 				"mission":              org.Mission,
 				"history":              org.History,
-				"verification_status":  org.VerificationStatus,
 				"status":               org.Status,
 				"created_at":           org.CreatedAt,
 				"updated_at":           org.UpdatedAt,
 			},
 			"events":       events,
 			"total_events": totalEvents,
-			"clubs":        clubs,
+			"clubs":        []interface{}{},
 		}
 
 		// Add FAQ if exists
@@ -287,7 +263,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 				   registration_number, established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
-				   verification_status, status, created_at, updated_at,
+				   status, created_at, updated_at,
 				   vision, mission, history, faq,
 				   COALESCE(subscription_status, 'active') as subscription_status,
 				   subscription_expires_at
@@ -343,7 +319,6 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			"mission":                 org.Mission,
 			"history":                 org.History,
 			"faq":                     org.FAQ,
-			"verification_status":     org.VerificationStatus,
 			"status":                  org.Status,
 			"created_at":              org.CreatedAt,
 			"updated_at":              org.UpdatedAt,

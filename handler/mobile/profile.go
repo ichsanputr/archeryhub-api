@@ -240,7 +240,6 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 			Mission               *string `db:"mission"`
 			History               *string `db:"history"`
 			FAQ                   *string `db:"faq"`
-			VerificationStatus    *string `db:"verification_status"`
 			Status                *string `db:"status"`
 			CreatedAt             string  `db:"created_at"`
 			UpdatedAt             string  `db:"updated_at"`
@@ -255,7 +254,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 			       registration_number, established_date, contact_person_name,
 			       contact_person_email, contact_person_phone,
 			       social_facebook, social_instagram, social_twitter, social_media,
-			       verification_status, status, created_at, updated_at,
+			       status, created_at, updated_at,
 			       vision, mission, history, faq,
 			       COALESCE(subscription_status, 'trial') as subscription_status,
 			       subscription_expires_at, page_settings
@@ -276,6 +275,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 			org.BannerURL = &masked
 		}
 
+		verified := "verified"
 		response := MobileOrganizationProfileResponse{
 			Data: MobileOrganizationProfileData{
 				ID:                    org.UUID,
@@ -305,7 +305,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 				Mission:               org.Mission,
 				History:               org.History,
 				FAQ:                   parseJSONArray(org.FAQ),
-				VerificationStatus:    org.VerificationStatus,
+				VerificationStatus:    &verified,
 				Status:                org.Status,
 				CreatedAt:             org.CreatedAt,
 				UpdatedAt:             org.UpdatedAt,

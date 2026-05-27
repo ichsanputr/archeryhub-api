@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		// Get data
 		var clubs []models.Club
 		query := fmt.Sprintf(`
-			SELECT uuid, slug, name, abbreviation, description, banner_url, logo_url, phone, address, city, province, postal_code, established_date, registration_number, organization_id, head_coach_name, head_coach_phone, training_schedule, facilities, website, status, created_at, updated_at
+			SELECT uuid, slug, name, abbreviation, logo_url, city, status, created_at, updated_at
 			FROM clubs %s ORDER BY name ASC LIMIT ? OFFSET ?
 		`, whereClause)
 		queryArgs := append(args, limit, offset)
