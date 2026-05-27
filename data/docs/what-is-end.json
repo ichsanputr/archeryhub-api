@@ -1,0 +1,24 @@
+{
+  "slug": "what-is-end",
+  "icon": "ph:arrows-in-bold",
+  "category": "archery",
+  "readTime": "4 min",
+  "en": {
+    "title": "What is END in Archery?",
+    "excerpt": "Understand the concept of the end as the basic unit of shots in qualification rounds.",
+    "toc": [
+      { "id": "definition-of-end", "level": 2, "text": "Definition of End" },
+      { "id": "arrows-per-end", "level": 2, "text": "Arrows per End" }
+    ],
+    "content": "<h2>1. Definition of End</h2><p>In competitive archery, an <strong>end</strong> is a round in which an athlete shoots a predetermined number of arrows before retrieving them and recording the scores.</p><h2>2. Arrows per End</h2><p>Normally, qualification rounds use either 3 or 6 arrows per end depending on whether it is an indoor or outdoor tournament.</p>"
+  },
+  "id": {
+    "title": "Apa itu END dalam Panahan?",
+    "excerpt": "Pahami konsep end sebagai unit dasar tembakan dalam babak kualifikasi.",
+    "toc": [
+      { "id": "definition-of-end", "level": 2, "text": "Definisi End" },
+      { "id": "arrows-per-end", "level": 2, "text": "Jumlah Panah per End" }
+    ],
+    "content": "<h2>1. Definisi End</h2><p>Dalam kompetisi panahan, <strong>end</strong> adalah babak di mana atlet menembakkan sejumlah panah yang ditentukan sebelum mengambilnya dan mencatat skor.</p><h2>2. Jumlah Panah per End</h2><p>Biasanya, babak kualifikasi menggunakan 3 atau 6 panah per end tergantung pada jenis turnamen (indoor atau outdoor).</p>"
+  }
+}

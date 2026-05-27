@@ -1,0 +1,24 @@
+{
+  "slug": "how-to-register",
+  "icon": "ph:user-plus-bold",
+  "category": "platform",
+  "readTime": "3 min",
+  "en": {
+    "title": "How to Register an Account",
+    "excerpt": "A step-by-step guide to registering a new account on the Archeris platform.",
+    "toc": [
+      { "id": "choose-account-type", "level": 2, "text": "Choose Account Type" },
+      { "id": "registration-steps", "level": 2, "text": "Registration Steps" }
+    ],
+    "content": "<h2>1. Choose Account Type</h2><p>Choose between Archer (Athlete), Organization (Committee), or Seller (Vendor) account types depending on your needs.</p><h2>2. Registration Steps</h2><ol><li>Go to the signup page.</li><li>Fill in your credentials.</li><li>Click submit and verify your email.</li></ol>"
+  },
+  "id": {
+    "title": "Cara Mendaftar Akun",
+    "excerpt": "Panduan langkah demi langkah untuk mendaftarkan akun baru di platform Archeris.",
+    "toc": [
+      { "id": "choose-account-type", "level": 2, "text": "Pilih Tipe Akun" },
+      { "id": "registration-steps", "level": 2, "text": "Langkah Pendaftaran" }
+    ],
+    "content": "<h2>1. Pilih Tipe Akun</h2><p>Pilih tipe akun Pemanah (Atlet), Organisasi (Panitia), atau Penjual (Vendor) sesuai kebutuhan Anda.</p><h2>2. Langkah Pendaftaran</h2><ol><li>Buka halaman pendaftaran.</li><li>Isi data diri Anda.</li><li>Klik daftar dan verifikasi email Anda.</ol>"
+  }
+}
