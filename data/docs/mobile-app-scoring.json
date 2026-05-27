@@ -1,0 +1,61 @@
+{
+  "slug": "mobile-app-scoring",
+  "icon": "ph:device-mobile-bold",
+  "category": "scoring",
+  "readTime": "6 min",
+  "en": {
+    "title": "Scoring via Mobile Application",
+    "excerpt": "Complete guide for referees using mobile scoring from logging in to data synchronization.",
+    "toc": [
+      {
+        "id": "login-mobile",
+        "level": 2,
+        "text": "Scorekeeper Login"
+      },
+      {
+        "id": "scan-qr",
+        "level": 2,
+        "text": "Scan QR Assignment"
+      },
+      {
+        "id": "input-skor-mobile",
+        "level": 2,
+        "text": "Score Input"
+      },
+      {
+        "id": "sinkronisasi",
+        "level": 2,
+        "text": "Synchronization and Troubleshooting"
+      }
+    ],
+    "content": "\n                    <h2 id=\"login-mobile\">Scorekeeper Login</h2>\n                    <p>The scorekeeper account is created by the committee from the dashboard. Use official credentials so that each score input is recorded in the name of the correct officer.</p>\n                    <h2 id=\"scan-qr\">Scan QR Assignment</h2>\n                    <p>Each bearing has a QR assignment. Scan the QR to open the correct match/target and avoid wrong input to other participants.</p>\n                    <h2 id=\"input-skor-mobile\">Input Score</h2>\n                    <p>Input the arrow value per end according to the shot sequence. After verification with field officers, save the end so that the data is immediately updated in the central system.</p>\n                    <img src=\"/docs/input-values-per-end.png\" alt=\"Input Mobile Values\" />\n                    <h2 id=\"sync\">Synchronization and Troubleshooting</h2>\n                    <ul>\n                        <li>If the network is unstable, make sure the data is completely saved before moving end.</li>\n                        <li>Perform a refresh assignment if the QR does not match the active match.</li>\n                        <li>Report data mismatch to dashboard operator for centralized correction.</li>\n                    </ul>\n"
+  },
+  "id": {
+    "title": "Scoring via Aplikasi Mobile",
+    "excerpt": "Panduan lengkap wasit memakai mobile scoring dari login hingga sinkronisasi data.",
+    "toc": [
+      {
+        "id": "login-mobile",
+        "level": 2,
+        "text": "Login Scorekeeper"
+      },
+      {
+        "id": "scan-qr",
+        "level": 2,
+        "text": "Scan QR Assignment"
+      },
+      {
+        "id": "input-skor-mobile",
+        "level": 2,
+        "text": "Input Skor"
+      },
+      {
+        "id": "sinkronisasi",
+        "level": 2,
+        "text": "Sinkronisasi dan Troubleshooting"
+      }
+    ],
+    "content": "\n                    <h2 id=\"login-mobile\">Login Scorekeeper</h2>\n                    <p>Akun scorekeeper dibuat oleh panitia dari dashboard. Gunakan kredensial resmi agar setiap input skor tercatat atas nama petugas yang tepat.</p>\n                    <h2 id=\"scan-qr\">Scan QR Assignment</h2>\n                    <p>Setiap bantalan memiliki QR assignment. Scan QR untuk membuka match/target yang benar dan menghindari salah input ke peserta lain.</p>\n                    <h2 id=\"input-skor-mobile\">Input Skor</h2>\n                    <p>Input nilai panah per end sesuai urutan tembakan. Setelah diverifikasi bersama petugas lapangan, simpan end agar data langsung ter-update di sistem pusat.</p>\n                    <img src=\"/docs/input-nilai-per-end.png\" alt=\"Input Nilai Mobile\" />\n                    <h2 id=\"sinkronisasi\">Sinkronisasi dan Troubleshooting</h2>\n                    <ul>\n                        <li>Jika jaringan tidak stabil, pastikan data benar-benar tersimpan sebelum pindah end.</li>\n                        <li>Lakukan refresh assignment bila QR tidak sesuai match aktif.</li>\n                        <li>Laporkan mismatch data ke operator dashboard untuk koreksi terpusat.</li>\n                    </ul>\n                "
+  },
+  "image_url": "doc-mobile-app-scoring.jpg"
+}

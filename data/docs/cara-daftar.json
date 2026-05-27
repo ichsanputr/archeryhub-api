@@ -1,0 +1,61 @@
+{
+  "slug": "cara-daftar",
+  "icon": "ph:user-plus-bold",
+  "category": "platform",
+  "readTime": "4 min",
+  "en": {
+    "title": "How to Register an Account",
+    "excerpt": "Step by step guide to register a new account on archeris.net.",
+    "toc": [
+      {
+        "id": "pilih-tipe",
+        "level": 2,
+        "text": "Select Account Type"
+      },
+      {
+        "id": "daftar-email",
+        "level": 2,
+        "text": "Register via Email"
+      },
+      {
+        "id": "daftar-google",
+        "level": 2,
+        "text": "Register via Google"
+      },
+      {
+        "id": "verifikasi",
+        "level": 2,
+        "text": "Verify & Login"
+      }
+    ],
+    "content": "\n          <h2 id=\"select-type\">Select Account Type</h2>\n          <p>archeris.net provides three main account types that can be selected during registration: <strong>Archer</strong>, <strong>Organization</strong> (Organizer), and <strong>Seller</strong>. Choose the type that suits your role in the archery ecosystem.</p>\n          <h2 id=\"register-email\">Register via Email</h2>\n          <ol>\n            <li>Visit the <a href=\"/auth/register\" class=\"text-primary font-semibold\">Register</a> page.</li>\n            <li>Fill in your full name, email address and strong password.</li>\n            <li>Select account type (Archer / Organization / Seller).</li>\n            <li>Click the <strong>Register Now</strong> button.</li>\n            <li>Check your email inbox and click the verification link.</li>\n          </ol>\n          <h2 id=\"register-google\">Register via Google</h2>\n          <p>You can also register quickly using a Google account. Click the <strong>Register with Google</strong> button on the registration page, and select the Google account you want to use. The platform will automatically fill in your name and email.</p>\n          <h2 id=\"verification\">Verify & Login</h2>\n          <p>After successful verification, you will be immediately directed to the dashboard according to the account type selected. Complete your profile so that information appears correctly on public pages.</p>\n"
+  },
+  "id": {
+    "title": "Cara Mendaftar Akun",
+    "excerpt": "Panduan langkah demi langkah untuk mendaftarkan akun baru di archeris.net.",
+    "toc": [
+      {
+        "id": "pilih-tipe",
+        "level": 2,
+        "text": "Pilih Tipe Akun"
+      },
+      {
+        "id": "daftar-email",
+        "level": 2,
+        "text": "Daftar via Email"
+      },
+      {
+        "id": "daftar-google",
+        "level": 2,
+        "text": "Daftar via Google"
+      },
+      {
+        "id": "verifikasi",
+        "level": 2,
+        "text": "Verifikasi & Login"
+      }
+    ],
+    "content": "\n          <h2 id=\"pilih-tipe\">Pilih Tipe Akun</h2>\n          <p>archeris.net menyediakan tiga tipe akun utama yang dapat dipilih saat pendaftaran: <strong>Pemanah</strong>, <strong>Organisasi</strong> (Penyelenggara), dan <strong>Penjual</strong>. Pilih tipe yang sesuai dengan peran Anda dalam ekosistem panahan.</p>\n          <h2 id=\"daftar-email\">Daftar via Email</h2>\n          <ol>\n            <li>Kunjungi halaman <a href=\"/auth/register\" class=\"text-primary font-semibold\">Daftar</a>.</li>\n            <li>Isi nama lengkap, alamat email, dan kata sandi yang kuat.</li>\n            <li>Pilih tipe akun (Pemanah / Organisasi / Penjual).</li>\n            <li>Klik tombol <strong>Daftar Sekarang</strong>.</li>\n            <li>Periksa kotak masuk email Anda dan klik tautan verifikasi.</li>\n          </ol>\n          <h2 id=\"daftar-google\">Daftar via Google</h2>\n          <p>Anda juga bisa mendaftar dengan cepat menggunakan akun Google. Klik tombol <strong>Daftar dengan Google</strong> di halaman registrasi, dan pilih akun Google yang ingin digunakan. Platform akan secara otomatis mengisi nama dan email Anda.</p>\n          <h2 id=\"verifikasi\">Verifikasi & Login</h2>\n          <p>Setelah verifikasi berhasil, Anda akan langsung diarahkan ke dashboard sesuai tipe akun yang dipilih. Lengkapi profil Anda agar informasi tampil dengan benar di halaman publik.</p>\n        "
+  },
+  "image_url": "doc-cara-daftar.jpg"
+}

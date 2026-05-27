@@ -1,0 +1,81 @@
+{
+  "slug": "cara-menjual-barang",
+  "icon": "ph:storefront-bold",
+  "category": "marketplace",
+  "readTime": "5 min",
+  "en": {
+    "title": "How to Sell Items on the Marketplace",
+    "excerpt": "A complete guide for sellers to register a store, upload products, and manage orders on the archeris.net Marketplace.",
+    "toc": [
+      {
+        "id": "syarat-penjual",
+        "level": 2,
+        "text": "Conditions for Becoming a Seller"
+      },
+      {
+        "id": "daftar-toko",
+        "level": 2,
+        "text": "Registering a Store"
+      },
+      {
+        "id": "tambah-produk",
+        "level": 2,
+        "text": "Uploading Products"
+      },
+      {
+        "id": "kelola-stok",
+        "level": 2,
+        "text": "Manage Stock & Prices"
+      },
+      {
+        "id": "proses-pesanan",
+        "level": 2,
+        "text": "Processing Incoming Orders"
+      },
+      {
+        "id": "tips-deskripsi",
+        "level": 2,
+        "text": "Tips for Writing Product Descriptions"
+      }
+    ],
+    "content": "\n        <h2 id=\"seller-terms\">Requirements for Becoming a Seller</h2>\n        <p>Anyone can sell on the archeris.net Marketplace as long as they meet the following conditions:</p>\n        <ul>\n            <li>Have a verified archeris.net account.</li>\n            <li>Agree to the Seller's Terms & Conditions and Marketplace Policies.</li>\n            <li>Have a valid bank account or digital wallet number for disbursement of funds.</li>\n            <li>Selling products relevant to the sport of archery (equipment, accessories, clothing, training services, etc.).</li>\n        </ul>\n        <div class=\"not-prose bg-blue-50 border border-blue-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-blue-500 text-2xl shrink-0\">ℹ️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Store Verification</div>\n                <div class=\"text-gray-600 text-sm\">The new shop will enter the review stage by the archeris.net team within 1×24 hours. New products can be uploaded immediately but will be shown to the public once the store is approved.</div>\n            </div>\n        </div>\n\n        <h2 id=\"list-shop\">Registering a Shop</h2>\n        <p>Steps to register a shop:</p>\n        <ol>\n            <li>Go to <strong>Dashboard > My Shop > Create New Shop</strong>.</li>\n            <li>Fill in the shop name, short description and shop logo.</li>\n            <li>Enter bank account or digital wallet information for disbursement.</li>\n            <li>Check that you agree to the seller's terms & conditions, then click <strong>Register Store</strong>.</li>\n            <li>Wait for email confirmation from the archeris.net team.</li>\n        </ol>\n\n        <h2 id=\"add-product\">Uploading Products</h2>\n        <p>Once the store is live, you can add products via <strong>Store Dashboard > Manage Products > Add New Product</strong>. Fill in the following form:</p>\n        <div class=\"not-process overflow-x-auto my-4\">\n            <table class=\"w-full text-sm border-collapse\">\n                <head>\n                    <tr class=\"bg-navy text-left text-white\">\n                        <th class=\"px-4 py-3 rounded-tl-xl\">Field</th>\n                        <th class=\"px-4 py-3 rounded-tr-xl\">Description</th>\n                    </tr>\n                </head>\n                <tbody class=\"divide-y divide-gray-100 bg-white\">\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Product Name</td><td class=\"px-4 py-3\">Clear and specific name. Avoid names that are too generic.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Categories</td><td class=\"px-4 py-3\">Select the most appropriate category (Equipment, Clothing, Accessories, Training, etc.).</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Price</td><td class=\"px-4 py-3\">Price in Rupiah before shipping costs.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Stock</td><td class=\"px-4 py-3\">Number of units available. The system will automatically close the listing if stock runs out.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Product Photos</td><td class=\"px-4 py-3\">Minimum 1 photo, 3–5 photos from various angles are recommended.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Description</td><td class=\"px-4 py-3\">Describe the specifications, condition (new/used), and product advantages.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Weight & Dimensions</td><td class=\"px-4 py-3\">Used for automatic shipping cost calculations.</td></tr>\n                </tbody>\n            </table>\n        </div>\n\n        <h2 id=\"manage-stock\">Manage Stock & Prices</h2>\n        <p>Stock and prices can be updated at any time from the <strong>Manage Products</strong> menu. Consider the following:</p>\n        <ul>\n            <li>Manage stock accurately to avoid orders that cannot be fulfilled (<em>oversell</em>).</li>\n            <li>Use the <strong>Flash Sale</strong> feature (if available) to provide promotional prices within a certain time period.</li>\n            <li>Products with 0 stock are automatically marked \"Out of stock\" and do not appear in search results.</li>\n        </ul>\n\n        <h2 id=\"process-order\">Processing Incoming Orders</h2>\n        <p>Each incoming order will appear on the <strong>Store Dashboard > Orders</strong>. Process flow:</p>\n        <ol>\n            <li><strong>Waiting for Confirmation</strong> — New order from buyer, funds have been held by the system.</li>\n            <li><strong>Processing</strong> — You confirm availability and start preparing the package.</li>\n            <li><strong>Sent</strong> — Enter the delivery receipt number. The buyer will receive a notification.</li>\n            <li><strong>Done</strong> — The goods are received by the buyer, the funds are disbursed to your store balance.</li>\n        </ol>\n        <div class=\"not-prose bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-yellow-500 text-2xl shrink-0\">⚠️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Confirmation Deadline</div>\n                <div class=\"text-gray-600 text-sm\">Orders must be confirmed within 2×24 working hours. If not confirmed, the system will automatically cancel the order and return the funds to the buyer.</div>\n            </div>\n        </div>\n\n        <h2 id=\"description-tips\">Tips for Writing Product Descriptions</h2>\n        <p>A good description increases buyer confidence and reduces repeat questions. Include:</p>\n        <ul>\n            <li>Specific brand, type and size of product.</li>\n            <li>Main material and product condition (new / second / refurbished).</li>\n            <li>Compatibility: suitable for what type of bow / draw weight / level of athlete.</li>\n            <li>Package contents: what is included in the shipping box/package.</li>\n            <li>Special notes: for example \"nocking point not included\" or \"requires tuning after installation\".</li>\n        </ul>\n"
+  },
+  "id": {
+    "title": "Cara Menjual Barang di Marketplace",
+    "excerpt": "Panduan lengkap bagi penjual untuk mendaftarkan toko, mengunggah produk, dan mengelola pesanan di Marketplace archeris.net.",
+    "toc": [
+      {
+        "id": "syarat-penjual",
+        "level": 2,
+        "text": "Syarat Menjadi Penjual"
+      },
+      {
+        "id": "daftar-toko",
+        "level": 2,
+        "text": "Mendaftarkan Toko"
+      },
+      {
+        "id": "tambah-produk",
+        "level": 2,
+        "text": "Mengunggah Produk"
+      },
+      {
+        "id": "kelola-stok",
+        "level": 2,
+        "text": "Mengelola Stok & Harga"
+      },
+      {
+        "id": "proses-pesanan",
+        "level": 2,
+        "text": "Memproses Pesanan Masuk"
+      },
+      {
+        "id": "tips-deskripsi",
+        "level": 2,
+        "text": "Tips Menulis Deskripsi Produk"
+      }
+    ],
+    "content": "\n        <h2 id=\"syarat-penjual\">Syarat Menjadi Penjual</h2>\n        <p>Siapa pun dapat berjualan di Marketplace archeris.net selama memenuhi syarat berikut:</p>\n        <ul>\n            <li>Memiliki akun archeris.net yang sudah terverifikasi.</li>\n            <li>Menyetujui Syarat & Ketentuan Penjual dan Kebijakan Marketplace.</li>\n            <li>Memiliki nomor rekening bank atau dompet digital yang valid untuk pencairan dana.</li>\n            <li>Menjual produk yang relevan dengan olahraga panahan (perlengkapan, aksesoris, pakaian, jasa pelatihan, dll.).</li>\n        </ul>\n        <div class=\"not-prose bg-blue-50 border border-blue-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-blue-500 text-2xl shrink-0\">ℹ️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Verifikasi Toko</div>\n                <div class=\"text-gray-600 text-sm\">Toko baru akan masuk ke tahap review oleh tim archeris.net dalam 1×24 jam. Produk baru dapat langsung diunggah namun akan ditampilkan ke publik setelah toko disetujui.</div>\n            </div>\n        </div>\n\n        <h2 id=\"daftar-toko\">Mendaftarkan Toko</h2>\n        <p>Langkah-langkah mendaftarkan toko:</p>\n        <ol>\n            <li>Masuk ke <strong>Dashboard > Toko Saya > Buat Toko Baru</strong>.</li>\n            <li>Isi nama toko, deskripsi singkat, dan logo toko.</li>\n            <li>Masukkan informasi rekening bank atau dompet digital untuk pencairan.</li>\n            <li>Centang persetujuan syarat & ketentuan penjual, lalu klik <strong>Daftarkan Toko</strong>.</li>\n            <li>Tunggu konfirmasi email dari tim archeris.net.</li>\n        </ol>\n\n        <h2 id=\"tambah-produk\">Mengunggah Produk</h2>\n        <p>Setelah toko aktif, Anda dapat menambahkan produk melalui <strong>Dashboard Toko > Kelola Produk > Tambah Produk Baru</strong>. Isi form berikut:</p>\n        <div class=\"not-prose overflow-x-auto my-4\">\n            <table class=\"w-full text-sm border-collapse\">\n                <thead>\n                    <tr class=\"bg-navy text-left text-white\">\n                        <th class=\"px-4 py-3 rounded-tl-xl\">Field</th>\n                        <th class=\"px-4 py-3 rounded-tr-xl\">Keterangan</th>\n                    </tr>\n                </thead>\n                <tbody class=\"divide-y divide-gray-100 bg-white\">\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Nama Produk</td><td class=\"px-4 py-3\">Nama jelas dan spesifik. Hindari nama yang terlalu generik.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Kategori</td><td class=\"px-4 py-3\">Pilih kategori yang paling sesuai (Peralatan, Pakaian, Aksesoris, Latihan, dll.).</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Harga</td><td class=\"px-4 py-3\">Harga dalam Rupiah sebelum biaya pengiriman.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Stok</td><td class=\"px-4 py-3\">Jumlah unit yang tersedia. Sistem akan otomatis menutup listing jika stok habis.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Foto Produk</td><td class=\"px-4 py-3\">Minimal 1 foto, disarankan 3–5 foto dari berbagai sudut.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Deskripsi</td><td class=\"px-4 py-3\">Jelaskan spesifikasi, kondisi (baru/bekas), dan keunggulan produk.</td></tr>\n                    <tr><td class=\"px-4 py-3 font-bold text-navy\">Berat & Dimensi</td><td class=\"px-4 py-3\">Digunakan untuk kalkulasi biaya pengiriman otomatis.</td></tr>\n                </tbody>\n            </table>\n        </div>\n\n        <h2 id=\"kelola-stok\">Mengelola Stok & Harga</h2>\n        <p>Stok dan harga dapat diperbarui kapan saja dari menu <strong>Kelola Produk</strong>. Pertimbangkan hal berikut:</p>\n        <ul>\n            <li>Atur stok secara akurat agar tidak terjadi pesanan yang tidak bisa dipenuhi (<em>oversell</em>).</li>\n            <li>Gunakan fitur <strong>Flash Sale</strong> (jika tersedia) untuk memberikan harga promosi dalam rentang waktu tertentu.</li>\n            <li>Produk dengan stok 0 otomatis ditandai \"Habis\" dan tidak muncul di hasil pencarian.</li>\n        </ul>\n\n        <h2 id=\"proses-pesanan\">Memproses Pesanan Masuk</h2>\n        <p>Setiap pesanan masuk akan tampil di <strong>Dashboard Toko > Pesanan</strong>. Alur prosesnya:</p>\n        <ol>\n            <li><strong>Menunggu Konfirmasi</strong> — Pesanan baru dari pembeli, dana sudah ditahan sistem.</li>\n            <li><strong>Diproses</strong> — Anda mengonfirmasi ketersediaan dan mulai menyiapkan paket.</li>\n            <li><strong>Dikirim</strong> — Masukkan nomor resi pengiriman. Pembeli akan menerima notifikasi.</li>\n            <li><strong>Selesai</strong> — Barang diterima pembeli, dana dicairkan ke saldo toko Anda.</li>\n        </ol>\n        <div class=\"not-prose bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-yellow-500 text-2xl shrink-0\">⚠️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Batas Waktu Konfirmasi</div>\n                <div class=\"text-gray-600 text-sm\">Pesanan harus dikonfirmasi dalam 2×24 jam kerja. Jika tidak dikonfirmasi, sistem akan secara otomatis membatalkan pesanan dan mengembalikan dana ke pembeli.</div>\n            </div>\n        </div>\n\n        <h2 id=\"tips-deskripsi\">Tips Menulis Deskripsi Produk</h2>\n        <p>Deskripsi yang baik meningkatkan kepercayaan pembeli dan mengurangi pertanyaan berulang. Sertakan:</p>\n        <ul>\n            <li>Merek, tipe, dan ukuran produk secara spesifik.</li>\n            <li>Material utama dan kondisi produk (baru / second / refurbished).</li>\n            <li>Kompatibilitas: cocok untuk jenis busur / draw weight / level atlet apa.</li>\n            <li>Isi paket: apa saja yang ikut dalam box/paket pengiriman.</li>\n            <li>Catatan khusus: misalnya \"tidak termasuk nocking point\" atau \"perlu tuning setelah dipasang\".</li>\n        </ul>\n    "
+  },
+  "image_url": "doc-cara-menjual-barang.jpg"
+}

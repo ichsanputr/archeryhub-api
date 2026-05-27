@@ -1,0 +1,81 @@
+{
+  "slug": "apa-itu-end",
+  "icon": "ph:arrows-in-bold",
+  "category": "archery",
+  "readTime": "4 min",
+  "en": {
+    "title": "What is END in Archery?",
+    "excerpt": "Understand the concept of the \"end\" as the basic unit of shot in a qualifying session, how it works, and its impact on an athletes total score.",
+    "toc": [
+      {
+        "id": "definisi-end",
+        "level": 2,
+        "text": "Definition of End"
+      },
+      {
+        "id": "berapa-panah-per-end",
+        "level": 2,
+        "text": "How Many Arrows per End?"
+      },
+      {
+        "id": "alur-satu-end",
+        "level": 2,
+        "text": "One End Plot from Beginning to End"
+      },
+      {
+        "id": "end-dan-total-skor",
+        "level": 2,
+        "text": "End and Total Score"
+      },
+      {
+        "id": "end-di-eliminasi",
+        "level": 2,
+        "text": "End in Elimination Context"
+      },
+      {
+        "id": "end-di-Archeris",
+        "level": 2,
+        "text": "End on the archeris.net platform"
+      }
+    ],
+    "content": "\n        <h2 id=\"end-definition\">End Definition</h2>\n        <p>In competitive archery, <strong>end</strong> (Indonesian: <em>shooting round</em> or <em>shooting round</em>) is a unit of shooting in which an athlete shoots a predetermined number of arrows at a target in a period of time, before advancing to take and recording the score.</p>\n        <p>Simply put: <strong>end = one turn to shoot</strong>. After all the athletes in one group have finished shooting their arrows for one end, the entire group advances together to the target line to record scores and remove arrows, then return to the shooting line to start the next end.</p>\n\n        <h2 id=\"how-many-arrows-per-end\">How many Arrows per End?</h2>\n        <p>The number of arrows per end varies depending on the competition format:</p>\n        <div class=\"not-process overflow-x-auto my-4\">\n            <table class=\"w-full text-sm border-collapse\">\n                <head>\n                    <tr class=\"bg-navy text-left text-white\">\n                        <th class=\"px-4 py-3 rounded-tl-xl\">Format / Context</th>\n                        <th class=\"px-4 py-3 text-center\">Arrows per End</th>\n                        <th class=\"px-4 py-3 rounded-tr-xl\">Description</th>\n                    </tr>\n                </head>\n                <tbody class=\"divide-y divide-gray-100 bg-white\">\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Outdoor Qualification (720 Round)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">6</td>\n                        <td class=\"px-4 py-3\">12 ends × 6 arrows = 72 arrows total</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Indoor Qualification (18/25 m)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">3</td>\n                        <td class=\"px-4 py-3\">20 ends × 3 arrows = 60 arrows total</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Recurve Elimination (Set System)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">3</td>\n                        <td class=\"px-4 py-3\">Each set = 1 end, winner of the set gets 2 set points</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Compound Elimination</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">3 or 6</td>\n                        <td class=\"px-4 py-3\">Number of end × arrows configured per event</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Custom Event (archeris.net)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">1 – 6</td>\n                        <td class=\"px-4 py-3\">Freely configurable by committee</td>\n                    </tr>\n                </tbody>\n            </table>\n        </div>\n\n        <h2 id=\"one-end-flow\">One-End Flow from Beginning to End</h2>\n        <p>The following is the sequence of events at one end in the field:</p>\n        <ol>\n            <li><strong>Start signal</strong> — The committee or system gives a signal (usually a bell or whistle).</li>\n            <li><strong>Running time</strong> — The athlete takes a stance and shoots the number of arrows specified for that end. There is a time limit (generally 2 minutes for 3 arrows, or 4 minutes for 6 arrows).</li>\n            <li><strong>Completion signal</strong> — All athletes stop shooting.</li>\n            <li><strong>Advance to target</strong> — All athletes walk together to the target line.</li>\n            <li><strong>Record the score</strong> — The value of each arrow is read and recorded (by the scorekeeper or the athlete themselves). Recording order: from highest to lowest value (for example: X, 10, 9, 8, M).</li>\n            <li><strong>Remove the arrow</strong> — Once all values ​​are recorded and confirmed, the arrow is removed from the target.</li>\n            <li><strong>Return to firing line</strong> — Next end begins.</li>\n        </ol>\n        <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-primary text-2xl shrink-0\">⏱️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Time Limit per End</div>\n                <div class=\"text-gray-600 text-sm\">Shooting past the time limit results in the last arrow shot being declared <strong>M (miss/0 points)</strong>, according to World Archery regulations. Time management per end is an important part of athlete competition.</div>\n            </div>\n        </div>\n\n        <h2 id=\"end-and-total-score\">End and Total Score</h2>\n        <p>An athlete's qualifying score is <strong>the total number of points from all arrows at all ends</strong>. For example, in the format 720 Round (12 ends × 6 arrows):</p>\n        <ul>\n            <li>Each end produces a subtotal of 6 arrows (maximum 60 points per end if all 10).</li>\n            <li>Total 12 ends added up → final score (maximum 720 points, hence the name \"720 Round\").</li>\n        </ul>\n        <p>This is where <em>consistency per end</em> is important: an athlete who averages 55 points per end will beat an athlete who gets 60 at some ends but 40 at others.</p>\n\n        <h2 id=\"end-eliminated\">End in Elimination Context</h2>\n        <p>In head-to-head elimination, each end in the <strong>Set System</strong> (Recurve) format is also called a <em>set</em>. The winner of each set (end) does not immediately win the match, but instead gets <strong>set points</strong>. The match is won by the athlete who first collects 6 set points.</p>\n        <p>For the <strong>Compound</strong> format, ends are still cumulative — there are no set points, all arrows from all ends are added up to determine the winner of the match.</p>\n\n        <h2 id=\"end-at-Archeris\">End at archeris.net Platform</h2>\n        <p>When organizers create a qualifying session on archeris.net, they fill in two main parameters:</p>\n        <ul>\n            <li><strong>Number of Ends</strong> — How many ends will be shot in the session.</li>\n            <li><strong>Arrows per End</strong> — How many arrows are shot per end.</li>\n        </ul>\n        <p>These two numbers produce the total arrows per athlete (Number of Ends × Arrows per End), which appears on the scoresheet and is used to validate the score input. The system will not allow the score to be submitted if the number of arrows filled in does not match the predefined end configuration.</p>\n"
+  },
+  "id": {
+    "title": "Apa Itu END dalam Panahan?",
+    "excerpt": "Memahami konsep \"end\" sebagai unit dasar tembakan dalam sesi kualifikasi, cara kerjanya, dan pengaruhnya terhadap skor total atlet.",
+    "toc": [
+      {
+        "id": "definisi-end",
+        "level": 2,
+        "text": "Definisi End"
+      },
+      {
+        "id": "berapa-panah-per-end",
+        "level": 2,
+        "text": "Berapa Panah per End?"
+      },
+      {
+        "id": "alur-satu-end",
+        "level": 2,
+        "text": "Alur Satu End dari Awal hingga Akhir"
+      },
+      {
+        "id": "end-dan-total-skor",
+        "level": 2,
+        "text": "End dan Total Skor"
+      },
+      {
+        "id": "end-di-eliminasi",
+        "level": 2,
+        "text": "End dalam Konteks Eliminasi"
+      },
+      {
+        "id": "end-di-Archeris",
+        "level": 2,
+        "text": "End di Platform archeris.net"
+      }
+    ],
+    "content": "\n        <h2 id=\"definisi-end\">Definisi End</h2>\n        <p>Dalam panahan kompetisi, <strong>end</strong> (bahasa Indonesia: <em>babak tembak</em> atau <em>ronde tembak</em>) adalah satu unit tembakan di mana seorang atlet menembakkan sejumlah panah yang telah ditentukan ke target dalam satu periode waktu, sebelum maju mengambil dan mencatat nilainya.</p>\n        <p>Sederhananya: <strong>end = satu giliran menembak</strong>. Setelah semua atlet di satu kelompok selesai menembak panah-panah mereka untuk satu end, seluruh kelompok maju bersama ke garis target untuk mencatat nilai dan mencabut panah, lalu kembali ke garis tembak untuk memulai end berikutnya.</p>\n\n        <h2 id=\"berapa-panah-per-end\">Berapa Panah per End?</h2>\n        <p>Jumlah panah per end bervariasi tergantung format kompetisi:</p>\n        <div class=\"not-prose overflow-x-auto my-4\">\n            <table class=\"w-full text-sm border-collapse\">\n                <thead>\n                    <tr class=\"bg-navy text-left text-white\">\n                        <th class=\"px-4 py-3 rounded-tl-xl\">Format / Konteks</th>\n                        <th class=\"px-4 py-3 text-center\">Panah per End</th>\n                        <th class=\"px-4 py-3 rounded-tr-xl\">Keterangan</th>\n                    </tr>\n                </thead>\n                <tbody class=\"divide-y divide-gray-100 bg-white\">\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Kualifikasi Outdoor (720 Round)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">6</td>\n                        <td class=\"px-4 py-3\">12 end × 6 panah = 72 panah total</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Kualifikasi Indoor (18/25 m)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">3</td>\n                        <td class=\"px-4 py-3\">20 end × 3 panah = 60 panah total</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Eliminasi Recurve (Set System)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">3</td>\n                        <td class=\"px-4 py-3\">Tiap set = 1 end, pemenang set mendapat 2 poin set</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Eliminasi Compound</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">3 atau 6</td>\n                        <td class=\"px-4 py-3\">Jumlah end × panah dikonfigurasi per event</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Event Kustom (archeris.net)</td>\n                        <td class=\"px-4 py-3 text-center font-bold\">1 – 6</td>\n                        <td class=\"px-4 py-3\">Dapat dikonfigurasi bebas oleh panitia</td>\n                    </tr>\n                </tbody>\n            </table>\n        </div>\n\n        <h2 id=\"alur-satu-end\">Alur Satu End dari Awal hingga Akhir</h2>\n        <p>Berikut urutan kejadian dalam satu end di lapangan:</p>\n        <ol>\n            <li><strong>Sinyal mulai</strong> — Panitia atau sistem memberi aba-aba (biasanya bunyi lonceng atau peluit).</li>\n            <li><strong>Waktu berjalan</strong> — Atlet mengambil ancang dan menembakkan panah sebanyak yang ditentukan untuk end tersebut. Terdapat batas waktu (umumnya 2 menit untuk 3 panah, atau 4 menit untuk 6 panah).</li>\n            <li><strong>Sinyal selesai</strong> — Semua atlet berhenti menembak.</li>\n            <li><strong>Maju ke target</strong> — Semua atlet berjalan bersama ke garis target.</li>\n            <li><strong>Catat nilai</strong> — Nilai setiap panah dibaca dan dicatat (oleh scorekeeper atau atlet sendiri). Urutan pencatatan: dari nilai tertinggi ke terendah (misalnya: X, 10, 9, 8, M).</li>\n            <li><strong>Cabut panah</strong> — Setelah semua nilai dicatat dan dikonfirmasi, panah dicabut dari target.</li>\n            <li><strong>Kembali ke garis tembak</strong> — End berikutnya dimulai.</li>\n        </ol>\n        <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-primary text-2xl shrink-0\">⏱️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Batas Waktu per End</div>\n                <div class=\"text-gray-600 text-sm\">Menembak melewati batas waktu mengakibatkan panah terakhir yang ditembakkan dinyatakan <strong>M (miss/0 poin)</strong>, sesuai peraturan World Archery. Manajemen waktu per end adalah bagian penting dari kompetisi atlet.</div>\n            </div>\n        </div>\n\n        <h2 id=\"end-dan-total-skor\">End dan Total Skor</h2>\n        <p>Nilai kualifikasi seorang atlet adalah <strong>jumlah total poin dari semua panah di semua end</strong>. Misalnya, dalam format 720 Round (12 end × 6 panah):</p>\n        <ul>\n            <li>Setiap end menghasilkan subtotal dari 6 panah (maksimal 60 poin per end jika semua 10).</li>\n            <li>Total 12 end dijumlahkan → skor akhir (maksimal 720 poin, itulah asal nama \"720 Round\").</li>\n        </ul>\n        <p>Di sinilah pentingnya <em>konsistensi per end</em>: atlet yang rata-rata 55 poin per end akan mengalahkan atlet yang mendapat 60 di beberapa end tapi 40 di end lainnya.</p>\n\n        <h2 id=\"end-di-eliminasi\">End dalam Konteks Eliminasi</h2>\n        <p>Pada eliminasi head-to-head, setiap end dalam format <strong>Set System</strong> (Recurve) disebut juga <em>set</em>. Pemenang tiap set (end) tidak langsung menang pertandingan, melainkan mendapat <strong>poin set</strong>. Pertandingan dimenangkan oleh atlet yang pertama mengumpulkan 6 poin set.</p>\n        <p>Untuk format <strong>Compound</strong>, end tetap bersifat kumulatif — tidak ada poin set, semua panah dari semua end dijumlahkan untuk menentukan pemenang match.</p>\n\n        <h2 id=\"end-di-Archeris\">End di Platform archeris.net</h2>\n        <p>Saat panitia membuat sesi kualifikasi di archeris.net, mereka mengisi dua parameter utama:</p>\n        <ul>\n            <li><strong>Jumlah End</strong> — Berapa end yang akan ditembak dalam sesi tersebut.</li>\n            <li><strong>Panah per End</strong> — Berapa panah yang ditembak per end.</li>\n        </ul>\n        <p>Kedua angka ini menghasilkan total panah per atlet (Jumlah End × Panah per End), yang tampil di scoresheet dan digunakan untuk validasi input skor. Sistem tidak akan mengizinkan skor disubmit jika jumlah panah yang diisi tidak sesuai konfigurasi end yang telah ditetapkan.</p>\n    "
+  },
+  "image_url": "doc-apa-itu-end.jpg"
+}

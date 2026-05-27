@@ -7,8 +7,16 @@
     "title": "What is Archeris.net?",
     "excerpt": "Learn about the core vision, architecture, and main features of the Archeris platform.",
     "toc": [
-      { "id": "core-vision", "level": 2, "text": "Core Vision" },
-      { "id": "key-features", "level": 2, "text": "Key Core Features" }
+      {
+        "id": "core-vision",
+        "level": 2,
+        "text": "Core Vision"
+      },
+      {
+        "id": "key-features",
+        "level": 2,
+        "text": "Key Core Features"
+      }
     ],
     "content": "<h2>1. Core Vision</h2><p>Archeris.net is an integrated archery management platform designed to help organize tournament activities, live scoring, and athlete portfolio management.</p><h2>2. Key Core Features</h2><ul><li>Digital Scorekeeper for real-time scoring.</li><li>Smart Tournament Bracket generation.</li><li>Integrated online payments.</li></ul>"
   },
@@ -16,9 +24,18 @@
     "title": "Apa itu Archeris.net?",
     "excerpt": "Pelajari visi inti, arsitektur, dan fitur utama dari platform Archeris.",
     "toc": [
-      { "id": "core-vision", "level": 2, "text": "Visi Inti" },
-      { "id": "key-features", "level": 2, "text": "Fitur Utama" }
+      {
+        "id": "core-vision",
+        "level": 2,
+        "text": "Visi Inti"
+      },
+      {
+        "id": "key-features",
+        "level": 2,
+        "text": "Fitur Utama"
+      }
     ],
     "content": "<h2>1. Visi Inti</h2><p>Archeris.net adalah platform manajemen panahan terintegrasi yang dirancang untuk membantu menyelenggarakan aktivitas turnamen, penilaian langsung, dan manajemen portofolio atlet.</p><h2>2. Fitur Utama</h2><ul><li>Scorekeeper Digital untuk penilaian waktu nyata.</li><li>Pembuatan Bracket Turnamen Pintar.</li><li>Pembayaran online terintegrasi.</p>"
-  }
+  },
+  "image_url": "doc-what-is-archeris.jpg"
 }

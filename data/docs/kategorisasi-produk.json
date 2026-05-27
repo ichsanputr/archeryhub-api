@@ -1,0 +1,61 @@
+{
+  "slug": "kategorisasi-produk",
+  "icon": "ph:tag-bold",
+  "category": "marketplace",
+  "readTime": "3 min",
+  "en": {
+    "title": "Marketplace Product Categorization",
+    "excerpt": "A complete explanation of the product categories available on the archeris.net Marketplace and guidelines for proper product placement.",
+    "toc": [
+      {
+        "id": "mengapa-kategori",
+        "level": 2,
+        "text": "Why Categories Matter"
+      },
+      {
+        "id": "daftar-kategori",
+        "level": 2,
+        "text": "List of Product Categories"
+      },
+      {
+        "id": "sub-kategori",
+        "level": 2,
+        "text": "Advanced Sub-Categories & Filters"
+      },
+      {
+        "id": "kategori-salah",
+        "level": 2,
+        "text": "Product in the Wrong Category"
+      }
+    ],
+    "content": "\n        <h2 id=\"why-categories\">Why Categories Matter</h2>\n        <p>The right categories help buyers find your products faster. The archeris.net Marketplace search algorithm uses categories as a relevance signal. Products that are categorized correctly tend to get more organic impressions than products that are inappropriately categorized.</p>\n\n        <h2 id=\"category-list\">Product Category List</h2>\n        <div class=\"not-process overflow-x-auto my-4\">\n            <table class=\"w-full text-sm border-collapse\">\n                <head>\n                    <tr class=\"bg-navy text-left text-white\">\n                        <th class=\"px-4 py-3 rounded-tl-xl\">Category</th>\n                        <th class=\"px-4 py-3\">Product Examples</th>\n                        <th class=\"px-4 py-3 rounded-tr-xl\">Suitable For</th>\n                    </tr>\n                </head>\n                <tbody class=\"divide-y divide-gray-100 bg-white\">\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Equipment <span class=\"text-xs font-normal text-gray-400\">(equipment)</span></td>\n                        <td class=\"px-4 py-3\">Bow, limb, riser, bowstring, arrow rest, sight, stabilizer, clicker, release aid</td>\n                        <td class=\"px-4 py-3\">Major components of the bow and firing system</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Darts & Accessories <span class=\"text-xs font-normal text-gray-400\">(accessories)</span></td>\n                        <td class=\"px-4 py-3\">Arrow carbon/aluminium, nock, point, fletching, pin nock, nocking plier, arrow tube</td>\n                        <td class=\"px-4 py-3\">Arrows and small shooting support components</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Clothing & Protection <span class=\"text-xs font-normal text-gray-400\">(apparel)</span></td>\n                        <td class=\"px-4 py-3\">Finger tab, arm guard, chest guard, quiver, uniform, cap, archery shoes</td>\n                        <td class=\"px-4 py-3\">Athlete clothing, body armor and personal equipment</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Training & Education <span class=\"text-xs font-normal text-gray-400\">(training)</span></td>\n                        <td class=\"px-4 py-3\">Target pads, target faces, stretching tools, bow stands, training aids, course books/videos</td>\n                        <td class=\"px-4 py-3\">Equipment and content for independent practice</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Other <span class=\"text-xs font-normal text-gray-400\">(other)</span></td>\n                        <td class=\"px-4 py-3\">Plaques, trophies, souvenirs, club merchandise, competition stationery</td>\n                        <td class=\"px-4 py-3\">Products that do not fit into the above categories</td>\n                    </tr>\n                </tbody>\n            </table>\n        </div>\n\n        <h2 id=\"sub-category\">Sub-Categories & Advanced Filters</h2>\n        <p>In addition to selecting the main category, sellers are advised to complete advanced attributes so that products can appear in buyers' specific filters:</p>\n        <ul>\n            <li><strong>Compatible bow types</strong> — Recurve, Compound, Barebow, Standard Bow, etc.</li>\n            <li><strong>Athlete level</strong> — Beginner, Intermediate, Professional / Competition.</li>\n            <li><strong>Item condition</strong> — New / Used (Second).</li>\n            <li><strong>Brand</strong> — Samick, Hoyt, Win&Win, Easton, Carbon Express, local, or no-brand.</li>\n        </ul>\n        <p>This attribute is not mandatory, but it has a big influence on product visibility in buyer search filter results.</p>\n\n        <h2 id=\"wrong-category\">Products in Wrong Category</h2>\n        <p>The archeris.net team carries out periodic curation of listings. Products that are proven to be in irrelevant categories will be moved or temporarily deleted pending correction from the seller. The seller will receive a notification and an explanation of the reasons for the action.</p>\n        <div class=\"not-prose bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-yellow-500 text-2xl shrink-0\">⚠️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Prohibited Products</div>\n                <div class=\"text-gray-600 text-sm\">archeris.net does not accept listings for firearms, dangerous products that are not related to the sport of archery, or fake/KW products that violate brand rights. Violations may result in store suspension.</div>\n            </div>\n        </div>\n"
+  },
+  "id": {
+    "title": "Kategorisasi Produk Marketplace",
+    "excerpt": "Penjelasan lengkap tentang kategori produk yang tersedia di Marketplace archeris.net dan pedoman penempatan produk yang tepat.",
+    "toc": [
+      {
+        "id": "mengapa-kategori",
+        "level": 2,
+        "text": "Mengapa Kategori Itu Penting"
+      },
+      {
+        "id": "daftar-kategori",
+        "level": 2,
+        "text": "Daftar Kategori Produk"
+      },
+      {
+        "id": "sub-kategori",
+        "level": 2,
+        "text": "Sub-Kategori & Filter Lanjutan"
+      },
+      {
+        "id": "kategori-salah",
+        "level": 2,
+        "text": "Produk di Kategori yang Salah"
+      }
+    ],
+    "content": "\n        <h2 id=\"mengapa-kategori\">Mengapa Kategori Itu Penting</h2>\n        <p>Kategori yang tepat membantu pembeli menemukan produk Anda lebih cepat. Algoritma pencarian Marketplace archeris.net menggunakan kategori sebagai salah satu sinyal relevansi. Produk yang dikategorikan dengan benar cenderung mendapat lebih banyak tayangan organik dibandingkan produk dengan kategori yang tidak sesuai.</p>\n\n        <h2 id=\"daftar-kategori\">Daftar Kategori Produk</h2>\n        <div class=\"not-prose overflow-x-auto my-4\">\n            <table class=\"w-full text-sm border-collapse\">\n                <thead>\n                    <tr class=\"bg-navy text-left text-white\">\n                        <th class=\"px-4 py-3 rounded-tl-xl\">Kategori</th>\n                        <th class=\"px-4 py-3\">Contoh Produk</th>\n                        <th class=\"px-4 py-3 rounded-tr-xl\">Cocok Untuk</th>\n                    </tr>\n                </thead>\n                <tbody class=\"divide-y divide-gray-100 bg-white\">\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Peralatan <span class=\"text-xs font-normal text-gray-400\">(equipment)</span></td>\n                        <td class=\"px-4 py-3\">Busur, limb, riser, tali busur, arrow rest, sight, stabilizer, clicker, release aid</td>\n                        <td class=\"px-4 py-3\">Komponen utama busur dan sistem tembakan</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Anak Panah & Aksesoris <span class=\"text-xs font-normal text-gray-400\">(accessories)</span></td>\n                        <td class=\"px-4 py-3\">Arrow carbon/aluminium, nock, point, fletching, pin nock, nocking plier, arrow tube</td>\n                        <td class=\"px-4 py-3\">Anak panah dan komponen kecil pendukung tembakan</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Pakaian & Proteksi <span class=\"text-xs font-normal text-gray-400\">(apparel)</span></td>\n                        <td class=\"px-4 py-3\">Finger tab, arm guard, chest guard, quiver, uniform, cap, sepatu panahan</td>\n                        <td class=\"px-4 py-3\">Pakaian, pelindung tubuh, dan perlengkapan badan atlet</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Latihan & Edukasi <span class=\"text-xs font-normal text-gray-400\">(training)</span></td>\n                        <td class=\"px-4 py-3\">Bantalan target, face target, alat stretch, bow stand, training aid, buku/video kursus</td>\n                        <td class=\"px-4 py-3\">Perlengkapan dan konten untuk latihan mandiri</td>\n                    </tr>\n                    <tr>\n                        <td class=\"px-4 py-3 font-bold text-navy\">Lainnya <span class=\"text-xs font-normal text-gray-400\">(other)</span></td>\n                        <td class=\"px-4 py-3\">Plakat, piala, souvenir, merchandise klub, alat tulis kompetisi</td>\n                        <td class=\"px-4 py-3\">Produk yang tidak masuk kategori di atas</td>\n                    </tr>\n                </tbody>\n            </table>\n        </div>\n\n        <h2 id=\"sub-kategori\">Sub-Kategori & Filter Lanjutan</h2>\n        <p>Selain memilih kategori utama, penjual disarankan melengkapi atribut lanjutan agar produk bisa muncul di filter spesifik pembeli:</p>\n        <ul>\n            <li><strong>Jenis busur yang kompatibel</strong> — Recurve, Compound, Barebow, Standard Bow, dll.</li>\n            <li><strong>Level atlet</strong> — Pemula, Menengah, Profesional / Kompetisi.</li>\n            <li><strong>Kondisi barang</strong> — Baru / Bekas (Second).</li>\n            <li><strong>Merek</strong> — Samick, Hoyt, Win&Win, Easton, Carbon Express, lokal, atau no-brand.</li>\n        </ul>\n        <p>Atribut ini tidak bersifat wajib, namun sangat berpengaruh pada visibilitas produk di hasil filter pencarian pembeli.</p>\n\n        <h2 id=\"kategori-salah\">Produk di Kategori yang Salah</h2>\n        <p>Tim archeris.net melakukan kurasi periodik terhadap listing. Produk yang terbukti berada di kategori yang tidak relevan akan dipindahkan atau dihapus sementara sambil menunggu koreksi dari penjual. Penjual akan menerima notifikasi dan penjelasan alasan tindakan tersebut.</p>\n        <div class=\"not-prose bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-yellow-500 text-2xl shrink-0\">⚠️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Produk yang Dilarang</div>\n                <div class=\"text-gray-600 text-sm\">archeris.net tidak menerima listing untuk senjata api, produk berbahaya yang tidak berhubungan dengan olahraga panahan, atau produk palsu/KW yang melanggar hak merek. Pelanggaran dapat berujung pada penangguhan toko.</div>\n            </div>\n        </div>\n    "
+  },
+  "image_url": "doc-kategorisasi-produk.jpg"
+}

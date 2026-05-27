@@ -1,0 +1,81 @@
+{
+  "slug": "penempatan-bantalan",
+  "icon": "ph:shuffle-bold",
+  "category": "archery",
+  "readTime": "5 min",
+  "en": {
+    "title": "Draw Type & Automatic Placement of Bearings",
+    "excerpt": "Guide to choosing the type of draw (random, manual, or ranking) and how the automatic assignment feature of participants to pads in qualifying sessions works.",
+    "toc": [
+      {
+        "id": "apa-itu-draw",
+        "level": 2,
+        "text": "What is Draw?"
+      },
+      {
+        "id": "tipe-draw",
+        "level": 2,
+        "text": "Available Draw Types"
+      },
+      {
+        "id": "penempatan-otomatis",
+        "level": 2,
+        "text": "Automatic Placement (Auto-Assign)"
+      },
+      {
+        "id": "penempatan-manual",
+        "level": 2,
+        "text": "Manual Placement"
+      },
+      {
+        "id": "aturan-penempatan",
+        "level": 2,
+        "text": "Placement Rules & Considerations"
+      },
+      {
+        "id": "cetak-target-list",
+        "level": 2,
+        "text": "Printing Bearing List (Target List)"
+      }
+    ],
+    "content": "\n        <h2 id=\"what-is-draw\">What is Draw?</h2>\n        <p><strong>Draw</strong> in the context of archery competitions is the process of drawing lots or determining positions — namely which target bearing will be used by each participant in a shooting session. The bearing position (target face position) is often also called <em>target number</em> or <em>bearing number</em>.</p>\n        <p>A fair and transparent draw is important to maintain the integrity of the competition. For example, in outdoor wind conditions, pad positions on the left vs. right side of the court can provide different advantages for athletes — so a truly random draw is preferred.</p>\n\n        <h2 id=\"draw-type\">Available Draw Types</h2>\n        <p>On archeris.net, organizers can choose from several draw approaches when organizing qualifying sessions:</p>\n\n        <h3 style=\"font-size:1rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.5rem;\">1. Random Draw (Random Draw)</h3>\n        <p>The system randomly shuffles all participants registered in a session, then maps them to available pads. This is the most common and recommended method for open competitions.</p>\n        <ul>\n            <li><strong>Advantages:</strong> No bias, transparent, fast.</li>\n            <li><strong>When to use:</strong> Open events, first phase qualifiers, or when there are no special placement considerations.</li>\n        </ul>\n\n        <h3 style=\"font-size:1rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.5rem;\">2. Draw Based on Category (Grouped Draw)</h3>\n        <p>Participants are first grouped by division or age category, then a random draw is carried out within each group. As a result, one bearing area is dominated by one category — making it easier for field judges to monitor.</p>\n        <ul>\n            <li><strong>Advantages:</strong> Category judges do not need to move too far, reading the scores per group is more efficient.</li>\n            <li><strong>When to use:</strong> Large events with many categories and special judges per division.</li>\n        </ul>\n\n        <h3 style=\"font-size:1rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.5rem;\">3. Manual Draw (Manual Assignment)</h3>\n        <p>The committee determines the position of each participant individually — shifting, adjusting, or swapping positions via the drag-and-drop interface on the dashboard.</p>\n        <ul>\n            <li><strong>Advantages:</strong> Full control, suitable for special situations (athletes with special needs, committee requests, etc.).</li>\n            <li><strong>When to use:</strong> Semi-private events, exercise classes, or when there are special conditions that need to be considered.</li>\n        </ul>\n        <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-primary text-2xl shrink-0\">💡</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Commonly Used Draw Combinations</div>\n                <div class=\"text-gray-600 text-sm\">Many organizers start with <strong>Draw By Category</strong> to group participants, then do manual <strong>fine-tuning</strong> if a participant needs to be moved for some reason. These two approaches can be combined at archeris.net.</div>\n            </div>\n        </div>\n\n        <h2 id=\"auto-assignment\">Auto-Assign</h2>\n        <p>The <strong>Auto-Assign</strong> feature on archeris.net allows the committee to assign all participants to available pads with just one click. Here's how it works:</p>\n        <ol>\n            <li>The organizers open a preconfigured qualifying session (number of ends, arrows per end, and list of targets available).</li>\n            <li>Select draw mode: <strong>Random</strong> or <strong>By Category</strong>.</li>\n            <li>Click the <strong>Auto-Assign</strong> button.</li>\n            <li>The system immediately maps all participants who have not been placed to empty pads automatically.</li>\n            <li>The results can be previewed immediately before being confirmed and published.</li>\n        </ol>\n        <div class=\"not-prose bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-yellow-500 text-2xl shrink-0\">⚠️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Number of Targets Must Be Sufficient</div>\n                <div class=\"text-gray-600 text-sm\">Auto-Assign only succeeds if the number of pad slots ≥ the number of participants. Make sure you have added enough targets in the session configuration before running auto-assign. If there are not enough slots, the system will ask you to add targets first.</div>\n            </div>\n        </div>\n\n        <h2 id=\"manual-placement\">Manual Placement</h2>\n        <p>After auto-assign is complete (or at any time), the committee can still make manual changes on the Assignment page:</p>\n        <ul>\n            <li><strong>Move participants</strong> — Click a participant and then select the target destination (drag-and-drop or dropdown).</li>\n            <li><strong>Swap positions</strong> — Swap the positions of two participants at once without having to remove one of them first.</li>\n            <li><strong>Delete assignment</strong> — Frees one slot so it can be refilled manually or via partial auto-assign.</li>\n        </ul>\n\n        <h2 id=\"placement-rules\">Placement Rules & Considerations</h2>\n        <p>Several things to consider when drawing:</p>\n        <ul>\n            <li><strong>One pad, one athlete</strong> — In the standard Olympic format each pad is for only one participant. For 3D or field formats, one target can be visited alternately.</li>\n            <li><strong>Capacity per target</strong> — For sessions with many participants and limited targets, the system supports an \"A/B\" configuration (two participants per pad in one session split over two waves).</li>\n            <li><strong>Athletes with special needs</strong> — Prioritize placement in accessible pads (flat areas, near judges' entrances, etc.) — do this via manual assignment before auto-assign.</li>\n            <li><strong>Do not place participants from the same team/club if possible</strong> — In team competitions, this prevents team members from tagging each other.</li>\n        </ul>\n\n        <h2 id=\"print-target-list\">Printing a Bearing List (Target List)</h2>\n        <p>Once final placements are confirmed, organizers can print the <strong>Target List</strong> — a complete list showing the names of participants along with their bearing numbers — in PDF format directly from the dashboard. This document is usually posted on the venue notice board before the session starts.</p>\n        <p>On archeris.net, the Target List can be printed with filtered views per session, per category, or for all participants at once, according to the committee's needs.</p>\n"
+  },
+  "id": {
+    "title": "Tipe Draw & Penempatan Otomatis Bantalan",
+    "excerpt": "Panduan memilih tipe draw (acak, manual, atau berdasarkan ranking) dan cara kerja fitur penempatan otomatis peserta ke bantalan di sesi kualifikasi.",
+    "toc": [
+      {
+        "id": "apa-itu-draw",
+        "level": 2,
+        "text": "Apa Itu Draw?"
+      },
+      {
+        "id": "tipe-draw",
+        "level": 2,
+        "text": "Tipe-Tipe Draw yang Tersedia"
+      },
+      {
+        "id": "penempatan-otomatis",
+        "level": 2,
+        "text": "Penempatan Otomatis (Auto-Assign)"
+      },
+      {
+        "id": "penempatan-manual",
+        "level": 2,
+        "text": "Penempatan Manual"
+      },
+      {
+        "id": "aturan-penempatan",
+        "level": 2,
+        "text": "Aturan & Pertimbangan Penempatan"
+      },
+      {
+        "id": "cetak-target-list",
+        "level": 2,
+        "text": "Mencetak Daftar Bantalan (Target List)"
+      }
+    ],
+    "content": "\n        <h2 id=\"apa-itu-draw\">Apa Itu Draw?</h2>\n        <p><strong>Draw</strong> dalam konteks kompetisi panahan adalah proses pengundian atau penentuan posisi — yaitu bantalan target mana yang akan digunakan oleh setiap peserta dalam sesi tembak. Posisi bantalan (target face position) sering disebut juga <em>target number</em> atau <em>nomor bantalan</em>.</p>\n        <p>Draw yang adil dan transparan penting untuk menjaga integritas kompetisi. Contohnya, dalam kondisi angin outdoor, posisi bantalan di sisi kiri vs kanan lapangan bisa memberikan keuntungan berbeda bagi atlet — sehingga draw yang benar-benar acak lebih diutamakan.</p>\n\n        <h2 id=\"tipe-draw\">Tipe-Tipe Draw yang Tersedia</h2>\n        <p>Di archeris.net, panitia dapat memilih dari beberapa pendekatan draw saat mengatur sesi kualifikasi:</p>\n\n        <h3 style=\"font-size:1rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.5rem;\">1. Draw Acak (Random Draw)</h3>\n        <p>Sistem secara acak mengacak seluruh peserta yang terdaftar dalam sesi, lalu memetakan mereka ke bantalan yang tersedia. Ini adalah metode paling umum dan direkomendasikan untuk kompetisi terbuka.</p>\n        <ul>\n            <li><strong>Keunggulan:</strong> Tidak ada bias, transparan, cepat.</li>\n            <li><strong>Kapan digunakan:</strong> Event terbuka, kualifikasi fase pertama, atau ketika tidak ada pertimbangan khusus penempatan.</li>\n        </ul>\n\n        <h3 style=\"font-size:1rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.5rem;\">2. Draw Berdasarkan Kategori (Grouped Draw)</h3>\n        <p>Peserta dikelompokkan terlebih dahulu berdasarkan divisi atau kategori umur, kemudian draw acak dilakukan di dalam masing-masing kelompok. Hasilnya, satu area bantalan didominasi oleh satu kategori — mempermudah pengawasan juri lapang.</p>\n        <ul>\n            <li><strong>Keunggulan:</strong> Juri kategori tidak perlu berpindah terlalu jauh, pembacaan nilai per kelompok lebih efisien.</li>\n            <li><strong>Kapan digunakan:</strong> Event besar dengan banyak kategori dan juri khusus per divisi.</li>\n        </ul>\n\n        <h3 style=\"font-size:1rem; font-weight:700; margin-top:1.5rem; margin-bottom:0.5rem;\">3. Draw Manual (Manual Assignment)</h3>\n        <p>Panitia menentukan posisi setiap peserta secara individual — menggeser, mengatur, atau menukar posisi lewat antarmuka drag-and-drop di dashboard.</p>\n        <ul>\n            <li><strong>Keunggulan:</strong> Kontrol penuh, cocok untuk situasi khusus (atlet berkebutuhan khusus, permintaan panitia, dll.).</li>\n            <li><strong>Kapan digunakan:</strong> Event semi-privat, kelas latihan, atau ketika ada kondisi khusus yang perlu dipertimbangkan.</li>\n        </ul>\n        <div class=\"not-prose bg-primary/10 border border-primary/20 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-primary text-2xl shrink-0\">💡</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Kombinasi Draw yang Umum Digunakan</div>\n                <div class=\"text-gray-600 text-sm\">Banyak panitia memulai dengan <strong>Draw Berdasarkan Kategori</strong> untuk mengelompokkan peserta, kemudian melakukan <strong>fine-tuning manual</strong> jika ada peserta yang perlu dipindah karena alasan tertentu. Kedua pendekatan ini bisa dikombinasikan di archeris.net.</div>\n            </div>\n        </div>\n\n        <h2 id=\"penempatan-otomatis\">Penempatan Otomatis (Auto-Assign)</h2>\n        <p>Fitur <strong>Auto-Assign</strong> di archeris.net memungkinkan panitia menempatkan seluruh peserta ke bantalan yang tersedia hanya dengan satu klik. Berikut cara kerjanya:</p>\n        <ol>\n            <li>Panitia membuka sesi kualifikasi yang sudah dikonfigurasi (jumlah end, panah per end, dan daftar target tersedia).</li>\n            <li>Pilih mode draw: <strong>Acak</strong> atau <strong>Berdasarkan Kategori</strong>.</li>\n            <li>Klik tombol <strong>Auto-Assign</strong>.</li>\n            <li>Sistem langsung memetakan semua peserta yang belum ditempatkan ke bantalan yang masih kosong secara otomatis.</li>\n            <li>Hasilnya langsung bisa dipreview sebelum dikonfirmasi dan dipublikasikan.</li>\n        </ol>\n        <div class=\"not-prose bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-4 flex gap-4\">\n            <div class=\"text-yellow-500 text-2xl shrink-0\">⚠️</div>\n            <div>\n                <div class=\"font-bold text-navy text-sm mb-1\">Jumlah Target Harus Mencukupi</div>\n                <div class=\"text-gray-600 text-sm\">Auto-Assign hanya berhasil jika jumlah slot bantalan ≥ jumlah peserta. Pastikan Anda sudah menambahkan target yang cukup di konfigurasi sesi sebelum menjalankan auto-assign. Jika slot kurang, sistem akan meminta Anda menambah target terlebih dahulu.</div>\n            </div>\n        </div>\n\n        <h2 id=\"penempatan-manual\">Penempatan Manual</h2>\n        <p>Setelah auto-assign selesai (atau kapan saja), panitia masih bisa melakukan perubahan manual di halaman Assignment:</p>\n        <ul>\n            <li><strong>Pindah peserta</strong> — Klik peserta lalu pilih target tujuan (drag-and-drop atau dropdown).</li>\n            <li><strong>Tukar posisi</strong> — Tukar posisi dua peserta sekaligus tanpa harus melepas salah satunya terlebih dahulu.</li>\n            <li><strong>Hapus penempatan</strong> — Kosongkan satu slot agar bisa diisi ulang secara manual atau via auto-assign parsial.</li>\n        </ul>\n\n        <h2 id=\"aturan-penempatan\">Aturan & Pertimbangan Penempatan</h2>\n        <p>Beberapa hal yang perlu dipertimbangkan saat melakukan draw:</p>\n        <ul>\n            <li><strong>Satu bantalan, satu atlet</strong> — Pada format olimpik standar setiap bantalan hanya untuk satu peserta. Untuk format 3D atau field, satu target bisa dikunjungi bergantian.</li>\n            <li><strong>Kapasitas per target</strong> — Untuk sesi dengan banyak peserta dan target terbatas, sistem mendukung konfigurasi \"A/B\" (dua peserta per bantalan dalam satu sesi terbagi dua gelombang).</li>\n            <li><strong>Atlet dengan kebutuhan khusus</strong> — Prioritaskan penempatan di bantalan beraksesibilitas (area datar, dekat pintu masuk juri, dll.) — lakukan ini via penempatan manual sebelum auto-assign.</li>\n            <li><strong>Jangan menempatkan peserta dari tim/klub yang sama jika memungkinkan</strong> — Pada kompetisi beregu, ini mencegah anggota tim saling memberi tanda.</li>\n        </ul>\n\n        <h2 id=\"cetak-target-list\">Mencetak Daftar Bantalan (Target List)</h2>\n        <p>Setelah penempatan final dikonfirmasi, panitia dapat mencetak <strong>Target List</strong> — daftar lengkap yang menampilkan nama peserta beserta nomor bantalan mereka — dalam format PDF langsung dari dashboard. Dokumen ini biasanya ditempel di papan pengumuman venue sebelum sesi dimulai.</p>\n        <p>Di archeris.net, Target List dapat dicetak dengan tampilan yang terfilter per sesi, per kategori, atau untuk semua peserta sekaligus, sesuai kebutuhan panitia.</p>\n    "
+  },
+  "image_url": "doc-penempatan-bantalan.jpg"
+}

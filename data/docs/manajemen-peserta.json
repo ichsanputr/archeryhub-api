@@ -1,0 +1,51 @@
+{
+  "slug": "manajemen-peserta",
+  "icon": "ph:table-bold",
+  "category": "event",
+  "readTime": "7 min",
+  "en": {
+    "title": "Participant and Bearing Management",
+    "excerpt": "Operational guidance organizes participants, monitors status, and sets qualifying pads.",
+    "toc": [
+      {
+        "id": "lihat-peserta",
+        "level": 2,
+        "text": "View the List of Participants"
+      },
+      {
+        "id": "atur-bantalan",
+        "level": 2,
+        "text": "Set Bearing Placement"
+      },
+      {
+        "id": "strategi-penempatan",
+        "level": 2,
+        "text": "Placement Strategy"
+      }
+    ],
+    "content": "\n                    <h2 id=\"view-participants\">View Participant List</h2>\n                    <p>The event dashboard displays a list of participants per category along with registration/payment status. Use filters to make monitoring easier.</p>\n                    <img src=\"/docs/organization-menambaik-peteman.png\" alt=\"Participant Management\" />\n                    <h2 id=\"set-pad\">Set Pad Placement</h2>\n                    <p>The committee can set assignment targets manually or automatically. Once final, perform an internal lock so that there are no sudden changes during the session.</p>\n                    <h2 id=\"deployment-strategy\">Deployment Strategy</h2>\n                    <ul>\n                        <li>Make sure the distribution of participants is even according to category and shooting distance.</li>\n                        <li>Avoid placing participants from the same region or community on one pad if regulations require equal distribution.</li>\n                        <li>Make sure the session schedule fits the field capacity and number of field officers.</li>\n                        <li>Re-check before qualifying scoring begins.</li>\n                    </ul>\n"
+  },
+  "id": {
+    "title": "Manajemen Peserta dan Bantalan",
+    "excerpt": "Panduan operasional menata peserta, memantau status, dan mengatur bantalan kualifikasi.",
+    "toc": [
+      {
+        "id": "lihat-peserta",
+        "level": 2,
+        "text": "Melihat Daftar Peserta"
+      },
+      {
+        "id": "atur-bantalan",
+        "level": 2,
+        "text": "Atur Penempatan Bantalan"
+      },
+      {
+        "id": "strategi-penempatan",
+        "level": 2,
+        "text": "Strategi Penempatan"
+      }
+    ],
+    "content": "\n                    <h2 id=\"lihat-peserta\">Melihat Daftar Peserta</h2>\n                    <p>Dashboard event menampilkan daftar peserta per kategori beserta status registrasi/pembayaran. Gunakan filter untuk memudahkan monitoring.</p>\n                    <img src=\"/docs/organization-menambahkan-peserta.png\" alt=\"Manajemen Peserta\" />\n                    <h2 id=\"atur-bantalan\">Atur Penempatan Bantalan</h2>\n                    <p>Panitia dapat mengatur target assignment secara manual atau otomatis. Setelah final, lakukan lock internal agar tidak terjadi perubahan mendadak saat sesi berjalan.</p>\n                    <h2 id=\"strategi-penempatan\">Strategi Penempatan</h2>\n                    <ul>\n                        <li>Pastikan distribusi peserta merata sesuai dengan kategori dan jarak tembak.</li>\n                        <li>Hindari penempatan peserta dari asal daerah atau komunitas yang sama pada satu bantalan jika regulasi mengharuskan pemerataan.</li>\n                        <li>Pastikan jadwal sesi sesuai kapasitas lapangan dan jumlah petugas lapangan.</li>\n                        <li>Lakukan re-check sebelum scoring kualifikasi dimulai.</li>\n                    </ul>\n                "
+  },
+  "image_url": "doc-manajemen-peserta.jpg"
+}
