@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -1097,10 +1097,50 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Pre-fetch all board numbers for targets in this event
+		type TargetBoardInfo struct {
+			UUID        string `db:"uuid"`
+			BoardNumber int    `db:"board_number"`
+		}
+		var targetsInfo []TargetBoardInfo
+		err = db.Select(&targetsInfo, `SELECT uuid, board_number FROM event_targets WHERE event_uuid = ?`, eventUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets info", "details": err.Error()})
+			return
+		}
+		targetUUIDToBoardNumber := make(map[string]int)
+		for _, info := range targetsInfo {
+			targetUUIDToBoardNumber[info.UUID] = info.BoardNumber
+		}
+
+		// Pre-fetch target boards for this session and category
+		type TargetBoardQual struct {
+			UUID        string `db:"uuid"`
+			BoardNumber int    `db:"board_number"`
+		}
+		var boardsQual []TargetBoardQual
+		err = db.Select(&boardsQual, `SELECT uuid, board_number FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ?`, sessionID, req.CategoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch qualification boards", "details": err.Error()})
+			return
+		}
+		boardNumberToBoardUUID := make(map[int]string)
+		for _, b := range boardsQual {
+			boardNumberToBoardUUID[b.BoardNumber] = b.UUID
+		}
+
 		// 5. Randomize participants
 		rand.Shuffle(len(participants), func(i, j int) {
 			participants[i], participants[j] = participants[j], participants[i]
 		})
+
+		// Start Transaction
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction", "details": err.Error()})
+			return
+		}
+		defer tx.Rollback()
 
 		// 6. Assign in order: slot order is already target-full-first (1A..1D, 2A..2D, ...)
 		assignedCount := 0
@@ -1110,15 +1150,16 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 			target := availableSlots[i]
 
-			var boardNumber int
-			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", target.UUID)
-
+			boardNumber := targetUUIDToBoardNumber[target.UUID]
+			
 			var targetBoardUUID sql.NullString
-			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
-				sessionID, req.CategoryID, boardNumber)
+			if uuidVal, ok := boardNumberToBoardUUID[boardNumber]; ok {
+				targetBoardUUID.String = uuidVal
+				targetBoardUUID.Valid = true
+			}
 
 			assignmentUUID := uuid.New().String()
-			_, err := db.Exec(`
+			_, err := tx.Exec(`
 				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id)
 				VALUES (?, ?, ?, ?, ?)`,
 				assignmentUUID, sessionID, archer.ParticipationUUID, target.UUID, targetBoardUUID)
@@ -1127,6 +1168,11 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 			assignedCount++
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction", "details": err.Error()})
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Peserta berhasil ditempatkan", "count": assignedCount})
