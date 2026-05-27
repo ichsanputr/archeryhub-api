@@ -489,6 +489,8 @@ func main() {
 		// Docs routes
 		docs := api.Group("/docs")
 		{
+			docs.GET("", handler.ListDocs())
+			docs.GET("/:slug", handler.GetDocDetail())
 			docs.GET("/:slug/comments", handler.ListDocsComments(db))
 			docs.POST("/:slug/comments", middleware.OptionalAuthMiddleware(), handler.AddDocsComment(db))
 		}

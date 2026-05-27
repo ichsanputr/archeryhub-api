@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -101,5 +104,127 @@ func AddDocsComment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "Comment successfully added", "id": commentUUID})
+	}
+}
+
+type DocTOCItem struct {
+	ID    string `json:"id"`
+	Level int    `json:"level"`
+	Text  string `json:"text"`
+}
+
+type DocLocalized struct {
+	Title    string       `json:"title"`
+	Excerpt  string       `json:"excerpt"`
+	Content  string       `json:"content,omitempty"`
+	ReadTime string       `json:"readTime"`
+	TOC      []DocTOCItem `json:"toc,omitempty"`
+}
+
+type DocJSON struct {
+	Slug     string       `json:"slug"`
+	Icon     string       `json:"icon"`
+	Category string       `json:"category"`
+	ReadTime string       `json:"readTime"`
+	EN       DocLocalized `json:"en"`
+	ID       DocLocalized `json:"id"`
+}
+
+type DocResponse struct {
+	Slug     string       `json:"slug"`
+	Icon     string       `json:"icon"`
+	Category string       `json:"category"`
+	ReadTime string       `json:"readTime"`
+	Title    string       `json:"title"`
+	Excerpt  string       `json:"excerpt"`
+	Content  string       `json:"content,omitempty"`
+	TOC      []DocTOCItem `json:"toc,omitempty"`
+}
+
+// ListDocs returns metadata of all documentation articles
+func ListDocs() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lang := c.DefaultQuery("lang", "en")
+
+		files, err := os.ReadDir("data/docs")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read docs directory", "details": err.Error()})
+			return
+		}
+
+		var list []DocResponse
+		for _, file := range files {
+			if !file.IsDir() && filepath.Ext(file.Name()) == ".json" {
+				data, err := os.ReadFile(filepath.Join("data/docs", file.Name()))
+				if err != nil {
+					continue
+				}
+
+				var doc DocJSON
+				if err := json.Unmarshal(data, &doc); err != nil {
+					continue
+				}
+
+				localized := doc.EN
+				if lang == "id" {
+					localized = doc.ID
+				}
+
+				list = append(list, DocResponse{
+					Slug:     doc.Slug,
+					Icon:     doc.Icon,
+					Category: doc.Category,
+					ReadTime: doc.ReadTime,
+					Title:    localized.Title,
+					Excerpt:  localized.Excerpt,
+				})
+			}
+		}
+
+		c.JSON(http.StatusOK, list)
+	}
+}
+
+// GetDocDetail returns full details of a specific documentation article
+func GetDocDetail() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Param("slug")
+		lang := c.DefaultQuery("lang", "en")
+
+		filePath := filepath.Join("data/docs", slug+".json")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Documentation article not found"})
+			return
+		}
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read article", "details": err.Error()})
+			return
+		}
+
+		var doc DocJSON
+		if err := json.Unmarshal(data, &doc); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse article", "details": err.Error()})
+			return
+		}
+
+		localized := doc.EN
+		if lang == "id" {
+			localized = doc.ID
+		}
+
+		res := DocResponse{
+			Slug:     doc.Slug,
+			Icon:     doc.Icon,
+			Category: doc.Category,
+			ReadTime: doc.ReadTime,
+			Title:    localized.Title,
+			Excerpt:  localized.Excerpt,
+			Content:  localized.Content,
+			TOC:      localized.TOC,
+		}
+
+		c.JSON(http.StatusOK, res)
 	}
 }
