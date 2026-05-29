@@ -220,9 +220,9 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 						clubSlug = "club-" + newClubUUID[:8]
 					}
 					_, err = db.Exec(`
-						INSERT INTO clubs (uuid, slug, name, abbreviation, status, created_at, updated_at)
-						VALUES (?, ?, ?, ?, 'active', NOW(), NOW())
-					`, newClubUUID, clubSlug, req.NewClubName, req.NewClubAcronym)
+						INSERT INTO clubs (uuid, slug, name, created_at, updated_at)
+						VALUES (?, ?, ?, NOW(), NOW())
+					`, newClubUUID, clubSlug, req.NewClubName)
 					if err != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub baru: " + err.Error()})
 						return
@@ -461,7 +461,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check clubs (use slug so result matches UserResult)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM clubs WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, 'active' as status, '' as organization_uuid, token_version FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
 				found = true
@@ -630,8 +630,13 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 			phoneExpr = "NULL as phone"
 		}
 
-		query := fmt.Sprintf(`SELECT uuid, %s, %s as username, %s, %s as slug, %s as full_name, %s, avatar_url, %s, status, created_at`, 
-			idExpr, slugExpr, emailExpr, slugExpr, nameField, roleSelect, phoneExpr)
+		statusExpr := "status"
+		if table == "clubs" {
+			statusExpr = "'active' as status"
+		}
+
+		query := fmt.Sprintf(`SELECT uuid, %s, %s as username, %s, %s as slug, %s as full_name, %s, avatar_url, %s, %s, created_at`, 
+			idExpr, slugExpr, emailExpr, slugExpr, nameField, roleSelect, phoneExpr, statusExpr)
 
 		if table == "archers" {
 			query += ", bio, gender, date_of_birth, bow_type, city, province, club_id"

@@ -3883,7 +3883,7 @@ func RequestResetCode(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve user email
 		var userEmail string
-		err := db.Get(&userEmail, `SELECT email FROM users WHERE uuid = ?`, userID.(string))
+		err := db.Get(&userEmail, `SELECT email FROM organizations WHERE uuid = ?`, userID.(string))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data user", "details": err.Error()})
 			return

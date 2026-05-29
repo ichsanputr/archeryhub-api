@@ -579,7 +579,7 @@ func RootGetClubs(db *sqlx.DB) gin.HandlerFunc {
 
 		var clubs []models.Club
 		query := fmt.Sprintf(`
-			SELECT uuid, slug, name, abbreviation, logo_url, city, status, created_at, updated_at
+			SELECT uuid, slug, name, logo_url, city, created_at, updated_at
 			FROM clubs %s ORDER BY name ASC LIMIT ? OFFSET ?
 		`, whereClause)
 		queryArgs := append(args, limit, offset)
@@ -606,11 +606,9 @@ func RootGetClubs(db *sqlx.DB) gin.HandlerFunc {
 func RootCreateClub(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Name         string  `json:"name" binding:"required"`
-			Abbreviation *string `json:"acronym"`
-			City         *string `json:"city"`
-			LogoURL      *string `json:"logo_url"`
-			Status       string  `json:"status"`
+			Name    string  `json:"name" binding:"required"`
+			City    *string `json:"city"`
+			LogoURL *string `json:"logo_url"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -623,15 +621,10 @@ func RootCreateClub(db *sqlx.DB) gin.HandlerFunc {
 			slug = "club-" + newUUID[:8]
 		}
 
-		status := "active"
-		if req.Status != "" {
-			status = req.Status
-		}
-
 		_, err := db.Exec(`
-			INSERT INTO clubs (uuid, slug, name, abbreviation, logo_url, city, status)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, newUUID, slug, req.Name, req.Abbreviation, req.LogoURL, req.City, status)
+			INSERT INTO clubs (uuid, slug, name, logo_url, city)
+			VALUES (?, ?, ?, ?, ?)
+		`, newUUID, slug, req.Name, req.LogoURL, req.City)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub: " + err.Error()})
@@ -651,11 +644,9 @@ func RootUpdateClub(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 		var req struct {
-			Name         string  `json:"name" binding:"required"`
-			Abbreviation *string `json:"acronym"`
-			City         *string `json:"city"`
-			LogoURL      *string `json:"logo_url"`
-			Status       string  `json:"status"`
+			Name    string  `json:"name" binding:"required"`
+			City    *string `json:"city"`
+			LogoURL *string `json:"logo_url"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -667,16 +658,11 @@ func RootUpdateClub(db *sqlx.DB) gin.HandlerFunc {
 			slug = "club-" + id[:8]
 		}
 
-		status := "active"
-		if req.Status != "" {
-			status = req.Status
-		}
-
 		_, err := db.Exec(`
 			UPDATE clubs 
-			SET name = ?, slug = ?, abbreviation = ?, logo_url = ?, city = ?, status = ?, updated_at = NOW() 
+			SET name = ?, slug = ?, logo_url = ?, city = ?, updated_at = NOW() 
 			WHERE uuid = ?
-		`, req.Name, slug, req.Abbreviation, req.LogoURL, req.City, status, id)
+		`, req.Name, slug, req.LogoURL, req.City, id)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui klub: " + err.Error()})

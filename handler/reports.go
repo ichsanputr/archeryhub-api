@@ -348,7 +348,7 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 				   pt.sender_name, e.name as event_name, u.full_name as user_name
 			FROM payment_transactions pt
 			JOIN events e ON pt.event_id = e.uuid
-			LEFT JOIN users u ON pt.user_id = u.uuid
+			LEFT JOIN archers u ON pt.user_id = u.uuid
 			WHERE %s
 			ORDER BY pt.created_at DESC
 			LIMIT 20

@@ -387,8 +387,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], userInfo.Picture, pageSettingsJSON)
 			case "club":
 				_, insertErr = db.Exec(`
-					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
 			case "seller":
 				_, insertErr = db.Exec(`
@@ -425,9 +425,9 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					dummyPassword := "club-secret-123!"
 
 					_, insertErr = db.Exec(`
-						INSERT INTO clubs (uuid, user_id, slug, email, password, name, abbreviation, status, created_at, updated_at)
-						VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-					`, newClubUUID, newClubUUID, clubSlug, dummyEmail, dummyPassword, metadata["new_club_name"], metadata["new_club_acronym"])
+						INSERT INTO clubs (uuid, user_id, slug, email, password, name, created_at, updated_at)
+						VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+					`, newClubUUID, newClubUUID, clubSlug, dummyEmail, dummyPassword, metadata["new_club_name"])
 					if insertErr != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub baru: " + insertErr.Error()})
 						return

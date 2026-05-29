@@ -17,11 +17,11 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		limit, offset, page := utils.GetPaginationParams(c)
 		search := c.Query("search")
 
-		whereClause := "WHERE status = 'active'"
+		whereClause := ""
 		args := []interface{}{}
 
 		if search != "" {
-			whereClause += " AND (name LIKE ? OR city LIKE ?)"
+			whereClause = "WHERE name LIKE ? OR city LIKE ?"
 			searchParam := "%" + search + "%"
 			args = append(args, searchParam, searchParam)
 		}
@@ -37,7 +37,7 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		// Get data
 		var clubs []models.Club
 		query := fmt.Sprintf(`
-			SELECT uuid, slug, name, abbreviation, logo_url, city, status, created_at, updated_at
+			SELECT uuid, slug, name, logo_url, city, created_at, updated_at
 			FROM clubs %s ORDER BY name ASC LIMIT ? OFFSET ?
 		`, whereClause)
 		queryArgs := append(args, limit, offset)
@@ -65,7 +65,7 @@ func GetClubByID(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 		var club models.Club
-		err := db.Get(&club, "SELECT * FROM clubs WHERE (uuid = ? OR slug = ?) AND (status = 'active')", id, id)
+		err := db.Get(&club, "SELECT * FROM clubs WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Klub tidak ditemukan"})
 			return
