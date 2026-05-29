@@ -435,10 +435,46 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					clubID = newClubUUID
 				}
 
+				genderVal := metadata["gender"]
+				if genderVal != "male" && genderVal != "female" {
+					genderVal = "male"
+				}
+
+				bowTypeVal := metadata["bow_type"]
+				if bowTypeVal != "recurve" && bowTypeVal != "compound" && bowTypeVal != "barebow" && bowTypeVal != "traditional" {
+					bowTypeVal = "recurve"
+				}
+
+				var dateOfBirth interface{}
+				if dob, exists := metadata["date_of_birth"]; exists && dob != "" {
+					dateOfBirth = dob
+				} else {
+					dateOfBirth = nil
+				}
+
+				var country interface{}
+				if cty, exists := metadata["country"]; exists && cty != "" {
+					country = cty
+				} else {
+					country = nil
+				}
+
+				var city interface{}
+				if c, exists := metadata["city"]; exists && c != "" {
+					city = c
+				} else {
+					city = nil
+				}
+
+				var clubIDVal interface{} = clubID
+				if clubID == "" {
+					clubIDVal = nil
+				}
+
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, city, bow_type, club_id, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture, metadata["gender"], metadata["date_of_birth"], metadata["city"], metadata["bow_type"], clubID)
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, country, city, bow_type, club_id, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture, genderVal, dateOfBirth, country, city, bowTypeVal, clubIDVal)
 			}
 
 			if insertErr != nil {

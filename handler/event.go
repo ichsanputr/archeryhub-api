@@ -1011,9 +1011,9 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		// Filter by search query
 		if searchQuery != "" {
 			searchTerm := "%" + searchQuery + "%"
-			whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ?)"
-			args = append(args, searchTerm, searchTerm)
-			countArgs = append(countArgs, searchTerm, searchTerm)
+			whereClause += " AND (a.full_name LIKE ? OR cl.name LIKE ? OR a.email LIKE ?)"
+			args = append(args, searchTerm, searchTerm, searchTerm)
+			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
 		}
 
 		if paymentStatus := c.Query("payment_status"); paymentStatus != "" && paymentStatus != "Semua" {
