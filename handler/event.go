@@ -872,13 +872,13 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 			type GroupedParticipant struct {
 				ArcherID             string        `db:"archer_id" json:"archer_id"`
-				AthleteCode          string        `db:"athlete_code" json:"athlete_code"`
+				AthleteCode          *string       `db:"athlete_code" json:"athlete_code"`
 				FullName             string        `db:"full_name" json:"full_name"`
 				Email                string        `db:"email" json:"email"`
 				AvatarURL            *string       `db:"avatar_url" json:"avatar_url"`
 				ClubName             *string       `db:"club_name" json:"club_name"`
 				City                 *string       `db:"city" json:"city"`
-				PaymentStatus        string        `db:"payment_status" json:"payment_status"`
+				PaymentStatus        *string       `db:"payment_status" json:"payment_status"`
 				LastReregistrationAt *string       `db:"last_reregistration_at" json:"last_reregistration_at"`
 				Categories           string        `db:"categories" json:"-"`
 				CategoryList         []interface{} `json:"categories"`
@@ -888,7 +888,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			query := `
 				SELECT 
 					a.uuid as archer_id,
-					a.id as athlete_code,
+					COALESCE(a.id, '') as athlete_code,
 					a.full_name,
 					COALESCE(a.email, '') as email,
 					a.avatar_url,
@@ -1171,34 +1171,35 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		fmt.Printf("[DEBUG] Fetching participant for event %s (ID: %s), participant %s\n", eventID, actualEventID, participantID)
 
 		type Participant struct {
-			ID                          string        `db:"id" json:"id"`
-			AthleteCode                 *string       `db:"athlete_code" json:"athlete_code"`
-			ArcherID                    *string       `db:"archer_id" json:"archer_id"`
-			FullName                    string        `db:"full_name" json:"full_name"`
-			Username                    *string       `db:"username" json:"username"`
-			Email                       string        `db:"email" json:"email"`
-			City                        *string       `db:"city" json:"city"`
-			ClubID                      *string       `db:"club_id" json:"club_id"`
-			ClubName                    *string       `db:"club_name" json:"club_name"`
-			EventID                     string        `db:"event_id" json:"event_id"`
-			CategoryID                  string        `db:"category_id" json:"category_id"`
-			CategoriesRaw               *string       `db:"categories" json:"-"`
-			Categories                  []interface{} `json:"categories"`
-			DivisionName                string        `db:"division_name" json:"division_name"`
-			CategoryName                string        `db:"category_name" json:"category_name"`
-			EventTypeName               *string       `db:"event_type_name" json:"event_type_name"`
-			GenderDivisionName          *string       `db:"gender_division_name" json:"gender_division_name"`
-			TargetName                  *string       `db:"target_name" json:"target_name"`
-			QRRaw                       *string       `db:"qr_raw" json:"qr_raw"`
-			PaymentStatus               string        `db:"payment_status" json:"payment_status"`
-			AvatarURL                   *string       `db:"avatar_url" json:"avatar_url"`
-			PaymentAmount               float64       `db:"payment_amount" json:"payment_amount"`
-			PaymentProofURLs            []string      `json:"payment_proof_urls"`
-			RegistrationDate            string        `db:"registration_date" json:"registration_date"`
-			IsVerified                  bool          `db:"is_verified" json:"is_verified"`
-			RegistrationSource          string        `db:"registration_source" json:"registration_source"`
-			QualificationAssignmentUUID *string       `db:"qualification_assignment_uuid" json:"qualification_assignment_uuid"`
-			InElimination               bool          `db:"in_elimination" json:"in_elimination"`
+			ID                          string                     `db:"id" json:"id"`
+			AthleteCode                 *string                    `db:"athlete_code" json:"athlete_code"`
+			ArcherID                    *string                    `db:"archer_id" json:"archer_id"`
+			FullName                    string                     `db:"full_name" json:"full_name"`
+			Username                    *string                    `db:"username" json:"username"`
+			Email                       string                     `db:"email" json:"email"`
+			City                        *string                    `db:"city" json:"city"`
+			ClubID                      *string                    `db:"club_id" json:"club_id"`
+			ClubName                    *string                    `db:"club_name" json:"club_name"`
+			EventID                     string                     `db:"event_id" json:"event_id"`
+			CategoryID                  string                     `db:"category_id" json:"category_id"`
+			CategoriesRaw               *string                    `db:"categories" json:"-"`
+			Categories                  []interface{}              `json:"categories"`
+			DivisionName                string                     `db:"division_name" json:"division_name"`
+			CategoryName                string                     `db:"category_name" json:"category_name"`
+			EventTypeName               *string                    `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName          *string                    `db:"gender_division_name" json:"gender_division_name"`
+			TargetName                  *string                    `db:"target_name" json:"target_name"`
+			QRRaw                       *string                    `db:"qr_raw" json:"qr_raw"`
+			PaymentStatus               string                     `db:"payment_status" json:"payment_status"`
+			AvatarURL                   *string                    `db:"avatar_url" json:"avatar_url"`
+			PaymentAmount               float64                    `db:"payment_amount" json:"payment_amount"`
+			PaymentProofURLs            []string                   `json:"payment_proof_urls"`
+			RegistrationDate            string                     `db:"registration_date" json:"registration_date"`
+			IsVerified                  bool                       `db:"is_verified" json:"is_verified"`
+			RegistrationSource          string                     `db:"registration_source" json:"registration_source"`
+			QualificationAssignmentUUID *string                    `db:"qualification_assignment_uuid" json:"qualification_assignment_uuid"`
+			InElimination               bool                       `db:"in_elimination" json:"in_elimination"`
+			Transaction                 *models.PaymentTransaction `db:"-" json:"transaction"`
 		}
 
 		var participant Participant
@@ -1285,6 +1286,13 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Parse payment proof URLs
 		participant.PaymentProofURLs = []string{}
+
+		// Fetch payment transaction for the participant
+		var transaction models.PaymentTransaction
+		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, participant.ID)
+		if errTx == nil {
+			participant.Transaction = &transaction
+		}
 
 		// Parse categories if raw exists
 		if participant.CategoriesRaw != nil && *participant.CategoriesRaw != "" {
@@ -3419,7 +3427,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		query := `
 			SELECT 
-				a.id as athlete_code,
+				COALESCE(a.id, '') as athlete_code,
 				a.full_name,
 				COALESCE(a.email, '') as email,
 				COALESCE(cl.name, '') as club_name,
