@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/models"
@@ -55,7 +55,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.archer_id) as participant_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, avatar_url FROM organizations
+				SELECT uuid as id, name as full_name, avatar_url FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, logo_url as avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
@@ -124,9 +124,9 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				t.organizer_id
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizations
+				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizers
 				UNION ALL
-				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, phone FROM clubs
+				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, NULL as phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as participant_count
@@ -220,9 +220,9 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(active_target_stats.participant_count, 0) as participant_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizations
+				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizers
 				UNION ALL
-				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, phone FROM clubs
+				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, NULL as phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as participant_count

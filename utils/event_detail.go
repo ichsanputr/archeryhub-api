@@ -25,7 +25,7 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 	event.Currency = "IDR"
 	if event.OrganizerID != nil && *event.OrganizerID != "" {
 		var pageSettingsStr *string
-		err := db.Get(&pageSettingsStr, "SELECT page_settings FROM organizations WHERE uuid = ?", *event.OrganizerID)
+		err := db.Get(&pageSettingsStr, "SELECT page_settings FROM organizers WHERE uuid = ?", *event.OrganizerID)
 		if err == nil && pageSettingsStr != nil && *pageSettingsStr != "" {
 			var pageSettings struct {
 				Currency string `json:"currency"`

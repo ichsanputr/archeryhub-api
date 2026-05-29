@@ -169,7 +169,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			oauthMode = "login"
 		}
 		// Validate user_type to prevent self-registration of restricted roles like scorekeeper
-		allowedTypes := map[string]bool{"archer": true, "organization": true, "club": true, "seller": true}
+		allowedTypes := map[string]bool{"archer": true, "organizer": true, "club": true, "seller": true}
 		if !allowedTypes[requestedUserType] {
 			requestedUserType = "archer"
 		}
@@ -257,11 +257,11 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		var record UserRecord
 
 		// Priority search
-		tables := []string{"archers", "organizations", "clubs", "sellers"}
+		tables := []string{"archers", "organizers", "clubs", "sellers"}
 		for _, t := range tables {
 			var query string
-			if t == "organizations" {
-				query = "SELECT uuid, 'organization' as role, uuid as organization_uuid, token_version FROM organizations WHERE email = ?"
+			if t == "organizers" {
+				query = "SELECT uuid, 'organizer' as role, uuid as organization_uuid, token_version FROM organizers WHERE email = ?"
 			} else if t == "archers" {
 				query = "SELECT uuid, 'archer' as role, '' as organization_uuid, token_version FROM archers WHERE email = ?"
 			} else if t == "clubs" {
@@ -313,8 +313,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			// Login flow: update only Google-specific fields; do NOT overwrite existing name
 			table := ""
 			switch userType {
-			case "organization":
-				table = "organizations"
+			case "organizer":
+				table = "organizers"
 			case "club":
 				table = "clubs"
 			case "seller":
@@ -337,8 +337,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		if found {
 			var nameCol, tableName string
 			switch userType {
-			case "organization":
-				tableName, nameCol = "organizations", "name"
+			case "organizer":
+				tableName, nameCol = "organizers", "name"
 			case "club":
 				tableName, nameCol = "clubs", "name"
 			case "seller":
@@ -361,7 +361,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			username := generateUsername(userInfo.Email)
 
 			record.TokenVersion = 1
-			if userType == "organization" {
+			if userType == "organizer" {
 				record.OrgUUID = userID
 			}
 
@@ -374,7 +374,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 
 			var insertErr error
 			switch userType {
-			case "organization":
+			case "organizer":
 				currency := metadata["currency"]
 				if currency == "" {
 					currency = "IDR"
@@ -382,7 +382,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				pageSettingsJSON := fmt.Sprintf(`{"currency": "%s"}`, currency)
 
 				_, insertErr = db.Exec(`
-					INSERT INTO organizations (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, created_at, updated_at)
+					INSERT INTO organizers (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, ?, NOW(), NOW())
 				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], userInfo.Picture, pageSettingsJSON)
 			case "club":

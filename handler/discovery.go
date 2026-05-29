@@ -13,7 +13,7 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 			Events        []string `json:"events"`
 			Archers       []string `json:"archers"`
 
-			Organizations []string `json:"organizations"`
+			Organizers []string `json:"organizers"`
 			Products      []string `json:"products"`
 			News          []string `json:"news"`
 		}
@@ -36,8 +36,8 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 
 
 
-		// Fetch Organization slugs
-		err = db.Select(&data.Organizations, "SELECT slug FROM organizations WHERE slug IS NOT NULL AND slug != '' AND status = 'active'")
+		// Fetch Organizer slugs
+		err = db.Select(&data.Organizers, "SELECT slug FROM organizers WHERE slug IS NOT NULL AND slug != '' AND status = 'active'")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug organisasi: " + err.Error()})
 			return
@@ -61,7 +61,7 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 		if data.Events == nil { data.Events = []string{} }
 		if data.Archers == nil { data.Archers = []string{} }
 
-		if data.Organizations == nil { data.Organizations = []string{} }
+		if data.Organizers == nil { data.Organizers = []string{} }
 		if data.Products == nil { data.Products = []string{} }
 		if data.News == nil { data.News = []string{} }
 

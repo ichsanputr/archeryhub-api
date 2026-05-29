@@ -42,7 +42,7 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&sk, `
 			SELECT sk.uuid, sk.organization_uuid, sk.code, sk.name, sk.email, sk.avatar_url, sk.status, o.name as org_name 
 			FROM scorekeepers sk 
-			JOIN organizations o ON sk.organization_uuid = o.uuid 
+			JOIN organizers o ON sk.organization_uuid = o.uuid 
 			WHERE sk.uuid = ?`, userID)
 
 		if err != nil {
@@ -68,9 +68,9 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetScorekeeperEvents returns events for scorekeeper's organization
+// MobileGetScorekeeperEvents returns events for scorekeeper's organizer
 // @Summary Get Scorekeeper Events
-// @Description Get list of events owned by the scorekeeper's organization
+// @Description Get list of events owned by the scorekeeper's organizer
 // @Tags Mobile - Scorekeeper
 // @Produce json
 // @Security ApiKeyAuth
@@ -94,7 +94,7 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 				o.avatar_url as organizer_avatar_url,
 				(SELECT COUNT(DISTINCT archer_id) FROM event_participants WHERE event_id = t.uuid) as participant_count
 			FROM events t
-			JOIN organizations o ON t.organizer_id = o.uuid
+			JOIN organizers o ON t.organizer_id = o.uuid
 			WHERE t.organizer_id = ?
 			ORDER BY t.start_date DESC`, orgID)
 

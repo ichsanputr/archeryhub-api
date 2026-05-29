@@ -54,7 +54,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT uuid, email, full_name, username FROM archers
 				UNION ALL
-				SELECT uuid, email, name as full_name, slug as username FROM organizations
+				SELECT uuid, email, name as full_name, slug as username FROM organizers
 				UNION ALL
 				SELECT uuid, email, store_name as full_name, slug as username FROM sellers
 			) u ON t.user_id = u.uuid

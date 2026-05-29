@@ -296,7 +296,7 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			FROM events e
 			INNER JOIN event_participants ep ON e.uuid = ep.event_id
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url FROM clubs
 			) o ON e.organizer_id = o.id
@@ -890,9 +890,9 @@ func GetArcherProfileImage(db *sqlx.DB) gin.HandlerFunc {
 			found = true
 		}
 
-		// If not found, try organizations
+		// If not found, try organizers
 		if !found {
-			err = db.Get(&avatarURL, "SELECT avatar_url FROM organizations WHERE email = ? OR slug = ?", identifier, identifier)
+			err = db.Get(&avatarURL, "SELECT avatar_url FROM organizers WHERE email = ? OR slug = ?", identifier, identifier)
 			if err == nil {
 				found = true
 			}

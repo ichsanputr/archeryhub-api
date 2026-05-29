@@ -2789,7 +2789,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			SELECT e.uuid, e.name, e.venue, e.location, e.city, e.start_date, e.end_date,
 			       o.name AS org_name
 			FROM events e
-			LEFT JOIN organizations o ON e.organizer_id = o.uuid
+			LEFT JOIN organizers o ON e.organizer_id = o.uuid
 			WHERE e.uuid = ? OR e.slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})

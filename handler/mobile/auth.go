@@ -65,7 +65,7 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 	}
 
 	organizationUUID := ""
-	if userType == "organization" {
+	if userType == "organizer" {
 		organizationUUID = user.UUID
 	}
 
@@ -96,7 +96,7 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 // MobileScorekeeperLogin godoc
 // MobileScorekeeperLogin handles scorekeeper login
 // @Summary Scorekeeper Login
-// @Description Login using a numeric code assigned by organization
+// @Description Login using a numeric code assigned by organizer
 // @Tags Mobile - Scorekeeper
 // @Accept json
 // @Produce json
@@ -128,7 +128,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			SELECT sk.uuid, sk.organization_uuid, sk.code, sk.name, IFNULL(sk.email, '') as email, sk.avatar_url, COALESCE(sk.status, '') as status,
                    o.subscription_status as org_sub_status, sk.token_version
 			FROM scorekeepers sk 
-            JOIN organizations o ON sk.organization_uuid = o.uuid
+            JOIN organizers o ON sk.organization_uuid = o.uuid
             WHERE sk.code = ?`, req.Code)
 
 		if err != nil {
@@ -141,7 +141,7 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check Organization Subscription
+		// Check Organizer Subscription
 		orgSub := "trial"
 		if sk.OrgSubStatus != nil {
 			orgSub = *sk.OrgSubStatus
@@ -222,16 +222,16 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileOrganizationLogin godoc
-// MobileOrganizationLogin handles organization login for mobile
-// @Summary Organization Login
-// @Description Login for organization accounts
-// @Tags Mobile - Organization
+// MobileOrganizationLogin handles organizer login for mobile
+// @Summary Organizer Login
+// @Description Login for organizer accounts
+// @Tags Mobile - Organizer
 // @Accept json
 // @Produce json
 // @Param request body mobileEmailPasswordRequest true "Login Credentials"
 // @Success 200 {object} MobileLoginResponse
 // @Failure 401 {object} map[string]interface{}
-// @Router /mobile/auth/organization/login [post]
+// @Router /mobile/auth/organizer/login [post]
 func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
@@ -243,10 +243,10 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 		handleMobileEmailPasswordLogin(
 			c,
 			db,
-			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, COALESCE(status,'') as status, token_version FROM organizations WHERE email = ?`,
+			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, name as full_name, avatar_url, COALESCE(status,'') as status, token_version FROM organizers WHERE email = ?`,
 			req,
-			"organization",
-			"organization",
+			"organizer",
+			"organizer",
 		)
 	}
 }
@@ -594,8 +594,8 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 		// Try archers first
 		err := db.Get(&userData, "SELECT uuid, full_name, 'archer' as user_type FROM archers WHERE email = ? LIMIT 1", req.Email)
 		if err != nil {
-			// Try organizations
-			err = db.Get(&userData, "SELECT uuid, name as full_name, 'organization' as user_type FROM organizations WHERE email = ? LIMIT 1", req.Email)
+			// Try organizers
+			err = db.Get(&userData, "SELECT uuid, name as full_name, 'organizer' as user_type FROM organizers WHERE email = ? LIMIT 1", req.Email)
 			if err != nil {
 				// Try sellers
 				err = db.Get(&userData, "SELECT uuid, store_name as full_name, 'seller' as user_type FROM sellers WHERE email = ? LIMIT 1", req.Email)
@@ -704,8 +704,8 @@ func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		tableName := "archers"
-		if reset.UserType == "organization" {
-			tableName = "organizations"
+		if reset.UserType == "organizer" {
+			tableName = "organizers"
 		} else if reset.UserType == "seller" {
 			tableName = "sellers"
 		}
@@ -796,8 +796,8 @@ func MobileGoogleBind(db *sqlx.DB) gin.HandlerFunc {
 
 		// Link Google ID based on user type
 		tableName := "archers"
-		if userType == "organization" {
-			tableName = "organizations"
+		if userType == "organizer" {
+			tableName = "organizers"
 		} else if userType == "seller" {
 			tableName = "sellers"
 		}

@@ -92,11 +92,11 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(uuid,''),
 				COALESCE(email,''),
 				COALESCE(name,''),
-				'organization',
+				'organizer',
 				COALESCE(status,''),
 				COALESCE(avatar_url,''),
 				COALESCE(created_at,'1970-01-01')
-			FROM organizations
+			FROM organizers
 			UNION ALL
 			SELECT
 				COALESCE(uuid,''),
@@ -123,10 +123,10 @@ func GetAllUsers(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetAllSubscriptions returns all club and organization subscriptions for root management
+// GetAllSubscriptions returns all club and organizer subscriptions for root management
 func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		typeFilter := c.Query("type") // "club", "organization", ""
+		typeFilter := c.Query("type") // "club", "organizer", ""
 		statusFilter := c.Query("status") // "active", "trial", "expired", ""
 
 		type SubRow struct {
@@ -149,20 +149,20 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(o.uuid,'')   as uuid,
 				COALESCE(o.name,'')   as name,
 				COALESCE(o.email,'')  as email,
-				'organization'         as user_type,
+				'organizer'         as user_type,
 				COALESCE(o.subscription_status,'active') as subscription_status,
 				o.subscription_plan_id as plan_id,
 				sp.name                as plan_name,
 				DATE_FORMAT(o.subscription_expires_at,'%Y-%m-%d %H:%i:%s') as expires_at,
 				COALESCE(o.avatar_url,'') as avatar_url,
 				COALESCE(o.created_at,'1970-01-01')                        as created_at
-			FROM organizations o
+			FROM organizers o
 			LEFT JOIN subscription_plans sp ON sp.id = o.subscription_plan_id
 		`
 
 		var orgRows []SubRow
 
-		if typeFilter == "" || typeFilter == "organization" {
+		if typeFilter == "" || typeFilter == "organizer" {
 			if err := db.Select(&orgRows, orgQuery); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Org query error: " + err.Error()})
 				return
@@ -197,7 +197,7 @@ func GetAllSubscriptions(db *sqlx.DB) gin.HandlerFunc {
 func UpdateUserSubscription(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userUUID := c.Param("uuid")
-		userType := c.Param("type") // "club" or "organization"
+		userType := c.Param("type") // "club" or "organizer"
 
 		var req map[string]interface{}
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -207,10 +207,10 @@ func UpdateUserSubscription(db *sqlx.DB) gin.HandlerFunc {
 
 		table := ""
 		switch userType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user harus 'organization'"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user harus 'organizer'"})
 			return
 		}
 
@@ -310,8 +310,8 @@ func AddSubscriptionAddon(db *sqlx.DB) gin.HandlerFunc {
 
 		table := ""
 		switch userType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return
@@ -357,7 +357,7 @@ func AddSubscriptionAddon(db *sqlx.DB) gin.HandlerFunc {
 func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userUUID := c.Param("uuid")
-		userType := c.Param("type") // "archer", "club", "organization", "seller"
+		userType := c.Param("type") // "archer", "club", "organizer", "seller"
 
 		var req struct {
 			Action string `json:"action" binding:"required"` // "suspend" or "activate"
@@ -372,8 +372,8 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "archer":
 			table = "archers"
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		case "seller":
 			table = "sellers"
 		default:
@@ -406,11 +406,11 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// RootCreateAccount creates a club, organization, or seller account by root
+// RootCreateAccount creates a club, organizer, or seller account by root
 func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			UserType   string `json:"user_type" binding:"required"` // "club", "organization", "seller"
+			UserType   string `json:"user_type" binding:"required"` // "club", "organizer", "seller"
 			Name       string `json:"name" binding:"required"`
 			Email      string `json:"email" binding:"required"`
 			Password   string `json:"password" binding:"required"`
@@ -436,13 +436,13 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 
 		var err error
 		switch req.UserType {
-		case "organization":
+		case "organizer":
 			whatsApp := req.WhatsAppNo
 			if whatsApp == "" {
 				whatsApp = req.Phone
 			}
 			_, err = db.Exec(`
-				INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
+				INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL)
 			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, req.Acronym, whatsApp, req.City, req.Address)
 		case "seller":
@@ -451,7 +451,7 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 				VALUES (?, ?, ?, ?, ?, ?, 'active')
 			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name)
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus organization atau seller"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus organizer atau seller"})
 			return
 		}
 
@@ -488,7 +488,7 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT MAX(id) as id, name, MAX(price) as price, MAX(COALESCE(type, 'monthly')) as type, target_type, MAX(features) as features 
 			FROM subscription_plans 
-			WHERE target_type IN ('club', 'organization')
+			WHERE target_type IN ('club', 'organizer')
 			GROUP BY name, target_type
 			ORDER BY target_type DESC, price ASC
 		`
@@ -513,7 +513,7 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userUUID := c.Param("uuid")
-		userType := c.Param("type") // "archer", "club", "organization", "seller"
+		userType := c.Param("type") // "archer", "club", "organizer", "seller"
 
 		var req struct {
 			Password string `json:"password" binding:"required,min=5"`
@@ -527,8 +527,8 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "archer":
 			table = "archers"
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		case "seller":
 			table = "sellers"
 		default:

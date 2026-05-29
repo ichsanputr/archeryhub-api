@@ -143,9 +143,9 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			customerPhone = "08123456789" // Fallback
 
 			userType, _ := c.Get("user_type")
-			if userType == "organization" {
-				db.Get(&customerName, "SELECT name FROM organizations WHERE uuid = ?", userID.(string))
-				db.Get(&customerPhone, "SELECT phone FROM organizations WHERE uuid = ?", userID.(string))
+			if userType == "organizer" {
+				db.Get(&customerName, "SELECT name FROM organizers WHERE uuid = ?", userID.(string))
+				db.Get(&customerPhone, "SELECT phone FROM organizers WHERE uuid = ?", userID.(string))
 			} else if userType == "club" {
 				db.Get(&customerName, "SELECT name FROM clubs WHERE uuid = ?", userID.(string))
 				db.Get(&customerPhone, "SELECT phone FROM clubs WHERE uuid = ?", userID.(string))
@@ -208,9 +208,9 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			customerName = "User"
 
 			userType, _ := c.Get("user_type")
-			if userType == "organization" {
-				db.Get(&customerName, "SELECT name FROM organizations WHERE uuid = ?", userID.(string))
-				db.Get(&customerPhone, "SELECT phone FROM organizations WHERE uuid = ?", userID.(string))
+			if userType == "organizer" {
+				db.Get(&customerName, "SELECT name FROM organizers WHERE uuid = ?", userID.(string))
+				db.Get(&customerPhone, "SELECT phone FROM organizers WHERE uuid = ?", userID.(string))
 			} else if userType == "club" {
 				db.Get(&customerName, "SELECT name FROM clubs WHERE uuid = ?", userID.(string))
 				db.Get(&customerPhone, "SELECT phone FROM clubs WHERE uuid = ?", userID.(string))
@@ -266,11 +266,11 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				eventName = "Event"
 			}
 
-			// Get organization settings / currency
+			// Get organizer settings / currency
 			var pageSettingsStr *string
 			errCurrency := db.Get(&pageSettingsStr, `
 				SELECT o.page_settings 
-				FROM organizations o
+				FROM organizers o
 				JOIN events e ON e.organizer_id = o.uuid
 				WHERE e.uuid = ? OR e.slug = ?
 				LIMIT 1
@@ -724,8 +724,8 @@ func PaymentCallback(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				table := "clubs"
-				if plan.TargetType == "organization" {
-					table = "organizations"
+				if plan.TargetType == "organizer" {
+					table = "organizers"
 				}
 
 				// Calculate next expiration
@@ -872,7 +872,7 @@ func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetOrganizationEarningsSummary returns aggregated earnings per event for an organization
+// GetOrganizationEarningsSummary returns aggregated earnings per event for an organizer
 func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -1029,7 +1029,7 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, organization_id as event_id, 
 			       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 			       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
-			FROM organization_payment_methods
+			FROM organizer_payment_methods
 			WHERE organization_id = ? AND status = 'active'
 			ORDER BY is_primary DESC, created_at ASC
 		`, organizerID)
@@ -1045,7 +1045,7 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid, organization_id as event_id, 
 				       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as payment_method, 
 				       account_name, account_number, COALESCE(instructions, '') as instructions, 1 as is_active, 0 as display_order, created_at, updated_at
-				FROM organization_payment_methods
+				FROM organizer_payment_methods
 				WHERE organization_id = ?
 				ORDER BY is_primary DESC, created_at ASC
 			`, organizerID)
@@ -1246,8 +1246,8 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				table := "clubs"
-				if plan.TargetType == "organization" {
-					table = "organizations"
+				if plan.TargetType == "organizer" {
+					table = "organizers"
 				}
 
 				// Fetch current expiry date
@@ -1536,8 +1536,8 @@ func InitiatePaddlePayment(db *sqlx.DB) gin.HandlerFunc {
 		priceMap := map[int]string{
 			3: "pri_01krz6sjs49pt8w5r3wq4tqj5j", // Standard (ARCPRO)
 			4: "pri_01krz6xzqtnfmnhz4kwakw9zyh", // Elite (ARCELITE)
-			5: "pri_01krz6sjs49pt8w5r3wq4tqj5j", // Standard Organization (ARCPRO)
-			6: "pri_01krz6xzqtnfmnhz4kwakw9zyh", // Elite Organization (ARCELITE)
+			5: "pri_01krz6sjs49pt8w5r3wq4tqj5j", // Standard Organizer (ARCPRO)
+			6: "pri_01krz6xzqtnfmnhz4kwakw9zyh", // Elite Organizer (ARCELITE)
 		}
 		priceID := priceMap[req.PlanID]
 		if priceID == "" {
@@ -1777,8 +1777,8 @@ func PaddleWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				table := "clubs"
-				if plan.TargetType == "organization" {
-					table = "organizations"
+				if plan.TargetType == "organizer" {
+					table = "organizers"
 				}
 
 				// Fetch current expiry date
@@ -2209,8 +2209,8 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 					}
 
 					table := "clubs"
-					if plan.TargetType == "organization" {
-						table = "organizations"
+					if plan.TargetType == "organizer" {
+						table = "organizers"
 					}
 
 					var currentExpires *time.Time

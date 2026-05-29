@@ -49,7 +49,7 @@ type CreateNewsRequest struct {
 	MetaDescription string  `json:"meta_description"`
 }
 
-// GetNews returns all news for the current user's organization/club
+// GetNews returns all news for the current user's organizer/club
 func GetNews(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -62,8 +62,8 @@ func GetNews(db *sqlx.DB) gin.HandlerFunc {
 
 		whereClause := ""
 		var queryArgs []interface{}
-		if userType == "organization" {
-			whereClause = "WHERE organization_id = (SELECT uuid FROM organizations WHERE uuid = ?)"
+		if userType == "organizer" {
+			whereClause = "WHERE organization_id = (SELECT uuid FROM organizers WHERE uuid = ?)"
 			queryArgs = append(queryArgs, userID)
 		} else if userType == "club" {
 			whereClause = "WHERE club_id = (SELECT uuid FROM clubs WHERE uuid = ?)"
@@ -228,8 +228,8 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get author name
 		var authorName string
-		if userType == "organization" {
-			db.Get(&authorName, "SELECT name FROM organizations WHERE uuid = ?", userID)
+		if userType == "organizer" {
+			db.Get(&authorName, "SELECT name FROM organizers WHERE uuid = ?", userID)
 		} else if userType == "club" {
 			db.Get(&authorName, "SELECT name FROM clubs WHERE uuid = ?", userID)
 		} else if userType == "root" {
@@ -250,7 +250,7 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 		// Determine which ID to use
 		var orgID, clubID *string
 		userIDStr := userID.(string)
-		if userType == "organization" {
+		if userType == "organizer" {
 			orgID = &userIDStr
 		} else if userType == "club" {
 			clubID = &userIDStr
@@ -319,7 +319,7 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		isOwner := false
-		if userType == "organization" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
+		if userType == "organizer" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
 			isOwner = true
 		} else if userType == "club" && article.ClubID != nil && *article.ClubID == userID.(string) {
 			isOwner = true
@@ -389,7 +389,7 @@ func DeleteNews(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		isOwner := false
-		if userType == "organization" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
+		if userType == "organizer" && article.OrganizationID != nil && *article.OrganizationID == userID.(string) {
 			isOwner = true
 		} else if userType == "club" && article.ClubID != nil && *article.ClubID == userID.(string) {
 			isOwner = true

@@ -220,7 +220,7 @@ func main() {
 		api.POST("/chatbot/message", handler.ChatbotMessage())
 
 		api.GET("/archer/me", middleware.AuthMiddleware(), handler.GetArcherProfile(db))
-		api.GET("/organization/me", middleware.AuthMiddleware(), handler.GetOrganizationProfile(db))
+		api.GET("/organizer/me", middleware.AuthMiddleware(), handler.GetOrganizationProfile(db))
 		api.GET("/seller/me", middleware.AuthMiddleware(), handler.GetSellerProfile(db))
 
 		// Project Task Management
@@ -585,7 +585,7 @@ func main() {
 			{
 				auth.POST("/scorekeeper/login", mobilehandler.MobileScorekeeperLogin(db))
 				auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
-				auth.POST("/organization/login", mobilehandler.MobileOrganizationLogin(db))
+				auth.POST("/organizer/login", mobilehandler.MobileOrganizationLogin(db))
 				auth.POST("/seller/login", mobilehandler.MobileSellerLogin(db))
 				auth.POST("/archer/register", mobilehandler.MobileArcherRegister(db))
 				auth.POST("/seller/register", mobilehandler.MobileSellerRegister(db))
@@ -679,7 +679,7 @@ func main() {
 				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterEvent(db))
 			}
 
-			mobileOrganization := mobile.Group("/organization")
+			mobileOrganization := mobile.Group("/organizer")
 			mobileOrganization.Use(middleware.AuthMiddleware())
 			{
 				mobileOrganization.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
@@ -745,7 +745,7 @@ func main() {
 			options := mobile.Group("/options")
 			{
 				options.GET("/clubs", mobilehandler.GetClubOptions(db))
-				options.GET("/organizations", mobilehandler.GetOrganizationOptions(db))
+				options.GET("/organizers", mobilehandler.GetOrganizationOptions(db))
 				options.GET("/disciplines", mobilehandler.GetDisciplineOptions(db))
 				options.GET("/bow-types", mobilehandler.GetBowTypeOptions(db))
 				options.GET("/age-groups", mobilehandler.GetAgeGroupOptions(db))
@@ -766,14 +766,14 @@ func main() {
 
 		}
 
-		// Organization routes
-		orgs := api.Group("/organizations")
+		// Organizer routes
+		orgs := api.Group("/organizers")
 		{
-			// Public organization routes
+			// Public organizer routes
 			orgs.GET("", handler.GetOrganizations(db))
 			orgs.GET("/:slug", handler.GetOrganizationBySlug(db))
 
-			// Protected organization routes
+			// Protected organizer routes
 			protectedOrgs := orgs.Group("")
 			protectedOrgs.Use(middleware.AuthMiddleware())
 			{

@@ -37,7 +37,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			userType string
 		}{
 			{"archers", "full_name", "archer"},
-			{"organizations", "name", "organization"},
+			{"organizers", "name", "organizer"},
 			{"clubs", "name", "club"},
 			{"sellers", "store_name", "seller"},
 		}
@@ -259,8 +259,8 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		// Map user_type to table
 		table := "archers"
 		switch row.UserType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		case "club":
 			table = "clubs"
 		case "seller":
@@ -333,8 +333,8 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 
 		table := "archers"
 		switch row.UserType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		case "club":
 			table = "clubs"
 		case "seller":

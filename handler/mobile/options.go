@@ -29,19 +29,19 @@ func GetClubOptions(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// @Summary Get Organization Options
-// @Description Get list of organizations for dropdown/selection
+// @Summary Get Organizer Options
+// @Description Get list of organizers for dropdown/selection
 // @Tags Mobile - Options
 // @Accept json
 // @Produce json
 // @Success 200 {object} MobileOrganizationOptionsResponse
-// @Router /mobile/options/organizations [get]
+// @Router /mobile/options/organizers [get]
 func GetOrganizationOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var data []OptionData
-		err := db.Select(&data, "SELECT uuid, name FROM organizations ORDER BY name ASC")
+		err := db.Select(&data, "SELECT uuid, name FROM organizers ORDER BY name ASC")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organizations"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organizers"})
 			return
 		}
 		c.JSON(http.StatusOK, MobileOrganizationOptionsResponse{Data: data})

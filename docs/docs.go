@@ -1219,9 +1219,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/auth/organization/login": {
+        "/mobile/auth/organizer/login": {
             "post": {
-                "description": "Login for organization accounts",
+                "description": "Login for organizer accounts",
                 "consumes": [
                     "application/json"
                 ],
@@ -1229,9 +1229,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Organization Login",
+                "summary": "Organizer Login",
                 "parameters": [
                     {
                         "description": "Login Credentials",
@@ -1296,7 +1296,7 @@ const docTemplate = `{
         },
         "/mobile/auth/scorekeeper/login": {
             "post": {
-                "description": "Login using a numeric code assigned by organization",
+                "description": "Login using a numeric code assigned by organizer",
                 "consumes": [
                     "application/json"
                 ],
@@ -2446,9 +2446,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/options/organizations": {
+        "/mobile/options/organizers": {
             "get": {
-                "description": "Get list of organizations for dropdown/selection",
+                "description": "Get list of organizers for dropdown/selection",
                 "consumes": [
                     "application/json"
                 ],
@@ -2458,7 +2458,7 @@ const docTemplate = `{
                 "tags": [
                     "Mobile - Options"
                 ],
-                "summary": "Get Organization Options",
+                "summary": "Get Organizer Options",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2469,14 +2469,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/dashboard": {
+        "/mobile/organizer/dashboard": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get dashboard statistics, recent participants and payments for organization",
+                "description": "Get dashboard statistics, recent participants and payments for organizer",
                 "consumes": [
                     "application/json"
                 ],
@@ -2484,9 +2484,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Dashboard Statistics",
+                "summary": "Get Organizer Dashboard Statistics",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2497,21 +2497,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/events": {
+        "/mobile/organizer/events": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of events organized by the authenticated organization",
+                "description": "Get list of events organized by the authenticated organizer",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Events",
+                "summary": "Get Organizer Events",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2548,19 +2548,19 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/events/{id}/participants": {
+        "/mobile/organizer/events/{id}/participants": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of participants for an event owned by the organization",
+                "description": "Get list of participants for an event owned by the organizer",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
                 "summary": "Get Event Participants (Org)",
                 "parameters": [
@@ -2612,21 +2612,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/events/{id}/participants/{user_id}": {
+        "/mobile/organizer/events/{id}/participants/{user_id}": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get full details of a specific participant for an organization event",
+                "description": "Get full details of a specific participant for an organizer event",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Participant Detail",
+                "summary": "Get Organizer Participant Detail",
                 "parameters": [
                     {
                         "type": "string",
@@ -2660,7 +2660,7 @@ const docTemplate = `{
                 ],
                 "description": "Remove a participant and all their associated scores/assignments from an event",
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
                 "summary": "Kick Participant from Event",
                 "parameters": [
@@ -2690,21 +2690,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/finance/balance": {
+        "/mobile/organizer/finance/balance": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get the current balance and wallet details for the organization",
+                "description": "Get the current balance and wallet details for the organizer",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Wallet",
+                "summary": "Get Organizer Wallet",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2715,21 +2715,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/finance/bank-accounts": {
+        "/mobile/organizer/finance/bank-accounts": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get a list of all bank accounts registered by the organization for withdrawals",
+                "description": "Get a list of all bank accounts registered by the organizer for withdrawals",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Bank Accounts",
+                "summary": "Get Organizer Bank Accounts",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2753,9 +2753,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Add Organization Bank Account",
+                "summary": "Add Organizer Bank Account",
                 "parameters": [
                     {
                         "description": "Bank account details",
@@ -2778,7 +2778,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/finance/bank-accounts/{id}": {
+        "/mobile/organizer/finance/bank-accounts/{id}": {
             "put": {
                 "security": [
                     {
@@ -2793,9 +2793,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Update Organization Bank Account",
+                "summary": "Update Organizer Bank Account",
                 "parameters": [
                     {
                         "type": "string",
@@ -2830,14 +2830,14 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Remove a bank account from the organization",
+                "description": "Remove a bank account from the organizer",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Delete Organization Bank Account",
+                "summary": "Delete Organizer Bank Account",
                 "parameters": [
                     {
                         "type": "string",
@@ -2858,21 +2858,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/finance/earnings": {
+        "/mobile/organizer/finance/earnings": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get a list of all income from event registrations for the organization",
+                "description": "Get a list of all income from event registrations for the organizer",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Earnings",
+                "summary": "Get Organizer Earnings",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2897,21 +2897,21 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/me": {
+        "/mobile/organizer/me": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get profile information for the authenticated organization",
+                "description": "Get profile information for the authenticated organizer",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Get Organization Profile",
+                "summary": "Get Organizer Profile",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2927,7 +2927,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Update profile info for the authenticated organization",
+                "description": "Update profile info for the authenticated organizer",
                 "consumes": [
                     "application/json"
                 ],
@@ -2935,9 +2935,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
-                "summary": "Update Organization Profile",
+                "summary": "Update Organizer Profile",
                 "parameters": [
                     {
                         "description": "Profile Data",
@@ -2959,7 +2959,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organization/scan": {
+        "/mobile/organizer/scan": {
             "post": {
                 "security": [
                     {
@@ -2974,7 +2974,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Mobile - Organization"
+                    "Mobile - Organizer"
                 ],
                 "summary": "Scan Registration QR",
                 "parameters": [
@@ -3094,7 +3094,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of events owned by the scorekeeper's organization",
+                "description": "Get list of events owned by the scorekeeper's organizer",
                 "produces": [
                     "application/json"
                 ],
@@ -5612,11 +5612,11 @@ const docTemplate = `{
                 },
                 "avatar_url": {
                     "type": "string",
-                    "example": "https://cdn.archeris.net/media/organization/logo.png"
+                    "example": "https://cdn.archeris.net/media/organizer/logo.png"
                 },
                 "banner_url": {
                     "type": "string",
-                    "example": "https://cdn.archeris.net/media/organization/banner.jpg"
+                    "example": "https://cdn.archeris.net/media/organizer/banner.jpg"
                 },
                 "city": {
                     "type": "string",
@@ -5718,7 +5718,7 @@ const docTemplate = `{
                 },
                 "user_type": {
                     "type": "string",
-                    "example": "organization"
+                    "example": "organizer"
                 },
                 "uuid": {
                     "type": "string",

@@ -33,7 +33,7 @@ func ListDocsComments(db *sqlx.DB) gin.HandlerFunc {
 			SELECT c.uuid, c.doc_slug, c.user_id, c.user_type, c.guest_name, c.content, c.created_at,
 				CASE 
 					WHEN c.user_type = 'archer' THEN (SELECT full_name FROM archers WHERE uuid = c.user_id)
-					WHEN c.user_type = 'organization' THEN (SELECT name FROM organizations WHERE uuid = c.user_id)
+					WHEN c.user_type = 'organizer' THEN (SELECT name FROM organizers WHERE uuid = c.user_id)
 					WHEN c.user_type = 'seller' THEN (SELECT store_name FROM sellers WHERE uuid = c.user_id)
 					ELSE c.guest_name
 				END as user_name

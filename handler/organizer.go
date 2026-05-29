@@ -13,8 +13,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Organization represents an organization entity
-type Organization struct {
+// Organizer represents an organizer entity
+type Organizer struct {
 	UUID               string  `db:"uuid" json:"id"`
 	Slug               *string `db:"slug" json:"slug"`
 	Name               string  `db:"name" json:"name"`
@@ -46,7 +46,7 @@ type Organization struct {
 	FAQ                *string `db:"faq" json:"faq"`
 }
 
-// GetOrganizations returns all organizations (public)
+// GetOrganizations returns all organizers (public)
 func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, offset, page := utils.GetPaginationParams(c)
@@ -64,7 +64,7 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 
 		// Count total
 		var totalCount int
-		err := db.Get(&totalCount, "SELECT COUNT(*) FROM organizations "+whereClause, args...)
+		err := db.Get(&totalCount, "SELECT COUNT(*) FROM organizers "+whereClause, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung organisasi"})
 			return
@@ -75,14 +75,14 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, slug, name, acronym, description, vision, mission, history, website, email, whatsapp_no,
 				   avatar_url, banner_url, address, city, country,
 				   status, created_at, social_media
-			FROM organizations
+			FROM organizers
 			%s
 			ORDER BY name ASC
 			LIMIT ? OFFSET ?
 		`, whereClause)
 		queryArgs := append(args, limit, offset)
 
-		var orgs []Organization
+		var orgs []Organizer
 		err = db.Select(&orgs, query, queryArgs...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data organisasi", "details": err.Error()})
@@ -99,21 +99,21 @@ func GetOrganizations(db *sqlx.DB) gin.HandlerFunc {
 		meta := utils.CalculatePagination(totalCount, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
 			"data":          orgs,
-			"organizations": orgs,
+			"organizers": orgs,
 			"total":         totalCount,
 			"meta":          meta,
 		})
 	}
 }
 
-// GetOrganizationBySlug returns a single organization by username/slug (public)
+// GetOrganizationBySlug returns a single organizer by username/slug (public)
 func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
 
 		// Struct with page_settings
 		var orgData struct {
-			Organization
+			Organizer
 			PageSettings *string `db:"page_settings" json:"page_settings"`
 		}
 
@@ -125,7 +125,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				   social_facebook, social_instagram, social_twitter, social_media,
 				   status, created_at, updated_at, page_settings,
 				   vision, mission, history, faq
-			FROM organizations
+			FROM organizers
 			WHERE (slug = ? OR uuid = ?) AND status = 'active'
 		`, slug, slug)
 
@@ -134,7 +134,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		org := orgData.Organization
+		org := orgData.Organizer
 
 		// Mask URLs
 		if org.AvatarURL != nil {
@@ -146,7 +146,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			org.BannerURL = &masked
 		}
 
-		// Get events organized by this organization with pagination
+		// Get events organized by this organizer with pagination
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		if page < 1 {
 			page = 1
@@ -187,7 +187,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 
 		// Build response with page_settings
 		response := gin.H{
-			"organization": gin.H{
+			"organizer": gin.H{
 				"id":                   org.UUID,
 				"slug":                 org.Slug,
 				"name":                 org.Name,
@@ -226,7 +226,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		if orgData.FAQ != nil && *orgData.FAQ != "" {
 			var faq []interface{}
 			if err := json.Unmarshal([]byte(*orgData.FAQ), &faq); err == nil {
-				response["organization"].(gin.H)["faq"] = faq
+				response["organizer"].(gin.H)["faq"] = faq
 			}
 		}
 
@@ -234,7 +234,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		if orgData.PageSettings != nil && *orgData.PageSettings != "" {
 			var pageSettings map[string]interface{}
 			if err := json.Unmarshal([]byte(*orgData.PageSettings), &pageSettings); err == nil {
-				response["organization"].(gin.H)["page_settings"] = pageSettings
+				response["organizer"].(gin.H)["page_settings"] = pageSettings
 			}
 		}
 
@@ -242,7 +242,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetOrganizationProfile returns the current user's organization profile (protected)
+// GetOrganizationProfile returns the current user's organizer profile (protected)
 func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -252,7 +252,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var org struct {
-			Organization
+			Organizer
 			SubscriptionStatus    string  `db:"subscription_status" json:"subscription_status"`
 			SubscriptionExpiresAt *string `db:"subscription_expires_at" json:"subscription_expires_at"`
 		}
@@ -267,12 +267,12 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 				   vision, mission, history, faq,
 				   COALESCE(subscription_status, 'active') as subscription_status,
 				   subscription_expires_at
-			FROM organizations
+			FROM organizers
 			WHERE uuid = ?
 		`, userID)
 
 		if err == nil {
-			db.Get(&pageSettings, "SELECT page_settings FROM organizations WHERE uuid = ?", userID)
+			db.Get(&pageSettings, "SELECT page_settings FROM organizers WHERE uuid = ?", userID)
 		}
 
 		if err != nil {
@@ -324,7 +324,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			"updated_at":              org.UpdatedAt,
 			"subscription_status":     org.SubscriptionStatus,
 			"subscription_expires_at": org.SubscriptionExpiresAt,
-			"user_type":               "organization",
+			"user_type":               "organizer",
 		}
 
 		if pageSettings != nil {
@@ -335,7 +335,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// UpdateOrganizationProfile updates the current user's organization profile (protected)
+// UpdateOrganizationProfile updates the current user's organizer profile (protected)
 func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -378,13 +378,13 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Build dynamic update query
-		query := "UPDATE organizations SET updated_at = NOW()"
+		query := "UPDATE organizers SET updated_at = NOW()"
 		args := []interface{}{}
 
 		if req.Slug != nil {
 			// Check if slug is already taken
 			var exists bool
-			db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)", *req.Slug, userID)
+			db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizers WHERE slug = ? AND uuid != ?)", *req.Slug, userID)
 			if exists {
 				c.JSON(http.StatusConflict, gin.H{"error": "Slug sudah digunakan"})
 				return
@@ -524,7 +524,7 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetOrganizationDashboardStats returns aggregated statistics for the organization's dashboard
+// GetOrganizationDashboardStats returns aggregated statistics for the organizer's dashboard
 func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -542,8 +542,8 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			RecentActiveEvent  *string `json:"recentActiveEvent"`
 		}
 
-		// 1. Total Unique Archers managed by this organization
-		// These are archers who have participated in any event organized by this organization
+		// 1. Total Unique Archers managed by this organizer
+		// These are archers who have participated in any event organized by this organizer
 		_ = db.Get(&stats.TotalArchers, `
 			SELECT COUNT(DISTINCT ep.archer_id) 
 			FROM event_participants ep

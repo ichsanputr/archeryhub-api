@@ -29,7 +29,7 @@ func GetOrganizationPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 
 		var methods []OrganizationPaymentMethod
-		err := db.Select(&methods, "SELECT * FROM organization_payment_methods WHERE organization_id = ? ORDER BY is_primary DESC, created_at DESC", userID)
+		err := db.Select(&methods, "SELECT * FROM organizer_payment_methods WHERE organization_id = ? ORDER BY is_primary DESC, created_at DESC", userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data metode pembayaran"})
 			return
@@ -68,7 +68,7 @@ func CreateOrganizationPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		if req.IsPrimary {
-			_, err = tx.Exec("UPDATE organization_payment_methods SET is_primary = FALSE WHERE organization_id = ?", userID)
+			_, err = tx.Exec("UPDATE organizer_payment_methods SET is_primary = FALSE WHERE organization_id = ?", userID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status utama"})
 				return
@@ -80,7 +80,7 @@ func CreateOrganizationPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err = tx.Exec(`
-			INSERT INTO organization_payment_methods (uuid, organization_id, bank_name, account_number, account_name, is_primary, custom_name, type, instructions)
+			INSERT INTO organizer_payment_methods (uuid, organization_id, bank_name, account_number, account_name, is_primary, custom_name, type, instructions)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, methodID, userID, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary, req.CustomName, req.Type, req.Instructions)
 
@@ -126,7 +126,7 @@ func UpdateOrganizationPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		if req.IsPrimary {
-			_, err = tx.Exec("UPDATE organization_payment_methods SET is_primary = FALSE WHERE organization_id = ?", userID)
+			_, err = tx.Exec("UPDATE organizer_payment_methods SET is_primary = FALSE WHERE organization_id = ?", userID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status utama"})
 				return
@@ -138,7 +138,7 @@ func UpdateOrganizationPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err = tx.Exec(`
-			UPDATE organization_payment_methods 
+			UPDATE organizer_payment_methods 
 			SET bank_name = ?, account_number = ?, account_name = ?, is_primary = ?, custom_name = ?, type = ?, instructions = ?, updated_at = NOW()
 			WHERE uuid = ? AND organization_id = ?
 		`, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary, req.CustomName, req.Type, req.Instructions, methodID, userID)
@@ -162,7 +162,7 @@ func DeleteOrganizationPaymentMethod(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		methodID := c.Param("id")
 
-		_, err := db.Exec("DELETE FROM organization_payment_methods WHERE uuid = ? AND organization_id = ?", methodID, userID)
+		_, err := db.Exec("DELETE FROM organizer_payment_methods WHERE uuid = ? AND organization_id = ?", methodID, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus metode pembayaran"})
 			return
@@ -200,7 +200,7 @@ func SyncOrganizationPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		var existing []string
-		err = tx.Select(&existing, "SELECT uuid FROM organization_payment_methods WHERE organization_id = ?", userID)
+		err = tx.Select(&existing, "SELECT uuid FROM organizer_payment_methods WHERE organization_id = ?", userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memeriksa metode pembayaran lama"})
 			return
@@ -221,7 +221,7 @@ func SyncOrganizationPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		if hasPrimary {
-			_, err = tx.Exec("UPDATE organization_payment_methods SET is_primary = FALSE WHERE organization_id = ?", userID)
+			_, err = tx.Exec("UPDATE organizer_payment_methods SET is_primary = FALSE WHERE organization_id = ?", userID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status utama"})
 				return
@@ -240,7 +240,7 @@ func SyncOrganizationPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 
 			if item.UUID != "" && len(item.UUID) == 36 && existingMap[item.UUID] {
 				_, err = tx.Exec(`
-					UPDATE organization_payment_methods 
+					UPDATE organizer_payment_methods 
 					SET bank_name = ?, account_number = ?, account_name = ?, is_primary = ?, custom_name = ?, type = ?, instructions = ?, updated_at = NOW()
 					WHERE uuid = ? AND organization_id = ?
 				`, item.BankName, item.AccountNumber, item.AccountName, item.IsPrimary, item.CustomName, itemType, item.Instructions, item.UUID, userID)
@@ -252,7 +252,7 @@ func SyncOrganizationPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			} else {
 				newUUID := uuid.New().String()
 				_, err = tx.Exec(`
-					INSERT INTO organization_payment_methods (uuid, organization_id, bank_name, account_number, account_name, is_primary, custom_name, type, instructions)
+					INSERT INTO organizer_payment_methods (uuid, organization_id, bank_name, account_number, account_name, is_primary, custom_name, type, instructions)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 				`, newUUID, userID, item.BankName, item.AccountNumber, item.AccountName, item.IsPrimary, item.CustomName, itemType, item.Instructions)
 				if err != nil {
@@ -264,7 +264,7 @@ func SyncOrganizationPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 
 		for _, uuidVal := range existing {
 			if !processedIDs[uuidVal] {
-				_, err = tx.Exec("DELETE FROM organization_payment_methods WHERE uuid = ? AND organization_id = ?", uuidVal, userID)
+				_, err = tx.Exec("DELETE FROM organizer_payment_methods WHERE uuid = ? AND organization_id = ?", uuidVal, userID)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus metode pembayaran lama"})
 					return

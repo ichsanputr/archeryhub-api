@@ -549,7 +549,7 @@ type MobileSellerProductsResponse struct {
 	Meta interface{}      `json:"meta"`
 }
 
-// MobileOrganizationProfileData represents organization profile data for mobile.
+// MobileOrganizationProfileData represents organizer profile data for mobile.
 type MobileOrganizationProfileData struct {
 	ID                    string                 `json:"id" example:"org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"`
 	UUID                  string                 `json:"uuid" example:"org-1fa53fca-b7da-4be6-b6eb-8b962d2f7d55"`
@@ -560,8 +560,8 @@ type MobileOrganizationProfileData struct {
 	Website               *string                `json:"website" example:"https://archeris.net"`
 	Email                 string                 `json:"email" example:"event@archeris.net"`
 	WhatsAppNo            *string                `json:"whatsapp_no" example:"081234567890"`
-	AvatarURL             *string                `json:"avatar_url" example:"https://cdn.archeris.net/media/organization/logo.png"`
-	BannerURL             *string                `json:"banner_url" example:"https://cdn.archeris.net/media/organization/banner.jpg"`
+	AvatarURL             *string                `json:"avatar_url" example:"https://cdn.archeris.net/media/organizer/logo.png"`
+	BannerURL             *string                `json:"banner_url" example:"https://cdn.archeris.net/media/organizer/banner.jpg"`
 	Address               *string                `json:"address" example:"Jl. Stadion Utama No. 1, Jakarta"`
 	City                  *string                `json:"city" example:"Jakarta"`
 	Country               *string                `json:"country" example:"Indonesia"`
@@ -585,15 +585,15 @@ type MobileOrganizationProfileData struct {
 	SubscriptionStatus    string                 `json:"subscription_status" example:"active"`
 	SubscriptionExpiresAt *string                `json:"subscription_expires_at" example:"2026-12-31T23:59:59Z"`
 	PageSettings          map[string]interface{} `json:"page_settings,omitempty" swaggertype:"object"`
-	UserType              string                 `json:"user_type" example:"organization"`
+	UserType              string                 `json:"user_type" example:"organizer"`
 }
 
-// MobileOrganizationProfileResponse represents /mobile/organization/me.
+// MobileOrganizationProfileResponse represents /mobile/organizer/me.
 type MobileOrganizationProfileResponse struct {
 	Data MobileOrganizationProfileData `json:"data"`
 }
 
-// MobileOrganizationEventItem represents one event owned by the authenticated organization.
+// MobileOrganizationEventItem represents one event owned by the authenticated organizer.
 type MobileOrganizationEventItem struct {
 	UUID               string  `json:"uuid" db:"uuid" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
 	Name               string  `json:"name" db:"name" example:"Archeris Jakarta Open 2026"`
@@ -611,7 +611,7 @@ type MobileOrganizationEventItem struct {
 	RegistrationClosed bool    `json:"registration_closed" db:"registration_closed" example:"false"`
 }
 
-// MobileOrganizationEventsResponse represents /mobile/organization/events.
+// MobileOrganizationEventsResponse represents /mobile/organizer/events.
 type MobileOrganizationEventsResponse struct {
 	Events []MobileOrganizationEventItem `json:"events"`
 	Total  int                           `json:"total"`
@@ -644,7 +644,7 @@ type MobileOrganizationParticipantItem struct {
 	PaymentStatus      string  `json:"payment_status" example:"lunas"`
 }
 
-// MobileOrganizationEventParticipantsResponse represents /mobile/organization/events/{id}/participants.
+// MobileOrganizationEventParticipantsResponse represents /mobile/organizer/events/{id}/participants.
 type MobileOrganizationEventParticipantsResponse struct {
 	Participants  []MobileOrganizationParticipantItem `json:"participants"`
 	Total         int                                 `json:"total"`
@@ -680,7 +680,7 @@ type MobileUpdateSellerPageRequest struct {
 	PageSettings  interface{} `json:"page_settings"`
 }
 
-// MobileUpdateOrganizationProfileRequest represents organization profile update payload.
+// MobileUpdateOrganizationProfileRequest represents organizer profile update payload.
 type MobileUpdateOrganizationProfileRequest struct {
 	Slug               *string     `json:"slug"`
 	Name               *string     `json:"name"`
@@ -874,7 +874,7 @@ type MobileRecentPayment struct {
 	Status    string     `json:"status" db:"status"`
 }
 
-// MobileOrganizationDashboardResponse represents dashboard statistics for organization.
+// MobileOrganizationDashboardResponse represents dashboard statistics for organizer.
 type MobileOrganizationDashboardResponse struct {
 	Stats struct {
 		TotalEvents       int     `json:"total_events"`
@@ -932,7 +932,7 @@ type MobileClubOptionsResponse struct {
 	Data []OptionData `json:"data"`
 }
 
-// MobileOrganizationOptionsResponse represents the list of organizations for selection.
+// MobileOrganizationOptionsResponse represents the list of organizers for selection.
 type MobileOrganizationOptionsResponse struct {
 	Data []OptionData `json:"data"`
 }

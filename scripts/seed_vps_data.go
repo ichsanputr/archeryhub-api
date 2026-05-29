@@ -17,7 +17,7 @@ type SeedData struct {
 	EventTypes     []string
 	GenderDivs     []string
 	Archers        []string
-	Organizations  []string
+	Organizers  []string
 }
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 			"32133e95-ffa4-4360-9c24-abbb80de8652", "36d8060c-517b-4375-84a2-dfdc28a6252d",
 			"47eb76e8-9cbe-4df2-9d80-a1435b6ca2a0", "50ecd06f-dba7-4442-98d1-f0a239d716f1",
 		},
-		Organizations: []string{
+		Organizers: []string{
 			"34d712a4-f992-11f0-87db-c3c8a1ce2650", // PERPANI DKI
 			"34d7162e-f992-11f0-87db-c3c8a1ce2650", // Yogyakarta Archery
 		},

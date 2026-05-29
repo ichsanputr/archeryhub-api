@@ -33,14 +33,14 @@ func generateScorekeeperCode() string {
 	return string(b)
 }
 
-// CreateScorekeeper creates a new scorekeeper for an organization
+// CreateScorekeeper creates a new scorekeeper for an organizer
 func CreateScorekeeper(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orgUUID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
 
-		if userType != "organization" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only organizations can manage scorekeepers"})
+		if userType != "organizer" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only organizers can manage scorekeepers"})
 			return
 		}
 
@@ -84,14 +84,14 @@ func CreateScorekeeper(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetOrganizationScorekeepers returns all scorekeepers for the authenticated organization
+// GetOrganizationScorekeepers returns all scorekeepers for the authenticated organizer
 func GetOrganizationScorekeepers(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orgUUID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
 
-		if userType != "organization" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only organizations can access this"})
+		if userType != "organizer" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only organizers can access this"})
 			return
 		}
 

@@ -43,7 +43,7 @@ type RegisterRequest struct {
 	Password       string `json:"password" binding:"required,min=6"`
 	FullName       string `json:"full_name"`
 	Phone          string `json:"phone"`
-	UserType       string `json:"user_type" binding:"required"` // archer, organization, seller
+	UserType       string `json:"user_type" binding:"required"` // archer, organizer, seller
 	Gender         string `json:"gender"`
 	DateOfBirth    string `json:"date_of_birth"`
 	City           string `json:"city"`
@@ -82,9 +82,9 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		case "archer":
 			table = "archers"
 			role = "archer"
-		case "organization":
-			table = "organizations"
-			role = "organization"
+		case "organizer":
+			table = "organizers"
+			role = "organizer"
 
 		case "seller":
 			table = "sellers"
@@ -108,8 +108,8 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		if err == nil {
 			found = true
 		} else {
-			// Check organizations
-			err = db.Get(&existingUser, `SELECT uuid, 'organization' as source, true as is_verified FROM organizations WHERE email = ? LIMIT 1`, req.Email)
+			// Check organizers
+			err = db.Get(&existingUser, `SELECT uuid, 'organizer' as source, true as is_verified FROM organizers WHERE email = ? LIMIT 1`, req.Email)
 			if err == nil {
 				found = true
 			} else {
@@ -159,7 +159,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			_, err = db.Exec(updateQuery, req.Password, req.FullName, req.Phone, userID)
 		} else {
 			isVerified := true
-			if table == "organizations" {
+			if table == "organizers" {
 				whatsappNo := req.WhatsAppNo
 				if whatsappNo == "" {
 					whatsappNo = req.Phone
@@ -170,13 +170,13 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				insertQuery := `
-					INSERT INTO organizations (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
+					INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL)
 				`
 				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
 
 			} else if table != "archers" {
-				// For other tables (sellers, organizations, clubs)
+				// For other tables (sellers, organizers, clubs)
 				// Clean the username/slug
 				cleanUsername := utils.CleanUsername(req.Username)
 				if cleanUsername == "" {
@@ -247,7 +247,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		name := req.FullName
 		avatar := "" // New registration has no avatar yet
 		orgID := ""
-		if req.UserType == "organization" {
+		if req.UserType == "organizer" {
 			orgID = userID
 		}
 		token, err := generateJWT(userID, req.Email, role, req.UserType, name, avatar, orgID, 1)
@@ -295,8 +295,8 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 		case "archer":
 			table = "archers"
 			column = "full_name"
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 			column = "name"
 
 		case "seller":
@@ -336,7 +336,7 @@ func CheckUsernameExists(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// check archers, organizations, sellers, clubs
+		// check archers, organizers, sellers, clubs
 		var exists bool
 		var query string
 		var err error
@@ -358,12 +358,12 @@ func CheckUsernameExists(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 2. Check organizations
+		// 2. Check organizers
 		if excludeUUID != "" {
-			query = "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)"
+			query = "SELECT EXISTS(SELECT 1 FROM organizers WHERE slug = ? AND uuid != ?)"
 			err = db.Get(&exists, query, username, excludeUUID)
 		} else {
-			query = "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ?)"
+			query = "SELECT EXISTS(SELECT 1 FROM organizers WHERE slug = ?)"
 			err = db.Get(&exists, query, username)
 		}
 		if err != nil {
@@ -371,7 +371,7 @@ func CheckUsernameExists(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 		if exists {
-			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "organization"})
+			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "organizer"})
 			return
 		}
 
@@ -447,15 +447,15 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			found = true
 		}
 
-		// Check organizations (Google sign-up does not set password; only Register does)
+		// Check organizers (Google sign-up does not set password; only Register does)
 		// Use column alias "slug" so result matches UserResult (db:"slug" for Username)
 		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organization' as role, COALESCE(status,'') as status, uuid as organization_uuid, token_version FROM organizations WHERE email = ?", req.Email)
+			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'organizer' as role, COALESCE(status,'') as status, uuid as organization_uuid, token_version FROM organizers WHERE email = ?", req.Email)
 			if err == nil {
-				user.Type = "organization"
+				user.Type = "organizer"
 				found = true
 			} else if os.Getenv("ENV") == "development" {
-				log.Printf("[auth] organizations lookup failed for %q: %v", req.Email, err)
+				log.Printf("[auth] organizers lookup failed for %q: %v", req.Email, err)
 			}
 		}
 
@@ -571,8 +571,8 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		nameField := "full_name"
 
 		switch userType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 			nameField = "name"
 		case "club":
 			table = "clubs"
@@ -614,7 +614,7 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		
 		// Base query parts
 		idExpr := "id"
-		if table == "organizations" || table == "clubs" || table == "scorekeepers" {
+		if table == "organizers" || table == "clubs" || table == "scorekeepers" {
 			idExpr = "uuid as id"
 		}
 

@@ -44,8 +44,8 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 		// Determine target table
 		table := "archers"
 		switch userType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 		case "seller":
 			table = "sellers"
 		}
@@ -108,8 +108,8 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		table := "archers"
 		nameField := "full_name"
 		switch userType {
-		case "organization":
-			table = "organizations"
+		case "organizer":
+			table = "organizers"
 			nameField = "name"
 		case "seller":
 			table = "sellers"
@@ -150,8 +150,8 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
 				google_id, club_id, phone, city, address, bio, country, social_instagram, social_tiktok, social_whatsapp,
 				social_youtube, social_spotify, social_website, social_pinterest, social_linkedin`
-		} else if userType == "organization" {
-			selectFields = `uuid, email, name as full_name, slug as username, 'organization' as user_type, avatar_url, avatar_url as logo_url,
+		} else if userType == "organizer" {
+			selectFields = `uuid, email, name as full_name, slug as username, 'organizer' as user_type, avatar_url, avatar_url as logo_url,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
 				google_id, NULL as club_id, whatsapp_no as phone, city, address, description as bio, country, NULL as social_instagram, NULL as social_tiktok, NULL as social_whatsapp,
 				NULL as social_youtube, NULL as social_spotify, NULL as social_website, NULL as social_pinterest, NULL as social_linkedin`
@@ -278,8 +278,8 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		table := "archers"
-		if userType == "organization" {
-			table = "organizations"
+		if userType == "organizer" {
+			table = "organizers"
 		} else if userType == "seller" {
 			table = "sellers"
 		}
@@ -289,7 +289,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		if req.FullName != nil {
 			field := "full_name"
-			if userType == "organization" {
+			if userType == "organizer" {
 				field = "name"
 			} else if userType == "seller" {
 				field = "store_name"
@@ -300,7 +300,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.Username != nil {
 			un := utils.CleanUsername(*req.Username)
 			if un != "" {
-				// check if username is taken in archers, organizations, or sellers
+				// check if username is taken in archers, organizers, or sellers
 				// excluding the current user UUID
 				var exists bool
 				
@@ -315,8 +315,8 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 					return
 				}
 
-				// Check in organizations
-				err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = ? AND uuid != ?)", un, userID)
+				// Check in organizers
+				err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM organizers WHERE slug = ? AND uuid != ?)", un, userID)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database: " + err.Error()})
 					return
@@ -338,7 +338,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				field := "username"
-				if userType == "organization" || userType == "seller" {
+				if userType == "organizer" || userType == "seller" {
 					field = "slug"
 				}
 				query += ", " + field + " = ?"
@@ -347,7 +347,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.Phone != nil {
 			field := "phone"
-			if userType == "organization" {
+			if userType == "organizer" {
 				field = "whatsapp_no"
 			}
 			query += ", " + field + " = ?"
@@ -359,7 +359,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.Bio != nil {
 			field := "bio"
-			if userType == "organization" || userType == "seller" {
+			if userType == "organizer" || userType == "seller" {
 				field = "description"
 			}
 			query += ", " + field + " = ?"
@@ -442,9 +442,9 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if new email already exists in any table (archers, organizations, clubs, sellers)
+		// Check if new email already exists in any table (archers, organizers, clubs, sellers)
 		var exists bool
-		tables := []string{"archers", "organizations", "sellers"}
+		tables := []string{"archers", "organizers", "sellers"}
 		for _, t := range tables {
 			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM "+t+" WHERE email = ?)", req.NewEmail)
 			if err == nil && exists {
@@ -457,7 +457,7 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		var oldEmail string
 		table := "archers"
 		switch userType {
-		case "organization": table = "organizations"
+		case "organizer": table = "organizers"
 		case "seller": table = "sellers"
 		}
 		
@@ -559,7 +559,7 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		// Update Email in relevant table
 		table := "archers"
 		switch otpRecord.UserType {
-		case "organization": table = "organizations"
+		case "organizer": table = "organizers"
 		case "seller": table = "sellers"
 		}
 

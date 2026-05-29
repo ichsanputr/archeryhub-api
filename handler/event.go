@@ -78,9 +78,9 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as participant_uuid
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizers
 				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone, 'Indonesia' as country FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
 			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
@@ -109,9 +109,9 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizers
 				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, phone, 'Indonesia' as country FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
 			LEFT JOIN event_categories te ON t.uuid = te.event_id
@@ -180,9 +180,9 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(active_target_stats.active_target_count, 0) as active_target_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone, country FROM organizations
+				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone, country FROM organizers
 				UNION ALL
-				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, phone, 'Indonesia' as country FROM clubs
+				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(DISTINCT archer_id) as participant_count
@@ -1780,11 +1780,11 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		actualEventID := event.UUID
 		organizerID := event.OrganizerID
 
-		// Verification sub status organizer (Organization or Club)
+		// Verification sub status organizer (Organizer or Club)
 		var orgStatus string
 		db.Get(&orgStatus, `
 			SELECT COALESCE(s, 'active') FROM (
-				SELECT subscription_status as s FROM organizations WHERE uuid = ?
+				SELECT subscription_status as s FROM organizers WHERE uuid = ?
 				UNION ALL
 				SELECT 'active' as s FROM clubs WHERE uuid = ?
 			) combined LIMIT 1`, organizerID, organizerID)
@@ -3237,7 +3237,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT te.uuid) as event_count
 			FROM events t
 			LEFT JOIN (
-				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizations
+				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
@@ -3883,7 +3883,7 @@ func RequestResetCode(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve user email
 		var userEmail string
-		err := db.Get(&userEmail, `SELECT email FROM organizations WHERE uuid = ?`, userID.(string))
+		err := db.Get(&userEmail, `SELECT email FROM organizers WHERE uuid = ?`, userID.(string))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data user", "details": err.Error()})
 			return

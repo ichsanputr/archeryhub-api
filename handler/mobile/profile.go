@@ -198,17 +198,17 @@ func MobileUpdateSellerPage(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetOrganizationMe returns current organization profile
-// @Summary Get Organization Profile
-// @Description Get profile information for the authenticated organization
-// @Tags Mobile - Organization
+// MobileGetOrganizationMe returns current organizer profile
+// @Summary Get Organizer Profile
+// @Description Get profile information for the authenticated organizer
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileOrganizationProfileResponse
-// @Router /mobile/organization/me [get]
+// @Router /mobile/organizer/me [get]
 func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !requireMobileUserType(c, "organization") {
+		if !requireMobileUserType(c, "organizer") {
 			return
 		}
 
@@ -258,7 +258,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 			       vision, mission, history, faq,
 			       COALESCE(subscription_status, 'trial') as subscription_status,
 			       subscription_expires_at, page_settings
-			FROM organizations
+			FROM organizers
 			WHERE uuid = ?
 		`, userID)
 		if err != nil {
@@ -312,7 +312,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 				SubscriptionStatus:    org.SubscriptionStatus,
 				SubscriptionExpiresAt: org.SubscriptionExpiresAt,
 				PageSettings:          parseJSONObject(org.PageSettings),
-				UserType:              "organization",
+				UserType:              "organizer",
 			},
 		}
 
@@ -320,19 +320,19 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileUpdateOrganizationMe updates organization profile
-// @Summary Update Organization Profile
-// @Description Update profile info for the authenticated organization
-// @Tags Mobile - Organization
+// MobileUpdateOrganizationMe updates organizer profile
+// @Summary Update Organizer Profile
+// @Description Update profile info for the authenticated organizer
+// @Tags Mobile - Organizer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
 // @Param request body MobileUpdateOrganizationProfileRequest true "Profile Data"
 // @Success 200 {object} MessageResponse
-// @Router /mobile/organization/me [patch]
+// @Router /mobile/organizer/me [patch]
 func MobileUpdateOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !requireMobileUserType(c, "organization") {
+		if !requireMobileUserType(c, "organizer") {
 			return
 		}
 		handler.UpdateOrganizationProfile(db)(c)
@@ -342,7 +342,7 @@ func MobileUpdateOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 func getMobileOrganizationUUID(c *gin.Context, db *sqlx.DB) (string, bool) {
 	userID := c.GetString("user_id")
 	var orgUUID string
-	if err := db.Get(&orgUUID, `SELECT uuid FROM organizations WHERE uuid = ?`, userID); err != nil {
+	if err := db.Get(&orgUUID, `SELECT uuid FROM organizers WHERE uuid = ?`, userID); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Organisasi tidak ditemukan"})
 		return "", false
 	}
@@ -364,10 +364,10 @@ func getOwnedEventUUID(c *gin.Context, db *sqlx.DB, organizationUUID, eventID st
 	return eventUUID, true
 }
 
-// MobileGetOrganizationEvents returns events owned by organization
-// @Summary Get Organization Events
-// @Description Get list of events organized by the authenticated organization
-// @Tags Mobile - Organization
+// MobileGetOrganizationEvents returns events owned by organizer
+// @Summary Get Organizer Events
+// @Description Get list of events organized by the authenticated organizer
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param limit query int false "Pagination limit"
@@ -375,10 +375,10 @@ func getOwnedEventUUID(c *gin.Context, db *sqlx.DB, organizationUUID, eventID st
 // @Param status query string false "Filter by status"
 // @Param search query string false "Search events"
 // @Success 200 {object} MobileOrganizationEventsResponse
-// @Router /mobile/organization/events [get]
+// @Router /mobile/organizer/events [get]
 func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !requireMobileUserType(c, "organization") {
+		if !requireMobileUserType(c, "organizer") {
 			return
 		}
 
@@ -472,8 +472,8 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 
 // MobileGetOrganizationEventParticipants returns participants for an event
 // @Summary Get Event Participants (Org)
-// @Description Get list of participants for an event owned by the organization
-// @Tags Mobile - Organization
+// @Description Get list of participants for an event owned by the organizer
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
@@ -483,10 +483,10 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 // @Param payment_status query string false "Filter by payment status"
 // @Param category_id query string false "Filter by category"
 // @Success 200 {object} MobileOrganizationEventParticipantsResponse
-// @Router /mobile/organization/events/{id}/participants [get]
+// @Router /mobile/organizer/events/{id}/participants [get]
 func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !requireMobileUserType(c, "organization") {
+		if !requireMobileUserType(c, "organizer") {
 			return
 		}
 
@@ -747,16 +747,16 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 // MobileOrganizationScanRegistration handles QR scan for check-in
 // @Summary Scan Registration QR
 // @Description Scan and verify a participant's QR code for event check-in/reregistration
-// @Tags Mobile - Organization
+// @Tags Mobile - Organizer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
 // @Param request body MobileOrganizationScanRegistrationRequest true "QR Code"
 // @Success 200 {object} MobileOrganizationScanRegistrationResponse
-// @Router /mobile/organization/scan [post]
+// @Router /mobile/organizer/scan [post]
 func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !requireMobileUserType(c, "organization") {
+		if !requireMobileUserType(c, "organizer") {
 			return
 		}
 
@@ -808,22 +808,22 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 		now := time.Now().Format("2006-01-02T15:04:05Z")
 		resp.LastReregistrationAt = &now
 
-		utils.LogActivity(db, organizationUUID, "", "mobile_reregistration_scan", "organization", organizationUUID, "Scanned QR for reregistration: "+resp.ParticipantUUID, c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, organizationUUID, "", "mobile_reregistration_scan", "organizer", organizationUUID, "Scanned QR for reregistration: "+resp.ParticipantUUID, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, resp)
 	}
 }
 
 // MobileGetOrganizationParticipantDetail returns detailed information about a participant
-// @Summary Get Organization Participant Detail
-// @Description Get full details of a specific participant for an organization event
-// @Tags Mobile - Organization
+// @Summary Get Organizer Participant Detail
+// @Description Get full details of a specific participant for an organizer event
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Event UUID"
 // @Param user_id path string true "Archer UUID or Participant UUID"
 // @Success 200 {object} MobileOrganizationParticipantDetail
-// @Router /mobile/organization/events/{id}/participants/{user_id} [get]
+// @Router /mobile/organizer/events/{id}/participants/{user_id} [get]
 func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")

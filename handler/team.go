@@ -176,7 +176,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetMyTeams returns all teams managed by the authenticated user's organization or club
+// GetMyTeams returns all teams managed by the authenticated user's organizer or club
 func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -191,7 +191,7 @@ func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN team_members tm ON t.uuid = tm.team_id
 			WHERE `
 
-		if userType == "organization" {
+		if userType == "organizer" {
 			query += "e.organization_id = ?"
 		} else if userType == "club" {
 			query += "e.club_id = ?"

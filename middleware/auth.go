@@ -96,8 +96,8 @@ func AuthMiddleware() gin.HandlerFunc {
 				// Determine target table
 				table := "archers"
 				switch userType {
-				case "organization":
-					table = "organizations"
+				case "organizer":
+					table = "organizers"
 				case "club":
 					table = "clubs"
 				case "seller":
@@ -213,8 +213,8 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 				if DB != nil && userType != "root" {
 					table := "archers"
 					switch userType {
-					case "organization":
-						table = "organizations"
+					case "organizer":
+						table = "organizers"
 					case "club":
 						table = "clubs"
 					case "seller":

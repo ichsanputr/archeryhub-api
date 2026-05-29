@@ -46,17 +46,17 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 		// Get actual media usage
 		db.Get(&subscription.MediaUsage.Current, "SELECT COALESCE(SUM(size), 0) FROM media WHERE user_id = ?", userID)
 
-		if userType == "organization" {
+		if userType == "organizer" {
 			err = db.Get(&subscription, `
 				SELECT o.subscription_plan_id, COALESCE(o.subscription_status, 'active') as subscription_status,
 				       p.name as plan_name, p.price as plan_price, p.type as billing_type,
 				       DATE_FORMAT(o.subscription_expires_at, '%d %b %Y') as next_billing_date
-				FROM organizations o
+				FROM organizers o
 				LEFT JOIN subscription_plans p ON o.subscription_plan_id = p.id
 				WHERE o.user_id = ?`, userID)
 
 			if err == nil {
-				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM event_participants WHERE event_id IN (SELECT uuid FROM events WHERE organization_id = (SELECT uuid FROM organizations WHERE user_id = ?))", userID)
+				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM event_participants WHERE event_id IN (SELECT uuid FROM events WHERE organization_id = (SELECT uuid FROM organizers WHERE user_id = ?))", userID)
 				subscription.Usage.Label = "Total Atlet"
 				subscription.Usage.Limit = 5000
 			}
@@ -79,7 +79,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 			Features string  `json:"features"`
 		}
 		
-		targetType := "organization"
+		targetType := "organizer"
 
 		db.Select(&plans, "SELECT id, name, price, type, features FROM subscription_plans WHERE target_type = ?", targetType)
 		

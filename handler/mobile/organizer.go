@@ -10,14 +10,14 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// @Summary Get Organization Dashboard Statistics
-// @Description Get dashboard statistics, recent participants and payments for organization
-// @Tags Mobile - Organization
+// @Summary Get Organizer Dashboard Statistics
+// @Description Get dashboard statistics, recent participants and payments for organizer
+// @Tags Mobile - Organizer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileOrganizationDashboardResponse
-// @Router /mobile/organization/dashboard [get]
+// @Router /mobile/organizer/dashboard [get]
 func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -102,15 +102,15 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetOrganizationEarnings returns detailed earnings from event registrations
-// @Summary Get Organization Earnings
-// @Description Get a list of all income from event registrations for the organization
-// @Tags Mobile - Organization
+// @Summary Get Organizer Earnings
+// @Description Get a list of all income from event registrations for the organizer
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param limit query int false "Pagination limit"
 // @Param offset query int false "Pagination offset"
 // @Success 200 {object} MobileOrganizationEarningsResponse
-// @Router /mobile/organization/finance/earnings [get]
+// @Router /mobile/organizer/finance/earnings [get]
 func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -160,13 +160,13 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetOrganizationWallet returns current balance and wallet info
-// @Summary Get Organization Wallet
-// @Description Get the current balance and wallet details for the organization
-// @Tags Mobile - Organization
+// @Summary Get Organizer Wallet
+// @Description Get the current balance and wallet details for the organizer
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileOrganizationWalletResponse
-// @Router /mobile/organization/finance/balance [get]
+// @Router /mobile/organizer/finance/balance [get]
 func MobileGetOrganizationWallet(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -187,13 +187,13 @@ func MobileGetOrganizationWallet(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileGetOrganizationBankAccounts returns list of registered bank accounts
-// @Summary Get Organization Bank Accounts
-// @Description Get a list of all bank accounts registered by the organization for withdrawals
-// @Tags Mobile - Organization
+// @Summary Get Organizer Bank Accounts
+// @Description Get a list of all bank accounts registered by the organizer for withdrawals
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileOrganizationBankAccountsResponse
-// @Router /mobile/organization/finance/bank-accounts [get]
+// @Router /mobile/organizer/finance/bank-accounts [get]
 func MobileGetOrganizationBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -215,16 +215,16 @@ func MobileGetOrganizationBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileAddOrganizationBankAccount adds a new bank account for the organization
-// @Summary Add Organization Bank Account
+// MobileAddOrganizationBankAccount adds a new bank account for the organizer
+// @Summary Add Organizer Bank Account
 // @Description Add a new bank account for withdrawals
-// @Tags Mobile - Organization
+// @Tags Mobile - Organizer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
 // @Param request body MobileOrganizationBankAccountRequest true "Bank account details"
 // @Success 201 {object} map[string]interface{}
-// @Router /mobile/organization/finance/bank-accounts [post]
+// @Router /mobile/organizer/finance/bank-accounts [post]
 func MobileAddOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -266,16 +266,16 @@ func MobileAddOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileUpdateOrganizationBankAccount updates an existing bank account
-// @Summary Update Organization Bank Account
+// @Summary Update Organizer Bank Account
 // @Description Update bank account details
-// @Tags Mobile - Organization
+// @Tags Mobile - Organizer
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Bank Account UUID"
 // @Param request body MobileOrganizationBankAccountRequest true "Updated details"
 // @Success 200 {object} map[string]interface{}
-// @Router /mobile/organization/finance/bank-accounts/{id} [put]
+// @Router /mobile/organizer/finance/bank-accounts/{id} [put]
 func MobileUpdateOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -318,14 +318,14 @@ func MobileUpdateOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // MobileDeleteOrganizationBankAccount deletes a bank account
-// @Summary Delete Organization Bank Account
-// @Description Remove a bank account from the organization
-// @Tags Mobile - Organization
+// @Summary Delete Organizer Bank Account
+// @Description Remove a bank account from the organizer
+// @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param id path string true "Bank Account UUID"
 // @Success 200 {object} map[string]interface{}
-// @Router /mobile/organization/finance/bank-accounts/{id} [delete]
+// @Router /mobile/organizer/finance/bank-accounts/{id} [delete]
 func MobileDeleteOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -344,12 +344,12 @@ func MobileDeleteOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 // MobileOrganizationKickParticipant removes a participant from an event
 // @Summary Kick Participant from Event
 // @Description Remove a participant and all their associated scores/assignments from an event
-// @Tags Mobile - Organization
+// @Tags Mobile - Organizer
 // @Security ApiKeyAuth
 // @Param id path string true "Event UUID"
 // @Param user_id path string true "Archer UUID or Participant UUID"
 // @Success 200 {object} map[string]interface{}
-// @Router /mobile/organization/events/{id}/participants/{user_id} [delete]
+// @Router /mobile/organizer/events/{id}/participants/{user_id} [delete]
 func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		organizationUUID, _ := c.Get("user_id")
