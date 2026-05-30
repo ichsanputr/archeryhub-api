@@ -490,9 +490,10 @@ func main() {
 		docs := api.Group("/docs")
 		{
 			docs.GET("", handler.ListDocs())
-			docs.GET("/:slug", handler.GetDocDetail())
-			docs.GET("/:slug/comments", handler.ListDocsComments(db))
-			docs.POST("/:slug/comments", middleware.OptionalAuthMiddleware(), handler.AddDocsComment(db))
+			// Use wildcard so docs can be nested by category, e.g. /docs/archer/archer-profile
+			docs.GET("/*slug", handler.GetDocDetail())
+			docs.GET("/*slug/comments", handler.ListDocsComments(db))
+			docs.POST("/*slug/comments", middleware.OptionalAuthMiddleware(), handler.AddDocsComment(db))
 		}
 
 		// Team Management

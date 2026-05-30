@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,16 +23,17 @@ type DocsComment struct {
 	Content   string  `db:"content" json:"content"`
 	Status    string  `db:"status" json:"status"`
 	CreatedAt string  `db:"created_at" json:"created_at"`
+	ParentID  *string `db:"parent_id" json:"parent_id,omitempty"`
 }
 
 // ListDocsComments returns all approved comments for a specific docs article slug
 func ListDocsComments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		slug := c.Param("slug")
+		slug := normalizeDocSlugParam(c.Param("slug"))
 
 		var comments []DocsComment
 		query := `
-			SELECT c.uuid, c.doc_slug, c.user_id, c.user_type, c.guest_name, c.content, c.created_at,
+			SELECT c.uuid, c.doc_slug, c.user_id, c.user_type, c.guest_name, c.content, c.created_at, c.parent_id,
 				CASE 
 					WHEN c.user_type = 'archer' THEN (SELECT full_name FROM archers WHERE uuid = c.user_id)
 					WHEN c.user_type = 'organizer' THEN (SELECT name FROM organizers WHERE uuid = c.user_id)
@@ -39,7 +42,7 @@ func ListDocsComments(db *sqlx.DB) gin.HandlerFunc {
 				END as user_name
 			FROM docs_comments c
 			WHERE c.doc_slug = ? AND c.status = 'approved'
-			ORDER BY c.created_at DESC
+			ORDER BY c.created_at ASC
 		`
 		err := db.Select(&comments, query, slug)
 		if err != nil {
@@ -61,11 +64,12 @@ func ListDocsComments(db *sqlx.DB) gin.HandlerFunc {
 // AddDocsComment adds a new comment to a docs article slug
 func AddDocsComment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		slug := c.Param("slug")
+		slug := normalizeDocSlugParam(c.Param("slug"))
 		
 		var req struct {
-			GuestName string `json:"guest_name"`
-			Content   string `json:"content" binding:"required"`
+			GuestName string  `json:"guest_name"`
+			Content   string  `json:"content" binding:"required"`
+			ParentID  *string `json:"parent_id"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,9 +98,9 @@ func AddDocsComment(db *sqlx.DB) gin.HandlerFunc {
 
 		commentUUID := uuid.New().String()
 		_, err := db.Exec(`
-			INSERT INTO docs_comments (uuid, doc_slug, user_id, user_type, guest_name, content, status)
-			VALUES (?, ?, ?, ?, ?, ?, 'approved')
-		`, commentUUID, slug, userID, userType, guestName, req.Content)
+			INSERT INTO docs_comments (uuid, doc_slug, user_id, user_type, guest_name, content, status, parent_id)
+			VALUES (?, ?, ?, ?, ?, ?, 'approved', ?)
+		`, commentUUID, slug, userID, userType, guestName, req.Content, req.ParentID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save comment", "details": err.Error()})
@@ -140,6 +144,24 @@ type DocResponse struct {
 	TOC      []DocTOCItem `json:"toc,omitempty"`
 }
 
+func normalizeDocSlugParam(param string) string {
+	// Gin wildcard params (e.g. /*slug) include a leading slash.
+	// Normalize both "/archer/archer-profile" and "archer/archer-profile" to "archer/archer-profile".
+	slug := strings.TrimSpace(param)
+	slug = strings.TrimPrefix(slug, "/")
+	slug = strings.TrimSuffix(slug, "/")
+	return slug
+}
+
+func nestedSlug(category, baseSlug string) string {
+	category = strings.TrimSpace(category)
+	baseSlug = strings.TrimSpace(baseSlug)
+	if category == "" {
+		return baseSlug
+	}
+	return category + "/" + baseSlug
+}
+
 // ListDocs returns metadata of all documentation articles
 func ListDocs() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -165,7 +187,7 @@ func ListDocs() gin.HandlerFunc {
 				localized := doc.EN
 
 				list = append(list, DocResponse{
-					Slug:     doc.Slug,
+					Slug:     nestedSlug(doc.Category, doc.Slug),
 					Icon:     doc.Icon,
 					Category: doc.Category,
 					ReadTime: doc.ReadTime,
@@ -182,9 +204,16 @@ func ListDocs() gin.HandlerFunc {
 // GetDocDetail returns full details of a specific documentation article
 func GetDocDetail() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		slug := c.Param("slug")
+		paramSlug := normalizeDocSlugParam(c.Param("slug"))
+		// We store docs as flat files using the base slug as the filename.
+		// URL can be nested: /docs/{category}/{slug}
+		baseSlug := path.Base(paramSlug)
+		if baseSlug == "." || baseSlug == "/" || baseSlug == "" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Documentation article not found"})
+			return
+		}
 
-		filePath := filepath.Join("data/docs", slug+".json")
+		filePath := filepath.Join("data/docs", baseSlug+".json")
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Documentation article not found"})
 			return
@@ -205,7 +234,7 @@ func GetDocDetail() gin.HandlerFunc {
 		localized := doc.EN
 
 		res := DocResponse{
-			Slug:     doc.Slug,
+			Slug:     nestedSlug(doc.Category, doc.Slug),
 			Icon:     doc.Icon,
 			Category: doc.Category,
 			ReadTime: doc.ReadTime,

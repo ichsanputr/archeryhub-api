@@ -888,7 +888,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			query := `
 				SELECT 
 					a.uuid as archer_id,
-					COALESCE(a.id, '') as athlete_code,
+					a.id as athlete_code,
 					a.full_name,
 					COALESCE(a.email, '') as email,
 					a.avatar_url,
@@ -3410,24 +3410,24 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type Participant struct {
-			AthleteCode        string `db:"athlete_code"`
-			FullName           string `db:"full_name"`
-			Email              string `db:"email"`
-			ClubName           string `db:"club_name"`
-			City               string `db:"city"`
-			PaymentStatus      string `db:"payment_status"`
-			RegistrationSource string `db:"registration_source"`
-			RegistrationDate   string `db:"registration_date"`
-			TargetNames        string `db:"target_names"`
-			Categories         string `db:"categories"`
-			TotalScore         int    `db:"total_score"`
-			TotalX             int    `db:"total_x"`
+			AthleteCode        *string `db:"athlete_code"`
+			FullName           string  `db:"full_name"`
+			Email              string  `db:"email"`
+			ClubName           string  `db:"club_name"`
+			City               string  `db:"city"`
+			PaymentStatus      string  `db:"payment_status"`
+			RegistrationSource string  `db:"registration_source"`
+			RegistrationDate   string  `db:"registration_date"`
+			TargetNames        string  `db:"target_names"`
+			Categories         string  `db:"categories"`
+			TotalScore         int     `db:"total_score"`
+			TotalX             int     `db:"total_x"`
 		}
 
 		var participants []Participant
 		query := `
 			SELECT 
-				COALESCE(a.id, '') as athlete_code,
+				a.id as athlete_code,
 				a.full_name,
 				COALESCE(a.email, '') as email,
 				COALESCE(cl.name, '') as club_name,
@@ -3544,7 +3544,12 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		for i, p := range participants {
 			writer.Write([]string{
 				strconv.Itoa(i + 1),
-				p.AthleteCode,
+				func(s *string) string {
+					if s == nil {
+						return ""
+					}
+					return *s
+				}(p.AthleteCode),
 				p.FullName,
 				p.Email,
 				capitalizeWords(p.ClubName),

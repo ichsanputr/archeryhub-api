@@ -1,7 +1,7 @@
 {
   "slug": "news-module",
   "icon": "ph:newspaper-clipping-bold",
-  "category": "platform",
+  "category": "dashboard",
   "readTime": "5 min",
   "en": {
     "title": "News & Publications Module",
