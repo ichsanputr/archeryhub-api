@@ -1,5 +1,5 @@
 {
-  "slug": "user-roles",
+  "slug": "account-types",
   "icon": "ph:users-three-bold",
   "category": "dashboard",
   "readTime": "8 min",
@@ -8,32 +8,32 @@
     "excerpt": "Complete guide to account types, access rights, and workflow for each user type on archeris.net.",
     "toc": [
       {
-        "id": "tipe-akun",
+        "id": "account-type",
         "level": 2,
         "text": "Account Types on archeris.net"
       },
       {
-        "id": "pemanah",
+        "id": "archer",
         "level": 2,
         "text": "Archer Account"
       },
       {
-        "id": "organisasi",
+        "id": "organization",
         "level": 2,
         "text": "Organization Account"
       },
       {
-        "id": "penjual",
+        "id": "seller",
         "level": 2,
         "text": "Seller Account"
       },
       {
-        "id": "perbandingan",
+        "id": "comparison",
         "level": 2,
         "text": "Comparison of Access Rights"
       },
       {
-        "id": "pilih-peran",
+        "id": "select-role",
         "level": 2,
         "text": "How to Choose the Right Account?"
       }

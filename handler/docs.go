@@ -213,6 +213,12 @@ func GetDocDetail() gin.HandlerFunc {
 			return
 		}
 
+		// Backward-compatible aliases for renamed docs.
+		// Example: /docs/user-roles -> /docs/dashboard/account-types
+		if baseSlug == "user-roles" {
+			baseSlug = "account-types"
+		}
+
 		filePath := filepath.Join("data/docs", baseSlug+".json")
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Documentation article not found"})
