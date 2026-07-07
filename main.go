@@ -769,6 +769,16 @@ func main() {
 				mobileMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}
 
+			// 9. Notifications (requires auth)
+			mobileNotification := mobile.Group("/notifications")
+			mobileNotification.Use(middleware.AuthMiddleware())
+			{
+				mobileNotification.GET("", mobilehandler.MobileGetNotifications(db))
+				mobileNotification.PUT("/:id/read", mobilehandler.MobileMarkNotificationRead(db))
+				mobileNotification.PUT("/read-all", mobilehandler.MobileMarkAllNotificationsRead(db))
+				mobileNotification.GET("/unread-count", mobilehandler.MobileGetUnreadCount(db))
+			}
+
 		}
 
 		// Organizer routes
