@@ -435,3 +435,70 @@ func MobileGetBankOptions(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileCreateWithdrawal handles withdrawal request from organizer
+func MobileCreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+
+		var req struct {
+			BankAccountID string  `json:"bank_account_id" binding:"required"`
+			Amount        float64 `json:"amount" binding:"required,gt=0"`
+			Notes         string  `json:"notes"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			return
+		}
+		defer tx.Rollback()
+
+		var balance float64
+		err = tx.Get(&balance, "SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE", userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Dompet tidak ditemukan"})
+			return
+		}
+
+		if balance < req.Amount {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi"})
+			return
+		}
+
+		_, err = tx.Exec("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", req.Amount, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui saldo"})
+			return
+		}
+
+		withdrawalID := uuid.New().String()
+		refNo := "WD-" + time.Now().Format("20060102") + "-" + withdrawalID[:8]
+		_, err = tx.Exec(`
+			INSERT INTO withdrawals (uuid, user_id, bank_account_id, amount, reference_no, notes, status)
+			VALUES (?, ?, ?, ?, ?, ?, 'pending')
+		`, withdrawalID, userID, req.BankAccountID, req.Amount, refNo, req.Notes)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat penarikan"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":      "Permintaan penarikan berhasil diajukan",
+			"id":           withdrawalID,
+			"reference_no": refNo,
+			"amount":       req.Amount,
+		})
+	}
+}
+

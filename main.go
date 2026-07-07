@@ -703,6 +703,8 @@ func main() {
 				mobileOrganization.POST("/finance/bank-accounts", mobilehandler.MobileAddOrganizationBankAccount(db))
 				mobileOrganization.PUT("/finance/bank-accounts/:id", mobilehandler.MobileUpdateOrganizationBankAccount(db))
 				mobileOrganization.DELETE("/finance/bank-accounts/:id", mobilehandler.MobileDeleteOrganizationBankAccount(db))
+				mobileOrganization.POST("/finance/withdraw", mobilehandler.MobileCreateWithdrawal(db))
+				mobileOrganization.GET("/finance/withdrawals", handler.GetWithdrawals(db))
 			}
 
 			mobileSeller := mobile.Group("/seller")
