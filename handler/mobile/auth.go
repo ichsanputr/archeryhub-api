@@ -60,8 +60,10 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 	}
 
 	avatar := ""
-	if user.AvatarURL != nil {
-		avatar = utils.MaskMediaURL(*user.AvatarURL)
+	if user.AvatarURL != nil && *user.AvatarURL != "" {
+		avatar = *user.AvatarURL
+	} else {
+		avatar = utils.DiceBearAvatar(user.FullName)
 	}
 
 	organizationUUID := ""
@@ -327,16 +329,18 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 		}
 		username = username + "-" + userID[:8]
 
+		avatarURL := utils.DiceBearAvatar(req.FullName)
+
 		_, err := db.Exec(`
-			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, city, bow_type)
-			VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)
-		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, req.Gender, req.DateOfBirth, req.City, req.BowType)
+			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, city, bow_type)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)
+		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, avatarURL, req.Gender, req.DateOfBirth, req.City, req.BowType)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
 		}
 
-		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, "", "", 1)
+		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, avatarURL, "", 1)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
@@ -351,6 +355,7 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 				Username:  username,
 				FullName:  req.FullName,
 				Email:     req.Email,
+				AvatarURL: avatarURL,
 				Role:      "archer",
 				UserType:  "archer",
 			},
@@ -507,10 +512,12 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			}
 			username = username + "-" + userID[:8]
 
-			_, err = db.Exec(`
+			avatarURL := utils.DiceBearAvatar(googleInfo.Name)
+
+		_, err = db.Exec(`
 				INSERT INTO archers (uuid, id, username, email, google_id, full_name, avatar_url, status, is_verified, created_at, updated_at, token_version)
 				VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW(), 1)
-			`, userID, athleteID, username, googleInfo.Email, googleInfo.Sub, googleInfo.Name, googleInfo.Picture)
+			`, userID, athleteID, username, googleInfo.Email, googleInfo.Sub, googleInfo.Name, avatarURL)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan user baru: " + err.Error()})
@@ -523,14 +530,14 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			user.Username = username
 			user.Email = googleInfo.Email
 			user.FullName = googleInfo.Name
-			user.AvatarURL = &googleInfo.Picture
+			user.AvatarURL = &avatarURL
 			user.Status = "active"
 			user.TokenVersion = 1
 
 			utils.LogActivity(db, userID, "", "mobile_register_google", "archer", userID, "User registered via Google on mobile", c.ClientIP(), c.Request.UserAgent())
 		} else {
-			// Update existing user with Google ID and Avatar if needed
-			_, _ = db.Exec(`UPDATE archers SET google_id = ?, avatar_url = ?, updated_at = NOW() WHERE uuid = ?`, googleInfo.Sub, googleInfo.Picture, user.UUID)
+			// Update existing user with Google ID but keep DiceBear avatar
+			_, _ = db.Exec(`UPDATE archers SET google_id = ?, updated_at = NOW() WHERE uuid = ?`, googleInfo.Sub, user.UUID)
 		}
 
 		if user.Status != "active" {
@@ -810,8 +817,8 @@ func MobileGoogleBind(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update user with google_id
-		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET google_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = NOW() WHERE uuid = ?", tableName), googleInfo.Sub, googleInfo.Picture, userID)
+		// Update user with google_id but keep existing avatar
+		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET google_id = ?, updated_at = NOW() WHERE uuid = ?", tableName), googleInfo.Sub, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungkan akun Google: " + err.Error()})
 			return

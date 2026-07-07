@@ -1,9 +1,16 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 )
+
+// DiceBearAvatar returns a DiceBear avatar URL using the given seed.
+// The seed ensures the same user always gets the same avatar.
+func DiceBearAvatar(seed string) string {
+	return fmt.Sprintf("https://api.dicebear.com/9.x/avataaars/svg?seed=%s", seed)
+}
 
 // CleanUsername cleans a username by converting to lowercase, 
 // replacing spaces/underscores with dashes, and removing non-alphanumeric characters.
