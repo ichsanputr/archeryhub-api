@@ -1116,8 +1116,8 @@ type MobileOrganizationEarningItem struct {
 	Status       string     `db:"status" json:"status"`
 	PaidAt       *time.Time `db:"paid_at" json:"paid_at"`
 	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
-	ArcherName   string     `db:"archer_name" json:"archer_name"`
-	CategoryName string     `db:"category_name" json:"category_name"`
+	ArcherName   *string    `db:"archer_name" json:"archer_name"`
+	CategoryName *string    `db:"category_name" json:"category_name"`
 }
 
 type MobileOrganizationEarningsResponse struct {
