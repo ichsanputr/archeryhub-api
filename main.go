@@ -635,6 +635,7 @@ func main() {
 			// 2c. Marketplace (public read-only)
 			mobile.GET("/marketplace/products", mobilehandler.MobileMarketplaceListProducts(db))
 			mobile.GET("/marketplace/products/:id", mobilehandler.MobileMarketplaceGetProductDetail(db))
+			mobile.GET("/results/recent", mobilehandler.MobileRecentResults(db))
 			mobile.GET("/payment/channels", handler.GetPaymentChannels(db))
 			mobile.GET("/events/:slug/payment-method", mobilehandler.MobileGetEventPaymentMethods(db))
 			mobile.GET("/events/payments/:reference/instructions", mobilehandler.MobileGetPaymentInstructions(db))
