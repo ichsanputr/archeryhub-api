@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/models"
@@ -197,6 +197,8 @@ type MobileEvent struct {
 	OrganizerName      string  `db:"organizer_name" json:"organizer_name"`
 	OrganizerAvatarURL *string `db:"organizer_avatar_url" json:"organizer_avatar_url"`
 	ParticipantCount   int     `db:"participant_count" json:"participant_count"`
+	CategoryCount      int     `db:"category_count" json:"category_count"`
+	EntryFee           float64 `db:"entry_fee" json:"entry_fee"`
 }
 
 // MobileEventDetail represents the slimmed-down core info for an event.
@@ -504,6 +506,11 @@ type MobileRegisterEventResponse struct {
 	RegistrationID       string   `json:"registration_id"`
 	RegisteredCategories []string `json:"registered_categories"`
 	PaymentStatus        string   `json:"payment_status"`
+	TotalFee             float64  `json:"total_fee"`
+	CheckoutURL          *string  `json:"checkout_url"`
+	VANumber             *string  `json:"va_number"`
+	QRURL                *string  `json:"qr_url"`
+	TripayReference      *string  `json:"reference"`
 }
 
 // ErrorResponse represents a standard error response.
@@ -735,14 +742,29 @@ type MobileArcherProfileResponse struct {
 
 // MobileUpdateArcherProfileRequest represents archer profile update payload.
 type MobileUpdateArcherProfileRequest struct {
-	FullName    *string `json:"full_name"`
-	Phone       *string `json:"phone"`
-	Gender      *string `json:"gender"`
-	DateOfBirth *string `json:"date_of_birth"`
-	City        *string `json:"city"`
-	Address     *string `json:"address"`
-	BowType     *string `json:"bow_type"`
-	AvatarURL   *string `json:"avatar_url"`
+	FullName        *string `json:"full_name"`
+	Phone           *string `json:"phone"`
+	Gender          *string `json:"gender"`
+	DateOfBirth     *string `json:"date_of_birth"`
+	City            *string `json:"city"`
+	Address         *string `json:"address"`
+	BowType         *string `json:"bow_type"`
+	AvatarURL       *string `json:"avatar_url"`
+	Nickname        *string `json:"nickname"`
+	Bio             *string `json:"bio"`
+	BannerURL       *string `json:"banner_url"`
+	SocialInstagram *string `json:"social_instagram"`
+	SocialTiktok    *string `json:"social_tiktok"`
+	SocialWhatsapp  *string `json:"social_whatsapp"`
+	SocialFacebook  *string `json:"social_facebook"`
+	SocialTwitter   *string `json:"social_twitter"`
+	SocialYoutube   *string `json:"social_youtube"`
+	SocialWebsite   *string `json:"social_website"`
+	SocialLinkedin  *string `json:"social_linkedin"`
+	Achievements    *string `json:"achievements"`
+	Equipment       *string `json:"equipment"`
+	ClubID          *string `json:"club_id"`
+	Country         *string `json:"country"`
 }
 
 // ChatConversation represents a chat between archer and seller.
@@ -877,12 +899,13 @@ type MobileRecentPayment struct {
 // MobileOrganizationDashboardResponse represents dashboard statistics for organizer.
 type MobileOrganizationDashboardResponse struct {
 	Stats struct {
-		TotalEvents       int     `json:"total_events"`
-		ActiveEvents      int     `json:"active_events"`
-		TotalParticipants int     `json:"total_participants"`
-		TotalRevenue      float64 `json:"total_revenue"`
-		MonthlyRevenue    float64 `json:"monthly_revenue"`
-		PendingRevenue    float64 `json:"pending_revenue"`
+		TotalEvents          int     `json:"total_events"`
+		ActiveEvents         int     `json:"active_events"`
+		TotalParticipants    int     `json:"total_participants"`
+		CheckedInParticipants int    `json:"checked_in_participants"`
+		TotalRevenue         float64 `json:"total_revenue"`
+		MonthlyRevenue       float64 `json:"monthly_revenue"`
+		PendingRevenue       float64 `json:"pending_revenue"`
 	} `json:"stats"`
 	RecentParticipants []MobileRecentParticipant `json:"recent_participants"`
 	RecentPayments     []MobileRecentPayment     `json:"recent_payments"`

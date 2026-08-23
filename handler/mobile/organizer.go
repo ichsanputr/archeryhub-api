@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"net/http"
@@ -58,6 +58,13 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 			FROM payment_transactions t
 			JOIN events e ON t.event_id = e.uuid
 			WHERE e.organizer_id = ? AND t.status = 'pending' AND t.registration_id IS NOT NULL
+		`, userID)
+
+		_ = db.Get(&dashboard.Stats.CheckedInParticipants, `
+			SELECT COUNT(ep.uuid) 
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			WHERE e.organizer_id = ? AND ep.last_reregistration_at IS NOT NULL
 		`, userID)
 
 		// 2. Recent Participants

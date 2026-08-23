@@ -22,7 +22,11 @@ func InitDB() (*sqlx.DB, error) {
 	password := getEnv("DB_PASSWORD", "")
 	dbname := getEnv("DB_NAME", "Archeris")
 
-	dsn := user + ":" + password + "@tcp(" + host + ":" + port + ")/" + dbname + "?parseTime=true"
+	// loc=Local keeps the driver's interpretation in sync with MySQL's
+	// SYSTEM session time_zone (both follow the host OS timezone). Without it,
+	// MySQL wall-clock values (+07:00) are parsed as UTC, shifting every
+	// TIMESTAMP/DATETIME ~7 hours into the future.
+	dsn := user + ":" + password + "@tcp(" + host + ":" + port + ")/" + dbname + "?parseTime=true&loc=Local"
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		return nil, err

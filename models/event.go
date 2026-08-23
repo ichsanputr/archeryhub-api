@@ -153,12 +153,13 @@ type EventResultPreview struct {
 }
 
 type EventCompetitionCategory struct {
-	CategoryID         string  `json:"category_id" db:"category_id" example:"cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"`
-	DivisionName       *string `json:"division_name" db:"division_name" example:"Recurve"`
-	CategoryName       *string `json:"category_name" db:"category_name" example:"Umum"`
-	EventTypeName      *string `json:"event_type_name" db:"event_type_name" example:"Individual"`
-	GenderDivisionName *string `json:"gender_division_name" db:"gender_division_name" example:"Putra"`
-	ParticipantCount   int     `json:"participant_count" db:"participant_count" example:"64"`
+	CategoryID         string   `json:"category_id" db:"category_id" example:"cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"`
+	DivisionName       *string  `json:"division_name" db:"division_name" example:"Recurve"`
+	CategoryName       *string  `json:"category_name" db:"category_name" example:"Umum"`
+	EventTypeName      *string  `json:"event_type_name" db:"event_type_name" example:"Individual"`
+	GenderDivisionName *string  `json:"gender_division_name" db:"gender_division_name" example:"Putra"`
+	ParticipantCount   int      `json:"participant_count" db:"participant_count" example:"64"`
+	Fee                *float64 `json:"fee" db:"fee"`
 }
 
 // CreateEventRequest represents the request payload for creating a Event

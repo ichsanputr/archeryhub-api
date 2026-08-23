@@ -118,15 +118,17 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 			NULLIF(COALESCE(ec.category_name_custom, ag.name, ''), '') as category_name,
 			NULLIF(COALESCE(et.name, ''), '') as event_type_name,
 			NULLIF(COALESCE(gd.name, ''), '') as gender_division_name,
-			COUNT(tp.uuid) as participant_count
+			COUNT(tp.uuid) as participant_count,
+			COALESCE(t.entry_fee, 0.00) as fee
 		FROM event_categories ec
+		JOIN events t ON ec.event_id = t.uuid
 		LEFT JOIN event_participants tp ON tp.category_id = ec.uuid
 		LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 		LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 		LEFT JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
 		LEFT JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
 		WHERE ec.event_id = ?
-		GROUP BY ec.uuid, bt.name, ec.category_name_custom, ag.name, et.name, gd.name
+		GROUP BY ec.uuid, bt.name, ec.category_name_custom, ag.name, et.name, gd.name, t.entry_fee
 		ORDER BY participant_count DESC, ec.created_at ASC
 	`, event.UUID)
 	event.CompetitionCategories = competitionCategories

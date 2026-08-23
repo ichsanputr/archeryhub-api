@@ -193,7 +193,7 @@ func main() {
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Welcome to Archeris.net API - TEST DEPLOY 1",
+			"message": "Welcome to Archeris.net API - TEST DEPLOY 2",
 			"status":  "running",
 		})
 	})
@@ -620,6 +620,7 @@ func main() {
 
 			// 2b. News (public read-only)
 			mobile.GET("/news", mobilehandler.MobileListNews(db))
+			mobile.GET("/clubs", mobilehandler.MobileListClubs(db))
 			mobile.GET("/news/:id", mobilehandler.MobileGetNewsDetail(db))
 			mobile.GET("/news/:id/comments", mobilehandler.MobileListNewsComments(db))
 			mobile.POST("/news/:id/comments", middleware.OptionalAuthMiddleware(), mobilehandler.MobileAddNewsComment(db))
@@ -680,9 +681,12 @@ func main() {
 				mobileArcher.GET("/events/payments", mobilehandler.MobileArcherGetEventPayments(db))
 				mobileArcher.GET("/events/payments/:slug", mobilehandler.MobileArcherGetEventPaymentsByEvent(db))
 				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
+				mobileArcher.GET("/events/:id/performance", mobilehandler.MobileArcherGetEventPerformance(db))
 				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
 				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterEvent(db))
+				mobileArcher.DELETE("/events/registrations/:registration_id", mobilehandler.MobileCancelRegistration(db))
+				mobileArcher.DELETE("/payments/:identifier/cancel", mobilehandler.MobileCancelPayment(db))
 			}
 
 			mobileOrganization := mobile.Group("/organizer")
@@ -695,7 +699,13 @@ func main() {
 				mobileOrganization.GET("/events/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
 				mobileOrganization.DELETE("/events/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
 				mobileOrganization.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
+				mobileOrganization.GET("/scan/history", mobilehandler.MobileGetScanHistory(db))
 				mobileOrganization.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
+
+				// Broadcasts
+				mobileOrganization.GET("/events/:id/broadcasts", mobilehandler.MobileGetEventBroadcasts(db))
+				mobileOrganization.GET("/events/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
+				mobileOrganization.POST("/events/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
 
 				// Finance
 				mobileOrganization.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	paddle "github.com/PaddleHQ/paddle-go-sdk/v5"
@@ -978,6 +979,31 @@ func GetPaymentInstruction(db *sqlx.DB) gin.HandlerFunc {
 		code := c.Query("code")
 		if code == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "kode wajib diisi"})
+			return
+		}
+
+		codeUpper := strings.ToUpper(code)
+		isTripayCode := false
+		tripayCodes := []string{"BCAVA", "BNIVA", "BRIVA", "MANDIRIVA", "MYBVA", "PERMATAVA", "SINARMASVA", "ALFAMART", "INDOMARET", "QRIS", "OVO", "GOPAY", "SHOPEEPAY"}
+		for _, tc := range tripayCodes {
+			if tc == codeUpper {
+				isTripayCode = true
+				break
+			}
+		}
+
+		if !isTripayCode {
+			fallback := []utils.TripayInstruction{
+				{
+					Title: "Petunjuk Pembayaran",
+					Steps: []string{
+						"Silakan lakukan transfer ke nomor rekening yang tertera.",
+						"Pastikan nominal transfer sesuai dengan total pembayaran hingga digit terakhir.",
+						"Simpan bukti transfer dan unggah pada halaman status pembayaran.",
+					},
+				},
+			}
+			c.JSON(http.StatusOK, gin.H{"data": fallback})
 			return
 		}
 

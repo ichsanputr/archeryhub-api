@@ -723,6 +723,21 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 		if req.Address != nil { query += ", address = ?"; args = append(args, *req.Address) }
 		if req.BowType != nil { query += ", bow_type = ?"; args = append(args, *req.BowType) }
 		if req.AvatarURL != nil { query += ", avatar_url = ?"; args = append(args, *req.AvatarURL) }
+		if req.Nickname != nil { query += ", nickname = ?"; args = append(args, *req.Nickname) }
+		if req.Bio != nil { query += ", bio = ?"; args = append(args, *req.Bio) }
+		if req.BannerURL != nil { query += ", banner_url = ?"; args = append(args, *req.BannerURL) }
+		if req.SocialInstagram != nil { query += ", social_instagram = ?"; args = append(args, *req.SocialInstagram) }
+		if req.SocialTiktok != nil { query += ", social_tiktok = ?"; args = append(args, *req.SocialTiktok) }
+		if req.SocialWhatsapp != nil { query += ", social_whatsapp = ?"; args = append(args, *req.SocialWhatsapp) }
+		if req.SocialFacebook != nil { query += ", social_facebook = ?"; args = append(args, *req.SocialFacebook) }
+		if req.SocialTwitter != nil { query += ", social_twitter = ?"; args = append(args, *req.SocialTwitter) }
+		if req.SocialYoutube != nil { query += ", social_youtube = ?"; args = append(args, *req.SocialYoutube) }
+		if req.SocialWebsite != nil { query += ", social_website = ?"; args = append(args, *req.SocialWebsite) }
+		if req.SocialLinkedin != nil { query += ", social_linkedin = ?"; args = append(args, *req.SocialLinkedin) }
+		if req.Achievements != nil { query += ", achievements = ?"; args = append(args, *req.Achievements) }
+		if req.Equipment != nil { query += ", equipment = ?"; args = append(args, *req.Equipment) }
+		if req.ClubID != nil { query += ", club_id = ?"; args = append(args, *req.ClubID) }
+		if req.Country != nil { query += ", country = ?"; args = append(args, *req.Country) }
 
 		if len(args) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada data yang diperbarui"})
@@ -907,6 +922,56 @@ func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, detail)
+	}
+}
+
+// MobileGetScanHistory returns the QR scanning history logs for check-in
+func MobileGetScanHistory(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !requireMobileUserType(c, "organizer") {
+			return
+		}
+		organizationUUID, ok := getMobileOrganizationUUID(c, db)
+		if !ok {
+			return
+		}
+
+		query := `
+			SELECT 
+				al.created_at,
+				ep.uuid as participant_uuid,
+				COALESCE(a.full_name, '') as full_name,
+				COALESCE(a.id, '') as athlete_code,
+				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name
+			FROM activity_logs al
+			JOIN event_participants ep ON al.description = CONCAT('Scanned QR for reregistration: ', ep.uuid)
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
+			WHERE al.action = 'mobile_reregistration_scan' AND al.user_id = ?
+			ORDER BY al.created_at DESC
+			LIMIT 50
+		`
+		type ScanHistoryItem struct {
+			ScannedAt       string `json:"scanned_at" db:"created_at"`
+			ParticipantUUID string `json:"participant_uuid" db:"participant_uuid"`
+			FullName        string `json:"full_name" db:"full_name"`
+			AthleteCode     string `json:"athlete_code" db:"athlete_code"`
+			CategoryName    string `json:"category_name" db:"category_name"`
+		}
+
+		var history []ScanHistoryItem
+		err := db.Select(&history, query, organizationUUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil riwayat scan", "details": err.Error()})
+			return
+		}
+
+		if history == nil {
+			history = []ScanHistoryItem{}
+		}
+
+		c.JSON(http.StatusOK, history)
 	}
 }
 
