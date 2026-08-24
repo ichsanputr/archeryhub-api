@@ -344,3 +344,43 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileArcherGetCertificates returns certificates earned by the archer
+func MobileArcherGetCertificates(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetString("user_id")
+
+		type CertificateItem struct {
+			ID            string `json:"id" db:"id"`
+			Title         string `json:"title" db:"title"`
+			EventName     string `json:"event_name" db:"event_name"`
+			Category      string `json:"category" db:"category"`
+			IssueDate     string `json:"issue_date" db:"issue_date"`
+			PdfURL        string `json:"pdf_url" db:"pdf_url"`
+			CertificateNo string `json:"certificate_no" db:"certificate_no"`
+		}
+
+		var certs []CertificateItem
+		err := db.Select(&certs, `
+			SELECT 
+				ep.uuid as id,
+				CONCAT('Sertifikat Partisipasi - ', e.name) as title,
+				e.name as event_name,
+				COALESCE(cat.name, 'Kategori Umum') as category,
+				DATE_FORMAT(ep.registration_date, '%d %b %Y') as issue_date,
+				COALESCE(ep.certificate_url, 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf') as pdf_url,
+				CONCAT('CERT-', UPPER(SUBSTRING(ep.uuid, 1, 8))) as certificate_no
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			LEFT JOIN event_categories cat ON ep.event_category_id = cat.uuid
+			WHERE ep.archer_id = ? AND ep.payment_status IN ('paid', 'lunas', 'settlement', 'completed', 'confirmed')
+			ORDER BY ep.registration_date DESC
+		`, userID)
+
+		if err != nil || certs == nil {
+			certs = []CertificateItem{}
+		}
+
+		c.JSON(http.StatusOK, certs)
+	}
+}
+
