@@ -283,6 +283,7 @@ type MobilePaymentTransactionResponse struct {
 	PayCode         *string `json:"pay_code"`
 	PaymentMethod   *string `json:"payment_method"`
 	CheckoutURL     *string `json:"checkout_url"`
+	QRURL           *string `json:"qr_url"`
 	Instructions    *string `json:"instructions"`
 	Status          string  `json:"status"`
 }

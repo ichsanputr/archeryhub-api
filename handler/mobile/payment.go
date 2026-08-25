@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/models"
@@ -41,6 +41,7 @@ func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 			PayCode:         transaction.PayCode,
 			PaymentMethod:   transaction.PaymentMethod,
 			CheckoutURL:     transaction.CheckoutURL,
+			QRURL:           transaction.QRURL,
 			Instructions:    transaction.Instructions,
 			Status:          transaction.Status,
 		})

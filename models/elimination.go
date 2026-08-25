@@ -34,10 +34,10 @@ type EliminationMatch struct {
 	WinnerEntryUUID *string                    `db:"winner_entry_uuid" json:"winner_entry_id"`
 	Status          string                     `db:"status" json:"status"`
 	IsBye           bool                       `db:"is_bye" json:"is_bye"`
-	TotalScoreA     int                        `json:"total_score_a"`
-	TotalScoreB     int                        `json:"total_score_b"`
-	SetPointsA      int                        `json:"set_points_a"`
-	SetPointsB      int                        `json:"set_points_b"`
+	TotalScoreA     int                        `db:"total_score_a" json:"total_score_a"`
+	TotalScoreB     int                        `db:"total_score_b" json:"total_score_b"`
+	SetPointsA      int                        `db:"set_points_a" json:"set_points_a"`
+	SetPointsB      int                        `db:"set_points_b" json:"set_points_b"`
 	ShootOffA       *string                    `json:"shoot_off_a"`
 	ShootOffB       *string                    `json:"shoot_off_b"`
 	Ends            []EliminationMatchEndScore `json:"ends"`

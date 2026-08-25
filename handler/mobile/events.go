@@ -658,6 +658,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 
 	var checkoutURL *string
 	var vaNumber *string
+	var qrURL *string
 	var tripayReference *string
 
 	totalAmount := float64(len(registeredCats)) * event.EntryFee
@@ -758,7 +759,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				if vaNumber == nil || *vaNumber == "" {
 					vaNumber = transaction.PayCode
 				}
-				qrURL := transaction.QRURL
+				qrURL = transaction.QRURL
 				tripayReference = &tripayRef
 				paymentStatus = "pending"
 
@@ -786,6 +787,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		TotalFee:             totalAmount,
 		CheckoutURL:          checkoutURL,
 		VANumber:             vaNumber,
+		QRURL:                qrURL,
 		TripayReference:      tripayReference,
 	})
 }

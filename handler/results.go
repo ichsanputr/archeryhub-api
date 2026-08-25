@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -24,6 +24,9 @@ import (
 func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("slug")
+		if eventID == "" {
+			eventID = c.Param("id")
+		}
 		categoryID := c.Query("category_id")
 
 		if eventID == "" {
@@ -69,7 +72,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			TotalX           int     `db:"total_x"`
 			EndsCompleted    int     `db:"ends_completed"`
 			EndScores        *string `db:"end_scores"`
-			AssignmentUUID   string  `db:"assignment_uuid"`
+			AssignmentUUID   *string `db:"assignment_uuid"`
 		}
 
 		var dbEntries []dbEntry
@@ -80,20 +83,20 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 				a.full_name as archer_name,
 				a.avatar_url as avatar_url,
 				cl.name as club_name,
-				qs.name as session_name,
-				qs.session_code as session_code,
-				qs.total_ends as session_total_ends,
-				COALESCE(score_summary.total_score, 0) as total_score,
-				COALESCE(score_summary.total_10x, 0) as total_10x,
-				COALESCE(score_summary.total_x, 0) as total_x,
-				COALESCE(score_summary.ends_completed, 0) as ends_completed,
-				qta.uuid as assignment_uuid,
+				COALESCE(qs.name, 'Kualifikasi Sesi 1') as session_name,
+				COALESCE(qs.session_code, 'S1') as session_code,
+				CAST(COALESCE(qs.total_ends, 12) AS SIGNED) as session_total_ends,
+				CAST(COALESCE(score_summary.total_score, 0) AS SIGNED) as total_score,
+				CAST(COALESCE(score_summary.total_10x, 0) AS SIGNED) as total_10x,
+				CAST(COALESCE(score_summary.total_x, 0) AS SIGNED) as total_x,
+				CAST(COALESCE(score_summary.ends_completed, 0) AS SIGNED) as ends_completed,
+				COALESCE(qta.uuid, '') as assignment_uuid,
 				score_summary.end_scores
 			FROM event_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
-			JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid
+			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
+			LEFT JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid
 			LEFT JOIN (
 				SELECT 
 					participant_uuid, 
@@ -143,8 +146,12 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 				if de.EndScores != nil {
 					endScores = *de.EndScores
 				}
+				asgnUUID := ""
+				if de.AssignmentUUID != nil {
+					asgnUUID = *de.AssignmentUUID
+				}
 				entry.Sessions = append(entry.Sessions, models.QualificationSessionScore{
-					AssignmentUUID: de.AssignmentUUID,
+					AssignmentUUID: asgnUUID,
 					SessionCode:    *de.SessionCode,
 					SessionName:    *de.SessionName,
 					EndScores:      endScores,
@@ -201,6 +208,9 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("slug")
+		if eventID == "" {
+			eventID = c.Param("id")
+		}
 		categoryID := c.Query("category_id")
 
 		if eventID == "" {
@@ -238,16 +248,16 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Get(&bracket, `
 			SELECT 
 				eb.uuid,
-				eb.bracket_id,
+				COALESCE(eb.bracket_id, '') as bracket_id,
 				eb.category_uuid,
-				eb.bracket_type,
-				eb.format,
-				eb.bracket_size,
-				eb.ends_per_match,
-				eb.arrows_per_end,
+				COALESCE(eb.bracket_type, 'individual') as bracket_type,
+				COALESCE(eb.format, 'recurve_set') as format,
+				COALESCE(eb.bracket_size, 16) as bracket_size,
+				COALESCE(eb.ends_per_match, 5) as ends_per_match,
+				COALESCE(eb.arrows_per_end, 3) as arrows_per_end,
 				eb.generated_at
 			FROM elimination_brackets eb
-			WHERE eb.event_uuid = ? AND eb.category_uuid = ? AND eb.generated_at IS NOT NULL
+			WHERE eb.event_uuid = ? AND eb.category_uuid = ?
 			LIMIT 1
 		`, eventUUID, categoryID)
 
@@ -264,23 +274,27 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&matches, `
 			SELECT 
 				em.uuid,
-				em.match_id,
+				COALESCE(NULLIF(em.match_id, ''), em.uuid) as match_id,
 				em.round_no,
 				em.match_no,
 				em.entry_a_uuid,
-				COALESCE(a1.full_name, t1.team_name) as entry_a_name,
-				ee1.seed as entry_a_seed,
+				COALESCE(a1.full_name, t1.team_name, '') as entry_a_name,
+				CAST(COALESCE(ee1.seed, 0) AS SIGNED) as entry_a_seed,
 				em.entry_b_uuid,
-				COALESCE(a2.full_name, t2.team_name) as entry_b_name,
-				ee2.seed as entry_b_seed,
-				em.winner_entry_uuid,
+				COALESCE(a2.full_name, t2.team_name, '') as entry_b_name,
+				CAST(COALESCE(ee2.seed, 0) AS SIGNED) as entry_b_seed,
+				COALESCE(em.winner_entry_uuid, '') as winner_entry_uuid,
 				em.status,
-				em.is_bye
+				COALESCE(em.is_bye, false) as is_bye,
+				COALESCE(em.total_score_a, 0) as total_score_a,
+				COALESCE(em.total_score_b, 0) as total_score_b,
+				COALESCE(em.total_points_a, 0) as set_points_a,
+				COALESCE(em.total_points_b, 0) as set_points_b
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries ee1 ON em.entry_a_uuid = ee1.uuid
 			LEFT JOIN elimination_entries ee2 ON em.entry_b_uuid = ee2.uuid
-			LEFT JOIN event_participants ep1 ON ee1.participant_uuid = ep1.uuid AND ee1.participant_type = 'archer'
-			LEFT JOIN event_participants ep2 ON ee2.participant_uuid = ep2.uuid AND ee2.participant_type = 'archer'
+			LEFT JOIN event_participants ep1 ON (ee1.participant_uuid = ep1.uuid OR em.entry_a_uuid = ep1.uuid)
+			LEFT JOIN event_participants ep2 ON (ee2.participant_uuid = ep2.uuid OR em.entry_b_uuid = ep2.uuid)
 			LEFT JOIN archers a1 ON ep1.archer_id = a1.uuid
 			LEFT JOIN archers a2 ON ep2.archer_id = a2.uuid
 			LEFT JOIN teams t1 ON ee1.participant_uuid = t1.uuid AND ee1.participant_type = 'team'
@@ -432,10 +446,12 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 					}
 				}
 
-				matches[i].TotalScoreA = tSA
-				matches[i].TotalScoreB = tSB
-				matches[i].SetPointsA = tPA
-				matches[i].SetPointsB = tPB
+				if len(matches[i].Ends) > 0 {
+					matches[i].TotalScoreA = tSA
+					matches[i].TotalScoreB = tSB
+					matches[i].SetPointsA = tPA
+					matches[i].SetPointsB = tPB
+				}
 			}
 		}
 

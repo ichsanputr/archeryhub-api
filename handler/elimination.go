@@ -1499,27 +1499,41 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		var match Match
 		err := db.Unsafe().Get(&match, `
-			SELECT em.*, eb.format, eb.arrows_per_end, eb.ends_per_match,
-				CASE 
-					WHEN eeA.participant_type = 'archer' THEN aA.full_name
-					WHEN eeA.participant_type = 'team' THEN tA.team_name
-				END as entry_a_name,
-				CASE 
-					WHEN eeB.participant_type = 'archer' THEN aB.full_name
-					WHEN eeB.participant_type = 'team' THEN tB.team_name
-				END as entry_b_name,
-				eeA.seed as entry_a_seed,
-				eeB.seed as entry_b_seed
+			SELECT 
+				em.uuid,
+				COALESCE(NULLIF(em.match_id, ''), em.uuid) as match_id,
+				em.bracket_uuid,
+				em.round_no,
+				em.match_no,
+				em.entry_a_uuid,
+				em.entry_b_uuid,
+				em.winner_entry_uuid,
+				COALESCE(em.status, '') as status,
+				COALESCE(em.is_bye, false) as is_bye,
+				em.scheduled_at,
+				em.target_uuid,
+				COALESCE(em.total_score_a, 0) as total_score_a,
+				COALESCE(em.total_score_b, 0) as total_score_b,
+				COALESCE(em.total_points_a, 0) as total_points_a,
+				COALESCE(em.total_points_b, 0) as total_points_b,
+				em.created_at,
+				eb.format, 
+				eb.arrows_per_end, 
+				eb.ends_per_match,
+				COALESCE(aA.full_name, tA.team_name, '') as entry_a_name,
+				COALESCE(aB.full_name, tB.team_name, '') as entry_b_name,
+				CAST(COALESCE(eeA.seed, 0) AS SIGNED) as entry_a_seed,
+				CAST(COALESCE(eeB.seed, 0) AS SIGNED) as entry_b_seed
 			FROM elimination_matches em
 			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
-			LEFT JOIN event_participants epA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = epA.uuid
-			LEFT JOIN event_participants epB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = epB.uuid
+			LEFT JOIN event_participants epA ON (eeA.participant_uuid = epA.uuid OR em.entry_a_uuid = epA.uuid)
+			LEFT JOIN event_participants epB ON (eeB.participant_uuid = epB.uuid OR em.entry_b_uuid = epB.uuid)
 			LEFT JOIN archers aA ON epA.archer_id = aA.uuid
 			LEFT JOIN archers aB ON epB.archer_id = aB.uuid
-			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
-			LEFT JOIN teams tB ON eeB.participant_type = 'team' AND eeB.participant_uuid = tB.uuid
+			LEFT JOIN teams tA ON eeA.participant_uuid = tA.uuid
+			LEFT JOIN teams tB ON eeB.participant_uuid = tB.uuid
 			WHERE em.uuid = ? OR em.match_id = ?
 		`, matchID, matchID)
 		if err != nil {
