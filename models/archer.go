@@ -6,22 +6,31 @@ import (
 
 // Archer represents an archer
 type Archer struct {
-	UUID            string     `json:"uuid" db:"uuid"`
-	Username        *string    `json:"username" db:"username"`
-	FullName        string     `json:"full_name" db:"full_name"`
-	DateOfBirth     *time.Time `json:"date_of_birth" db:"date_of_birth"`
-	Gender          *string    `json:"gender" db:"gender"` // M, F, X
-	Email           *string    `json:"email" db:"email"`
-	Phone           *string    `json:"phone" db:"phone"`
-	AvatarURL       *string    `json:"avatar_url" db:"avatar_url"`
-	BannerURL       *string    `json:"banner_url" db:"banner_url"`
-	Address         *string    `json:"address" db:"address"`
-	Bio             *string    `json:"bio" db:"bio"`
-	Status          string     `json:"status" db:"status"` // active, inactive, suspended, pending
-	BowType         *string    `json:"bow_type" db:"bow_type"`
-	Country         *string    `json:"country" db:"country"`
-	City            *string    `json:"city" db:"city"`
-	ClubID          *string    `json:"club_id" db:"club_id"`
+	UUID                   string     `json:"uuid" db:"uuid"`
+	Username               *string    `json:"username" db:"username"`
+	FullName               string     `json:"full_name" db:"full_name"`
+	NIK                    *string    `json:"nik" db:"nik"`
+	DateOfBirth            *time.Time `json:"date_of_birth" db:"date_of_birth"`
+	Gender                 *string    `json:"gender" db:"gender"` // M, F, X
+	BloodType              *string    `json:"blood_type" db:"blood_type"`
+	HandDominance          *string    `json:"hand_dominance" db:"hand_dominance"`
+	HeightCM               *int       `json:"height_cm" db:"height_cm"`
+	WeightKG               *int       `json:"weight_kg" db:"weight_kg"`
+	Email                  *string    `json:"email" db:"email"`
+	Phone                  *string    `json:"phone" db:"phone"`
+	EmergencyContactName   *string    `json:"emergency_contact_name" db:"emergency_contact_name"`
+	EmergencyContactPhone  *string    `json:"emergency_contact_phone" db:"emergency_contact_phone"`
+	AvatarURL              *string    `json:"avatar_url" db:"avatar_url"`
+	BannerURL              *string    `json:"banner_url" db:"banner_url"`
+	Address                *string    `json:"address" db:"address"`
+	City                   *string    `json:"city" db:"city"`
+	Province               *string    `json:"province" db:"province"`
+	PostalCode             *string    `json:"postal_code" db:"postal_code"`
+	Bio                    *string    `json:"bio" db:"bio"`
+	Status                 string     `json:"status" db:"status"` // active, inactive, suspended, pending
+	BowType                *string    `json:"bow_type" db:"bow_type"`
+	Country                *string    `json:"country" db:"country"`
+	ClubID                 *string    `json:"club_id" db:"club_id"`
 	SocialInstagram *string    `json:"social_instagram" db:"social_instagram"`
 	SocialTiktok    *string    `json:"social_tiktok" db:"social_tiktok"`
 	SocialWhatsapp  *string    `json:"social_whatsapp" db:"social_whatsapp"`
@@ -62,7 +71,6 @@ type CreateArcherRequest struct {
 	Gender      *string       `json:"gender" binding:"omitempty,oneof=male female M F"`
 	BowType     *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country     *string       `json:"country"`
-	City        *string       `json:"city"`
 	ClubID      *string       `json:"club_id"`
 
 	AvatarURL *string `json:"avatar_url"`
@@ -72,34 +80,43 @@ type CreateArcherRequest struct {
 
 // UpdateArcherRequest represents the request payload for updating an archer
 type UpdateArcherRequest struct {
-	FullName        *string       `json:"full_name"`
-	Username        *string       `json:"username"`
-	DateOfBirth     *FlexibleTime `json:"date_of_birth"`
-	Gender          *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
-	BowType         *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
-	Country         *string       `json:"country"`
-	City            *string       `json:"city"`
-	ClubID          *string       `json:"club_id"`
-	Email           *string       `json:"email" binding:"omitempty,email"`
-	Phone           *string       `json:"phone"`
-	AvatarURL       *string       `json:"avatar_url"`
-	BannerURL       *string       `json:"banner_url"`
-	Address         *string       `json:"address"`
-	Bio             *string       `json:"bio"`
-	SocialInstagram *string       `json:"social_instagram"`
-	SocialTiktok    *string       `json:"social_tiktok"`
-	SocialWhatsapp  *string       `json:"social_whatsapp"`
-	SocialFacebook  *string       `json:"social_facebook"`
-	SocialTwitter   *string       `json:"social_twitter"`
-	SocialYoutube   *string       `json:"social_youtube"`
-	SocialSpotify   *string       `json:"social_spotify"`
-	SocialWebsite   *string       `json:"social_website"`
-	SocialPinterest *string       `json:"social_pinterest"`
-	SocialLinkedin  *string       `json:"social_linkedin"`
-	Achievements    *string       `json:"achievements"`
-	Equipment       *string       `json:"equipment"`
-	PageSettings    *string       `json:"page_settings"`
-	Status          *string       `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
+	FullName              *string       `json:"full_name"`
+	Username              *string       `json:"username"`
+	NIK                   *string       `json:"nik"`
+	DateOfBirth           *FlexibleTime `json:"date_of_birth"`
+	Gender                *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
+	BloodType             *string       `json:"blood_type"`
+	HandDominance         *string       `json:"hand_dominance" binding:"omitempty,oneof=right left"`
+	HeightCM              *int          `json:"height_cm"`
+	WeightKG              *int          `json:"weight_kg"`
+	BowType               *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
+	Country               *string       `json:"country"`
+	Province              *string       `json:"province"`
+	City                  *string       `json:"city"`
+	PostalCode            *string       `json:"postal_code"`
+	ClubID                *string       `json:"club_id"`
+	Email                 *string       `json:"email" binding:"omitempty,email"`
+	Phone                 *string       `json:"phone"`
+	EmergencyContactName  *string       `json:"emergency_contact_name"`
+	EmergencyContactPhone *string       `json:"emergency_contact_phone"`
+	AvatarURL             *string       `json:"avatar_url"`
+	BannerURL             *string       `json:"banner_url"`
+	Address               *string       `json:"address"`
+	Bio                   *string       `json:"bio"`
+	SocialInstagram       *string       `json:"social_instagram"`
+	SocialTiktok          *string       `json:"social_tiktok"`
+	SocialWhatsapp        *string       `json:"social_whatsapp"`
+	SocialFacebook        *string       `json:"social_facebook"`
+	SocialTwitter         *string       `json:"social_twitter"`
+	SocialYoutube         *string       `json:"social_youtube"`
+	SocialSpotify         *string       `json:"social_spotify"`
+	SocialWebsite         *string       `json:"social_website"`
+	SocialPinterest       *string       `json:"social_pinterest"`
+	SocialLinkedin        *string       `json:"social_linkedin"`
+	Achievements          *string       `json:"achievements"`
+	Equipment             *string       `json:"equipment"`
+	PageSettings          *string       `json:"page_settings"`
+	Status                *string       `json:"status" binding:"omitempty,oneof=active inactive suspended pending"`
 }
 
 // EventParticipant represents an archer registered for an event
@@ -125,7 +142,6 @@ type EventParticipant struct {
 type ParticipantWithDetails struct {
 	EventParticipant
 	FullName     string  `json:"full_name" db:"full_name"`
-	City         *string `json:"city" db:"city"`
 	AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
 	DivisionName string  `json:"division_name" db:"division_name"`
 	DivisionCode string  `json:"division_code" db:"division_code"`

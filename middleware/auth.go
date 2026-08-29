@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -175,19 +174,14 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 			cookie, err := c.Cookie("auth_token")
 			if err == nil && cookie != "" {
 				tokenString = cookie
-			} else {
-				fmt.Println("[DEBUG OptionalAuth] No auth_token cookie found or error:", err)
 			}
 		}
 
-		// If no token, just proceed
+		// If no token, just proceed without setting user context
 		if tokenString == "" {
-			fmt.Println("[DEBUG OptionalAuth] No token found in header or cookie")
 			c.Next()
 			return
 		}
-
-		fmt.Println("[DEBUG OptionalAuth] Token found, length:", len(tokenString))
 
 		secret := []byte(os.Getenv("JWT_SECRET"))
 		if len(secret) == 0 {
@@ -231,7 +225,6 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 				}
 
 				if valid {
-					fmt.Printf("[DEBUG OptionalAuth] Claims found. UserID: %v\n", claims["user_id"])
 					c.Set("user_id", claims["user_id"])
 					c.Set("email", claims["email"])
 					c.Set("role", claims["role"])
@@ -239,7 +232,8 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 				}
 			}
 		} else {
-			fmt.Println("[DEBUG OptionalAuth] Token invalid or parse error:", err)
+			// Token invalid or parse error — just proceed without auth context (optional auth)
+			_ = err
 		}
 
 		c.Next()

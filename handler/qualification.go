@@ -576,7 +576,11 @@ func calculateArrowValue(arrow string) (val int, x int, ten int) {
 	case "":
 		return 0, 0, 0
 	default:
-		v, _ := strconv.Atoi(arrow)
+		v, err := strconv.Atoi(arrow)
+		// Valid integer arrow values are 1-9; reject anything out of range
+		if err != nil || v < 0 || v > 9 {
+			return 0, 0, 0
+		}
 		return v, 0, 0
 	}
 }
@@ -907,6 +911,85 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetMyEventTarget returns the archer's own target assignments for all sessions in an event.
+// Called by archer from dashboard: GET /events/:id/my-target
+func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		userID, _ := c.Get("user_id")
+		userIDStr := fmt.Sprintf("%v", userID)
+
+		type SessionTarget struct {
+			SessionID    string  `json:"session_id" db:"session_id"`
+			SessionName  string  `json:"session_name" db:"session_name"`
+			SessionOrder string  `json:"session_order" db:"session_order"`
+			StartTime    *string `json:"start_time" db:"start_time"`
+			EndTime      *string `json:"end_time" db:"end_time"`
+			TargetName   string  `json:"target_name" db:"target_name"`
+			TargetBoard  *string `json:"target_board" db:"target_board"`
+			CategoryName string  `json:"category_name" db:"category_name"`
+			AssignmentID string  `json:"assignment_id" db:"assignment_id"`
+		}
+
+		var targets []SessionTarget
+		query := `
+			SELECT
+				qs.uuid        AS session_id,
+				qs.name        AS session_name,
+				COALESCE(qs.session_code, 'S1') AS session_order,
+				DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
+				DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
+				COALESCE(et.target_name, ep.target_name, 'Target 01') AS target_name,
+				COALESCE(qta.target_board_id, ep.back_number, 'A') AS target_board,
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
+				qta.uuid AS assignment_id
+			FROM qualification_target_assignments qta
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			JOIN events e ON (e.uuid = ep.event_id OR e.slug = ep.event_id)
+			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			WHERE (e.uuid = ? OR e.slug = ?)
+			  AND (ep.archer_id = ? OR ep.uuid = ?)
+			ORDER BY qs.start_time ASC
+		`
+		err := db.Select(&targets, query, eventID, eventID, userIDStr, userIDStr)
+		if err != nil || len(targets) == 0 {
+			// Fallback: check if participant has direct target_name assigned
+			fallbackQuery := `
+				SELECT
+					qs.uuid AS session_id,
+					qs.name AS session_name,
+					COALESCE(qs.session_code, 'S1') AS session_order,
+					DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
+					DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
+					COALESCE(ep.target_name, 'Target 01') AS target_name,
+					COALESCE(ep.back_number, 'A') AS target_board,
+					COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
+					ep.uuid AS assignment_id
+				FROM event_participants ep
+				JOIN events e ON (e.uuid = ep.event_id OR e.slug = ep.event_id)
+				JOIN qualification_sessions qs ON qs.event_uuid = e.uuid
+				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+				LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+				WHERE (e.uuid = ? OR e.slug = ?)
+				  AND (ep.archer_id = ? OR ep.uuid = ?)
+				LIMIT 1
+			`
+			_ = db.Select(&targets, fallbackQuery, eventID, eventID, userIDStr, userIDStr)
+		}
+
+		if targets == nil {
+			targets = []SessionTarget{}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"targets": targets})
+	}
+}
+
 // AutoAssignParticipants automatically assigns participants to targets.
 // Participants are randomized; slots are filled target-by-target so each target
 // is full (archers_per_target) before moving to the next target.
@@ -955,6 +1038,24 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil || len(allTargets) == 0 {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Tidak ada target yang tersedia"})
+			return
+		}
+
+		// CRITICAL GUARD: Block auto-assign if scoring has already started for this category+session
+		// Without this, organizers could accidentally wipe all scores mid-event
+		var endsCompleted int
+		db.Get(&endsCompleted, `
+			SELECT COUNT(*) FROM qualification_end_scores
+			WHERE session_uuid = ?
+			  AND participant_uuid IN (
+			    SELECT uuid FROM event_participants WHERE category_id = ?
+			  )
+		`, sessionID, req.CategoryID)
+		if endsCompleted > 0 {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "Tidak bisa re-assign: skor sudah mulai diinput untuk kategori ini di sesi ini. Hapus skor terlebih dahulu sebelum mengubah penempatan target.",
+				"ends_completed": endsCompleted,
+			})
 			return
 		}
 
@@ -1129,10 +1230,51 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			boardNumberToBoardUUID[b.BoardNumber] = b.UUID
 		}
 
-		// 5. Randomize participants
-		rand.Shuffle(len(participants), func(i, j int) {
-			participants[i], participants[j] = participants[j], participants[i]
+		// 5. Randomize participants with Club Separation (Tournament Fairness / World Archery Rule)
+		// Group participants by club and interleave them so same-club archers are placed on different target boards
+		clubMap := make(map[string][]ParticipantWithClub)
+		var clubNames []string
+		for _, p := range participants {
+			cName := "Independent"
+			if p.ClubName != nil && strings.TrimSpace(*p.ClubName) != "" {
+				cName = strings.TrimSpace(*p.ClubName)
+			}
+			if len(clubMap[cName]) == 0 {
+				clubNames = append(clubNames, cName)
+			}
+			clubMap[cName] = append(clubMap[cName], p)
+		}
+
+		// Shuffle club order and members within each club
+		rand.Shuffle(len(clubNames), func(i, j int) {
+			clubNames[i], clubNames[j] = clubNames[j], clubNames[i]
 		})
+		for _, cName := range clubNames {
+			group := clubMap[cName]
+			rand.Shuffle(len(group), func(i, j int) {
+				group[i], group[j] = group[j], group[i]
+			})
+			clubMap[cName] = group
+		}
+
+		// Round-Robin across clubs to interleave archers
+		var separatedParticipants []ParticipantWithClub
+		maxInAnyClub := 0
+		for _, group := range clubMap {
+			if len(group) > maxInAnyClub {
+				maxInAnyClub = len(group)
+			}
+		}
+
+		for round := 0; round < maxInAnyClub; round++ {
+			for _, cName := range clubNames {
+				group := clubMap[cName]
+				if round < len(group) {
+					separatedParticipants = append(separatedParticipants, group[round])
+				}
+			}
+		}
+		participants = separatedParticipants
 
 		// Start Transaction
 		tx, err := db.Beginx()

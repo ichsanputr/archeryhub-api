@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"html"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -74,8 +76,15 @@ func AddBlogComment(db *sqlx.DB) gin.HandlerFunc {
 		userTypeInterface, _ := c.Get("user_type")
 
 		var userID *string
+		var guestName *string
 		userType := "guest"
-		guestName := &req.GuestName
+		safeGuestName := ""
+		if req.GuestName != "" {
+			safeGuestName = html.EscapeString(strings.TrimSpace(req.GuestName))
+			if len(safeGuestName) > 100 {
+				safeGuestName = safeGuestName[:100]
+			}
+		}
 
 		if exists && userIDInterface != nil {
 			uid := userIDInterface.(string)
@@ -83,17 +92,28 @@ func AddBlogComment(db *sqlx.DB) gin.HandlerFunc {
 			userType = userTypeInterface.(string)
 			guestName = nil
 		} else {
-			if req.GuestName == "" {
+			if safeGuestName == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Nama harus diisi untuk komentar tamu"})
 				return
 			}
+			guestName = &safeGuestName
+		}
+
+		safeContent := html.EscapeString(strings.TrimSpace(req.Content))
+		if safeContent == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Isi komentar tidak boleh kosong"})
+			return
+		}
+		if len(safeContent) > 2000 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Isi komentar terlalu panjang (maksimal 2000 karakter)"})
+			return
 		}
 
 		commentUUID := uuid.New().String()
 		_, err := db.Exec(`
 			INSERT INTO blog_comments (uuid, article_slug, user_id, user_type, guest_name, content, status)
 			VALUES (?, ?, ?, ?, ?, ?, 'approved')
-		`, commentUUID, slug, userID, userType, guestName, req.Content)
+		`, commentUUID, slug, userID, userType, guestName, safeContent)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan komentar", "details": err.Error()})

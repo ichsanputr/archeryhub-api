@@ -6,12 +6,47 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
+
+// ── Scorekeeper login rate limiter ────────────────────────────────────────────
+// Allows max 10 attempts per IP per 5-minute window.
+// Uses sync.Map to avoid mutex boilerplate; entries auto-expire on next check.
+var (
+	skLoginAttempts sync.Map // key: IP string → value: []time.Time
+	skRateLimit     = 10
+	skRateWindow    = 5 * time.Minute
+)
+
+func skCheckRateLimit(ip string) bool {
+	now := time.Now()
+	cutoff := now.Add(-skRateWindow)
+
+	raw, _ := skLoginAttempts.LoadOrStore(ip, &[]time.Time{})
+	attempts := raw.(*[]time.Time)
+
+	// Filter out expired attempts
+	valid := (*attempts)[:0]
+	for _, t := range *attempts {
+		if t.After(cutoff) {
+			valid = append(valid, t)
+		}
+	}
+	*attempts = valid
+
+	if len(*attempts) >= skRateLimit {
+		return false // rate limited
+	}
+	*attempts = append(*attempts, now)
+	return true
+}
+
+
 
 type MobileScorekeeperLoginRequest struct {
 	Code string `json:"code" binding:"required"`
@@ -108,6 +143,16 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 // @Router /mobile/auth/scorekeeper/login [post]
 func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// ── Rate limiting: max 10 attempts per IP per 5 minutes ──────────────
+		clientIP := c.ClientIP()
+		if !skCheckRateLimit(clientIP) {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "Terlalu banyak percobaan login. Coba lagi dalam 5 menit.",
+				"code":  "rate_limited",
+			})
+			return
+		}
+
 		var req MobileScorekeeperLoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Kode wajib diisi"})
@@ -332,13 +377,18 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 		avatarURL := utils.DiceBearAvatar(req.FullName)
 
 		_, err := db.Exec(`
-			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, city, bow_type)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)
-		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, avatarURL, req.Gender, req.DateOfBirth, req.City, req.BowType)
+			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, bow_type)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?)
+		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, avatarURL, req.Gender, req.DateOfBirth, req.BowType)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
 		}
+
+		// Send welcome email (async, don't block registration)
+		go func() {
+			_ = utils.SendArcherWelcomeEmail(req.Email, req.FullName, req.Email, req.Password)
+		}()
 
 		token, err := generateJWT(userID, req.Email, "archer", "archer", req.FullName, avatarURL, "", 1)
 		if err != nil {
@@ -512,9 +562,13 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			}
 			username = username + "-" + userID[:8]
 
+			downloadedAvatar, dlErr := utils.DownloadAndSaveGoogleAvatar(googleInfo.Picture, userID)
 			avatarURL := utils.DiceBearAvatar(googleInfo.Name)
+			if dlErr == nil && downloadedAvatar != "" {
+				avatarURL = utils.MaskMediaURL(downloadedAvatar)
+			}
 
-		_, err = db.Exec(`
+			_, err = db.Exec(`
 				INSERT INTO archers (uuid, id, username, email, google_id, full_name, avatar_url, status, is_verified, created_at, updated_at, token_version)
 				VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW(), 1)
 			`, userID, athleteID, username, googleInfo.Email, googleInfo.Sub, googleInfo.Name, avatarURL)
@@ -536,8 +590,15 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 
 			utils.LogActivity(db, userID, "", "mobile_register_google", "archer", userID, "User registered via Google on mobile", c.ClientIP(), c.Request.UserAgent())
 		} else {
-			// Update existing user with Google ID but keep DiceBear avatar
-			_, _ = db.Exec(`UPDATE archers SET google_id = ?, updated_at = NOW() WHERE uuid = ?`, googleInfo.Sub, user.UUID)
+			// Download and update profile picture from Google callback
+			downloadedAvatar, dlErr := utils.DownloadAndSaveGoogleAvatar(googleInfo.Picture, user.UUID)
+			if dlErr == nil && downloadedAvatar != "" {
+				avatarToSave := utils.MaskMediaURL(downloadedAvatar)
+				_, _ = db.Exec(`UPDATE archers SET google_id = ?, avatar_url = ?, updated_at = NOW() WHERE uuid = ?`, googleInfo.Sub, avatarToSave, user.UUID)
+				user.AvatarURL = &avatarToSave
+			} else {
+				_, _ = db.Exec(`UPDATE archers SET google_id = ?, updated_at = NOW() WHERE uuid = ?`, googleInfo.Sub, user.UUID)
+			}
 		}
 
 		if user.Status != "active" {
@@ -549,6 +610,7 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 		if user.AvatarURL != nil {
 			avatar = *user.AvatarURL
 		}
+		avatar = utils.MaskMediaURL(avatar)
 
 		token, err := generateJWT(user.UUID, user.Email, "archer", "archer", user.FullName, avatar, "", user.TokenVersion)
 		if err != nil {

@@ -310,7 +310,14 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Login flow: update only Google-specific fields; do NOT overwrite existing name
+			// Download new profile picture from Google callback
+			downloadedAvatar, dlErr := utils.DownloadAndSaveGoogleAvatar(userInfo.Picture, userID)
+			avatarToSave := userInfo.Picture
+			if dlErr == nil && downloadedAvatar != "" {
+				avatarToSave = utils.MaskMediaURL(downloadedAvatar)
+			}
+
+			// Login flow: update Google-specific fields and avatar
 			table := ""
 			switch userType {
 			case "organizer":
@@ -326,7 +333,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				UPDATE `+table+` 
 				SET google_id = ?, avatar_url = ?, updated_at = NOW()
 				WHERE uuid = ?
-			`, userInfo.ID, userInfo.Picture, userID)
+			`, userInfo.ID, avatarToSave, userID)
 			if err != nil {
 				fmt.Printf("Failed to update user in %s: %v\n", table, err)
 			}
@@ -360,6 +367,13 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			isNewUser = true
 			username := generateUsername(userInfo.Email)
 
+			// Download profile picture for new user
+			downloadedAvatar, dlErr := utils.DownloadAndSaveGoogleAvatar(userInfo.Picture, userID)
+			avatarToSave := userInfo.Picture
+			if dlErr == nil && downloadedAvatar != "" {
+				avatarToSave = utils.MaskMediaURL(downloadedAvatar)
+			}
+
 			record.TokenVersion = 1
 			if userType == "organizer" {
 				record.OrgUUID = userID
@@ -384,17 +398,17 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				_, insertErr = db.Exec(`
 					INSERT INTO organizers (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, ?, NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], userInfo.Picture, pageSettingsJSON)
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], avatarToSave, pageSettingsJSON)
 			case "club":
 				_, insertErr = db.Exec(`
 					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, avatarToSave)
 			case "seller":
 				_, insertErr = db.Exec(`
 					INSERT INTO sellers (uuid, user_id, slug, email, google_id, store_name, avatar_url, status, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture)
+				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, avatarToSave)
 			default: // archer
 				userType = "archer"
 				role = "archer"
@@ -459,22 +473,15 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					country = nil
 				}
 
-				var city interface{}
-				if c, exists := metadata["city"]; exists && c != "" {
-					city = c
-				} else {
-					city = nil
-				}
-
 				var clubIDVal interface{} = clubID
 				if clubID == "" {
 					clubIDVal = nil
 				}
 
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, country, city, bow_type, club_id, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, username, userInfo.Email, userInfo.ID, displayName, userInfo.Picture, genderVal, dateOfBirth, country, city, bowTypeVal, clubIDVal)
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, country, bow_type, club_id, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+				`, userID, username, userInfo.Email, userInfo.ID, displayName, avatarToSave, genderVal, dateOfBirth, country, bowTypeVal, clubIDVal)
 			}
 
 			if insertErr != nil {
@@ -490,8 +497,27 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogActivity(db, userID, "", "user_registered", userType, userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
 		}
 
+		// Fetch updated avatar_url from database to populate JWT and response
+		var finalAvatarURL string
+		var avatarTable string
+		switch userType {
+		case "organizer":
+			avatarTable = "organizers"
+		case "club":
+			avatarTable = "clubs"
+		case "seller":
+			avatarTable = "sellers"
+		default:
+			avatarTable = "archers"
+		}
+		_ = db.Get(&finalAvatarURL, "SELECT COALESCE(avatar_url, '') FROM "+avatarTable+" WHERE uuid = ?", userID)
+		if finalAvatarURL == "" {
+			finalAvatarURL = userInfo.Picture
+		}
+		finalAvatarURL = utils.MaskMediaURL(finalAvatarURL)
+
 		// Generate JWT token (use displayNameForJWT so existing user keeps their name)
-		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, userInfo.Picture, record.OrgUUID, record.TokenVersion)
+		token, err := generateGoogleJWT(userID, userInfo.Email, role, userType, displayNameForJWT, finalAvatarURL, record.OrgUUID, record.TokenVersion)
 		if err != nil {
 			if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
@@ -523,7 +549,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					"id":         userID,
 					"email":      userInfo.Email,
 					"full_name":  displayNameForJWT,
-					"avatar_url": userInfo.Picture,
+					"avatar_url": finalAvatarURL,
 					"role":       role,
 					"user_type":  userType,
 				},

@@ -72,7 +72,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, 
+			SELECT COALESCE(eb.bracket_id, eb.uuid) as bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, 
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name,
 				eb.bracket_type, eb.format, eb.bracket_size, eb.status, eb.ends_per_match, eb.arrows_per_end,
 				eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
@@ -817,6 +817,20 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		var activeMatchesCount int
+		_ = db.Get(&activeMatchesCount, `
+			SELECT COUNT(*) 
+			FROM elimination_matches 
+			WHERE bracket_uuid = ? AND (status IN ('ongoing', 'completed') OR winner_id IS NOT NULL OR archer1_score > 0 OR archer2_score > 0)
+		`, bracketUUID)
+		if activeMatchesCount > 0 {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "Bracket tidak dapat di-regenerate karena pertandingan eliminasi telah berjalan atau selesai. Silakan reset pertandingan terlebih dahulu.",
+				"code":  "matches_already_started",
+			})
+			return
+		}
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
@@ -955,6 +969,42 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 			`, bronzeMatchUUID, bronzeMatchID, bracketUUID, numRounds, globalMatchCounter, nil, nil, false)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to create bronze match")
+			}
+		}
+
+		// Auto-advance BYE matches: players who get a BYE should automatically advance to Round 2
+		// Without this, scorekeepers have to manually finish each BYE match
+		byeMatches := []struct {
+			UUID       string  `db:"uuid"`
+			MatchNo    int     `db:"match_no"`
+			EntryAUUID *string `db:"entry_a_uuid"`
+		}{}
+		tx.Select(&byeMatches, `
+			SELECT uuid, match_no, entry_a_uuid
+			FROM elimination_matches
+			WHERE bracket_uuid = ? AND round_no = 1 AND is_bye = 1 AND entry_a_uuid IS NOT NULL
+		`, bracketUUID)
+
+		for _, byeMatch := range byeMatches {
+			if byeMatch.EntryAUUID == nil {
+				continue
+			}
+			// Mark this BYE match as finished with entry_a as winner
+			tx.Exec(`
+				UPDATE elimination_matches
+				SET status = 'finished', winner_entry_uuid = ?
+				WHERE uuid = ?
+			`, *byeMatch.EntryAUUID, byeMatch.UUID)
+
+			// Advance winner to Round 2
+			nextMatchNo := (byeMatch.MatchNo + 1) / 2
+			isOdd := byeMatch.MatchNo % 2 != 0
+			if isOdd {
+				tx.Exec(`UPDATE elimination_matches SET entry_a_uuid = ? WHERE bracket_uuid = ? AND round_no = 2 AND match_no = ?`,
+					*byeMatch.EntryAUUID, bracketUUID, nextMatchNo)
+			} else {
+				tx.Exec(`UPDATE elimination_matches SET entry_b_uuid = ? WHERE bracket_uuid = ? AND round_no = 2 AND match_no = ?`,
+					*byeMatch.EntryAUUID, bracketUUID, nextMatchNo)
 			}
 		}
 

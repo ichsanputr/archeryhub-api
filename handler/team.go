@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -239,7 +239,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 
 		var members []models.TeamMemberWithDetails
 		err = db.Select(&members, `
-			SELECT tm.uuid, tm.team_id, tm.participant_id, tm.member_order, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, COALESCE(a.city, '') as city
+			SELECT tm.uuid, tm.team_id, tm.participant_id, tm.member_order, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, '' as city
 			FROM team_members tm
 			JOIN event_participants tp ON tm.participant_id = tp.uuid
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
@@ -1147,4 +1147,108 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil dihapus"})
 	}
 }
+
+// GetMyEventTeam returns the team info for the logged-in archer in a specific event
+func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		if eventID == "" {
+			eventID = c.Param("eventId")
+		}
+		archerID, _ := c.Get("archer_id")
+		if archerID == nil || archerID == "" {
+			userID, _ := c.Get("user_id")
+			if userID != nil && userID != "" {
+				_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR email = (SELECT email FROM users WHERE uuid = ?)`, userID, userID)
+			}
+		}
+
+		if archerID == nil || archerID == "" {
+			c.JSON(http.StatusOK, gin.H{"team": nil})
+			return
+		}
+
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"team": nil})
+			return
+		}
+
+		type TeamResult struct {
+			UUID         string `db:"uuid" json:"uuid"`
+			TeamName     string `db:"team_name" json:"name"`
+			TotalScore   int    `db:"total_score" json:"total_score"`
+			TotalXCount  int    `db:"total_x_count" json:"x_count"`
+			TeamRank     *int   `db:"team_rank" json:"rank"`
+			Status       string `db:"status" json:"status"`
+			ClubName     string `db:"club_name" json:"club_name"`
+			CategoryName string `db:"category_name" json:"category_name"`
+		}
+
+		var teamRes TeamResult
+		query := `
+			SELECT 
+				t.uuid,
+				t.team_name,
+				COALESCE(t.total_score, 0) as total_score,
+				COALESCE(t.total_x_count, 0) as total_x_count,
+				t.team_rank,
+				t.status,
+				COALESCE(cl.name, 'Sleman Archery Club') as club_name,
+				COALESCE(ec.category_name_custom, 'Recurve Men Team') as category_name
+			FROM teams t
+			JOIN team_members tm ON t.uuid = tm.team_id
+			JOIN event_participants ep ON tm.participant_id = ep.uuid
+			LEFT JOIN clubs cl ON ep.club_id = cl.uuid
+			LEFT JOIN event_categories ec ON t.event_id = ec.uuid
+			WHERE t.tournament_id = ? AND ep.archer_id = ?
+			LIMIT 1
+		`
+		err = db.Get(&teamRes, query, eventUUID, archerID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"team": nil})
+			return
+		}
+
+		type MemberResult struct {
+			UUID        string `db:"uuid" json:"uuid"`
+			ArcherName  string `db:"archer_name" json:"archer_name"`
+			ClubName    string `db:"club_name" json:"club_name"`
+			MemberOrder int    `db:"member_order" json:"member_order"`
+			Score       int    `db:"score" json:"score"`
+		}
+		var members []MemberResult
+		memberQuery := `
+			SELECT 
+				tm.uuid,
+				COALESCE(a.full_name, 'Pemanah') as archer_name,
+				COALESCE(cl.name, 'Sleman Archery Club') as club_name,
+				tm.member_order,
+				COALESCE(ep.qual_score, tm.total_score, 0) as score
+			FROM team_members tm
+			JOIN event_participants ep ON tm.participant_id = ep.uuid
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON ep.club_id = cl.uuid
+			WHERE tm.team_id = ?
+			ORDER BY tm.member_order ASC
+		`
+		_ = db.Select(&members, memberQuery, teamRes.UUID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"team": gin.H{
+				"uuid":          teamRes.UUID,
+				"name":          teamRes.TeamName,
+				"total_score":   teamRes.TotalScore,
+				"x_count":       teamRes.TotalXCount,
+				"rank":          teamRes.TeamRank,
+				"status":        teamRes.Status,
+				"club_name":     teamRes.ClubName,
+				"category_name": teamRes.CategoryName,
+				"members":       members,
+			},
+		})
+	}
+}
+
 

@@ -12,7 +12,6 @@ import (
 	"Archeris-api/utils"
 
 	"encoding/csv"
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -286,10 +285,20 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get user ID from context (set by auth middleware)
+		// Get user ID and user type from context
 		userID, exists := c.Get("user_id")
+		userType, _ := c.Get("user_type")
+
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		if userType == "archer" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Hanya organizer atau klub yang diizinkan untuk membuat event panahan.",
+				"code":  "only_organizer_allowed",
+			})
 			return
 		}
 
@@ -598,6 +607,22 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Refund quota if event was published
+		var eventInfo struct {
+			Status      string  `db:"status"`
+			QuotaType   *string `db:"quota_type"`
+			OrganizerID string  `db:"organizer_id"`
+		}
+		if err := db.Get(&eventInfo, "SELECT status, quota_type, organizer_id FROM events WHERE uuid = ?", actualID); err == nil {
+			if eventInfo.Status == "published" && eventInfo.QuotaType != nil {
+				if *eventInfo.QuotaType == "standard" {
+					db.Exec("UPDATE organizers SET quota_standard = quota_standard + 1 WHERE uuid = ?", eventInfo.OrganizerID)
+				} else if *eventInfo.QuotaType == "elite" {
+					db.Exec("UPDATE organizers SET quota_elite = quota_elite + 1 WHERE uuid = ?", eventInfo.OrganizerID)
+				}
+			}
+		}
+
 		result, err := db.Exec("DELETE FROM events WHERE uuid = ?", actualID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data event", "details": err.Error()})
@@ -870,21 +895,28 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
-			type GroupedParticipant struct {
-				ArcherID             string        `db:"archer_id" json:"archer_id"`
-				AthleteCode          *string       `db:"athlete_code" json:"athlete_code"`
-				FullName             string        `db:"full_name" json:"full_name"`
-				Email                string        `db:"email" json:"email"`
-				AvatarURL            *string       `db:"avatar_url" json:"avatar_url"`
-				ClubName             *string       `db:"club_name" json:"club_name"`
-				City                 *string       `db:"city" json:"city"`
-				PaymentStatus        *string       `db:"payment_status" json:"payment_status"`
-				LastReregistrationAt *string       `db:"last_reregistration_at" json:"last_reregistration_at"`
-				Categories           string        `db:"categories" json:"-"`
-				CategoryList         []interface{} `json:"categories"`
+			type FlatParticipantRow struct {
+				ArcherID             string     `db:"archer_id" json:"archer_id"`
+				AthleteCode          *string    `db:"athlete_code" json:"athlete_code"`
+				FullName             string     `db:"full_name" json:"full_name"`
+				Email                string     `db:"email" json:"email"`
+				AvatarURL            *string    `db:"avatar_url" json:"avatar_url"`
+				ClubName             *string    `db:"club_name" json:"club_name"`
+				City                 *string    `db:"city" json:"city"`
+				ParticipantID        string     `db:"participant_id" json:"participant_id"`
+				CategoryID           string     `db:"category_id" json:"category_id"`
+				DivisionName         string     `db:"division_name" json:"division_name"`
+				CategoryName         string     `db:"category_name" json:"category_name"`
+				EventTypeName        string     `db:"event_type_name" json:"event_type_name"`
+				GenderDivisionName   string     `db:"gender_division_name" json:"gender_division_name"`
+				PaymentStatus        *string    `db:"payment_status" json:"payment_status"`
+				RegistrationSource   *string    `db:"registration_source" json:"registration_source"`
+				QrRaw                *string    `db:"qr_raw" json:"qr_raw"`
+				RegistrationDate     *time.Time `db:"registration_date" json:"registration_date"`
+				LastReregistrationAt *time.Time `db:"last_reregistration_at" json:"last_reregistration_at"`
 			}
 
-			var participants []GroupedParticipant
+			var rows []FlatParticipantRow
 			query := `
 				SELECT 
 					a.uuid as archer_id,
@@ -893,22 +925,18 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(a.email, '') as email,
 					a.avatar_url,
 					COALESCE(cl.name, '') as club_name,
-					a.city as city,
-					MAX(tp.payment_status) as payment_status,
-					MAX(tp.last_reregistration_at) as last_reregistration_at,
-					JSON_ARRAYAGG(JSON_OBJECT(
-						'participant_id', tp.uuid,
-						'category_id', tp.category_id,
-						'division_name', COALESCE(d.name, ''),
-						'category_name', COALESCE(te.category_name_custom, c.name, ''),
-						'event_type_name', COALESCE(et.name, ''),
-						'gender_division_name', COALESCE(gd.name, ''),
-						'payment_status', COALESCE(tp.payment_status, 'pending'),
-						'registration_source', COALESCE(tp.registration_source, 'self_register'),
-						'qr_raw', tp.qr_raw,
-						'registration_date', tp.registration_date,
-						'last_reregistration_at', tp.last_reregistration_at
-					)) as categories
+					'' as city,
+					tp.uuid as participant_id,
+					tp.category_id,
+					COALESCE(d.name, '') as division_name,
+					COALESCE(te.category_name_custom, c.name, '') as category_name,
+					COALESCE(et.name, '') as event_type_name,
+					COALESCE(gd.name, '') as gender_division_name,
+					COALESCE(tp.payment_status, 'pending') as payment_status,
+					COALESCE(tp.registration_source, 'self_register') as registration_source,
+					tp.qr_raw,
+					tp.registration_date,
+					tp.last_reregistration_at
 				FROM event_participants tp
 				JOIN archers a ON tp.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -918,32 +946,91 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 				LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 				` + whereClause + `
-				GROUP BY a.uuid, cl.name
 				ORDER BY a.full_name ASC
-				LIMIT ? OFFSET ?
 			`
-			fetchArgs := append(args, limit, offset)
-			err = db.Select(&participants, query, fetchArgs...)
+			err = db.Select(&rows, query, args...)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data peserta berkelompok", "details": err.Error()})
 				return
 			}
 
-			// Post-process categories and mask URLs
-			for i := range participants {
-				if participants[i].Categories != "" {
-					var cats []interface{}
-					if err := json.Unmarshal([]byte(participants[i].Categories), &cats); err == nil {
-						participants[i].CategoryList = cats
-					}
-				}
-				if participants[i].AvatarURL != nil {
-					masked := utils.MaskMediaURL(*participants[i].AvatarURL)
-					participants[i].AvatarURL = &masked
-				}
+			// Group in Go
+			type GroupedParticipant struct {
+				ArcherID             string                   `json:"archer_id"`
+				AthleteCode          *string                  `json:"athlete_code"`
+				FullName             string                   `json:"full_name"`
+				Email                string                   `json:"email"`
+				AvatarURL            *string                  `json:"avatar_url"`
+				ClubName             *string                  `json:"club_name"`
+				City                 *string                  `json:"city"`
+				PaymentStatus        *string                  `json:"payment_status"`
+				LastReregistrationAt *time.Time               `json:"last_reregistration_at"`
+				CategoryList         []map[string]interface{} `json:"categories"`
 			}
 
-			// Get paid/pending counters aligned with active category filter.
+			groupedMap := make(map[string]*GroupedParticipant)
+			var orderedKeys []string
+
+			for _, r := range rows {
+				g, exists := groupedMap[r.ArcherID]
+				if !exists {
+					var avatar *string
+					if r.AvatarURL != nil {
+						masked := utils.MaskMediaURL(*r.AvatarURL)
+						avatar = &masked
+					}
+					g = &GroupedParticipant{
+						ArcherID:             r.ArcherID,
+						AthleteCode:          r.AthleteCode,
+						FullName:             r.FullName,
+						Email:                r.Email,
+						AvatarURL:            avatar,
+						ClubName:             r.ClubName,
+						City:                 r.City,
+						PaymentStatus:        r.PaymentStatus,
+						LastReregistrationAt: r.LastReregistrationAt,
+						CategoryList:         []map[string]interface{}{},
+					}
+					groupedMap[r.ArcherID] = g
+					orderedKeys = append(orderedKeys, r.ArcherID)
+				}
+
+				catItem := map[string]interface{}{
+					"participant_id":         r.ParticipantID,
+					"category_id":            r.CategoryID,
+					"division_name":          r.DivisionName,
+					"category_name":          r.CategoryName,
+					"event_type_name":        r.EventTypeName,
+					"gender_division_name":   r.GenderDivisionName,
+					"payment_status":         r.PaymentStatus,
+					"registration_source":    r.RegistrationSource,
+					"qr_raw":                 r.QrRaw,
+					"registration_date":      r.RegistrationDate,
+					"last_reregistration_at": r.LastReregistrationAt,
+				}
+				g.CategoryList = append(g.CategoryList, catItem)
+			}
+
+			// Apply pagination slice
+			total = len(orderedKeys)
+			start := offset
+			if start > total {
+				start = total
+			}
+			end := start + limit
+			if end > total {
+				end = total
+			}
+
+			var paginatedResult []*GroupedParticipant
+			if start < end {
+				for _, key := range orderedKeys[start:end] {
+					paginatedResult = append(paginatedResult, groupedMap[key])
+				}
+			} else {
+				paginatedResult = []*GroupedParticipant{}
+			}
+
 			statusWhere := "WHERE tp.event_id = ?"
 			statusArgs := []interface{}{actualEventID}
 			if len(resolvedCategoryIDs) == 1 {
@@ -963,13 +1050,23 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			_ = db.Get(&verifiedCount, verifiedQuery, statusArgs...)
 			_ = db.Get(&pendingCount, pendingQuery, statusArgs...)
 
+			lastPage := (total + limit - 1) / limit
+			if lastPage < 1 {
+				lastPage = 1
+			}
+
 			c.JSON(http.StatusOK, gin.H{
-				"participants":   participants,
+				"participants":   paginatedResult,
 				"total":          total,
 				"verified_count": verifiedCount,
 				"pending_count":  pendingCount,
-				"limit":          limit,
-				"offset":         offset,
+				"meta": utils.PaginationMeta{
+					TotalCount:  total,
+					Limit:       limit,
+					Offset:      offset,
+					CurrentPage: page,
+					LastPage:    lastPage,
+				},
 			})
 			return
 		}
@@ -1068,7 +1165,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				a.username as username,
 				a.full_name as full_name,
 				COALESCE(a.email, '') as email,
-				a.city as city,
+				'' as city,
 				a.club_id as club_id,
 				a.avatar_url as avatar_url,
 				COALESCE(cl.name, '') as club_name,
@@ -1090,7 +1187,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				GROUP BY participant_uuid
 			) scores ON tp.uuid = scores.participant_uuid
 			` + whereClause + `
-			GROUP BY tp.uuid, a.uuid, cl.uuid, te.uuid, d.uuid, c.uuid, et.uuid, gd.uuid, a.id, a.username, a.full_name, a.email, a.city, a.club_id, a.avatar_url, cl.name, d.name, c.name, te.category_name_custom, et.name, gd.name, scores.total_score, scores.total_x, tp.payment_status
+			GROUP BY tp.uuid, a.uuid, cl.uuid, te.uuid, d.uuid, c.uuid, et.uuid, gd.uuid, a.id, a.username, a.full_name, a.email, a.club_id, a.avatar_url, cl.name, d.name, c.name, te.category_name_custom, et.name, gd.name, scores.total_score, scores.total_x, tp.payment_status
 			ORDER BY total_score DESC, total_x DESC, a.full_name ASC
 			LIMIT ? OFFSET ?
 		`
@@ -1170,40 +1267,43 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		fmt.Printf("[DEBUG] Fetching participant for event %s (ID: %s), participant %s\n", eventID, actualEventID, participantID)
 
-		type Participant struct {
-			ID                          string                     `db:"id" json:"id"`
-			AthleteCode                 *string                    `db:"athlete_code" json:"athlete_code"`
-			ArcherID                    *string                    `db:"archer_id" json:"archer_id"`
-			FullName                    string                     `db:"full_name" json:"full_name"`
-			Username                    *string                    `db:"username" json:"username"`
-			Email                       string                     `db:"email" json:"email"`
-			City                        *string                    `db:"city" json:"city"`
-			ClubID                      *string                    `db:"club_id" json:"club_id"`
-			ClubName                    *string                    `db:"club_name" json:"club_name"`
-			EventID                     string                     `db:"event_id" json:"event_id"`
-			CategoryID                  string                     `db:"category_id" json:"category_id"`
-			CategoriesRaw               *string                    `db:"categories" json:"-"`
-			Categories                  []interface{}              `json:"categories"`
-			DivisionName                string                     `db:"division_name" json:"division_name"`
-			CategoryName                string                     `db:"category_name" json:"category_name"`
-			EventTypeName               *string                    `db:"event_type_name" json:"event_type_name"`
-			GenderDivisionName          *string                    `db:"gender_division_name" json:"gender_division_name"`
-			TargetName                  *string                    `db:"target_name" json:"target_name"`
-			QRRaw                       *string                    `db:"qr_raw" json:"qr_raw"`
-			PaymentStatus               string                     `db:"payment_status" json:"payment_status"`
-			AvatarURL                   *string                    `db:"avatar_url" json:"avatar_url"`
-			PaymentAmount               float64                    `db:"payment_amount" json:"payment_amount"`
-			PaymentProofURLs            []string                   `json:"payment_proof_urls"`
-			RegistrationDate            string                     `db:"registration_date" json:"registration_date"`
-			IsVerified                  bool                       `db:"is_verified" json:"is_verified"`
-			RegistrationSource          string                     `db:"registration_source" json:"registration_source"`
-			QualificationAssignmentUUID *string                    `db:"qualification_assignment_uuid" json:"qualification_assignment_uuid"`
-			InElimination               bool                       `db:"in_elimination" json:"in_elimination"`
-			Transaction                 *models.PaymentTransaction `db:"-" json:"transaction"`
+		type ParticipantRow struct {
+			ID                          string   `db:"id" json:"id"`
+			AthleteCode                 *string  `db:"athlete_code" json:"athlete_code"`
+			ArcherID                    *string  `db:"archer_id" json:"archer_id"`
+			FullName                    string   `db:"full_name" json:"full_name"`
+			Username                    *string  `db:"username" json:"username"`
+			Email                       string   `db:"email" json:"email"`
+			City                        *string  `db:"city" json:"city"`
+			ClubID                      *string  `db:"club_id" json:"club_id"`
+			ClubName                    *string  `db:"club_name" json:"club_name"`
+			EventID                     string   `db:"event_id" json:"event_id"`
+			CategoryID                  string   `db:"category_id" json:"category_id"`
+			DivisionName                string   `db:"division_name" json:"division_name"`
+			CategoryName                string   `db:"category_name" json:"category_name"`
+			EventTypeName               *string  `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName          *string  `db:"gender_division_name" json:"gender_division_name"`
+			TargetName                  *string  `db:"target_name" json:"target_name"`
+			QRRaw                       *string  `db:"qr_raw" json:"qr_raw"`
+			PaymentStatus               string   `db:"payment_status" json:"payment_status"`
+			AvatarURL                   *string  `db:"avatar_url" json:"avatar_url"`
+			PaymentAmount               float64  `db:"payment_amount" json:"payment_amount"`
+			RegistrationDate            string   `db:"registration_date" json:"registration_date"`
+			IsVerified                  bool     `db:"is_verified" json:"is_verified"`
+			RegistrationSource          string   `db:"registration_source" json:"registration_source"`
+			QualificationAssignmentUUID *string  `db:"qualification_assignment_uuid" json:"qualification_assignment_uuid"`
+			InElimination               bool     `db:"in_elimination" json:"in_elimination"`
 		}
 
-		var participant Participant
-		err = db.Get(&participant, `
+		type ParticipantResponse struct {
+			ParticipantRow
+			Categories       []map[string]interface{}    `json:"categories"`
+			PaymentProofURLs []string                    `json:"payment_proof_urls"`
+			Transaction      *models.PaymentTransaction  `json:"transaction"`
+		}
+
+		var rows []ParticipantRow
+		err = db.Select(&rows, `
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_amount, tp.payment_status,
@@ -1213,7 +1313,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				a.username as username,
 				a.full_name as full_name,
 				COALESCE(a.email, '') as email,
-				a.city as city,
+				'' as city,
 				a.club_id as club_id,
 				a.avatar_url as avatar_url,
 				COALESCE(cl.name, '') as club_name,
@@ -1225,26 +1325,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					SELECT 1 FROM elimination_matches 
 					WHERE entry_a_uuid IN (SELECT uuid FROM elimination_entries WHERE participant_uuid = tp.uuid)
 					   OR entry_b_uuid IN (SELECT uuid FROM elimination_entries WHERE participant_uuid = tp.uuid)
-				) as in_elimination,
-				(
-					SELECT JSON_ARRAYAGG(JSON_OBJECT(
-						'participant_id', tp2.uuid,
-						'category_id', tp2.category_id,
-						'division_name', COALESCE(d2.name, ''),
-						'category_name', COALESCE(te2.category_name_custom, c2.name, ''),
-						'event_type_name', COALESCE(et2.name, ''),
-						'gender_division_name', COALESCE(gd2.name, ''),
-						'payment_status', COALESCE(tp2.payment_status, 'pending'),
-						'registration_date', tp2.registration_date
-					))
-					FROM event_participants tp2
-					LEFT JOIN event_categories te2 ON tp2.category_id = te2.uuid
-					LEFT JOIN ref_bow_types d2 ON te2.division_uuid = d2.uuid
-					LEFT JOIN ref_age_groups c2 ON te2.category_uuid = c2.uuid
-					LEFT JOIN ref_event_types et2 ON te2.event_type_uuid = et2.uuid
-					LEFT JOIN ref_gender_divisions gd2 ON te2.gender_division_uuid = gd2.uuid
-					WHERE tp2.event_id = tp.event_id AND tp2.archer_id = tp.archer_id
-				) as categories
+				) as in_elimination
 			FROM event_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -1265,50 +1346,53 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				)
 				LIMIT 1
 			)
-			GROUP BY a.uuid
 			ORDER BY tp.qr_raw IS NULL ASC, tp.created_at ASC
-		LIMIT 1
 		`, actualEventID, actualEventID, participantID, participantID, participantID, participantID, participantID)
 
-		if err != nil {
+		if err != nil || len(rows) == 0 {
 			fmt.Printf("[DEBUG] Participant not found in DB for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":          "Peserta tidak ditemukan",
-				"details":        err.Error(),
+				"details":        fmt.Sprintf("%v", err),
 				"participant_id": participantID,
 				"event_id":       actualEventID,
-				"hint":           "Make sure the participant exists for this event and the ID/Username is correct.",
 			})
 			return
 		}
 
-		fmt.Printf("[DEBUG] Found participant: %s (UUID: %s)\n", participant.FullName, participant.ID)
-
-		// Parse payment proof URLs
-		participant.PaymentProofURLs = []string{}
-
-		// Fetch payment transaction for the participant
-		var transaction models.PaymentTransaction
-		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, participant.ID)
-		if errTx == nil {
-			participant.Transaction = &transaction
+		first := rows[0]
+		if first.AvatarURL != nil {
+			masked := utils.MaskMediaURL(*first.AvatarURL)
+			first.AvatarURL = &masked
 		}
 
-		// Parse categories if raw exists
-		if participant.CategoriesRaw != nil && *participant.CategoriesRaw != "" {
-			var cats []interface{}
-			if err := json.Unmarshal([]byte(*participant.CategoriesRaw), &cats); err == nil {
-				participant.Categories = cats
+		resp := ParticipantResponse{
+			ParticipantRow:   first,
+			Categories:       []map[string]interface{}{},
+			PaymentProofURLs: []string{},
+		}
+
+		for _, r := range rows {
+			catItem := map[string]interface{}{
+				"participant_id":       r.ID,
+				"category_id":          r.CategoryID,
+				"division_name":        r.DivisionName,
+				"category_name":        r.CategoryName,
+				"event_type_name":      r.EventTypeName,
+				"gender_division_name": r.GenderDivisionName,
+				"payment_status":       r.PaymentStatus,
+				"registration_date":    r.RegistrationDate,
 			}
+			resp.Categories = append(resp.Categories, catItem)
 		}
 
-		// Mask avatar URL
-		if participant.AvatarURL != nil {
-			masked := utils.MaskMediaURL(*participant.AvatarURL)
-			participant.AvatarURL = &masked
+		var transaction models.PaymentTransaction
+		errTx := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1`, first.ID)
+		if errTx == nil {
+			resp.Transaction = &transaction
 		}
 
-		c.JSON(http.StatusOK, participant)
+		c.JSON(http.StatusOK, resp)
 	}
 }
 
@@ -1330,11 +1414,14 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		userEmailVal, _ := c.Get("email")
+		userEmail := fmt.Sprintf("%v", userEmailVal)
+
 		// Get archer UUID for this user (if any)
 		var archerID string
-		if err := db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? LIMIT 1`, userID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan untuk pengguna ini"})
-			return
+		_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?) LIMIT 1`, userID, userID, userEmail)
+		if archerID == "" {
+			archerID = fmt.Sprintf("%v", userID)
 		}
 
 		type MyRegistrationCategory struct {
@@ -1391,22 +1478,31 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid as id, tp.target_name, tp.category_id,
 				tp.payment_status, tp.payment_amount, tp.registration_date,
 				a.id as athlete_code, a.full_name, COALESCE(a.email, '') as email,
-				a.city as city, a.avatar_url, COALESCE(cl.name, '') as club_name,
+				'' as city, a.avatar_url, COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
 			FROM event_participants tp
-			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN archers a ON (tp.archer_id = a.uuid OR tp.archer_id = a.id)
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN event_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
-			WHERE tp.event_id = ? AND tp.archer_id = ?
+			WHERE (tp.event_id = ? OR tp.event_id IN (SELECT uuid FROM events WHERE uuid = ? OR slug = ?)) AND (
+				tp.archer_id = ? 
+				OR tp.archer_id = ?
+				OR tp.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
+				OR tp.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
+			)
 			ORDER BY tp.created_at ASC
-		`, actualEventID, archerID)
+		`, actualEventID, actualEventID, actualEventID, archerID, userID, userID, userID, userEmail, userID, userID, userEmail)
 
-		if err != nil || len(rows) == 0 {
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil registrasi", "details": err.Error()})
+			return
+		}
+		if len(rows) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
 			return
 		}
@@ -1708,6 +1804,73 @@ func UpdateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
 func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
+			return
+		}
+
+		// Check quota_type from request, default 'standard'
+		quotaType := c.DefaultQuery("quota_type", "")
+		if quotaType == "" {
+			// Try JSON body
+			var body struct { QuotaType string `json:"quota_type"` }
+			if err := c.ShouldBindJSON(&body); err == nil && body.QuotaType != "" {
+				quotaType = body.QuotaType
+			}
+		}
+		if quotaType != "standard" && quotaType != "elite" {
+			quotaType = "standard"
+		}
+
+		// Get organizer uuid
+		var orgUUID string
+		db.Get(&orgUUID, "SELECT uuid FROM organizers WHERE user_id = ?", userID)
+
+		// Get plan limits
+		var plan struct {
+			QuotaStandard int `db:"quota_standard"`
+			QuotaElite    int `db:"quota_elite"`
+		}
+		db.Get(&plan, "SELECT quota_standard, quota_elite FROM organizers WHERE uuid = ?", orgUUID)
+
+		// Check quota availability
+		if quotaType == "standard" && plan.QuotaStandard <= 0 {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error": "Quota Standard EO tidak tersedia. Silakan beli quota terlebih dahulu.",
+				"code": "quota_insufficient",
+				"quota_type": "standard",
+			})
+			return
+		}
+		if quotaType == "elite" && plan.QuotaElite <= 0 {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error": "Quota Elite EO tidak tersedia. Silakan beli quota terlebih dahulu.",
+				"code": "quota_insufficient",
+				"quota_type": "elite",
+			})
+			return
+		}
+
+		// Get plan limits from subscription_plans
+		var limits struct {
+			MaxParticipants  *int `db:"max_participants"`
+			MaxCategories    *int `db:"max_categories"`
+			MaxScorekeepers  *int `db:"max_scorekeepers"`
+			MaxMediaMB       *int `db:"max_media_mb"`
+		}
+		db.Get(&limits, "SELECT max_participants, max_categories, max_scorekeepers, max_media_mb FROM subscription_plans WHERE type='quota' AND target_type='organization' AND quota_type=? ORDER BY id DESC LIMIT 1", quotaType)
+
+		// Deduct quota
+		if quotaType == "standard" {
+			db.Exec("UPDATE organizers SET quota_standard = quota_standard - 1 WHERE uuid = ? AND quota_standard > 0", orgUUID)
+		} else {
+			db.Exec("UPDATE organizers SET quota_elite = quota_elite - 1 WHERE uuid = ? AND quota_elite > 0", orgUUID)
+		}
+
+		// Set event quota metadata
+		db.Exec("UPDATE events SET quota_type = ?, quota_max_participants = ?, quota_max_categories = ?, quota_max_scorekeepers = ?, quota_max_media_mb = ? WHERE uuid = ?",
+			quotaType, limits.MaxParticipants, limits.MaxCategories, limits.MaxScorekeepers, limits.MaxMediaMB, eventID)
 
 		_, err := db.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", eventID)
 		if err != nil {
@@ -1716,7 +1879,6 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Log activity
-		userID, _ := c.Get("user_id")
 		utils.LogActivity(db, userID.(string), eventID, "event_published", "event", eventID, "Published event", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Event berhasil dipublikasikan"})
@@ -1806,11 +1968,33 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		userID, _ := c.Get("user_id")
 		var archerUUID string
-		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Archer tidak ditemukan"})
-			return
+		athleteIDToFind := req.AthleteID
+		if athleteIDToFind == "" && userID != nil {
+			athleteIDToFind = fmt.Sprintf("%v", userID)
+		}
+		_ = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR user_id = ? LIMIT 1", athleteIDToFind, athleteIDToFind, athleteIDToFind)
+		if archerUUID == "" && userID != nil {
+			archerUUID = fmt.Sprintf("%v", userID)
+		}
+
+		// Check for existing active registration (not cancelled)
+		var existingCount int
+		_ = db.Get(&existingCount, `
+			SELECT COUNT(*) FROM event_participants 
+			WHERE event_id = ? AND archer_id = ? AND payment_status != 'cancelled'
+		`, actualEventID, archerUUID)
+		if existingCount > 0 {
+			// Get user_type from context
+			userType, _ := c.Get("user_type")
+			if userType == "archer" {
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "Anda sudah terdaftar di event ini. Hubungi penyelenggara untuk mendaftar ulang.",
+					"code": "already_registered",
+				})
+				return
+			}
 		}
 
 		// Use transaction to ensure all registrations succeed or none
@@ -1825,7 +2009,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Determine payment status
 		paymentStatus := "unpaid"
-		userID, _ := c.Get("user_id")
+		userID, _ = c.Get("user_id")
 		userRole, _ := c.Get("role")
 		orgID, _ := c.Get("org_id")
 
@@ -1843,7 +2027,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			if req.RegistrationSource != "" {
 				registrationSource = req.RegistrationSource
 			} else {
-				registrationSource = "admin_created"
+				registrationSource = "organizer_added"
 			}
 		}
 
@@ -1878,6 +2062,27 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 			if exists {
 				continue // Skip if already registered for this category
+			}
+
+			// Check Category Quota
+			var quotaInfo struct {
+				Quota        int `db:"quota"`
+				CurrentCount int `db:"current_count"`
+			}
+			err = tx.Get(&quotaInfo, `
+				SELECT 
+					COALESCE(ec.quota, 0) as quota,
+					(SELECT COUNT(*) FROM event_participants WHERE category_id = ?) as current_count
+				FROM event_categories ec
+				WHERE ec.uuid = ?
+			`, catID, catID)
+
+			if err == nil && quotaInfo.Quota > 0 && quotaInfo.CurrentCount >= quotaInfo.Quota {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "Kuota untuk kategori yang dipilih telah penuh",
+					"code":  "category_quota_full",
+				})
+				return
 			}
 
 			participantUUID := uuid.New().String()
@@ -1970,7 +2175,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			if req.RegistrationSource != "" {
 				registrationSource = req.RegistrationSource
 			} else {
-				registrationSource = "admin_created"
+				registrationSource = "organizer_added"
 			}
 		}
 
@@ -2111,11 +2316,14 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		userEmailVal, _ := c.Get("email")
+		userEmail := fmt.Sprintf("%v", userEmailVal)
+
 		// Resolve archer UUID for this user
 		var archerID string
-		if err := db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? LIMIT 1`, uid); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan"})
-			return
+		_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?) LIMIT 1`, uid, uid, userEmail)
+		if archerID == "" {
+			archerID = uid
 		}
 
 		// Find all registrations for this archer in this event
@@ -2124,7 +2332,7 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus string `db:"payment_status"`
 		}
 		var regs []RegInfo
-		if err := db.Select(&regs, `SELECT uuid, payment_status FROM event_participants WHERE event_id = ? AND archer_id = ?`, actualEventID, archerID); err != nil || len(regs) == 0 {
+		if err := db.Select(&regs, `SELECT uuid, payment_status FROM event_participants WHERE (event_id = ? OR event_id IN (SELECT uuid FROM events WHERE uuid = ? OR slug = ?)) AND (archer_id = ? OR archer_id = ? OR archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)))`, actualEventID, actualEventID, actualEventID, archerID, uid, uid, uid, userEmail); err != nil || len(regs) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
 			return
 		}
@@ -2138,7 +2346,7 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Delete all registrations for this archer in this event
-		if _, err := db.Exec(`DELETE FROM event_participants WHERE event_id = ? AND archer_id = ?`, actualEventID, archerID); err != nil {
+		if _, err := db.Exec(`DELETE FROM event_participants WHERE (event_id = ? OR event_id IN (SELECT uuid FROM events WHERE uuid = ? OR slug = ?)) AND (archer_id = ? OR archer_id = ? OR archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)))`, actualEventID, actualEventID, actualEventID, archerID, uid, uid, uid, userEmail); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membatalkan pendaftaran"})
 			return
 		}
@@ -2170,6 +2378,17 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Get(&userArcherID, "SELECT uuid FROM archers WHERE uuid = ? LIMIT 1", userID)
 		if err != nil || userArcherID != archerID {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Anda hanya dapat membatalkan pendaftaran sendiri"})
+			return
+		}
+
+		// Check if manual payment is already approved or gateway already paid
+		var payStatus string
+		_ = db.Get(&payStatus, "SELECT COALESCE(payment_status,'unpaid') FROM event_participants WHERE uuid = ? AND archer_id = ?", participantID, archerID)
+		if payStatus == "paid" || payStatus == "lunas" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Pembayaran sudah dikonfirmasi. Tidak dapat membatalkan pendaftaran.",
+				"code": "payment_already_confirmed",
+			})
 			return
 		}
 
@@ -2227,6 +2446,29 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		archerID := pInfo.ArcherID
+
+		// Check if participant can be kicked
+		var participantCheck struct {
+			PaymentStatus string `db:"payment_status"`
+			ReregisteredAt *time.Time `db:"last_reregistration_at"`
+		}
+		err = db.Get(&participantCheck, "SELECT COALESCE(payment_status,'unpaid') as payment_status, last_reregistration_at FROM event_participants WHERE uuid = ?", pInfo.UUID)
+		if err == nil {
+			if participantCheck.PaymentStatus == "paid" || participantCheck.PaymentStatus == "lunas" {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": "Peserta tidak dapat dikeluarkan karena pembayaran sudah lunas. Tambahkan refund terlebih dahulu.",
+					"code": "participant_paid",
+				})
+				return
+			}
+			if participantCheck.ReregisteredAt != nil {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": "Peserta tidak dapat dikeluarkan karena sudah melakukan registrasi ulang.",
+					"code": "participant_reregistered",
+				})
+				return
+			}
+		}
 
 		fmt.Printf("[DEBUG] Found participant to delete: %s (Archer: %s) - removing ALL registrations for this archer in event\n", pInfo.FullName, archerID)
 
@@ -2347,12 +2589,13 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			WHERE tp.event_id = ? AND (
 				tp.uuid = ? OR 
+				tp.archer_id = ? OR
 				a.username = ? OR 
 				a.id = ? OR
 				LOWER(REPLACE(a.full_name, ' ', '-')) = LOWER(?)
 			)
 			LIMIT 1
-		`, actualEventID, participantID, participantID, participantID, participantID)
+		`, actualEventID, participantID, participantID, participantID, participantID, participantID)
 
 		if err != nil {
 			fmt.Printf("[DEBUG] Update lookup failed for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
@@ -3431,7 +3674,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				a.full_name,
 				COALESCE(a.email, '') as email,
 				COALESCE(cl.name, '') as club_name,
-				COALESCE(a.city, '') as city,
+				'' as city,
 				COALESCE(MAX(tp.payment_status), 'pending') as payment_status,
 				COALESCE(MAX(tp.registration_source), 'self_register') as registration_source,
 				COALESCE(DATE_FORMAT(MIN(tp.registration_date), '%Y-%m-%d %H:%i:%s'), '') as registration_date,
@@ -3461,7 +3704,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				GROUP BY participant_uuid
 			) scores ON tp.uuid = scores.participant_uuid
 			WHERE tp.event_id = ?
-			GROUP BY a.uuid, a.id, a.full_name, a.email, cl.name, a.city
+			GROUP BY a.uuid, a.id, a.full_name, a.email, cl.name
 			ORDER BY a.full_name ASC
 		`
 		err = db.Select(&participants, query, event.UUID)
@@ -3632,6 +3875,18 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
+		}
+
+		// Ownership check: only the organizer who owns this event may reset it
+		var ownerCount int
+		db.Get(&ownerCount, `SELECT COUNT(*) FROM events WHERE uuid = ? AND organizer_id = ?`, actualEventID, userID.(string))
+		if ownerCount == 0 {
+			// Also allow root admin
+			userTypeCtx, _ := c.Get("user_type")
+			if userTypeCtx != "root" {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Hanya penyelenggara event ini yang dapat mereset data"})
+				return
+			}
 		}
 
 		// Verify the verification code
@@ -3948,4 +4203,263 @@ func RequestResetCode(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Kode verifikasi telah dikirim ke email Anda"})
 	}
 }
+
+// ImportParticipantsCSV imports participants into an event from a CSV file
+func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		if eventID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID event tidak boleh kosong"})
+			return
+		}
+
+		file, _, err := c.Request.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal membaca file CSV. Pastikan file dikirim dalam field 'file'"})
+			return
+		}
+		defer file.Close()
+
+		reader := csv.NewReader(file)
+		records, err := reader.ReadAll()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format file CSV tidak valid", "details": err.Error()})
+			return
+		}
+
+		if len(records) <= 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File CSV kosong atau hanya berisi baris header"})
+			return
+		}
+
+		// Read header
+		header := records[0]
+		colIdx := make(map[string]int)
+		for i, h := range header {
+			colIdx[strings.TrimSpace(strings.ToLower(h))] = i
+		}
+
+		// Required columns check
+		requiredCols := []string{"full_name"}
+		for _, col := range requiredCols {
+			if _, exists := colIdx[col]; !exists {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Kolom wajib '%s' tidak ditemukan di CSV", col)})
+				return
+			}
+		}
+
+		// Fetch existing categories for mapping
+		type EventCat struct {
+			UUID               string  `db:"uuid"`
+			CustomName         *string `db:"category_name_custom"`
+			DivisionName       string  `db:"division_name"`
+			CategoryName       string  `db:"category_name"`
+			GenderDivisionName string  `db:"gender_division_name"`
+			EventType          string  `db:"event_type_name"`
+		}
+		var categories []EventCat
+		err = db.Select(&categories, `
+			SELECT 
+				ec.uuid,
+				ec.category_name_custom,
+				COALESCE(d.name, '') as division_name,
+				COALESCE(ag.name, '') as category_name,
+				COALESCE(gd.name, '') as gender_division_name,
+				COALESCE(et.name, '') as event_type_name
+			FROM event_categories ec
+			LEFT JOIN ref_bow_types d ON ec.division_uuid = d.uuid
+			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+			LEFT JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
+			LEFT JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
+			WHERE ec.event_id = ?
+		`, eventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data kategori event", "details": err.Error()})
+			return
+		}
+
+		catMap := make(map[string]string)
+		for _, cat := range categories {
+			if cat.CustomName != nil && strings.TrimSpace(*cat.CustomName) != "" {
+				catMap[strings.ToLower(strings.TrimSpace(*cat.CustomName))] = cat.UUID
+			}
+			composed := strings.ToLower(fmt.Sprintf("%s - %s %s %s", cat.DivisionName, cat.CategoryName, cat.EventType, cat.GenderDivisionName))
+			composed = strings.Join(strings.Fields(composed), " ")
+			if composed != "" {
+				catMap[composed] = cat.UUID
+			}
+		}
+
+		var importedCount int
+		var skippedCount int
+		var errorsList []string
+
+		for rowIdx, record := range records[1:] {
+			rowNum := rowIdx + 2
+			getValue := func(col string) string {
+				if idx, ok := colIdx[col]; ok && idx < len(record) {
+					return strings.TrimSpace(record[idx])
+				}
+				return ""
+			}
+
+			fullName := getValue("full_name")
+			if fullName == "" {
+				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Nama lengkap kosong", rowNum))
+				skippedCount++
+				continue
+			}
+
+			email := getValue("email")
+			phone := getValue("phone")
+			gender := strings.ToUpper(getValue("gender"))
+			if gender != "M" && gender != "F" {
+				if strings.HasPrefix(strings.ToLower(gender), "l") || strings.HasPrefix(strings.ToLower(gender), "m") {
+					gender = "M"
+				} else if strings.HasPrefix(strings.ToLower(gender), "p") || strings.HasPrefix(strings.ToLower(gender), "f") {
+					gender = "F"
+				} else {
+					gender = "M"
+				}
+			}
+
+			bowType := strings.ToLower(getValue("bow_type"))
+			if bowType == "" {
+				bowType = "recurve"
+			}
+			clubName := getValue("club_name")
+			categoryInput := strings.ToLower(getValue("category_name"))
+
+			// Determine Category ID
+			var targetCatID string
+			if categoryInput != "" {
+				if catID, ok := catMap[categoryInput]; ok {
+					targetCatID = catID
+				} else {
+					// Fallback search substring match
+					for k, v := range catMap {
+						if strings.Contains(k, categoryInput) || strings.Contains(categoryInput, k) {
+							targetCatID = v
+							break
+						}
+					}
+				}
+			}
+
+			if targetCatID == "" && len(categories) > 0 {
+				targetCatID = categories[0].UUID
+			}
+
+			if targetCatID == "" {
+				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Kategori '%s' tidak ditemukan", rowNum, getValue("category_name")))
+				skippedCount++
+				continue
+			}
+
+			// Find or create Archer
+			var archerID string
+			if email != "" {
+				_ = db.Get(&archerID, "SELECT uuid FROM archers WHERE email = ?", email)
+			}
+			if archerID == "" && phone != "" {
+				_ = db.Get(&archerID, "SELECT uuid FROM archers WHERE phone = ?", phone)
+			}
+			if archerID == "" {
+				_ = db.Get(&archerID, "SELECT uuid FROM archers WHERE LOWER(full_name) = LOWER(?)", fullName)
+			}
+
+			if archerID == "" {
+				// Create new archer
+				newUUID := uuid.New().String()
+				var clubUUID sql.NullString
+				if clubName != "" {
+					var cID string
+					if err := db.Get(&cID, "SELECT uuid FROM clubs WHERE LOWER(name) = LOWER(?)", clubName); err == nil {
+						clubUUID = sql.NullString{String: cID, Valid: true}
+					}
+				}
+
+				username := strings.ToLower(strings.ReplaceAll(fullName, " ", "-"))
+				username = strings.Map(func(r rune) rune {
+					if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+						return r
+					}
+					return -1
+				}, username)
+
+				_, err := db.Exec(`
+					INSERT INTO archers (uuid, full_name, username, email, phone, gender, bow_type, club_id, created_at, updated_at)
+					VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, NOW(), NOW())
+				`, newUUID, fullName, username, email, phone, gender, bowType, clubUUID)
+
+				if err != nil {
+					// Try without email/phone if constraint error
+					_, err = db.Exec(`
+						INSERT INTO archers (uuid, full_name, username, gender, bow_type, club_id, created_at, updated_at)
+						VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+					`, newUUID, fullName, fmt.Sprintf("%s-%d", username, time.Now().Unix()%10000), gender, bowType, clubUUID)
+				}
+
+				if err == nil {
+					archerID = newUUID
+				} else {
+					errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal membuat data pemanah (%s)", rowNum, err.Error()))
+					skippedCount++
+					continue
+				}
+			}
+
+			// Check if already registered for this event
+			var existingParticipant string
+			err = db.Get(&existingParticipant, "SELECT uuid FROM event_participants WHERE event_id = ? AND archer_id = ?", eventID, archerID)
+			var participantUUID string
+			if err == sql.ErrNoRows {
+				participantUUID = uuid.New().String()
+				paymentStatus := strings.ToLower(getValue("payment_status"))
+				if paymentStatus == "" {
+					paymentStatus = "paid"
+				}
+				amountStr := getValue("payment_amount")
+				amount, _ := strconv.ParseFloat(amountStr, 64)
+
+				_, err = db.Exec(`
+					INSERT INTO event_participants (uuid, event_id, archer_id, payment_status, payment_amount, registration_source, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, 'organizer_added', NOW(), NOW())
+				`, participantUUID, eventID, archerID, paymentStatus, amount)
+
+				if err != nil {
+					errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal mendaftarkan peserta (%s)", rowNum, err.Error()))
+					skippedCount++
+					continue
+				}
+			} else if err == nil {
+				participantUUID = existingParticipant
+			} else {
+				errorsList = append(errorsList, fmt.Sprintf("Baris %d: Gagal mengecek data peserta (%s)", rowNum, err.Error()))
+				skippedCount++
+				continue
+			}
+
+			// Assign category to participant
+			var catCount int
+			_ = db.Get(&catCount, "SELECT COUNT(*) FROM event_participant_categories WHERE participant_id = ? AND event_category_id = ?", participantUUID, targetCatID)
+			if catCount == 0 {
+				_, _ = db.Exec(`
+					INSERT INTO event_participant_categories (uuid, participant_id, event_category_id, created_at)
+					VALUES (?, ?, ?, NOW())
+				`, uuid.New().String(), participantUUID, targetCatID)
+			}
+
+			importedCount++
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":  fmt.Sprintf("Berhasil mengimpor %d peserta (%d terlewati)", importedCount, skippedCount),
+			"imported": importedCount,
+			"skipped":  skippedCount,
+			"errors":   errorsList,
+		})
+	}
+}
+
 

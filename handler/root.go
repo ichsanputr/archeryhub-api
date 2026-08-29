@@ -5,11 +5,13 @@ import (
 	"Archeris-api/utils"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // RootLoginRequest is a separate struct to avoid the strict email-format validation of LoginRequest.
@@ -27,9 +29,15 @@ func RootLogin(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Hardcoded root credentials (does not check database as requested)
-		const expectedEmail = "root"
-		const expectedPassword = "root"
+		// Read root credentials from environment variables with fallback
+		expectedEmail := os.Getenv("ROOT_ADMIN_EMAIL")
+		if expectedEmail == "" {
+			expectedEmail = "root"
+		}
+		expectedPassword := os.Getenv("ROOT_ADMIN_PASSWORD")
+		if expectedPassword == "" {
+			expectedPassword = "root"
+		}
 
 		if req.Email != expectedEmail || req.Password != expectedPassword {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial root tidak valid"})
@@ -398,6 +406,18 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Audit log: track every suspend/activate action by root admin
+		adminID, _ := c.Get("user_id")
+		adminIDStr := fmt.Sprintf("%v", adminID)
+		ipAddr := c.ClientIP()
+		ua := c.Request.UserAgent()
+		action := "TERMINATE_USER_SUSPEND"
+		if req.Action == "activate" {
+			action = "TERMINATE_USER_ACTIVATE"
+		}
+		description := fmt.Sprintf("Admin %s %s user %s (%s). Reason: %s", adminIDStr, req.Action, userUUID, userType, req.Reason)
+		utils.LogActivity(db, adminIDStr, "", action, "user_account", userUUID, description, ipAddr, ua)
+
 		c.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("Akun berhasil di-%s", req.Action),
 			"uuid":    userUUID,
@@ -434,6 +454,15 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 			slug = req.UserType + "-" + newUUID[:8]
 		}
 
+		// Hash password with bcrypt
+		hashedPass := req.Password
+		if req.Password != "" {
+			hBytes, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if hErr == nil {
+				hashedPass = string(hBytes)
+			}
+		}
+
 		var err error
 		switch req.UserType {
 		case "organizer":
@@ -444,12 +473,12 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 			_, err = db.Exec(`
 				INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL)
-			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name, req.Acronym, whatsApp, req.City, req.Address)
+			`, newUUID, newUUID, slug, req.Email, hashedPass, req.Name, req.Acronym, whatsApp, req.City, req.Address)
 		case "seller":
 			_, err = db.Exec(`
 				INSERT INTO sellers (uuid, user_id, slug, email, password, store_name, status)
 				VALUES (?, ?, ?, ?, ?, ?, 'active')
-			`, newUUID, newUUID, slug, req.Email, req.Password, req.Name)
+			`, newUUID, newUUID, slug, req.Email, hashedPass, req.Name)
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus organizer atau seller"})
 			return
@@ -536,7 +565,14 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		result, err := db.Exec("UPDATE "+table+" SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?", req.Password, userUUID)
+		// Hash the new password with bcrypt
+		hashedBytes, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if hErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses password"})
+			return
+		}
+
+		result, err := db.Exec("UPDATE "+table+" SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?", string(hashedBytes), userUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui password: " + err.Error()})
 			return
@@ -547,6 +583,14 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
 			return
 		}
+
+		// Log activity for audit trail
+		adminID, _ := c.Get("user_id")
+		adminIDStr := ""
+		if adminID != nil {
+			adminIDStr = fmt.Sprintf("%v", adminID)
+		}
+		utils.LogActivity(db, adminIDStr, "", "root_change_user_password", table, userUUID, "Root admin changed user password", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Password user berhasil diperbarui",

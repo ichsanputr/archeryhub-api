@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/utils"
@@ -14,23 +14,32 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		userID := c.GetString("user_id")
 
 		var seller struct {
-			UUID         string  `json:"uuid" db:"uuid"`
-			StoreName    string  `json:"store_name" db:"store_name"`
-			Slug         *string `json:"slug" db:"slug"`
-			Description  *string `json:"description" db:"description"`
-			AvatarURL    *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL    *string `json:"banner_url" db:"banner_url"`
-			Phone        *string `json:"phone" db:"phone"`
-			Email        *string `json:"email" db:"email"`
-			Address      *string `json:"address" db:"address"`
-			City         *string `json:"city" db:"city"`
-			Province     *string `json:"province" db:"province"`
-			PageSettings *string `json:"page_settings" db:"page_settings"`
+			UUID                string  `json:"uuid" db:"uuid"`
+			StoreName           string  `json:"store_name" db:"store_name"`
+			Slug                *string `json:"slug" db:"slug"`
+			Description         *string `json:"description" db:"description"`
+			AvatarURL           *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL           *string `json:"banner_url" db:"banner_url"`
+			Phone               *string `json:"phone" db:"phone"`
+			Email               *string `json:"email" db:"email"`
+			Address             *string `json:"address" db:"address"`
+			City                *string `json:"city" db:"city"`
+			Province            *string `json:"province" db:"province"`
+			BankName            *string `json:"bank_name" db:"bank_name"`
+			BankAccountNumber   *string `json:"bank_account_number" db:"bank_account_number"`
+			BankAccountHolder   *string `json:"bank_account_holder" db:"bank_account_holder"`
+			PaymentInstructions *string `json:"payment_instructions" db:"payment_instructions"`
+			PageSettings        *string `json:"page_settings" db:"page_settings"`
 		}
 
 		err := db.Get(&seller, `
 			SELECT uuid, store_name, slug, description, avatar_url, banner_url, 
-			       phone, email, address, city, province, page_settings
+			       phone, email, address, city, province, 
+			       COALESCE(bank_name, '') AS bank_name,
+			       COALESCE(bank_account_number, '') AS bank_account_number,
+			       COALESCE(bank_account_holder, '') AS bank_account_holder,
+			       COALESCE(payment_instructions, '') AS payment_instructions,
+			       page_settings
 			FROM sellers
 			WHERE uuid = ? OR user_id = ?`, userID, userID)
 
@@ -75,6 +84,10 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		data["address"] = seller.Address
 		data["city"] = seller.City
 		data["province"] = seller.Province
+		data["bank_name"] = seller.BankName
+		data["bank_account_number"] = seller.BankAccountNumber
+		data["bank_account_holder"] = seller.BankAccountHolder
+		data["payment_instructions"] = seller.PaymentInstructions
 		data["user_type"] = "seller"
 
 		c.JSON(http.StatusOK, gin.H{"data": data})
@@ -175,10 +188,14 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 			Province    *string `json:"province"`
 			Address     *string `json:"address"`
 			Description *string `json:"description"`
-			AvatarURL   *string `json:"avatar_url"`
-			BannerURL   *string `json:"banner_url"`
-			Logo        *string `json:"logo"`
-			Banner      *string `json:"banner"`
+			AvatarURL           *string `json:"avatar_url"`
+			BannerURL           *string `json:"banner_url"`
+			Logo                *string `json:"logo"`
+			Banner              *string `json:"banner"`
+			BankName            *string `json:"bank_name"`
+			BankAccountNumber   *string `json:"bank_account_number"`
+			BankAccountHolder   *string `json:"bank_account_holder"`
+			PaymentInstructions *string `json:"payment_instructions"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -240,6 +257,22 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 		if bannerURL != nil {
 			query += ", banner_url = ?"
 			args = append(args, *bannerURL)
+		}
+		if req.BankName != nil {
+			query += ", bank_name = ?"
+			args = append(args, *req.BankName)
+		}
+		if req.BankAccountNumber != nil {
+			query += ", bank_account_number = ?"
+			args = append(args, *req.BankAccountNumber)
+		}
+		if req.BankAccountHolder != nil {
+			query += ", bank_account_holder = ?"
+			args = append(args, *req.BankAccountHolder)
+		}
+		if req.PaymentInstructions != nil {
+			query += ", payment_instructions = ?"
+			args = append(args, *req.PaymentInstructions)
 		}
 
 		query += " WHERE uuid = ? OR user_id = ?"

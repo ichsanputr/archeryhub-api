@@ -2,9 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // mediaBaseURL returns the base URL for media links based on STAGE:
@@ -23,6 +26,11 @@ func mediaBaseURL() string {
 		port = "8001"
 	}
 	return fmt.Sprintf("http://localhost:%s", port)
+}
+
+// GetAPIBaseURL returns the API base URL
+func GetAPIBaseURL() string {
+	return mediaBaseURL()
 }
 
 // MaskMediaURL converts a filename stored in the database to a full URL.
@@ -44,7 +52,7 @@ func MaskMediaURL(filename string) string {
 	// Clean the filename (extract base if it was a path)
 	cleanName := filepath.Base(filename)
 
-	return fmt.Sprintf("%s/api/v1/media/%s", baseURL, cleanName)
+	return fmt.Sprintf("%s/media/%s", baseURL, cleanName)
 }
 
 // ExtractFilename removes the base URL or path from a string to get only the filename.
@@ -61,3 +69,56 @@ func ExtractFilename(url string) string {
 
 	return url
 }
+
+// DownloadAndSaveGoogleAvatar downloads a user's Google profile picture from pictureURL,
+// saves it into the local media folder, and returns the stored filename.
+func DownloadAndSaveGoogleAvatar(pictureURL string, userID string) (string, error) {
+	if pictureURL == "" {
+		return "", nil
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(pictureURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to download google avatar: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("google avatar HTTP status: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil || len(data) == 0 {
+		return "", fmt.Errorf("failed to read avatar image body: %v", err)
+	}
+
+	ext := ".jpg"
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "png") {
+		ext = ".png"
+	} else if strings.Contains(contentType, "webp") {
+		ext = ".webp"
+	} else if strings.Contains(contentType, "gif") {
+		ext = ".gif"
+	}
+
+	mediaDir := "./media"
+	if err := os.MkdirAll(mediaDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create media dir: %w", err)
+	}
+
+	shortID := userID
+	if len(userID) >= 8 {
+		shortID = userID[:8]
+	}
+	filename := fmt.Sprintf("avatar_google_%s_%d%s", shortID, time.Now().Unix(), ext)
+	filePath := filepath.Join(mediaDir, filename)
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write avatar file: %w", err)
+	}
+
+	return filename, nil
+}
+

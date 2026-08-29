@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UpdatePasswordRequest represents the password update request
@@ -63,9 +64,16 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update the password (store as plain text) and increment token_version to invalidate other sessions
+		// Hash the new password securely with bcrypt
+		hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses password"})
+			return
+		}
+
+		// Update password hash and increment token_version to invalidate old sessions
 		updateQuery := "UPDATE " + table + " SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?"
-		_, err = db.Exec(updateQuery, req.NewPassword, userID)
+		_, err = db.Exec(updateQuery, string(hashedBytes), userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui password"})
 			return
@@ -106,14 +114,11 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		table := "archers"
-		nameField := "full_name"
 		switch userType {
 		case "organizer":
 			table = "organizers"
-			nameField = "name"
 		case "seller":
 			table = "sellers"
-			nameField = "store_name"
 		}
 
 		var user struct {
@@ -141,14 +146,12 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			SocialPinterest *string `json:"social_pinterest" db:"social_pinterest"`
 			SocialLinkedin  *string `json:"social_linkedin" db:"social_linkedin"`
 		}
-
-		nameField = nameField // Already set above
 		
 		var selectFields string
 		if userType == "archer" {
 			selectFields = `uuid, email, full_name, username, 'archer' as user_type, avatar_url, NULL as logo_url,
 				CASE WHEN password IS NOT NULL AND password != '' THEN true ELSE false END as has_password,
-				google_id, club_id, phone, city, address, bio, country, social_instagram, social_tiktok, social_whatsapp,
+				google_id, club_id, phone, NULL as city, address, bio, country, social_instagram, social_tiktok, social_whatsapp,
 				social_youtube, social_spotify, social_website, social_pinterest, social_linkedin`
 		} else if userType == "organizer" {
 			selectFields = `uuid, email, name as full_name, slug as username, 'organizer' as user_type, avatar_url, avatar_url as logo_url,
@@ -369,9 +372,57 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", club_id = ?"
 			args = append(args, *req.ClubID)
 		}
+		if req.NIK != nil {
+			query += ", nik = ?"
+			args = append(args, *req.NIK)
+		}
+		if req.DateOfBirth != nil {
+			query += ", date_of_birth = ?"
+			args = append(args, *req.DateOfBirth)
+		}
+		if req.Gender != nil {
+			query += ", gender = ?"
+			args = append(args, *req.Gender)
+		}
+		if req.BloodType != nil {
+			query += ", blood_type = ?"
+			args = append(args, *req.BloodType)
+		}
+		if req.HandDominance != nil {
+			query += ", hand_dominance = ?"
+			args = append(args, *req.HandDominance)
+		}
+		if req.HeightCM != nil {
+			query += ", height_cm = ?"
+			args = append(args, *req.HeightCM)
+		}
+		if req.WeightKG != nil {
+			query += ", weight_kg = ?"
+			args = append(args, *req.WeightKG)
+		}
+		if req.EmergencyContactName != nil {
+			query += ", emergency_contact_name = ?"
+			args = append(args, *req.EmergencyContactName)
+		}
+		if req.EmergencyContactPhone != nil {
+			query += ", emergency_contact_phone = ?"
+			args = append(args, *req.EmergencyContactPhone)
+		}
+		if req.Province != nil {
+			query += ", province = ?"
+			args = append(args, *req.Province)
+		}
 		if req.City != nil {
 			query += ", city = ?"
 			args = append(args, *req.City)
+		}
+		if req.PostalCode != nil {
+			query += ", postal_code = ?"
+			args = append(args, *req.PostalCode)
+		}
+		if req.BowType != nil {
+			query += ", bow_type = ?"
+			args = append(args, *req.BowType)
 		}
 		if req.Country != nil {
 			query += ", country = ?"
@@ -388,6 +439,34 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.SocialWhatsapp != nil {
 			query += ", social_whatsapp = ?"
 			args = append(args, *req.SocialWhatsapp)
+		}
+		if req.SocialFacebook != nil {
+			query += ", social_facebook = ?"
+			args = append(args, *req.SocialFacebook)
+		}
+		if req.SocialTwitter != nil {
+			query += ", social_twitter = ?"
+			args = append(args, *req.SocialTwitter)
+		}
+		if req.SocialYoutube != nil {
+			query += ", social_youtube = ?"
+			args = append(args, *req.SocialYoutube)
+		}
+		if req.SocialSpotify != nil {
+			query += ", social_spotify = ?"
+			args = append(args, *req.SocialSpotify)
+		}
+		if req.SocialWebsite != nil {
+			query += ", social_website = ?"
+			args = append(args, *req.SocialWebsite)
+		}
+		if req.SocialPinterest != nil {
+			query += ", social_pinterest = ?"
+			args = append(args, *req.SocialPinterest)
+		}
+		if req.SocialLinkedin != nil {
+			query += ", social_linkedin = ?"
+			args = append(args, *req.SocialLinkedin)
 		}
 		if req.Achievements != nil {
 			query += ", achievements = ?"

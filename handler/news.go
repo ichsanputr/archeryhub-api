@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"strings"
@@ -262,11 +263,14 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			publishedAt = &now
 		}
 
+		sanitizedContent := utils.SanitizeHTML(req.Content)
+		sanitizedExcerpt := html.EscapeString(req.Excerpt)
+
 		_, err := db.Exec(`
 			INSERT INTO news (uuid, organization_id, club_id, title, slug, excerpt, content, image_url, 
 			                  category, tags, status, author_name, author_id, meta_title, meta_description, published_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, newsID, orgID, clubID, req.Title, slug, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
+		`, newsID, orgID, clubID, req.Title, slug, sanitizedExcerpt, sanitizedContent, utils.ExtractFilename(req.ImageURL),
 			req.Category, req.Tags, req.Status, authorName, userID, req.MetaTitle, req.MetaDescription, publishedAt)
 
 		if err != nil {
@@ -338,12 +342,15 @@ func UpdateNews(db *sqlx.DB) gin.HandlerFunc {
 			publishedAtUpdate = ", published_at = NOW()"
 		}
 
+		sanitizedContent := utils.SanitizeHTML(req.Content)
+		sanitizedExcerpt := html.EscapeString(req.Excerpt)
+
 		_, err = db.Exec(`
 			UPDATE news SET 
 				title = ?, excerpt = ?, content = ?, image_url = ?, 
 				category = ?, tags = ?, status = ?, meta_title = ?, meta_description = ?`+publishedAtUpdate+`
 			WHERE uuid = ?
-		`, req.Title, req.Excerpt, req.Content, utils.ExtractFilename(req.ImageURL),
+		`, req.Title, sanitizedExcerpt, sanitizedContent, utils.ExtractFilename(req.ImageURL),
 			req.Category, req.Tags, req.Status, req.MetaTitle, req.MetaDescription, article.UUID)
 
 		if err != nil {

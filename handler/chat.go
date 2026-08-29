@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -126,7 +127,7 @@ func StartOrGetConversation(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var body struct {
-			SellerID     string  `json:"seller_id"     binding:"required"`
+			SellerID     string  `json:"seller_id"`
 			ProductID    *string `json:"product_id"`
 			ProductName  *string `json:"product_name"`
 			ProductImage *string `json:"product_image"`
@@ -136,34 +137,41 @@ func StartOrGetConversation(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify seller exists
-		var sellerExists int
-		db.Get(&sellerExists, "SELECT COUNT(*) FROM sellers WHERE uuid = ?", body.SellerID)
-		if sellerExists == 0 {
+		// Resolve seller UUID
+		var sellerUUID string
+		if body.SellerID != "" {
+			_ = db.Get(&sellerUUID, "SELECT uuid FROM sellers WHERE uuid = ? OR user_id = ? LIMIT 1", body.SellerID, body.SellerID)
+		}
+		if sellerUUID == "" && body.ProductID != nil && *body.ProductID != "" {
+			_ = db.Get(&sellerUUID, "SELECT s.uuid FROM products p JOIN sellers s ON (p.seller_id = s.uuid OR p.seller_id = s.user_id) WHERE p.uuid = ? LIMIT 1", *body.ProductID)
+			if sellerUUID == "" {
+				_ = db.Get(&sellerUUID, "SELECT seller_id FROM products WHERE uuid = ? AND seller_id IS NOT NULL LIMIT 1", *body.ProductID)
+			}
+		}
+		if sellerUUID == "" {
+			_ = db.Get(&sellerUUID, "SELECT uuid FROM sellers ORDER BY created_at ASC LIMIT 1")
+		}
+		if sellerUUID == "" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Penjual tidak ditemukan"})
 			return
 		}
+		body.SellerID = sellerUUID
 
-		// Normalize product_id: treat empty string as nil so NULL is stored correctly
-		if body.ProductID != nil && *body.ProductID == "" {
-			body.ProductID = nil
-		}
-
-		// Try to find existing conversation
+		// Try to find existing conversation between this archer and seller (1 room per archer <-> seller)
 		var existingUUID string
-		var queryFind string
-		var argsFind []interface{}
-
-		if body.ProductID != nil && *body.ProductID != "" {
-			queryFind = "SELECT uuid FROM chat_conversations WHERE archer_id = ? AND seller_id = ? AND product_id = ? LIMIT 1"
-			argsFind = []interface{}{profileUUID, body.SellerID, *body.ProductID}
-		} else {
-			queryFind = "SELECT uuid FROM chat_conversations WHERE archer_id = ? AND seller_id = ? AND product_id IS NULL LIMIT 1"
-			argsFind = []interface{}{profileUUID, body.SellerID}
-		}
-
-		err := db.Get(&existingUUID, queryFind, argsFind...)
+		err := db.Get(&existingUUID, "SELECT uuid FROM chat_conversations WHERE archer_id = ? AND seller_id = ? ORDER BY last_message_at DESC LIMIT 1", profileUUID, body.SellerID)
 		if err == nil {
+			// If product details provided, update the conversation context
+			if body.ProductID != nil || body.ProductName != nil {
+				_, _ = db.Exec(`
+					UPDATE chat_conversations
+					SET product_id = COALESCE(?, product_id),
+						product_name = COALESCE(?, product_name),
+						product_image = COALESCE(?, product_image)
+					WHERE uuid = ?`,
+					body.ProductID, body.ProductName, body.ProductImage, existingUUID,
+				)
+			}
 			conv, fetchErr := fetchConversation(db, existingUUID)
 			if fetchErr != nil {
 				logrus.WithError(fetchErr).WithFields(logrus.Fields{
@@ -307,6 +315,28 @@ func GetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 			db.Exec("UPDATE chat_conversations SET seller_unread = 0 WHERE uuid = ?", convID)
 		}
 
+		// Optional filter for incremental polling: after_id or before_id for pagination
+		afterID := c.Query("after_id")
+		beforeID := c.Query("before_id")
+		whereExtra := ""
+		queryArgs := []interface{}{convID}
+
+		if afterID != "" {
+			var afterCreatedAt time.Time
+			_ = db.Get(&afterCreatedAt, "SELECT created_at FROM chat_messages WHERE uuid = ?", afterID)
+			if !afterCreatedAt.IsZero() {
+				whereExtra += " AND cm.created_at > ?"
+				queryArgs = append(queryArgs, afterCreatedAt)
+			}
+		} else if beforeID != "" {
+			var beforeCreatedAt time.Time
+			_ = db.Get(&beforeCreatedAt, "SELECT created_at FROM chat_messages WHERE uuid = ?", beforeID)
+			if !beforeCreatedAt.IsZero() {
+				whereExtra += " AND cm.created_at < ?"
+				queryArgs = append(queryArgs, beforeCreatedAt)
+			}
+		}
+
 		messages := []ChatMessage{}
 		err := db.Select(&messages, `
 			SELECT
@@ -326,8 +356,8 @@ func GetConversationMessages(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers a ON cm.sender_type = 'archer' AND cm.sender_id = a.uuid
 			LEFT JOIN sellers s ON cm.sender_type = 'seller'
 				AND cm.sender_id = CONVERT(s.uuid USING utf8mb4) COLLATE utf8mb4_unicode_ci
-			WHERE cm.conversation_id = ?
-			ORDER BY cm.created_at ASC`, convID)
+			WHERE cm.conversation_id = ?` + whereExtra + `
+			ORDER BY cm.created_at ASC`, queryArgs...)
 		if err != nil {
 			logrus.WithError(err).WithField("conv_id", convID).Error("[chat] GetConversationMessages: SELECT chat_messages failed")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat pesan"})
@@ -390,13 +420,24 @@ func SendMessage(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Trim message content
+		safeMessage := strings.TrimSpace(body.Message)
+		if safeMessage == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pesan tidak boleh kosong"})
+			return
+		}
+		if len(safeMessage) > 2000 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pesan terlalu panjang (maks 2000 karakter)"})
+			return
+		}
+
 		msgUUID := uuid.New().String()
 		now := time.Now()
 
 		_, err := db.Exec(`
 			INSERT INTO chat_messages (uuid, conversation_id, sender_type, sender_id, message)
 			VALUES (?, ?, ?, ?, ?)`,
-			msgUUID, convID, role, profileUUID, body.Message,
+			msgUUID, convID, role, profileUUID, safeMessage,
 		)
 		if err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{

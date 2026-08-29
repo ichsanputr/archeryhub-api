@@ -161,7 +161,7 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 
 		var archerUUID string
-		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
+		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? LIMIT 1`, fmt.Sprintf("%v", userID), fmt.Sprintf("%v", userID)); err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Atlet tidak ditemukan"})
 			return
 		}

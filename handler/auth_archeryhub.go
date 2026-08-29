@@ -15,6 +15,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // setAuthCookie sets the authentication cookie with appropriate security flags
@@ -122,6 +123,15 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 
 		userID := ""
 		isUpdate := false
+
+		// Hash password securely with bcrypt
+		hashedPassword := req.Password
+		if req.Password != "" {
+			hBytes, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if hErr == nil {
+				hashedPassword = string(hBytes)
+			}
+		}
 
 		if found {
 			// If it's an unverified archer and we're registering as an archer, allow verification
@@ -231,16 +241,23 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				insertQuery := `
-					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, city, bow_type, club_id)
-					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
+					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, bow_type, club_id)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
 				`
-				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.City, req.BowType, clubID)
+				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.BowType, clubID)
 			}
 		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
+		}
+
+		// Send welcome email (async, don't block registration)
+		if req.UserType == "archer" && !isUpdate {
+			go func() {
+				_ = utils.SendArcherWelcomeEmail(req.Email, req.FullName, req.Email, req.Password)
+			}()
 		}
 
 		// Generate JWT token
@@ -502,8 +519,11 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify password (plain text comparison)
-		if user.Password != req.Password {
+		// Verify password (supports bcrypt hash and fallback plain text for legacy accounts)
+		isBcryptMatch := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) == nil
+		isPlainTextMatch := user.Password == req.Password
+
+		if !isBcryptMatch && !isPlainTextMatch {
 			if os.Getenv("ENV") == "development" {
 				log.Printf("[auth] login password mismatch email=%q (db_len=%d req_len=%d)", req.Email, len(user.Password), len(req.Password))
 			}

@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
@@ -205,3 +205,50 @@ func DeleteScorekeeper(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// RegenerateScorekeeperCode generates a fresh unique code for a scorekeeper without deleting the account.
+// This is useful when a code is suspected to be compromised during a live event.
+func RegenerateScorekeeperCode(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		orgUUID, _ := c.Get("user_id")
+		scorekeeperID := c.Param("id")
+
+		// Verify ownership: only the scorekeeper's own organizer can regenerate
+		var ownerOrg string
+		err := db.Get(&ownerOrg, "SELECT organization_uuid FROM scorekeepers WHERE uuid = ?", scorekeeperID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Scorekeeper tidak ditemukan"})
+			return
+		}
+		if ownerOrg != fmt.Sprintf("%v", orgUUID) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses untuk mengubah kode scorekeeper ini"})
+			return
+		}
+
+		// Generate a fresh unique code
+		var newCode string
+		for {
+			newCode = generateScorekeeperCode()
+			var exists bool
+			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM scorekeepers WHERE code = ? AND uuid != ?)", newCode, scorekeeperID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+				return
+			}
+			if !exists {
+				break
+			}
+		}
+
+		_, err = db.Exec("UPDATE scorekeepers SET code = ?, updated_at = NOW() WHERE uuid = ?", newCode, scorekeeperID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui kode: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Kode scorekeeper berhasil diperbarui",
+			"uuid":     scorekeeperID,
+			"new_code": newCode,
+		})
+	}
+}

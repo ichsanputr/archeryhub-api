@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"Archeris-api/database"
 	"Archeris-api/handler"
@@ -135,6 +136,9 @@ func main() {
 	middleware.DB = db
 
 	// Initialize Gin router
+	if os.Getenv("GIN_MODE") != "debug" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
 
 	// CORS middleware
@@ -163,7 +167,7 @@ func main() {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Credentials", "true")
 		} else {
-			c.Header("Access-Control-Allow-Origin", "*")
+			c.Header("Access-Control-Allow-Origin", "https://archeris.net")
 		}
 
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
@@ -174,6 +178,16 @@ func main() {
 			return
 		}
 
+		c.Next()
+	})
+
+	// Security headers middleware
+	r.Use(func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("X-XSS-Protection", "1; mode=block")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
 		c.Next()
 	})
 
@@ -199,6 +213,7 @@ func main() {
 	})
 
 	// Media is served via handlers under /media (see routes below).
+	r.Static("/uploads", "./uploads")
 
 	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -264,8 +279,18 @@ func main() {
 			auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 		}
 
+		// Payment cleanup endpoint & background ticker
+		api.POST("/payment/cleanup-expired", handler.CleanupExpiredPayments(db))
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			for range ticker.C {
+				_, _ = handler.PerformPaymentCleanup(db)
+			}
+		}()
+
 		// Public Subscription routes
 		api.GET("/public/subscription/comparison", handler.GetSubscriptionComparison())
+		api.GET("/public/quota/plans", handler.GetPublicQuotaPlans(db))
 
 		// User routes
 		user := api.Group("/user")
@@ -300,6 +325,7 @@ func main() {
 			events.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 			events.POST("/participants/:participantId/payment", middleware.AuthMiddleware(), handler.CreateParticipantPayment(db))
 			events.GET("/:id/teams", handler.GetEventTeams(db))
+			events.GET("/:id/my-team", middleware.AuthMiddleware(), handler.GetMyEventTeam(db))
 			events.GET("/:id/images", handler.GetEventImages(db))
 			events.GET("/:id/schedule", handler.GetEventSchedule(db))
 			events.GET("/:id/target-names", handler.GetTargetNames(db))
@@ -321,16 +347,28 @@ func main() {
 				protected.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateEvent(db))
 				protected.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteEvent(db))
 				protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
-				protected.POST("/:id/reset", middleware.RequireActivePlan(db), handler.ResetEventData(db))
-				protected.POST("/:id/reset/request-code", middleware.RequireActivePlan(db), handler.RequestResetCode(db))
 				protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
 				protected.POST("/:id/categories", middleware.RequireActivePlan(db), handler.CreateEventCategory(db))
 				protected.POST("/:id/categories/batch", middleware.RequireActivePlan(db), handler.CreateEventCategories(db))
 				protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
 				protected.PUT("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.UpdateEventCategory(db))
 				protected.DELETE("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.DeleteEventCategory(db))
-				protected.POST("/:id/participants", middleware.RequireActivePlan(db), handler.RegisterParticipant(db))
+				protected.POST("/:id/participants", handler.RegisterParticipant(db))
 				protected.POST("/:id/participants/batch", middleware.RequireActivePlan(db), handler.BatchRegisterParticipants(db))
+				protected.POST("/:id/participants/import-csv", middleware.RequireActivePlan(db), handler.ImportParticipantsCSV(db))
+				
+				// Multi-payment per participant
+				protected.GET("/:id/participants/:participantId/payments", handler.GetParticipantPayments(db))
+				protected.POST("/:id/participants/:participantId/payments", handler.AddParticipantPayment(db))
+				protected.PATCH("/:id/participants/:participantId/approve-payment", handler.ApproveParticipantPayment(db))
+				
+				// Certificate distribution & management
+				protected.POST("/:id/certificates/upload-zip", handler.UploadCertificatesZIP(db))
+				protected.GET("/:id/certificates/upload-batches", handler.GetCertificateUploadBatches(db))
+				protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
+				protected.GET("/:id/certificates", handler.GetEventCertificates(db))
+				protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
+
 				protected.PUT("/:id/images", middleware.RequireActivePlan(db), handler.UpdateEventImages(db))
 				protected.PUT("/:id/schedule", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
 				protected.POST("/:id/payment-methods", middleware.RequireActivePlan(db), handler.CreateEventPaymentMethod(db))
@@ -417,6 +455,9 @@ func main() {
 		events.GET("/:id/targets/options", handler.GetTargetOptions(db))
 		events.GET("/:id/targets/:target_id", handler.GetTargetDetails(db))
 
+		// Archer personal target assignment (requires auth)
+		events.GET("/:id/my-target", middleware.AuthMiddleware(), handler.GetMyEventTarget(db))
+
 		// Event category reference routes
 		api.GET("/event-categories", handler.ListEventCategoryRefs(db))
 		api.POST("/event-categories", handler.CreateEventCategoryRef(db))
@@ -438,13 +479,20 @@ func main() {
 			protected := archers.Group("")
 			protected.Use(middleware.AuthMiddleware())
 			{
-				protected.GET("/me/stats", handler.GetMyArcherStats(db))
+				protected.GET("/my/stats", handler.GetMyArcherStats(db))
 				protected.GET("/my/events", handler.GetMyArcherEvents(db))
+				protected.GET("/my/certificates", handler.GetArcherCertificates(db))
 				protected.POST("", handler.CreateArcher(db))
 				protected.PUT("/:id", handler.UpdateArcher(db))
 				protected.DELETE("/:id", handler.DeleteArcher(db))
 			}
 		}
+
+		// Certificate public & organizer routes
+		api.GET("/certificates/:id/pdf", handler.GenerateCertificatePDF(db))
+		api.GET("/certificates/verify/:cert_no", handler.VerifyCertificate(db))
+		api.GET("/events/:id/certificate-template", middleware.AuthMiddleware(), handler.GetCertificateTemplate(db))
+		api.POST("/events/:id/certificate-template", middleware.AuthMiddleware(), handler.SaveCertificateTemplate(db))
 
 		// Reference data routes
 		api.GET("/disciplines", handler.GetDisciplines(db))
@@ -539,9 +587,10 @@ func main() {
 			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/tripay/callback", handler.PaymentCallback(db))
+			payment.POST("/quota/tripay/callback", handler.QuotaTripayCallback(db))
 			payment.POST("/paddle/initiate", middleware.AuthMiddleware(), handler.InitiatePaddlePayment(db))
 			payment.POST("/paddle/callback", handler.PaddleWebhookCallback(db))
-			payment.GET("/simulate-success/:reference", handler.SimulatePaymentSuccess(db))
+			payment.GET("/simulate-success/:reference", middleware.AuthMiddleware(), handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
 
 			// Manual payment routes
@@ -690,34 +739,40 @@ func main() {
 				mobileArcher.DELETE("/payments/:identifier/cancel", mobilehandler.MobileCancelPayment(db))
 			}
 
-			mobileOrganization := mobile.Group("/organizer")
-			mobileOrganization.Use(middleware.AuthMiddleware())
-			{
-				mobileOrganization.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
-				mobileOrganization.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
-				mobileOrganization.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
-				mobileOrganization.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
-				mobileOrganization.GET("/events/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
-				mobileOrganization.DELETE("/events/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
-				mobileOrganization.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
-				mobileOrganization.GET("/scan/history", mobilehandler.MobileGetScanHistory(db))
-				mobileOrganization.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
+			registerOrgRoutes := func(g *gin.RouterGroup) {
+				g.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
+				g.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
+				g.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
+				g.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
+				g.GET("/events/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
+				g.DELETE("/events/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
+				g.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
+				g.GET("/scan/history", mobilehandler.MobileGetScanHistory(db))
+				g.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
 
 				// Broadcasts
-				mobileOrganization.GET("/events/:id/broadcasts", mobilehandler.MobileGetEventBroadcasts(db))
-				mobileOrganization.GET("/events/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
-				mobileOrganization.POST("/events/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
+				g.GET("/events/:id/broadcasts", mobilehandler.MobileGetEventBroadcasts(db))
+				g.GET("/events/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
+				g.POST("/events/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
 
 				// Finance
-				mobileOrganization.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))
-				mobileOrganization.GET("/finance/balance", mobilehandler.MobileGetOrganizationWallet(db))
-				mobileOrganization.GET("/finance/bank-accounts", mobilehandler.MobileGetOrganizationBankAccounts(db))
-				mobileOrganization.POST("/finance/bank-accounts", mobilehandler.MobileAddOrganizationBankAccount(db))
-				mobileOrganization.PUT("/finance/bank-accounts/:id", mobilehandler.MobileUpdateOrganizationBankAccount(db))
-				mobileOrganization.DELETE("/finance/bank-accounts/:id", mobilehandler.MobileDeleteOrganizationBankAccount(db))
-				mobileOrganization.POST("/finance/withdraw", mobilehandler.MobileCreateWithdrawal(db))
-				mobileOrganization.GET("/finance/withdrawals", handler.GetWithdrawals(db))
+				g.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))
+				g.GET("/finance/balance", mobilehandler.MobileGetOrganizationWallet(db))
+				g.GET("/finance/bank-accounts", mobilehandler.MobileGetOrganizationBankAccounts(db))
+				g.POST("/finance/bank-accounts", mobilehandler.MobileAddOrganizationBankAccount(db))
+				g.PUT("/finance/bank-accounts/:id", mobilehandler.MobileUpdateOrganizationBankAccount(db))
+				g.DELETE("/finance/bank-accounts/:id", mobilehandler.MobileDeleteOrganizationBankAccount(db))
+				g.POST("/finance/withdraw", mobilehandler.MobileCreateWithdrawal(db))
+				g.GET("/finance/withdrawals", handler.GetWithdrawals(db))
 			}
+
+			mobileOrganizer := mobile.Group("/organizer")
+			mobileOrganizer.Use(middleware.AuthMiddleware())
+			registerOrgRoutes(mobileOrganizer)
+
+			mobileOrganization := mobile.Group("/organization")
+			mobileOrganization.Use(middleware.AuthMiddleware())
+			registerOrgRoutes(mobileOrganization)
 
 			mobileSeller := mobile.Group("/seller")
 			mobileSeller.Use(middleware.AuthMiddleware())
@@ -810,6 +865,11 @@ func main() {
 				protectedOrgs.PUT("/me", handler.UpdateOrganizationProfile(db))
 				protectedOrgs.GET("/stats", handler.GetOrganizationDashboardStats(db))
 
+				// Quota management
+				protectedOrgs.GET("/me/quota", handler.GetMyQuota(db))
+				protectedOrgs.GET("/me/quota/history", handler.GetQuotaHistory(db))
+				protectedOrgs.POST("/me/quota/purchase", handler.PurchaseQuota(db))
+
 				// Reports
 				reports := protectedOrgs.Group("/reports")
 				{
@@ -826,6 +886,7 @@ func main() {
 					scorekeepers.POST("", middleware.RequireActivePlan(db), handler.CreateScorekeeper(db))
 					scorekeepers.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateScorekeeper(db))
 					scorekeepers.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteScorekeeper(db))
+					scorekeepers.POST("/:id/regenerate", middleware.RequireActivePlan(db), handler.RegenerateScorekeeperCode(db))
 				}
 
 				// Bank accounts
@@ -921,22 +982,26 @@ func main() {
 			sellersProtected.POST("/wallet/withdrawals", handler.CreateWithdrawal(db))
 		}
 
-		// Order routes (seller) Ã¢â‚¬â€ also accessible as /api/v1/orders
+		// Order routes (seller) — also accessible as /api/v1/orders
 		ordersGroup := api.Group("/orders")
 		ordersGroup.Use(middleware.AuthMiddleware())
 		{
+			ordersGroup.POST("", handler.CreateMarketplaceOrder(db))
 			ordersGroup.GET("", handler.GetSellerOrders(db))
 			ordersGroup.GET("/:id", handler.GetSellerOrderByID(db))
 			ordersGroup.GET("/export", handler.ExportSellerOrders(db))
 			ordersGroup.GET("/stats", handler.GetSellerStats(db))
 			ordersGroup.PUT("/:id/status", handler.UpdateOrderStatus(db))
+			ordersGroup.PATCH("/:id/approve-payment", handler.ApproveSellerOrderPayment(db))
+			ordersGroup.POST("/:id/upload-proof", handler.UploadOrderProof(db))
 		}
 
 		// Media routes
 		media := api.Group("/media")
 		{
 			// Public media access
-			media.GET("/:filename", handler.GetMedia())
+			media.GET("/:filename", handler.GetMedia(db))
+			r.GET("/api/v1/media/:filename", handler.GetMedia(db))
 
 			// Protected media routes
 			protectedMedia := media.Group("")
@@ -959,12 +1024,17 @@ func main() {
 
 		// Event registration is handled via POST /events/:id/participants
 
-		// Get port from environment
+		// Get host and port from environment
+		host := os.Getenv("HOST")
+		if host == "" {
+			host = "0.0.0.0"
+		}
 		port := os.Getenv("PORT")
 		if port == "" {
 			port = "8001"
 		}
 
-		logger.Fatal(r.Run(":" + port))
+		logger.Infof("Server listening on %s:%s", host, port)
+		logger.Fatal(r.Run(host + ":" + port))
 	}
 }

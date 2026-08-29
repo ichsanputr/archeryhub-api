@@ -553,7 +553,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				a.username,
 				COALESCE(a.full_name, '') as full_name,
 				COALESCE(a.email, '') as email,
-				a.city,
+				'' as city,
 				a.club_id,
 				NULLIF(COALESCE(cl.name, ''), '') as club_name,
 				tp.event_id,
@@ -650,7 +650,7 @@ func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				a.uuid, a.id, a.username, a.full_name, a.email, a.avatar_url,
 				a.phone, a.gender, CAST(a.date_of_birth AS CHAR) as date_of_birth,
-				a.city, a.address, a.bow_type,
+				'' as city, a.address, a.bow_type,
 				a.club_id, c.name as club_name
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
@@ -719,7 +719,6 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 		if req.Phone != nil { query += ", phone = ?"; args = append(args, *req.Phone) }
 		if req.Gender != nil { query += ", gender = ?"; args = append(args, *req.Gender) }
 		if req.DateOfBirth != nil { query += ", date_of_birth = ?"; args = append(args, *req.DateOfBirth) }
-		if req.City != nil { query += ", city = ?"; args = append(args, *req.City) }
 		if req.Address != nil { query += ", address = ?"; args = append(args, *req.Address) }
 		if req.BowType != nil { query += ", bow_type = ?"; args = append(args, *req.BowType) }
 		if req.AvatarURL != nil { query += ", avatar_url = ?"; args = append(args, *req.AvatarURL) }

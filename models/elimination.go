@@ -54,4 +54,5 @@ type EliminationResultsResponse struct {
 	ArrowsPerEnd   int                              `json:"arrows_per_end"`
 	GeneratedAt    *string                          `json:"generated_at"`
 	MatchesByRound map[int][]EliminationMatch `json:"matches"`
+	RoundsByRound  map[int][]EliminationMatch `json:"rounds"`
 }

@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/utils"
@@ -119,6 +119,16 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+
+		// Verification: ensure bank_account_id belongs to the logged-in user
+		if req.BankAccountID != "" {
+			var isOwnBank bool
+			_ = db.Get(&isOwnBank, "SELECT EXISTS(SELECT 1 FROM bank_accounts WHERE uuid = ? AND user_id = ?)", req.BankAccountID, userID)
+			if !isOwnBank {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Rekening bank yang dipilih bukan milik Anda"})
+				return
+			}
 		}
 
 		tx, err := db.Beginx()

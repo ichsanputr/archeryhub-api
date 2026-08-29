@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -57,4 +58,39 @@ func IsValidUsername(username string) bool {
 	}
 	
 	return true
+}
+
+// SanitizeHTML strips script tags, iframe, object, embed, javascript URLs, and inline event handlers to prevent XSS.
+func SanitizeHTML(input string) string {
+	if input == "" {
+		return ""
+	}
+	s := input
+
+	// List of dangerous tags to completely remove with their content
+	dangerousPatterns := []string{
+		`(?i)<script[\s\S]*?</script>`,
+		`(?i)<script[^>]*>`,
+		`(?i)</script>`,
+		`(?i)<iframe[\s\S]*?</iframe>`,
+		`(?i)<iframe[^>]*>`,
+		`(?i)</iframe>`,
+		`(?i)<object[\s\S]*?</object>`,
+		`(?i)<embed[\s\S]*?</embed>`,
+		`(?i)<applet[\s\S]*?</applet>`,
+		`(?i)<form[\s\S]*?</form>`,
+		`(?i)<input[^>]*>`,
+		`(?i)javascript:`,
+		`(?i)data:text/html`,
+		`(?i)vbscript:`,
+		`(?i)\s+on\w+\s*=\s*(['"]).*?\1`,
+		`(?i)\s+on\w+\s*=\s*[^>\s]+`,
+	}
+
+	for _, pattern := range dangerousPatterns {
+		re := regexp.MustCompile(pattern)
+		s = re.ReplaceAllString(s, "")
+	}
+
+	return strings.TrimSpace(s)
 }

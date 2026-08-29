@@ -66,6 +66,17 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Authorization check: verify owner or admin if user is authenticated
+		userID, exists := c.Get("user_id")
+		userRole, _ := c.Get("role")
+		if exists && userID != nil {
+			userIDStr := fmt.Sprintf("%v", userID)
+			if userRole != "admin" && userRole != "root" && t.UserID != userIDStr {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses ke invoice transaksi ini"})
+				return
+			}
+		}
+
 		if t.Status != "paid" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Hanya transaksi lunas yang dapat mengeluarkan invoice"})
 			return

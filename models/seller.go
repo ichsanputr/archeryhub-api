@@ -28,20 +28,28 @@ type Seller struct {
 	ChatResponseTime string     `json:"chat_response_time" db:"chat_response_time"`
 	LastActiveAt     *time.Time `json:"last_active_at" db:"last_active_at"`
 	Status           string     `json:"status" db:"status"` // pending, active, suspended
+	BankName         *string    `json:"bank_name" db:"bank_name"`
+	BankAccountNumber *string   `json:"bank_account_number" db:"bank_account_number"`
+	BankAccountHolder *string   `json:"bank_account_holder" db:"bank_account_holder"`
+	PaymentInstructions *string `json:"payment_instructions" db:"payment_instructions"`
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // UpdateSellerRequest represents the payload to update a seller's profile
 type UpdateSellerRequest struct {
-	StoreName    *string `json:"store_name"`
-	Slug         *string `json:"slug"`
-	Description  *string `json:"description"`
-	AvatarURL    *string `json:"avatar_url"`
-	BannerURL    *string `json:"banner_url"`
-	Phone        *string `json:"phone"`
-	Email        *string `json:"email"`
-	Address      *string `json:"address"`
-	City         *string `json:"city"`
-	Province     *string `json:"province"`
+	StoreName           *string `json:"store_name"`
+	Slug                *string `json:"slug"`
+	Description         *string `json:"description"`
+	AvatarURL           *string `json:"avatar_url"`
+	BannerURL           *string `json:"banner_url"`
+	Phone               *string `json:"phone"`
+	Email               *string `json:"email"`
+	Address             *string `json:"address"`
+	City                *string `json:"city"`
+	Province            *string `json:"province"`
+	BankName            *string `json:"bank_name"`
+	BankAccountNumber   *string `json:"bank_account_number"`
+	BankAccountHolder   *string `json:"bank_account_holder"`
+	PaymentInstructions *string `json:"payment_instructions"`
 }

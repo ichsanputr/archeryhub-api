@@ -22,9 +22,10 @@ type Product struct {
 	Images         *string   `json:"images" db:"images"`                 // JSON array
 	Colors         *string   `json:"colors" db:"colors"`                 // JSON array
 	Specifications *string   `json:"specifications" db:"specifications"` // JSON object
-	Views          int       `json:"views" db:"views"`
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
+	AllowedPaymentMethods *string   `json:"allowed_payment_methods" db:"allowed_payment_methods"`
+	Views                 int       `json:"views" db:"views"`
+	CreatedAt             time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type EnrichedProduct struct {
@@ -34,32 +35,34 @@ type EnrichedProduct struct {
 
 // CreateProductRequest represents the payload to create a new product
 type CreateProductRequest struct {
-	Name           string   `json:"name" binding:"required"`
-	Description    *string  `json:"description"`
-	Price          float64  `json:"price" binding:"required"`
-	SalePrice      *float64 `json:"sale_price"`
-	Category       string   `json:"category" binding:"required"`
-	Stock          int      `json:"stock"`
-	Status         string   `json:"status"`
-	ImageURL       *string  `json:"image_url"`
-	Images         []string `json:"images"`
-	Colors         []string `json:"colors"`
-	Specifications any      `json:"specifications"`
+	Name                  string   `json:"name" binding:"required"`
+	Description           *string  `json:"description"`
+	Price                 float64  `json:"price" binding:"required"`
+	SalePrice             *float64 `json:"sale_price"`
+	Category              string   `json:"category" binding:"required"`
+	Stock                 int      `json:"stock"`
+	Status                string   `json:"status"`
+	ImageURL              *string  `json:"image_url"`
+	Images                []string `json:"images"`
+	Colors                []string `json:"colors"`
+	Specifications        any      `json:"specifications"`
+	AllowedPaymentMethods []string `json:"allowed_payment_methods"`
 }
 
 // UpdateProductRequest represents the payload to update an existing product
 type UpdateProductRequest struct {
-	Name           *string  `json:"name"`
-	Description    *string  `json:"description"`
-	Price          *float64 `json:"price"`
-	SalePrice      *float64 `json:"sale_price"`
-	Category       *string  `json:"category"`
-	Stock          *int     `json:"stock"`
-	Status         *string  `json:"status"`
-	ImageURL       *string  `json:"image_url"`
-	Images         []string `json:"images"`
-	Colors         []string `json:"colors"`
-	Specifications any      `json:"specifications"`
+	Name                  *string  `json:"name"`
+	Description           *string  `json:"description"`
+	Price                 *float64 `json:"price"`
+	SalePrice             *float64 `json:"sale_price"`
+	Category              *string  `json:"category"`
+	Stock                 *int     `json:"stock"`
+	Status                *string  `json:"status"`
+	ImageURL              *string  `json:"image_url"`
+	Images                []string `json:"images"`
+	Colors                []string `json:"colors"`
+	Specifications        any      `json:"specifications"`
+	AllowedPaymentMethods []string `json:"allowed_payment_methods"`
 }
 
 // CartItem represents an item in a user's shopping cart
@@ -73,6 +76,7 @@ type CartItem struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
 	// Joined data
+	SellerID       string   `json:"seller_id" db:"seller_id"`
 	ProductName    string   `json:"product_name" db:"product_name"`
 	ProductPrice   float64  `json:"product_price" db:"product_price"`
 	ProductSale    *float64 `json:"product_sale_price" db:"product_sale_price"`

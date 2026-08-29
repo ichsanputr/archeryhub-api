@@ -34,16 +34,22 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id wajib diisi"})
-			return
-		}
-
 		// Resolve event UUID (allow slug)
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		if categoryID == "" {
+			_ = db.Get(&categoryID, `SELECT uuid FROM event_categories WHERE event_id = ? ORDER BY created_at ASC LIMIT 1`, eventUUID)
+		}
+
+		if categoryID == "" {
+			c.JSON(http.StatusOK, models.QualificationResultsResponse{
+				Leaderboard: []models.QualificationEntry{},
+			})
 			return
 		}
 
@@ -218,17 +224,16 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "category_id wajib diisi"})
-			return
-		}
-
 		// Resolve event UUID (allow slug)
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
+		}
+
+		if categoryID == "" {
+			_ = db.Get(&categoryID, `SELECT uuid FROM event_categories WHERE event_id = ? ORDER BY created_at ASC LIMIT 1`, eventUUID)
 		}
 
 		// Get bracket for this category
@@ -472,6 +477,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				ArrowsPerEnd:   bracket.ArrowsPerEnd,
 				GeneratedAt:    bracket.GeneratedAt,
 				MatchesByRound: matchesByRound,
+				RoundsByRound:  matchesByRound,
 			},
 		})
 	}

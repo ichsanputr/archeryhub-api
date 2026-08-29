@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		userType, _ := c.Get("user_type")
-		
+
 		if userID == nil {
 			userID = "guest"
 		}
@@ -68,10 +68,10 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 		allowedTypes := []string{
 			"image/jpeg", "image/png", "image/gif", "image/webp",
 			"application/pdf",
-			"application/msword",                                                                						// .doc
+			"application/msword",                                                      // .doc
 			"application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-			"application/vnd.ms-excel",                                                                					// .xls
-			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",     // .xlsx
+			"application/vnd.ms-excel",                                                // .xls
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       // .xlsx
 		}
 		contentType := header.Header.Get("Content-Type")
 		if idx := strings.Index(contentType, ";"); idx >= 0 {
@@ -117,12 +117,12 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 				ext = ".bin"
 			}
 		}
-		
+
 		// Get caption from form
 		caption := c.PostForm("caption")
 		fileID := uuid.New().String()
 		var filename string
-		
+
 		if caption != "" {
 			// Slugify caption: lowercase, replace spaces with hyphens, remove special chars
 			slug := strings.ToLower(caption)
@@ -178,7 +178,7 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO media (uuid, user_id, user_type, url, caption, mime_type, size)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, fileID, userID, userType, filename, caption, contentType, written)
-		
+
 		if err != nil {
 			fmt.Printf("[ERROR] Failed to save media to database: %v\n", err)
 			// We don't return error here because the file is already uploaded successfully
@@ -189,23 +189,56 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // GetMedia serves a media file
-// GET /media/:filename
-func GetMedia() gin.HandlerFunc {
+// GET /media/:filename or GET /api/v1/media/:filename
+func GetMedia(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		filename := c.Param("filename")
-		
-		// Sanitize filename to prevent directory traversal
-		filename = filepath.Base(filename)
-		
-		filePath := filepath.Join("./media", filename)
-		
-		// Check if file exists
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+
+		// Handle SVG avatar generator requests: /media/svg?seed=...
+		if filename == "svg" {
+			seed := c.Query("seed")
+			if seed == "" {
+				seed = "default"
+			}
+			c.Redirect(http.StatusFound, fmt.Sprintf("https://api.dicebear.com/7.x/avataaars/svg?seed=%s", seed))
 			return
 		}
-		
-		c.File(filePath)
+
+		// Sanitize filename to prevent directory traversal
+		cleanName := filepath.Base(filename)
+
+		// 1. Direct file check on disk
+		filePath := filepath.Join("./media", cleanName)
+		if _, err := os.Stat(filePath); err == nil {
+			c.File(filePath)
+			return
+		}
+
+		// 2. Try querying media table in database by UUID or URL filename
+		if db != nil {
+			var dbURL string
+			err := db.Get(&dbURL, "SELECT url FROM media WHERE uuid = ? OR url = ? LIMIT 1", cleanName, cleanName)
+			if err == nil && dbURL != "" {
+				dbClean := filepath.Base(dbURL)
+				dbPath := filepath.Join("./media", dbClean)
+				if _, err := os.Stat(dbPath); err == nil {
+					c.File(dbPath)
+					return
+				}
+			}
+		}
+
+		// 3. Fallback: try common extensions (.jpg, .png, .jpeg, .webp)
+		exts := []string{".jpg", ".png", ".jpeg", ".webp", ".gif", ".pdf"}
+		for _, ext := range exts {
+			altPath := filepath.Join("./media", cleanName+ext)
+			if _, err := os.Stat(altPath); err == nil {
+				c.File(altPath)
+				return
+			}
+		}
+
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 	}
 }
 
@@ -253,66 +286,52 @@ func ListMedia(db *sqlx.DB) gin.HandlerFunc {
 		var mediaFiles []MediaListResponse
 		query := `SELECT uuid as id, caption as filename, url, size, mime_type, created_at FROM media WHERE user_id = ? AND user_type = ? ORDER BY created_at DESC`
 		err := db.Select(&mediaFiles, query, userID, userType)
-		
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch media library", "details": err.Error()})
 			return
 		}
 
+		// Format URL for response
 		for i := range mediaFiles {
 			mediaFiles[i].URL = utils.MaskMediaURL(mediaFiles[i].URL)
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"files": mediaFiles,
-			"count": len(mediaFiles),
-		})
+		c.JSON(http.StatusOK, gin.H{"data": mediaFiles})
 	}
 }
 
-// DeleteMedia deletes a media file
+// DeleteMedia handles media deletion
 // DELETE /api/v1/media/:id
 func DeleteMedia(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 		userID, _ := c.Get("user_id")
 
-		// Get file info from database
-		var media struct {
-			URL      string `db:"url"`
-			UserID   string `db:"user_id"`
+		if userID == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
 		}
-		err := db.Get(&media, "SELECT url, user_id FROM media WHERE uuid = ?", id)
+
+		// Get file url from database
+		var filename string
+		err := db.Get(&filename, "SELECT url FROM media WHERE uuid = ? AND user_id = ?", id, userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Media not found"})
 			return
 		}
 
-		// Security check
-		if media.UserID != fmt.Sprintf("%v", userID) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this media"})
-			return
-		}
-
-		// Get filename from URL
-		filename := filepath.Base(media.URL)
+		// Delete from storage
 		filePath := filepath.Join("./media", filename)
-		
-		// Delete the file from disk if it exists
-		if _, err := os.Stat(filePath); err == nil {
-			if err := os.Remove(filePath); err != nil {
-				fmt.Printf("[ERROR] Failed to delete file from disk: %v\n", err)
-			}
-		}
-		
+		_ = os.Remove(filePath)
+
 		// Delete from database
 		_, err = db.Exec("DELETE FROM media WHERE uuid = ?", id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete media from database"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete media", "details": err.Error()})
 			return
 		}
-		
+
 		c.JSON(http.StatusOK, gin.H{"message": "Media deleted successfully"})
 	}
 }
-

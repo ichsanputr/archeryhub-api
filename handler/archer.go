@@ -22,7 +22,6 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		limit, offset, page := utils.GetPaginationParams(c)
 		status := c.Query("status")
 		search := c.Query("search") // search by name, code, or club
-		city := c.Query("city")
 		bowType := c.Query("bow_type")
 
 		whereParams := []interface{}{}
@@ -37,11 +36,6 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 			whereClause += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
 			searchTerm := "%" + search + "%"
 			whereParams = append(whereParams, searchTerm, searchTerm, searchTerm)
-		}
-
-		if city != "" {
-			whereClause += " AND a.city = ?"
-			whereParams = append(whereParams, city)
 		}
 
 		if bowType != "" && bowType != "all" {
@@ -60,10 +54,10 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		// Get data
 		query := `
 			SELECT 
-				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
+				a.uuid, COALESCE(a.id, '') as id, COALESCE(a.username, '') as username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city,
+				a.bow_type,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
 				a.social_youtube, a.social_spotify, a.social_website, a.social_pinterest, a.social_linkedin,
 				a.achievements, a.equipment, a.page_settings,
@@ -127,7 +121,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.banner_url, a.address,
 				a.bio, a.status, a.created_at, a.updated_at,
-				a.bow_type, a.city,
+				a.bow_type,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
 				a.social_facebook, a.social_twitter,
 				a.social_youtube, a.social_spotify, a.social_website, a.social_pinterest, a.social_linkedin,
@@ -386,7 +380,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		truncateStr(req.Phone, archerPhoneLen)
 		truncateStr(req.Email, archerEmailLen)
 		truncateStr(req.Nickname, archerNicknameLen)
-		truncateStr(req.City, archerCityLen)
 		truncateStr(req.AvatarURL, archerAvatarURLLen)
 		if len(req.FullName) > archerFullNameLen {
 			req.FullName = req.FullName[:archerFullNameLen]
@@ -488,14 +481,14 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			INSERT INTO archers (
 				uuid, id, username, email, password, full_name, nickname,
-				date_of_birth, gender, bow_type, city, club_id,
+				date_of_birth, gender, bow_type, club_id,
 				phone, address, avatar_url, status, is_verified, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
 		`
 
 		_, err := db.Exec(query,
 			archerID, athleteID, finalUsername, req.Email, req.Password, req.FullName, req.Nickname,
-			req.DateOfBirth, gender, req.BowType, req.City, clubID,
+			req.DateOfBirth, gender, req.BowType, clubID,
 			req.Phone, req.Address, req.AvatarURL, isVerified, now, now,
 		)
 
@@ -542,6 +535,15 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Verification: only owner or admin/root can update profile
+		userID, _ := c.Get("user_id")
+		userRole, _ := c.Get("role")
+		userIDStr := fmt.Sprintf("%v", userID)
+		if userRole != "admin" && userRole != "root" && userIDStr != id {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki izin untuk mengubah data pemanah ini"})
+			return
+		}
+
 		// Check if archer exists
 		var exists bool
 		err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM archers WHERE uuid = ?)", id)
@@ -582,14 +584,81 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", country = ?"
 			args = append(args, *req.Country)
 		}
-		if req.City != nil {
-			truncateStr(req.City, archerCityLen)
-			query += ", city = ?"
-			args = append(args, *req.City)
-		}
 		if req.BowType != nil {
 			query += ", bow_type = ?"
 			args = append(args, *req.BowType)
+		}
+		if req.NIK != nil {
+			query += ", nik = ?"
+			args = append(args, *req.NIK)
+		}
+		if req.BloodType != nil {
+			query += ", blood_type = ?"
+			args = append(args, *req.BloodType)
+		}
+		if req.HandDominance != nil {
+			query += ", hand_dominance = ?"
+			args = append(args, *req.HandDominance)
+		}
+		if req.HeightCM != nil {
+			query += ", height_cm = ?"
+			args = append(args, *req.HeightCM)
+		}
+		if req.WeightKG != nil {
+			query += ", weight_kg = ?"
+			args = append(args, *req.WeightKG)
+		}
+		if req.EmergencyContactName != nil {
+			query += ", emergency_contact_name = ?"
+			args = append(args, *req.EmergencyContactName)
+		}
+		if req.EmergencyContactPhone != nil {
+			query += ", emergency_contact_phone = ?"
+			args = append(args, *req.EmergencyContactPhone)
+		}
+		if req.Province != nil {
+			query += ", province = ?"
+			args = append(args, *req.Province)
+		}
+		if req.City != nil {
+			query += ", city = ?"
+			args = append(args, *req.City)
+		}
+		if req.PostalCode != nil {
+			query += ", postal_code = ?"
+			args = append(args, *req.PostalCode)
+		}
+		if req.Address != nil {
+			query += ", address = ?"
+			args = append(args, *req.Address)
+		}
+		if req.Bio != nil {
+			query += ", bio = ?"
+			args = append(args, *req.Bio)
+		}
+		if req.BannerURL != nil {
+			query += ", banner_url = ?"
+			args = append(args, *req.BannerURL)
+		}
+		if req.SocialInstagram != nil {
+			query += ", social_instagram = ?"
+			args = append(args, *req.SocialInstagram)
+		}
+		if req.SocialTiktok != nil {
+			query += ", social_tiktok = ?"
+			args = append(args, *req.SocialTiktok)
+		}
+		if req.SocialWhatsapp != nil {
+			query += ", social_whatsapp = ?"
+			args = append(args, *req.SocialWhatsapp)
+		}
+		if req.SocialFacebook != nil {
+			query += ", social_facebook = ?"
+			args = append(args, *req.SocialFacebook)
+		}
+		if req.SocialTwitter != nil {
+			query += ", social_twitter = ?"
+			args = append(args, *req.SocialTwitter)
 		}
 		if req.SocialYoutube != nil {
 			query += ", social_youtube = ?"
@@ -610,6 +679,14 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 		if req.SocialLinkedin != nil {
 			query += ", social_linkedin = ?"
 			args = append(args, *req.SocialLinkedin)
+		}
+		if req.Achievements != nil {
+			query += ", achievements = ?"
+			args = append(args, *req.Achievements)
+		}
+		if req.Equipment != nil {
+			query += ", equipment = ?"
+			args = append(args, *req.Equipment)
 		}
 		if req.ClubID != nil {
 			query += ", club_id = ?"
@@ -658,7 +735,7 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Log activity
-		userID, _ := c.Get("user_id")
+		userID, _ = c.Get("user_id")
 		if userID != nil {
 			utils.LogActivity(db, userID.(string), "", "archer_updated", "archer", id, "Updated archer", c.ClientIP(), c.Request.UserAgent())
 		}
@@ -671,6 +748,15 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
+
+		// Verification: only owner or admin/root can delete archer profile
+		userID, _ := c.Get("user_id")
+		userRole, _ := c.Get("role")
+		userIDStr := fmt.Sprintf("%v", userID)
+		if userRole != "admin" && userRole != "root" && userIDStr != id {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki izin untuk menghapus akun ini"})
+			return
+		}
 
 		// Check if archer has any event participations
 		var participationCount int
@@ -694,7 +780,7 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Log activity
-		userID, _ := c.Get("user_id")
+		userID, _ = c.Get("user_id")
 		if userID != nil {
 			utils.LogActivity(db, userID.(string), "", "archer_deleted", "archer", id, "Deleted archer", c.ClientIP(), c.Request.UserAgent())
 		}
@@ -713,46 +799,60 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var archer struct {
-			UUID            string  `json:"uuid" db:"uuid"`
-			ID              string  `json:"id" db:"id"`
-			Username        *string `json:"username" db:"username"`
-			Email           *string `json:"email" db:"email"`
-			AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
-			BannerURL       *string `json:"banner_url" db:"banner_url"`
-			FullName        string  `json:"full_name" db:"full_name"`
-			Nickname        *string `json:"nickname" db:"nickname"`
-			DateOfBirth     *string `json:"date_of_birth" db:"date_of_birth"`
-			Gender          string  `json:"gender" db:"gender"`
-			Phone           *string `json:"phone" db:"phone"`
-			Address         *string `json:"address" db:"address"`
-			Country         *string `json:"country" db:"country"`
-			City            *string `json:"city" db:"city"`
-			BowType         string  `json:"bow_type" db:"bow_type"`
-			ClubID          *string `json:"club_id" db:"club_id"`
-			ClubName        *string `json:"club_name" db:"club_name"`
-			Status          string  `json:"status" db:"status"`
-			Bio             *string `json:"bio" db:"bio"`
-			SocialInstagram *string `json:"social_instagram" db:"social_instagram"`
-			SocialTiktok    *string `json:"social_tiktok" db:"social_tiktok"`
-			SocialWhatsapp  *string `json:"social_whatsapp" db:"social_whatsapp"`
-			SocialFacebook  *string `json:"social_facebook" db:"social_facebook"`
-			SocialTwitter   *string `json:"social_twitter" db:"social_twitter"`
-			SocialYoutube   *string `json:"social_youtube" db:"social_youtube"`
-			SocialSpotify   *string `json:"social_spotify" db:"social_spotify"`
-			SocialWebsite   *string `json:"social_website" db:"social_website"`
-			SocialPinterest *string `json:"social_pinterest" db:"social_pinterest"`
-			SocialLinkedin  *string `json:"social_linkedin" db:"social_linkedin"`
-			Achievements    *string `json:"achievements" db:"achievements"`
-			Equipment       *string `json:"equipment" db:"equipment"`
-			PageSettings    *string `json:"page_settings" db:"page_settings"`
+			UUID                  string  `json:"uuid" db:"uuid"`
+			ID                    string  `json:"id" db:"id"`
+			Username              *string `json:"username" db:"username"`
+			Email                 *string `json:"email" db:"email"`
+			AvatarURL             *string `json:"avatar_url" db:"avatar_url"`
+			BannerURL             *string `json:"banner_url" db:"banner_url"`
+			FullName              string  `json:"full_name" db:"full_name"`
+			Nickname              *string `json:"nickname" db:"nickname"`
+			NIK                   *string `json:"nik" db:"nik"`
+			DateOfBirth           *string `json:"date_of_birth" db:"date_of_birth"`
+			Gender                string  `json:"gender" db:"gender"`
+			BloodType             *string `json:"blood_type" db:"blood_type"`
+			HandDominance         *string `json:"hand_dominance" db:"hand_dominance"`
+			HeightCM              *int    `json:"height_cm" db:"height_cm"`
+			WeightKG              *int    `json:"weight_kg" db:"weight_kg"`
+			Phone                 *string `json:"phone" db:"phone"`
+			EmergencyContactName  *string `json:"emergency_contact_name" db:"emergency_contact_name"`
+			EmergencyContactPhone *string `json:"emergency_contact_phone" db:"emergency_contact_phone"`
+			Address               *string `json:"address" db:"address"`
+			City                  *string `json:"city" db:"city"`
+			Province              *string `json:"province" db:"province"`
+			PostalCode            *string `json:"postal_code" db:"postal_code"`
+			Country               *string `json:"country" db:"country"`
+			BowType               string  `json:"bow_type" db:"bow_type"`
+			ClubID                *string `json:"club_id" db:"club_id"`
+			ClubName              *string `json:"club_name" db:"club_name"`
+			Status                string  `json:"status" db:"status"`
+			Bio                   *string `json:"bio" db:"bio"`
+			SocialInstagram       *string `json:"social_instagram" db:"social_instagram"`
+			SocialTiktok          *string `json:"social_tiktok" db:"social_tiktok"`
+			SocialWhatsapp        *string `json:"social_whatsapp" db:"social_whatsapp"`
+			SocialFacebook        *string `json:"social_facebook" db:"social_facebook"`
+			SocialTwitter         *string `json:"social_twitter" db:"social_twitter"`
+			SocialYoutube         *string `json:"social_youtube" db:"social_youtube"`
+			SocialSpotify         *string `json:"social_spotify" db:"social_spotify"`
+			SocialWebsite         *string `json:"social_website" db:"social_website"`
+			SocialPinterest       *string `json:"social_pinterest" db:"social_pinterest"`
+			SocialLinkedin        *string `json:"social_linkedin" db:"social_linkedin"`
+			Achievements          *string `json:"achievements" db:"achievements"`
+			Equipment             *string `json:"equipment" db:"equipment"`
+			PageSettings          *string `json:"page_settings" db:"page_settings"`
 		}
 
-		var pageSettings *string
+		userEmailVal, _ := c.Get("email")
+		userEmail := fmt.Sprintf("%v", userEmailVal)
+
 		err := db.Get(&archer, `
 		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, a.banner_url,
-		       a.full_name, a.nickname, a.date_of_birth, 
+		       a.full_name, a.nickname, a.nik, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.phone, a.address, a.country, a.city, 
+		       a.blood_type, COALESCE(a.hand_dominance, 'right') as hand_dominance,
+		       a.height_cm, a.weight_kg,
+		       a.phone, a.emergency_contact_name, a.emergency_contact_phone,
+		       a.address, a.city, a.province, a.postal_code, a.country, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
 		       COALESCE(a.status, 'active') as status,
@@ -762,47 +862,56 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		       a.achievements, a.equipment, a.page_settings
 		FROM archers a
 		LEFT JOIN clubs c ON a.club_id = c.uuid
-		WHERE a.uuid = ?
-	`, userID)
+		WHERE a.uuid = ? OR a.id = ? OR (a.email != '' AND a.email = ?)
+	`, userID, userID, userEmail)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Profil pemanah tidak ditemukan", "details": err.Error(), "user_id": userID})
 			return
 		}
 		data := gin.H{
-			"uuid":             archer.UUID,
-			"id":               archer.ID,
-			"username":         archer.Username,
-			"email":            archer.Email,
-			"avatar_url":       archer.AvatarURL,
-			"banner_url":       archer.BannerURL,
-			"full_name":        archer.FullName,
-			"nickname":         archer.Nickname,
-			"date_of_birth":    archer.DateOfBirth,
-			"gender":           archer.Gender,
-			"phone":            archer.Phone,
-			"address":          archer.Address,
-			"country":          archer.Country,
-			"city":             archer.City,
-			"bow_type":         archer.BowType,
-			"club_id":          archer.ClubID,
-			"club_name":        archer.ClubName,
-			"status":           archer.Status,
-			"bio":              archer.Bio,
-			"social_instagram": archer.SocialInstagram,
-			"social_tiktok":    archer.SocialTiktok,
-			"social_whatsapp":  archer.SocialWhatsapp,
-			"social_facebook":  archer.SocialFacebook,
-			"social_twitter":   archer.SocialTwitter,
-			"social_youtube":   archer.SocialYoutube,
-			"social_spotify":   archer.SocialSpotify,
-			"social_website":   archer.SocialWebsite,
-			"social_pinterest": archer.SocialPinterest,
-			"social_linkedin":  archer.SocialLinkedin,
-			"achievements":     archer.Achievements,
-			"equipment":        archer.Equipment,
-			"page_settings":    archer.PageSettings,
-			"user_type":        "archer",
+			"uuid":                    archer.UUID,
+			"id":                      archer.ID,
+			"username":                archer.Username,
+			"email":                   archer.Email,
+			"avatar_url":              archer.AvatarURL,
+			"banner_url":              archer.BannerURL,
+			"full_name":               archer.FullName,
+			"nickname":                archer.Nickname,
+			"nik":                     archer.NIK,
+			"date_of_birth":           archer.DateOfBirth,
+			"gender":                  archer.Gender,
+			"blood_type":              archer.BloodType,
+			"hand_dominance":          archer.HandDominance,
+			"height_cm":               archer.HeightCM,
+			"weight_kg":               archer.WeightKG,
+			"phone":                   archer.Phone,
+			"emergency_contact_name":  archer.EmergencyContactName,
+			"emergency_contact_phone": archer.EmergencyContactPhone,
+			"address":                 archer.Address,
+			"city":                    archer.City,
+			"province":                archer.Province,
+			"postal_code":             archer.PostalCode,
+			"country":                 archer.Country,
+			"bow_type":                archer.BowType,
+			"club_id":                 archer.ClubID,
+			"club_name":               archer.ClubName,
+			"status":                  archer.Status,
+			"bio":                     archer.Bio,
+			"social_instagram":        archer.SocialInstagram,
+			"social_tiktok":           archer.SocialTiktok,
+			"social_whatsapp":         archer.SocialWhatsapp,
+			"social_facebook":         archer.SocialFacebook,
+			"social_twitter":          archer.SocialTwitter,
+			"social_youtube":          archer.SocialYoutube,
+			"social_spotify":          archer.SocialSpotify,
+			"social_website":          archer.SocialWebsite,
+			"social_pinterest":        archer.SocialPinterest,
+			"social_linkedin":         archer.SocialLinkedin,
+			"achievements":            archer.Achievements,
+			"equipment":               archer.Equipment,
+			"page_settings":           archer.PageSettings,
+			"user_type":               "archer",
 		}
 		// Mask URLs
 		if archer.AvatarURL != nil {
@@ -814,16 +923,14 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			data["banner_url"] = &masked
 		}
 
-		if pageSettings != nil {
-			data["page_settings"] = pageSettings
+		if archer.PageSettings != nil {
+			data["page_settings"] = archer.PageSettings
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }
 
-// GetArcherRegistrationProfile returns a simplified profile for event registration
-// It is a public endpoint that requires a valid UUID
 // GetArcherRegistrationProfile returns a simplified profile for event registration
 // It is a public endpoint that requires a valid UUID
 func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
@@ -844,7 +951,6 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 			Gender      *string `json:"gender" db:"gender"`
 			DateOfBirth *string `json:"date_of_birth" db:"date_of_birth"`
 			Phone       *string `json:"phone" db:"phone"`
-			City        *string `json:"city" db:"city"`
 			BowType     *string `json:"bow_type" db:"bow_type"`
 			ClubID      *string `json:"club_id" db:"club_id"`
 			ClubName    *string `json:"club_name" db:"club_name"`
@@ -854,7 +960,7 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				a.uuid, a.id, a.full_name, a.email, a.avatar_url,
 				a.gender, a.date_of_birth, a.phone,
-				a.city, a.bow_type,
+				a.bow_type,
 				a.club_id, c.name as club_name
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid

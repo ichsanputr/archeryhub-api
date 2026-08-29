@@ -89,6 +89,13 @@ type Event struct {
 	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url" example:"https://cdn.archeris.net/media/technical-guidebook-jkt-open-2026.pdf"`
 	PageSettings          *string    `json:"page_settings_raw" db:"page_settings"`
 	FAQ                   *string    `json:"faq_raw" db:"faq"`
+	WhatsAppNumber        *string    `json:"whatsapp_number" db:"whatsapp_number"`
+	VenueType             *string    `json:"venue_type" db:"venue_type"`
+	QuotaType             *string    `json:"quota_type" db:"quota_type"`
+	QuotaMaxParticipants *int       `json:"quota_max_participants" db:"quota_max_participants"`
+	QuotaMaxCategories   *int       `json:"quota_max_categories" db:"quota_max_categories"`
+	QuotaMaxScorekeepers *int       `json:"quota_max_scorekeepers" db:"quota_max_scorekeepers"`
+	QuotaMaxMediaMB      *int       `json:"quota_max_media_mb" db:"quota_max_media_mb"`
 }
 
 // EventWithDetails includes organizer information
@@ -108,8 +115,6 @@ type EventWithDetails struct {
 	ParticipantUUID       *string                    `json:"participant_uuid" db:"participant_uuid" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
 	ParticipantStatus     *string                    `json:"participant_status" db:"participant_status" example:"registered"`
 	QRRaw                 *string                    `json:"qr_raw" db:"qr_raw" example:"EVT2026-ARC-0001"`
-	WhatsAppNumber        *string                    `json:"whatsapp_number" db:"whatsapp_number" example:"081234567890"`
-	VenueType             *string                    `json:"venue_type" db:"venue_type" example:"outdoor"`
 	TargetCount           int                        `json:"target_count" db:"target_count" example:"48"`
 	ActiveTargetCount     int                        `json:"active_target_count" db:"active_target_count" example:"36"`
 	PageSettings          any                        `json:"page_settings,omitempty" db:"-"`

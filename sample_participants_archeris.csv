@@ -1,0 +1,6 @@
+full_name,email,phone,gender,bow_type,club_name,category_name,payment_status,payment_amount
+Budi Santoso,budi.santoso@example.com,081234567891,M,recurve,Klub Panahan Sleman,Recurve 70m - Putra,paid,150000
+Siti Aminah,siti.aminah@example.com,081298765432,F,barebow,Archery Club Jogja,Barebow 50m - Putri,unpaid,0
+Rizky Pratama,rizky.pratama@example.com,085678901234,M,compound,Jakarta Archery Center,Compound 50m - Putra,paid,200000
+Dewi Lestari,dewi.lestari@example.com,087812345678,F,standard,Bandung Archery School,Standard 40m - Putri,paid,150000
+Ahmad Hidayat,ahmad.hidayat@example.com,081345678901,M,traditional,Traditional Archery Nusantara,Traditional 30m - Putra,unpaid,0

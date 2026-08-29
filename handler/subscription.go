@@ -28,6 +28,9 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 			PlanPrice   *float64 `json:"plan_price" db:"plan_price"`
 			BillingType     *string `json:"billing_type" db:"billing_type"`
 			NextBillingDate *string `json:"next_billing_date" db:"next_billing_date"`
+			QuotaStandard int `json:"quota_standard" db:"quota_standard"`
+			QuotaElite    int `json:"quota_elite" db:"quota_elite"`
+			TotalQuota    int `json:"total_quota"`
 			Usage       struct {
 				Label string `json:"label"`
 				Current int `json:"current"`
@@ -50,12 +53,14 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 			err = db.Get(&subscription, `
 				SELECT o.subscription_plan_id, COALESCE(o.subscription_status, 'active') as subscription_status,
 				       p.name as plan_name, p.price as plan_price, p.type as billing_type,
-				       DATE_FORMAT(o.subscription_expires_at, '%d %b %Y') as next_billing_date
+				       DATE_FORMAT(o.subscription_expires_at, '%d %b %Y') as next_billing_date,
+				       o.quota_standard, o.quota_elite
 				FROM organizers o
 				LEFT JOIN subscription_plans p ON o.subscription_plan_id = p.id
 				WHERE o.user_id = ?`, userID)
 
 			if err == nil {
+				subscription.TotalQuota = subscription.QuotaStandard + subscription.QuotaElite
 				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM event_participants WHERE event_id IN (SELECT uuid FROM events WHERE organization_id = (SELECT uuid FROM organizers WHERE user_id = ?))", userID)
 				subscription.Usage.Label = "Total Atlet"
 				subscription.Usage.Limit = 5000
@@ -83,8 +88,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 
 		db.Select(&plans, "SELECT id, name, price, type, features FROM subscription_plans WHERE target_type = ?", targetType)
 		
-		// Auto-expire pending transactions older than 1 day
-		db.Exec("UPDATE payment_transactions SET status = 'expired' WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")
+		// Auto-expire check is handled asynchronously or via background jobs
 
 		// Get transaction history (invoices)
 		var invoices []struct {
