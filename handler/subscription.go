@@ -111,10 +111,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 					WHEN event_id IS NOT NULL THEN 'Pembayaran Layanan Event'
 					ELSE 'Transaksi Lainnya'
 				END as description,
-				CASE 
-					WHEN payment_method = 'paddle' THEN CONCAT('$', FORMAT(amount, 0, 'en_US'))
-					ELSE CONCAT('Rp ', FORMAT(amount, 0, 'id_ID'))
-				END as amount,
+				CONCAT('Rp ', FORMAT(amount, 0, 'id_ID')) as amount,
 				status,
 				COALESCE(payment_method, '-') as payment_method,
 				reference,

@@ -83,7 +83,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 			}
 			qQuery := `
 				SELECT q.uuid, q.organizer_id, q.plan_id, q.quota_type, q.quantity, q.unit_price, 
-					   q.total_amount, q.currency, q.payment_status, COALESCE(q.payment_method, 'Tripay') as payment_method, 
+					   q.total_amount, q.currency, q.payment_status, COALESCE(q.payment_method, 'Mayar') as payment_method, 
 					   q.payment_reference, q.purchased_at, COALESCE(p.name, 'Paket Kuota Event') as plan_name,
 					   COALESCE(o.name, 'Organizer') as org_name, COALESCE(o.email, '') as org_email
 				FROM quota_purchases q
@@ -192,10 +192,6 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		
 		currencyPrefix := "Rp "
 		amountFormat := "%.0f"
-		if t.PaymentMethod != nil && *t.PaymentMethod == "paddle" {
-			currencyPrefix = "$"
-			amountFormat = "%.2f"
-		}
 
 		desc := t.Description
 		qty := "1 Item"

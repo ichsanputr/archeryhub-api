@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -692,64 +694,42 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		customerEmail := utils.StringValue(archer.Email, "user@archeris.net")
 		customerPhone := utils.StringValue(archer.Phone, "08123456789")
 
-		tripay := utils.NewTripayClient()
+		mayarClient := utils.NewMayarClient()
+		appURL := os.Getenv("APP_URL")
+		if appURL == "" {
+			appURL = "http://localhost:3003"
+		}
 		merchantRef := fmt.Sprintf("PAY-REG-%s", uuid.New().String()[:12])
-		signature := tripay.GenerateSignature(merchantRef, amountInt)
-		expiredTime := time.Now().Add(24 * time.Hour).Unix()
+		redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
 
-		orderItems := []gin.H{
-			{
-				"sku":      "EVENT-REG",
-				"name":     fmt.Sprintf("Event Registration - %s", customerName),
-				"price":    amountInt,
-				"quantity": 1,
-			},
+		paymentReq := utils.MayarPaymentReq{
+			Name:        fmt.Sprintf("Event Reg - %s", customerName),
+			Amount:      amountInt,
+			Email:       customerEmail,
+			Mobile:      customerPhone,
+			Description: fmt.Sprintf("Pendaftaran Event: %s", customerName),
+			RedirectURL: redirectURL,
 		}
 
-		payload := gin.H{
-			"method":         req.PaymentMethod,
-			"merchant_ref":   merchantRef,
-			"amount":         amountInt,
-			"customer_name":  customerName,
-			"customer_email": customerEmail,
-			"customer_phone": customerPhone,
-			"order_items":    orderItems,
-			"signature":      signature,
-			"expired_time":   expiredTime,
-		}
-
-		tripayResult, err := tripay.CreateTransaction(payload)
+		mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
 		if err == nil {
-			tripayRef := tripayResult["reference"].(string)
-			expiredAt := time.Now().Add(24 * time.Hour)
-			if exp, ok := tripayResult["expiry_date"].(float64); ok {
-				expiredAt = time.Unix(int64(exp), 0)
-			}
-
-			var instructionsJSON *string
-			if inst, ok := tripayResult["instructions"]; ok {
-				instBytes, _ := json.Marshal(inst)
-				instStr := string(instBytes)
-				instructionsJSON = &instStr
-			}
-
 			transactionID := uuid.New().String()
+			checkoutURLVal := mayarData.Link
+			mayarTxID := mayarData.TransactionID
+			expiredAt := time.Now().Add(24 * time.Hour)
+
 			transaction := models.PaymentTransaction{
 				UUID:            transactionID,
 				Reference:       merchantRef,
-				TripayReference: &tripayRef,
+				TripayReference: &mayarTxID,
 				UserID:          archerUUID,
 				EventID:         &event.UUID,
 				RegistrationID:  &firstRegID,
 				Amount:          totalAmount,
 				FeeAmount:       0,
 				TotalAmount:     totalAmount,
-				PaymentMethod:   utils.StringPtr(req.PaymentMethod),
-				VANumber:        utils.InterfaceToStringPtr(tripayResult["pay_code"]),
-				QRURL:           utils.InterfaceToStringPtr(tripayResult["qr_url"]),
-				CheckoutURL:     utils.InterfaceToStringPtr(tripayResult["checkout_url"]),
-				PayCode:         utils.InterfaceToStringPtr(tripayResult["pay_code"]),
-				Instructions:    instructionsJSON,
+				PaymentMethod:   utils.StringPtr("mayar"),
+				CheckoutURL:     &checkoutURLVal,
 				Months:          1,
 				Status:          "pending",
 				ExpiredAt:       expiredAt,
@@ -758,25 +738,20 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 			query := `
 				INSERT INTO payment_transactions (
 					uuid, reference, tripay_reference, user_id, event_id, registration_id,
-					amount, fee_amount, total_amount, payment_method, va_number, qr_url,
-					checkout_url, pay_code, instructions, months, status, expired_at
+					amount, fee_amount, total_amount, payment_method,
+					checkout_url, months, status, expired_at
 				) VALUES (
 					:uuid, :reference, :tripay_reference, :user_id, :event_id, :registration_id,
-					:amount, :fee_amount, :total_amount, :payment_method, :va_number, :qr_url,
-					:checkout_url, :pay_code, :instructions, :months, :status, :expired_at
+					:amount, :fee_amount, :total_amount, :payment_method,
+					:checkout_url, :months, :status, :expired_at
 				)
 			`
-			_, dbErr := db.NamedExec(query, transaction)
-			if dbErr == nil {
+			_, err = db.NamedExec(query, transaction)
+			if err == nil {
 				_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE event_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
-				
-				checkoutURL = transaction.CheckoutURL
-				vaNumber = transaction.VANumber
-				if vaNumber == nil || *vaNumber == "" {
-					vaNumber = transaction.PayCode
-				}
 				qrURL = transaction.QRURL
-				tripayReference = &tripayRef
+				tripayReference = &mayarTxID
+				checkoutURL = &checkoutURLVal
 				paymentStatus = "pending"
 
 				c.JSON(http.StatusOK, MobileRegisterEventResponse{
@@ -859,21 +834,24 @@ func MobileGetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			})
 		}
 
-		// 3. Fetch Gateway Payment Methods (Tripay)
-		tripay := utils.NewTripayClient()
-		channels, err := tripay.GetPaymentChannels()
-		if err == nil {
-			for _, ch := range channels {
-				code := ch.Code
-				icon := ch.IconURL
-				methods = append(methods, MobileEventPaymentMethodItem{
-					Type:     "gateway",
-					ID:       ch.Code,
-					BankName: ch.Name,
-					Code:     &code,
-					IconURL:  &icon,
-				})
-			}
+		// 3. Fetch Gateway Payment Methods (Mayar)
+		mayarChannels := []struct{ Code, Name, Icon string }{
+			{"QRIS", "QRIS (All E-Wallet & Bank)", "/payment-method/qris.png"},
+			{"BCAVA", "BCA Virtual Account", "/payment-method/bca.png"},
+			{"BNIVA", "BNI Virtual Account", "/payment-method/bni.png"},
+			{"BRIVA", "BRI Virtual Account", "/payment-method/bri.png"},
+			{"MANDIRIVA", "Mandiri Virtual Account", "/payment-method/mandiri.png"},
+		}
+		for _, ch := range mayarChannels {
+			cCode := ch.Code
+			cIcon := ch.Icon
+			methods = append(methods, MobileEventPaymentMethodItem{
+				Type:     "gateway",
+				ID:       ch.Code,
+				BankName: ch.Name,
+				Code:     &cCode,
+				IconURL:  &cIcon,
+			})
 		}
 
 		c.JSON(http.StatusOK, MobileEventPaymentMethodsResponse{

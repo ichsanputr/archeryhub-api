@@ -586,10 +586,8 @@ func main() {
 			payment.GET("/status/:reference", handler.GetPaymentStatus(db))
 			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
-			payment.POST("/tripay/callback", handler.PaymentCallback(db))
-			payment.POST("/quota/tripay/callback", handler.QuotaTripayCallback(db))
-			payment.POST("/paddle/initiate", middleware.AuthMiddleware(), handler.InitiatePaddlePayment(db))
-			payment.POST("/paddle/callback", handler.PaddleWebhookCallback(db))
+			payment.POST("/mayar/callback", handler.MayarWebhookCallback(db))
+			payment.POST("/callback", handler.MayarWebhookCallback(db))
 			payment.GET("/simulate-success/:reference", middleware.AuthMiddleware(), handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
 

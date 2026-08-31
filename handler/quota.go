@@ -2,9 +2,9 @@ package handler
 
 import (
 	"Archeris-api/utils"
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -105,7 +105,7 @@ func GetQuotaHistory(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&total, "SELECT COUNT(*) FROM quota_purchases WHERE organizer_id = ?", orgUUID)
 
 		var history []QuotaHistoryItem
-		query := `SELECT q.uuid, q.quantity, q.total_amount, q.payment_status, COALESCE(q.payment_method, 'Tripay') as payment_method, COALESCE(q.payment_reference, '') as payment_reference, q.purchased_at, COALESCE(p.name, 'Paket Kuota Event') as plan_name 
+		query := `SELECT q.uuid, q.quantity, q.total_amount, q.payment_status, COALESCE(q.payment_method, 'Mayar') as payment_method, COALESCE(q.payment_reference, '') as payment_reference, q.purchased_at, COALESCE(p.name, 'Paket Kuota Event') as plan_name 
 				  FROM quota_purchases q 
 				  LEFT JOIN subscription_plans p ON q.plan_id = p.id 
 				  WHERE q.organizer_id = ? 
@@ -200,183 +200,47 @@ func PurchaseQuota(db *sqlx.DB) gin.HandlerFunc {
 		refID := fmt.Sprintf("QUOTA-%s-%d", strings.ToUpper(uuid.New().String()[:8]), time.Now().Unix())
 		purchaseUUID := uuid.New().String()
 
-		payMethod := "tripay"
-		if req.Channel != "" {
-			payMethod = req.Channel
-		} else if req.PaymentMethod != "" {
-			payMethod = req.PaymentMethod
+		mayarClient := utils.NewMayarClient()
+		appURL := os.Getenv("APP_URL")
+		if appURL == "" {
+			appURL = "http://localhost:3003"
 		}
-		if payMethod == "MYBCAVA" {
-			payMethod = "BCAVA"
+		redirectURL := fmt.Sprintf("%s/dashboard/organizer/package/detail?trx_id=%s", strings.TrimSuffix(appURL, "/"), refID)
+
+		paymentReq := utils.MayarPaymentReq{
+			Name:        fmt.Sprintf("Quota %s x%d - %s", plan.Name, req.Quantity, org.Name),
+			Amount:      int(totalAmount),
+			Email:       org.Email,
+			Mobile:      org.WhatsappNo,
+			Description: fmt.Sprintf("Pembelian %d Paket %s ArcheryHub", req.Quantity, plan.Name),
+			RedirectURL: redirectURL,
 		}
-		if payMethod == "PERMATAVA" {
-			payMethod = "BNIVA"
-		}
 
-		if req.PaymentMethod == "tripay" {
-			tripay := utils.NewTripayClient()
-			signature := tripay.GenerateSignature(refID, int(totalAmount))
-			expiredTime := time.Now().Add(24 * time.Hour).Unix()
-			
-			orderItems := []map[string]interface{}{
-				{
-					"sku":         fmt.Sprintf("PLAN-%d", req.PlanID),
-					"name":        fmt.Sprintf("Quota: %s x%d", plan.Name, req.Quantity),
-					"price":       int(totalAmount / float64(req.Quantity)),
-					"quantity":    req.Quantity,
-					"product_url": "",
-					"image_url":   "",
-				},
-			}
-
-			payload := gin.H{
-				"method":         payMethod,
-				"merchant_ref":   refID,
-				"amount":         int(totalAmount),
-				"customer_name":  org.Name,
-				"customer_email": org.Email,
-				"customer_phone": org.WhatsappNo,
-				"order_items":    orderItems,
-				"signature":      signature,
-				"expired_time":   expiredTime,
-			}
-			
-			res, err := tripay.CreateTransaction(payload)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment: " + err.Error()})
-				return
-			}
-			
-			var checkoutUrl, payCode, qrURL, tripayRef, instJSON string
-			if url, ok := res["checkout_url"].(string); ok {
-				checkoutUrl = url
-			}
-			if pc, ok := res["pay_code"].(string); ok {
-				payCode = pc
-			}
-			if qr, ok := res["qr_url"].(string); ok {
-				qrURL = qr
-			}
-			if tr, ok := res["reference"].(string); ok {
-				tripayRef = tr
-			}
-			if inst, ok := res["instructions"]; ok {
-				b, _ := json.Marshal(inst)
-				instJSON = string(b)
-			}
-
-			if data, ok := res["data"].(map[string]interface{}); ok {
-				if url, ok := data["checkout_url"].(string); ok && checkoutUrl == "" {
-					checkoutUrl = url
-				}
-				if pc, ok := data["pay_code"].(string); ok && payCode == "" {
-					payCode = pc
-				}
-				if qr, ok := data["qr_url"].(string); ok && qrURL == "" {
-					qrURL = qr
-				}
-				if tr, ok := data["reference"].(string); ok && tripayRef == "" {
-					tripayRef = tr
-				}
-				if inst, ok := data["instructions"]; ok && instJSON == "" {
-					b, _ := json.Marshal(inst)
-					instJSON = string(b)
-				}
-			}
-
-			insertSQL := `INSERT INTO quota_purchases (uuid, organizer_id, plan_id, quota_type, quantity, unit_price, total_amount, currency, payment_method, payment_reference, pay_code, qr_url, tripay_reference, instructions, payment_status, purchased_at) 
-						  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`
-			_, err = db.Exec(insertSQL, purchaseUUID, org.UUID, req.PlanID, plan.QuotaType, req.Quantity, promoPrice, totalAmount, req.Currency, payMethod, refID, payCode, qrURL, tripayRef, instJSON)
-			
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save purchase: " + err.Error()})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"purchase_id":  refID,
-				"checkout_url": checkoutUrl,
-				"pay_code":     payCode,
-				"qr_url":       qrURL,
-				"total_amount": totalAmount,
-				"currency":     req.Currency,
-			})
-		} else {
-			insertSQL := `INSERT INTO quota_purchases (uuid, organizer_id, plan_id, quota_type, quantity, unit_price, total_amount, currency, payment_method, payment_reference, payment_status, purchased_at) 
-						  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`
-			_, err := db.Exec(insertSQL, purchaseUUID, org.UUID, req.PlanID, plan.QuotaType, req.Quantity, promoPrice, totalAmount, req.Currency, payMethod, refID)
-			
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save purchase: " + err.Error()})
-				return
-			}
-			c.JSON(http.StatusOK, gin.H{
-				"purchase_id":  refID,
-				"total_amount": totalAmount,
-				"currency":     req.Currency,
-				"instructions": "Use paddle flow",
-			})
-		}
-	}
-}
-
-// QuotaTripayCallback POST /payment/quota/tripay/callback
-func QuotaTripayCallback(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		bodyBytes, err := c.GetRawData()
+		mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Failed to read body"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
 			return
 		}
 
-		tripay := utils.NewTripayClient()
-		signature := c.GetHeader("X-Callback-Signature")
-		if !tripay.VerifyCallbackSignature(bodyBytes, signature) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid signature"})
+		checkoutUrl := mayarData.Link
+		mayarTxID := mayarData.TransactionID
+
+		insertSQL := `INSERT INTO quota_purchases (uuid, organizer_id, plan_id, quota_type, quantity, unit_price, total_amount, currency, payment_method, payment_reference, checkout_url, tripay_reference, payment_status, purchased_at) 
+					  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'mayar', ?, ?, ?, 'pending', NOW())`
+		_, err = db.Exec(insertSQL, purchaseUUID, org.UUID, req.PlanID, plan.QuotaType, req.Quantity, promoPrice, totalAmount, req.Currency, refID, checkoutUrl, mayarTxID)
+		
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save purchase: " + err.Error()})
 			return
 		}
 
-		var payload struct {
-			Reference string `json:"reference"`
-			Status    string `json:"status"`
-		}
-		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid payload"})
-			return
-		}
-
-		if payload.Status == "PAID" {
-			var purchase struct {
-				UUID        string `db:"uuid"`
-				OrganizerID string `db:"organizer_id"`
-				PlanID      int    `db:"plan_id"`
-				Quantity    int    `db:"quantity"`
-			}
-			err := db.Get(&purchase, "SELECT uuid, organizer_id, plan_id, quantity FROM quota_purchases WHERE payment_reference = ?", payload.Reference)
-			if err == nil {
-				db.Exec("UPDATE quota_purchases SET payment_status = 'paid' WHERE uuid = ?", purchase.UUID)
-				
-				var plan struct {
-					QuotaType string `db:"quota_type"`
-				}
-				db.Get(&plan, "SELECT COALESCE(quota_type, 'standard') as quota_type FROM subscription_plans WHERE id = ?", purchase.PlanID)
-				
-				if plan.QuotaType == "standard" {
-					db.Exec("UPDATE organizers SET quota_standard = quota_standard + ? WHERE uuid = ?", purchase.Quantity, purchase.OrganizerID)
-				} else if plan.QuotaType == "elite" {
-					db.Exec("UPDATE organizers SET quota_elite = quota_elite + ? WHERE uuid = ?", purchase.Quantity, purchase.OrganizerID)
-				}
-
-				var orgEmail string
-				db.Get(&orgEmail, "SELECT email FROM organizers WHERE uuid = ?", purchase.OrganizerID)
-				
-				if orgEmail != "" {
-					utils.SendEmail(orgEmail, "Quota Berhasil Ditambahkan", fmt.Sprintf("Anda telah berhasil membeli quota event sebanyak %d", purchase.Quantity))
-				}
-			}
-		}
-
-		c.JSON(http.StatusOK, gin.H{"success": true})
+		c.JSON(http.StatusOK, gin.H{
+			"purchase_id":    refID,
+			"checkout_url":   checkoutUrl,
+			"transaction_id": mayarTxID,
+			"total_amount":   totalAmount,
+			"currency":       req.Currency,
+		})
 	}
 }
 

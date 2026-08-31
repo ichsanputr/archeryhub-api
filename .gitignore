@@ -25,6 +25,11 @@ go.work
 graph/generated.go
 graph/models_gen.go
 
+# Mayar docs
+mayar-docs-api.zip
+mayar-docs-api/
+tmp_build/vscode/
+
 # Build directory
 bin/
 
