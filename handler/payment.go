@@ -1042,7 +1042,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 			TotalAmount  float64 `json:"amount" db:"total_amount"`
 		}
 
-		var summaries []EventSummary
+		summaries := []EventSummary{}
 		query := `
 			SELECT 
 				COALESCE(NULLIF(e.slug, ''), e.uuid) as id,
