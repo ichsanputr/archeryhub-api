@@ -363,7 +363,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MayarWebhookCallback handles Mayar webhook notifications (event: payment.received)
+// MayarWebhookCallback handles Mayar webhook notifications (events: payment.received, invoice.paid, payment.status, payment.failed, payment.expired)
 func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bodyBytes, err := io.ReadAll(c.Request.Body)
@@ -380,6 +380,18 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 			f.WriteString(logEntry)
 		}
 
+		mayarClient := utils.NewMayarClient()
+		authHeader := c.GetHeader("Authorization")
+		xSig := c.GetHeader("x-mayar-signature")
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token == "" {
+			token = xSig
+		}
+		if token != "" && !mayarClient.VerifyWebhookSecret(token) {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid webhook authorization"})
+			return
+		}
+
 		var payload struct {
 			Event string `json:"event"`
 			Data  struct {
@@ -392,6 +404,7 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 				CustomerName      string                 `json:"customerName"`
 				PaymentMethod     string                 `json:"paymentMethod"`
 				PaymentLinkId     string                 `json:"paymentLinkId"`
+				InvoiceID         string                 `json:"invoiceId"`
 				ExtraData         map[string]interface{} `json:"extraData"`
 			} `json:"data"`
 		}
@@ -405,8 +418,42 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 		if txID == "" {
 			txID = payload.Data.ID
 		}
+		if txID == "" {
+			txID = payload.Data.PaymentLinkId
+		}
+		if txID == "" {
+			txID = payload.Data.InvoiceID
+		}
 
-		isPaid := strings.EqualFold(payload.Data.Status, "SUCCESS") || strings.EqualFold(payload.Data.TransactionStatus, "paid") || payload.Event == "payment.received"
+		extraRef := ""
+		if payload.Data.ExtraData != nil {
+			if r, ok := payload.Data.ExtraData["reference"].(string); ok && r != "" {
+				extraRef = r
+			} else if r, ok := payload.Data.ExtraData["merchant_ref"].(string); ok && r != "" {
+				extraRef = r
+			}
+		}
+
+		isPaid := strings.EqualFold(payload.Data.Status, "SUCCESS") ||
+			strings.EqualFold(payload.Data.TransactionStatus, "paid") ||
+			payload.Event == "payment.received" ||
+			payload.Event == "invoice.paid"
+
+		isFailed := strings.EqualFold(payload.Data.Status, "FAILED") ||
+			strings.EqualFold(payload.Data.Status, "EXPIRED") ||
+			strings.EqualFold(payload.Data.TransactionStatus, "failed") ||
+			strings.EqualFold(payload.Data.TransactionStatus, "expired") ||
+			payload.Event == "payment.failed" ||
+			payload.Event == "payment.expired"
+
+		if isFailed {
+			// Mark as expired / failed in quota_purchases & payment_transactions
+			db.Exec("UPDATE quota_purchases SET payment_status = 'expired' WHERE tripay_reference = ? OR payment_reference = ? OR uuid = ? OR (? != '' AND (payment_reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+			db.Exec("UPDATE payment_transactions SET status = 'expired' WHERE tripay_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaction marked as expired/failed"})
+			return
+		}
+
 		if !isPaid {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Event ignored"})
 			return
@@ -420,7 +467,7 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 			Quantity    int    `db:"quantity"`
 			Status      string `db:"payment_status"`
 		}
-		errQ := db.Get(&qPurchase, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE tripay_reference = ? OR payment_reference = ? OR uuid = ?", txID, txID, txID)
+		errQ := db.Get(&qPurchase, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE tripay_reference = ? OR payment_reference = ? OR uuid = ? OR (? != '' AND (payment_reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 		if errQ == nil {
 			if qPurchase.Status != "paid" {
 				tx, errTx := db.Beginx()
@@ -448,7 +495,7 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 			Months             int     `db:"months"`
 			Status             string  `db:"status"`
 		}
-		err = db.Get(&transaction, "SELECT uuid, user_id, event_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE tripay_reference = ? OR reference = ? OR uuid = ?", txID, txID, txID)
+		err = db.Get(&transaction, "SELECT uuid, user_id, event_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE tripay_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaction not found locally, ignored"})
 			return

@@ -97,6 +97,7 @@ func GetQuotaHistory(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus    string    `db:"payment_status" json:"payment_status"`
 			PaymentMethod    string    `db:"payment_method" json:"payment_method"`
 			PaymentReference string    `db:"payment_reference" json:"payment_reference"`
+			CheckoutURL      *string   `db:"checkout_url" json:"checkout_url"`
 			PurchasedAt      time.Time `db:"purchased_at" json:"purchased_at"`
 			PlanName         string    `db:"plan_name" json:"plan_name"`
 		}
@@ -105,7 +106,7 @@ func GetQuotaHistory(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&total, "SELECT COUNT(*) FROM quota_purchases WHERE organizer_id = ?", orgUUID)
 
 		var history []QuotaHistoryItem
-		query := `SELECT q.uuid, q.quantity, q.total_amount, q.payment_status, COALESCE(q.payment_method, 'Mayar') as payment_method, COALESCE(q.payment_reference, '') as payment_reference, q.purchased_at, COALESCE(p.name, 'Paket Kuota Event') as plan_name 
+		query := `SELECT q.uuid, q.quantity, q.total_amount, q.payment_status, COALESCE(q.payment_method, 'Mayar') as payment_method, COALESCE(q.payment_reference, '') as payment_reference, q.checkout_url, q.purchased_at, COALESCE(p.name, 'Paket Kuota Event') as plan_name 
 				  FROM quota_purchases q 
 				  LEFT JOIN subscription_plans p ON q.plan_id = p.id 
 				  WHERE q.organizer_id = ? 
