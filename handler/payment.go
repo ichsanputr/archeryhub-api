@@ -606,6 +606,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				PaymentReference string    `db:"payment_reference"`
 				PayCode          *string   `db:"pay_code"`
 				QRURL            *string   `db:"qr_url"`
+				CheckoutURL      *string   `db:"checkout_url"`
 				TripayReference  *string   `db:"tripay_reference"`
 				Instructions     *string   `db:"instructions"`
 				PurchasedAt      time.Time `db:"purchased_at"`
@@ -613,85 +614,44 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			}
 			qQuery := `
 				SELECT q.uuid, q.organizer_id, q.plan_id, q.quota_type, q.quantity, q.unit_price, 
-					   q.total_amount, q.currency, q.payment_status, COALESCE(q.payment_method, 'Tripay') as payment_method, 
-					   q.payment_reference, q.pay_code, q.qr_url, q.tripay_reference, q.instructions, q.purchased_at, 
+					   q.total_amount, q.currency, q.payment_status, COALESCE(q.payment_method, 'mayar') as payment_method, 
+					   q.payment_reference, q.pay_code, q.qr_url, q.checkout_url, q.tripay_reference, q.instructions, q.purchased_at, 
 					   COALESCE(p.name, 'Paket Kuota Event') as plan_name
 				FROM quota_purchases q
 				LEFT JOIN subscription_plans p ON q.plan_id = p.id
-				WHERE q.payment_reference = ? OR q.uuid = ?
+				WHERE q.payment_reference = ? OR q.uuid = ? OR q.tripay_reference = ?
 				LIMIT 1
 			`
-			if errQ := db.Get(&qPurchase, qQuery, reference, reference); errQ == nil {
-				mUpper := strings.ToUpper(qPurchase.PaymentMethod)
-				isQR := mUpper == "QRIS" || mUpper == "QR" || strings.Contains(mUpper, "QR")
-				
+			if errQ := db.Get(&qPurchase, qQuery, reference, reference, reference); errQ == nil {
 				payCode := ""
 				if qPurchase.PayCode != nil && *qPurchase.PayCode != "" && *qPurchase.PayCode != "88300" {
 					payCode = *qPurchase.PayCode
-				} else if !isQR {
-					// Deterministic realistic bank VA number based on reference string
-					refHash := int64(0)
-					for _, b := range []byte(qPurchase.PaymentReference) {
-						refHash = (refHash*31 + int64(b)) % 10000000000
-					}
-					if refHash < 0 {
-						refHash = -refHash
-					}
-					switch {
-					case strings.Contains(mUpper, "BRI"):
-						payCode = fmt.Sprintf("88812%010d", refHash)
-					case strings.Contains(mUpper, "BCA"):
-						payCode = fmt.Sprintf("12345%010d", refHash)
-					case strings.Contains(mUpper, "MANDIRI"):
-						payCode = fmt.Sprintf("89022%010d", refHash)
-					case strings.Contains(mUpper, "BNI"):
-						payCode = fmt.Sprintf("988%010d", refHash)
-					case strings.Contains(mUpper, "PERMATA"):
-						payCode = fmt.Sprintf("8528%010d", refHash)
-					case strings.Contains(mUpper, "BSI"):
-						payCode = fmt.Sprintf("999%010d", refHash)
-					default:
-						payCode = fmt.Sprintf("88812%010d", refHash)
-					}
 				}
 
-				qrURL := fmt.Sprintf("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=DEV-QRIS-%s", qPurchase.PaymentReference)
+				qrURL := ""
 				if qPurchase.QRURL != nil && *qPurchase.QRURL != "" {
 					qrURL = *qPurchase.QRURL
+				}
+
+				checkoutURL := ""
+				if qPurchase.CheckoutURL != nil && *qPurchase.CheckoutURL != "" {
+					checkoutURL = *qPurchase.CheckoutURL
 				}
 
 				instStr := ""
 				if qPurchase.Instructions != nil && *qPurchase.Instructions != "" {
 					instStr = *qPurchase.Instructions
-				} else {
-					var instructions []map[string]interface{}
-					if isQR {
-						instructions = []map[string]interface{}{
-							{
-								"title": "QRIS (Semua E-Wallet & Mobile Banking)",
-								"steps": []string{
-									"Buka aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI) atau E-Wallet (GoPay, OVO, DANA, ShopeePay, LinkAja).",
-									"Pilih menu Bayar / Scan QRIS.",
-									"Arahkan kamera ke QR Code yang tertera di layar.",
-									"Periksa nama penerima dan nominal tagihan Rp " + fmt.Sprintf("%.0f", qPurchase.TotalAmount),
-									"Konfirmasi pembayaran dan masukkan PIN Anda.",
-									"Transaksi selesai. Kuota event Anda akan aktif seketika.",
-								},
+				} else if checkoutURL != "" {
+					instructions := []map[string]interface{}{
+						{
+							"title": "Pembayaran Online via Mayar (QRIS, VA Bank, E-Wallet)",
+							"steps": []string{
+								"Klik tombol 'Bayar Sekarang via Mayar' untuk membuka halaman pembayaran resmi.",
+								"Pilih metode pembayaran yang Anda inginkan (QRIS, Virtual Account BCA/Mandiri/BRI/BNI/Permata, atau E-Wallet).",
+								"Selesaikan pembayaran sesuai petunjuk di halaman Mayar.",
+								"Setelah pembayaran berhasil, kuota event Anda akan otomatis aktif secara instan.",
 							},
-						}
-					} else {
-						instructions = []map[string]interface{}{
-							{
-								"title": "ATM / Mobile Banking (" + qPurchase.PaymentMethod + ")",
-								"steps": []string{
-									"Buka aplikasi Mobile Banking di ponsel Anda.",
-									"Pilih menu Transfer / Pembayaran > Virtual Account.",
-									"Masukkan nomor Virtual Account: " + payCode,
-									"Konfirmasi nominal pembayaran sebesar Rp " + fmt.Sprintf("%.0f", qPurchase.TotalAmount),
-									"Selesaikan transaksi. Kuota event Anda akan aktif seketika.",
-								},
-							},
-						}
+						},
 					}
 					instBytes, _ := json.Marshal(instructions)
 					instStr = string(instBytes)
@@ -712,6 +672,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 					"pay_code":         payCode,
 					"va_number":        payCode,
 					"qr_url":           qrURL,
+					"checkout_url":     checkoutURL,
 					"instructions":     instStr,
 					"created_at":       qPurchase.PurchasedAt,
 					"purchased_at":     qPurchase.PurchasedAt,
