@@ -4,6 +4,7 @@ import (
 	"Archeris-api/models"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -62,8 +63,53 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		`
 		err := db.Get(&t, query, reference)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
-			return
+			// Fallback: Check quota_purchases
+			var q struct {
+				UUID             string    `db:"uuid"`
+				OrganizerID      string    `db:"organizer_id"`
+				PlanID           int       `db:"plan_id"`
+				QuotaType        string    `db:"quota_type"`
+				Quantity         int       `db:"quantity"`
+				UnitPrice        float64   `db:"unit_price"`
+				TotalAmount      float64   `db:"total_amount"`
+				Currency         string    `db:"currency"`
+				PaymentStatus    string    `db:"payment_status"`
+				PaymentMethod    string    `db:"payment_method"`
+				PaymentReference string    `db:"payment_reference"`
+				PurchasedAt      time.Time `db:"purchased_at"`
+				PlanName         string    `db:"plan_name"`
+				OrgName          string    `db:"org_name"`
+				OrgEmail         string    `db:"org_email"`
+			}
+			qQuery := `
+				SELECT q.uuid, q.organizer_id, q.plan_id, q.quota_type, q.quantity, q.unit_price, 
+					   q.total_amount, q.currency, q.payment_status, COALESCE(q.payment_method, 'Tripay') as payment_method, 
+					   q.payment_reference, q.purchased_at, COALESCE(p.name, 'Paket Kuota Event') as plan_name,
+					   COALESCE(o.name, 'Organizer') as org_name, COALESCE(o.email, '') as org_email
+				FROM quota_purchases q
+				LEFT JOIN subscription_plans p ON q.plan_id = p.id
+				LEFT JOIN organizers o ON q.organizer_id = o.uuid
+				WHERE q.payment_reference = ? OR q.uuid = ?
+				LIMIT 1
+			`
+			if errQ := db.Get(&q, qQuery, reference, reference); errQ == nil {
+				t.UUID = q.UUID
+				t.Reference = q.PaymentReference
+				t.UserID = q.OrganizerID
+				t.Amount = q.TotalAmount
+				t.TotalAmount = q.TotalAmount
+				t.PaymentMethod = &q.PaymentMethod
+				t.Status = q.PaymentStatus
+				t.CreatedAt = q.PurchasedAt
+				t.PaidAt = &q.PurchasedAt
+				t.Description = fmt.Sprintf("%s (%d Event)", q.PlanName, q.Quantity)
+				t.PlanName = &q.PlanName
+				t.UserName = q.OrgName
+				t.UserEmail = q.OrgEmail
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+				return
+			}
 		}
 
 		// Authorization check: verify owner or admin if user is authenticated

@@ -42,7 +42,12 @@ func MaskMediaURL(filename string) string {
 		return ""
 	}
 
-	// If it's already a full URL, return it
+	// If it contains localhost/127.0.0.1 from local dev seeds, strip to filename
+	if strings.Contains(filename, "localhost:") || strings.Contains(filename, "127.0.0.1:") {
+		filename = filepath.Base(filename)
+	}
+
+	// If it's an external full URL (e.g. google avatar, cdn), return it as is
 	if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
 		return filename
 	}

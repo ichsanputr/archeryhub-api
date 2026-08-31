@@ -121,9 +121,29 @@ func generateMockTripayResponse(payload interface{}) map[string]interface{} {
 		merchantRef = fmt.Sprintf("PAY-DEV-%d", time.Now().Unix())
 	}
 
-	payCode := fmt.Sprintf("8830%d", time.Now().UnixNano()%100000000)
-	qrURL := fmt.Sprintf("https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=DEV-QRIS-%s", merchantRef)
-	checkoutURL := fmt.Sprintf("http://localhost:3003/payment/status/%s", merchantRef)
+	mUpper := strings.ToUpper(method)
+	var payCode string
+	switch {
+	case strings.Contains(mUpper, "BRI"):
+		payCode = fmt.Sprintf("88812%010d", time.Now().Unix()%10000000000)
+	case strings.Contains(mUpper, "BCA"):
+		payCode = fmt.Sprintf("12345%011d", time.Now().Unix()%100000000000)
+	case strings.Contains(mUpper, "MANDIRI"):
+		payCode = fmt.Sprintf("89022%011d", time.Now().Unix()%100000000000)
+	case strings.Contains(mUpper, "BNI"):
+		payCode = fmt.Sprintf("988%013d", time.Now().Unix()%10000000000000)
+	case strings.Contains(mUpper, "PERMATA"):
+		payCode = fmt.Sprintf("8528%012d", time.Now().Unix()%1000000000000)
+	case strings.Contains(mUpper, "BSI"):
+		payCode = fmt.Sprintf("999%013d", time.Now().Unix()%10000000000000)
+	case strings.Contains(mUpper, "QRIS") || strings.Contains(mUpper, "QR"):
+		payCode = "00020101021226590014ID.LINKAJA.WWW011893600914383020087702150000000000000000303UMI51440014ID.CO.QRIS.WWW"
+	default:
+		payCode = fmt.Sprintf("88812%010d", time.Now().Unix()%10000000000)
+	}
+
+	qrURL := fmt.Sprintf("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=DEV-QRIS-%s", merchantRef)
+	checkoutURL := fmt.Sprintf("http://localhost:3003/dashboard/organizer/package/detail?trx_id=%s", merchantRef)
 
 	instructions := []map[string]interface{}{
 		{
@@ -194,7 +214,7 @@ func (t *TripayClient) CreateTransaction(payload interface{}) (map[string]interf
 	}
 
 	if !result.Success {
-		if strings.Contains(result.Message, "Authorization token") || strings.Contains(result.Message, "API key") || strings.Contains(result.Message, "Unauthorized") {
+		if strings.Contains(result.Message, "Authorization token") || strings.Contains(result.Message, "API key") || strings.Contains(result.Message, "Unauthorized") || strings.Contains(result.Message, "not exists") {
 			return generateMockTripayResponse(payload), nil
 		}
 		return nil, errors.New(result.Message)

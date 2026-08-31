@@ -370,15 +370,72 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if !req.RegistrationDeadline.IsZero() {
 			regDeadline = req.RegistrationDeadline.Time
 		}
+		// Process Quota Type & Limits
+		quotaType := "free"
+		if req.QuotaType != nil && *req.QuotaType != "" {
+			quotaType = strings.ToLower(*req.QuotaType)
+		}
+		if quotaType != "free" && quotaType != "standard" && quotaType != "elite" {
+			quotaType = "free"
+		}
+
+		var maxParticipants, maxCategories, maxScorekeepers, maxMediaMB *int
+		if quotaType == "standard" {
+			var qStandard int
+			_ = db.Get(&qStandard, "SELECT quota_standard FROM organizers WHERE uuid = ? OR user_id = ?", userID, userID)
+			if qStandard <= 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Quota Standard tidak mencukupi. Silakan beli kuota terlebih dahulu.",
+					"code":  "quota_insufficient",
+				})
+				return
+			}
+			_, _ = db.Exec("UPDATE organizers SET quota_standard = quota_standard - 1 WHERE (uuid = ? OR user_id = ?) AND quota_standard > 0", userID, userID)
+			mp, mm := 200, 500
+			maxParticipants, maxMediaMB = &mp, &mm
+			// maxCategories & maxScorekeepers are nil (Unlimited)
+		} else if quotaType == "elite" {
+			var qElite int
+			_ = db.Get(&qElite, "SELECT quota_elite FROM organizers WHERE uuid = ? OR user_id = ?", userID, userID)
+			if qElite <= 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Quota Elite tidak mencukupi. Silakan beli kuota terlebih dahulu.",
+					"code":  "quota_insufficient",
+				})
+				return
+			}
+			_, _ = db.Exec("UPDATE organizers SET quota_elite = quota_elite - 1 WHERE (uuid = ? OR user_id = ?) AND quota_elite > 0", userID, userID)
+			mm := 5120
+			maxMediaMB = &mm
+			// maxParticipants, maxCategories, maxScorekeepers are nil (Unlimited)
+		} else {
+			// Free tier (initial 20 welcome bonus)
+			var qFree int
+			_ = db.Get(&qFree, "SELECT COALESCE(quota_free, 20) FROM organizers WHERE uuid = ? OR user_id = ?", userID, userID)
+			if qFree <= 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Kuota Free Tier Anda telah habis (0 tersisa). Silakan gunakan paket Standard atau Elite.",
+					"code":  "quota_free_exhausted",
+				})
+				return
+			}
+			_, _ = db.Exec("UPDATE organizers SET quota_free = quota_free - 1 WHERE (uuid = ? OR user_id = ?) AND quota_free > 0", userID, userID)
+			mp, mm := 50, 100
+			maxParticipants, maxMediaMB = &mp, &mm
+			// maxCategories & maxScorekeepers are nil (Unlimited)
+		}
+
 		query := `
 			INSERT INTO events (
 				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
 				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, location_type, num_distances, num_sessions, 
 				entry_fee, status, organizer_id, created_at, updated_at,
-				total_prize, technical_guidebook_url, page_settings, faq
+				total_prize, technical_guidebook_url, page_settings, faq,
+				quota_type, quota_max_participants, quota_max_categories, quota_max_scorekeepers, quota_max_media_mb
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+				?, ?, ?, ?, ?
 			)
 		`
 
@@ -404,6 +461,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			status, userID, now, now,
 			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
 			models.ToJSON(req.FAQ),
+			quotaType, maxParticipants, maxCategories, maxScorekeepers, maxMediaMB,
 		)
 
 		if err != nil {
@@ -1445,6 +1503,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			ClubName            *string                    `json:"club_name"`
 			City                *string                    `json:"city"`
 			AvatarURL           *string                    `json:"avatar_url"`
+			QRRaw               *string                    `json:"qr_raw"`
 			PaymentStatus       string                     `json:"payment_status"` // Combined or latest
 			PaymentAmount       float64                    `json:"payment_amount"` // Total
 			PaymentProofURLs    []string                   `json:"payment_proof_urls"`
@@ -1459,6 +1518,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus       string  `db:"payment_status"`
 			PaymentAmount       float64 `db:"payment_amount"`
 			RegistrationDate    string  `db:"registration_date"`
+			QRRaw               *string `db:"qr_raw"`
 			DivisionName        string  `db:"division_name"`
 			CategoryUUID        string  `db:"category_id"`
 			CategoryName        string  `db:"category_name"`
@@ -1477,6 +1537,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.target_name, tp.category_id,
 				tp.payment_status, tp.payment_amount, tp.registration_date,
+				COALESCE(tp.qr_raw, CONCAT('ARCHERIS-CHECKIN:', tp.uuid)) as qr_raw,
 				a.id as athlete_code, a.full_name, COALESCE(a.email, '') as email,
 				'' as city, a.avatar_url, COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
@@ -1508,6 +1569,12 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		firstRow := rows[0]
+		avatarURL := firstRow.AvatarURL
+		if avatarURL != nil && *avatarURL != "" {
+			masked := utils.MaskMediaURL(*avatarURL)
+			avatarURL = &masked
+		}
+
 		resp := MyRegistrationResponse{
 			ArcherID:    archerID,
 			AthleteCode: firstRow.AthleteCode,
@@ -1515,14 +1582,12 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			Email:       firstRow.Email,
 			ClubName:    firstRow.ClubName,
 			City:        firstRow.City,
-			AvatarURL:   firstRow.AvatarURL,
+			AvatarURL:   avatarURL,
+			QRRaw:       firstRow.QRRaw,
 			Categories:  []MyRegistrationCategory{},
 		}
 
-		// Combined status logic: if any is "lunas", show lunas?
-		// Or if any is "menunggu acc", show that?
-		// Let's just use the first one for the global chip if we have to,
-		// but we'll show per category anyway.
+		// Combined status logic
 		resp.PaymentStatus = firstRow.PaymentStatus
 
 		for _, row := range rows {
@@ -3809,38 +3874,6 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		eventID := c.Param("id")
-		listType := c.Query("type") // alphabetical or by-club
-		autoprint := c.Query("autoprint")
-
-		// Internal PHP Printout Service URL
-		printoutURL := fmt.Sprintf("http://localhost:8002/api/v1/events/%s/participants/printout?type=%s", eventID, listType)
-		if autoprint != "" {
-			printoutURL += "&autoprint=" + autoprint
-		}
-
-		// Forward the request to the PHP service
-		resp, err := http.Get(printoutURL)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungi layanan cetak internal", "details": err.Error()})
-			return
-		}
-		defer resp.Body.Close()
-
-		// Set headers from the PHP service response
-		for k, v := range resp.Header {
-			for _, val := range v {
-				c.Header(k, val)
-			}
-		}
-		c.Status(resp.StatusCode)
-
-		// Stream the PDF response
-		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
-	}
-}
 
 // ResetEventData allows organizers or admins to reset specific data of an event
 func ResetEventData(db *sqlx.DB) gin.HandlerFunc {

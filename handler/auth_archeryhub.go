@@ -180,8 +180,8 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				insertQuery := `
-					INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL)
+					INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at, quota_free, quota_standard, quota_elite)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, 20, 0, 0)
 				`
 				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
 
@@ -458,10 +458,12 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 
 		// COALESCE(password,'') so NULL (e.g. Google-created org/club/seller) is handled as empty
 		// Check archers
-		err := db.Get(&user, "SELECT uuid, id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM archers WHERE email = ?", req.Email)
+		err := db.Get(&user, "SELECT uuid, COALESCE(id, uuid) as id, username as slug, email, COALESCE(password,'') as password, full_name, avatar_url, 'archer' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM archers WHERE email = ?", req.Email)
 		if err == nil {
 			user.Type = "archer"
 			found = true
+		} else if os.Getenv("ENV") == "development" {
+			log.Printf("[auth] archers lookup failed for %q: %v", req.Email, err)
 		}
 
 		// Check organizers (Google sign-up does not set password; only Register does)

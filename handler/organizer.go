@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"Archeris-api/utils"
 
@@ -533,14 +534,33 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var stats struct {
-			TotalArchers       int     `json:"totalArchers"`
-			ActiveTargets      int     `json:"activeTargets"`
-			ActiveTotalTargets int     `json:"activeTotalTargets"`
-			CompletionRate     float64 `json:"completionRate"`
-			TimeLeft           string  `json:"timeLeft"`
-			RecentActiveEvent  *string `json:"recentActiveEvent"`
+		type LeaderboardItem struct {
+			ID        string `json:"id" db:"id"`
+			Name      string `json:"name" db:"name"`
+			Category  string `json:"category" db:"category"`
+			AvatarURL string `json:"avatar_url" db:"avatar_url"`
+			Score     int    `json:"score" db:"score"`
 		}
+
+		type TrendBarItem struct {
+			Label  string  `json:"label"`
+			Count  int     `json:"count"`
+			Height float64 `json:"height"`
+		}
+
+		var stats struct {
+			TotalArchers       int               `json:"totalArchers"`
+			TotalRevenue       float64           `json:"totalRevenue"`
+			ActiveTargets      int               `json:"activeTargets"`
+			ActiveTotalTargets int               `json:"activeTotalTargets"`
+			CompletionRate     float64           `json:"completionRate"`
+			TimeLeft           string            `json:"timeLeft"`
+			RecentActiveEvent  *string           `json:"recentActiveEvent"`
+			Leaderboard        []LeaderboardItem `json:"leaderboard"`
+			TrendBars          []TrendBarItem    `json:"trendBars"`
+		}
+		stats.Leaderboard = []LeaderboardItem{}
+		stats.TrendBars = []TrendBarItem{}
 
 		// 1. Total Unique Archers managed by this organizer
 		// These are archers who have participated in any event organized by this organizer
@@ -551,7 +571,81 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			WHERE e.organizer_id = ?
 		`, userID)
 
-		// 2. Active Stats (from ongoing events)
+		// 2. Total Verified Revenue for this organizer's events
+		_ = db.Get(&stats.TotalRevenue, `
+			SELECT COALESCE(SUM(amount), 0)
+			FROM payment_transactions
+			WHERE event_id IN (SELECT uuid FROM events WHERE organizer_id = ?)
+			  AND status IN ('paid', 'success', 'settlement', 'completed')
+		`, userID)
+
+		// 3. Real 12-Month Trend Bars
+		var monthlyCounts []struct {
+			MonthKey string `db:"month_key"`
+			Count    int    `db:"count"`
+		}
+		_ = db.Select(&monthlyCounts, `
+			SELECT 
+				DATE_FORMAT(ep.created_at, '%Y-%m') as month_key,
+				COUNT(ep.uuid) as count
+			FROM event_participants ep
+			JOIN events e ON ep.event_id = e.uuid
+			WHERE e.organizer_id = ? AND ep.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+			GROUP BY month_key
+		`, userID)
+
+		countMap := make(map[string]int)
+		maxCount := 0
+		for _, mc := range monthlyCounts {
+			countMap[mc.MonthKey] = mc.Count
+			if mc.Count > maxCount {
+				maxCount = mc.Count
+			}
+		}
+
+		now := time.Now()
+		monthNames := []string{"Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"}
+		stats.TrendBars = make([]TrendBarItem, 12)
+		for i := 11; i >= 0; i-- {
+			mDate := now.AddDate(0, -i, 0)
+			mKey := mDate.Format("2006-01")
+			label := monthNames[mDate.Month()-1]
+			c := countMap[mKey]
+			height := 0.0
+			if maxCount > 0 && c > 0 {
+				height = (float64(c) / float64(maxCount)) * 100.0
+				if height < 12.0 {
+					height = 12.0
+				}
+			}
+			stats.TrendBars[11-i] = TrendBarItem{
+				Label:  label,
+				Count:  c,
+				Height: height,
+			}
+		}
+
+		// 4. Real Leaderboard from organizer's events (top 5 scores)
+		_ = db.Select(&stats.Leaderboard, `
+			SELECT 
+				ep.uuid as id,
+				COALESCE(NULLIF(a.name, ''), ep.name) as name,
+				COALESCE(NULLIF(ec.name, ''), '-') as category,
+				COALESCE(a.avatar_url, '') as avatar_url,
+				COALESCE(SUM(qes.end_score), 0) as score
+			FROM qualification_end_scores qes
+			JOIN event_participants ep ON qes.participant_uuid = ep.uuid
+			JOIN events e ON ep.event_id = e.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			WHERE e.organizer_id = ?
+			GROUP BY ep.uuid, a.name, ep.name, ec.name, a.avatar_url
+			HAVING score > 0
+			ORDER BY score DESC
+			LIMIT 5
+		`, userID)
+
+		// 5. Active Stats (from ongoing events)
 		var ongoingEventID string
 		err := db.Get(&ongoingEventID, `
 			SELECT uuid FROM events 

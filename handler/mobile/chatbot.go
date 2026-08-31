@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"encoding/json"
@@ -6,48 +6,66 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
-// ... moved to types.go ...
-
-var chatbotIntents = []Intent{
+var defaultChatbotIntents = []Intent{
 	{
 		Name:     "greeting",
-		Examples: []string{"hai", "halo", "pagi", "hey"},
-		Answer:   "Halo! Mau tanya apa?",
+		Examples: []string{"hai", "halo", "pagi", "siang", "sore", "malam", "assalamualaikum", "hey", "hi", "selamat pagi"},
+		Answer:   "Halo pemanah hebat! Ada yang bisa saya bantu terkait turnamen panahan, pendaftaran event, skor pertandingan, atau belanja peralatan panahan?",
 	},
 	{
 		Name:     "event_discovery",
-		Examples: []string{"cari event", "event terdekat", "turnamen panahan"},
-		Answer:   "Kamu bisa cek daftar event di menu Event lalu gunakan filter kota atau tanggal.",
-	},
-	{
-		Name:     "membership_package",
-		Examples: []string{"paket membership", "perpanjang paket", "fitur langganan"},
-		Answer:   "Info paket ada di dashboard subscription, termasuk status aktif dan tanggal berakhir.",
+		Examples: []string{"cari event", "event terdekat", "turnamen panahan", "kejuaraan panahan", "lomba panahan", "daftar event", "event aktif"},
+		Answer:   "Kamu bisa melihat semua jadwal turnamen panahan yang sedang dan akan datang pada menu 'Event'. Gunakan filter lokasi kota atau divisi busur untuk menemukan turnamen yang cocok!",
 	},
 	{
 		Name:     "event_schedule",
-		Examples: []string{"jadwal event", "schedule pertandingan", "kapan lomba"},
-		Answer:   "Kamu bisa cek jadwal event di menu Event. Kalau mau, kirim nama event yang ingin dicek.",
+		Examples: []string{"jadwal event", "schedule pertandingan", "kapan lomba", "tanggal turnamen", "rundown acara", "jadwal sesi"},
+		Answer:   "Jadwal lengkap dan rundown sesi turnamen dapat dilihat pada halaman detail event masing-masing. Silakan pilih event yang kamu ikuti untuk melihat jadwal sesi dan target.",
 	},
 	{
 		Name:     "registration_help",
-		Examples: []string{"cara daftar", "registrasi event", "bantu pendaftaran"},
-		Answer:   "Untuk pendaftaran, buka detail event lalu klik Daftar. Kalau ada error, kirimkan nama event dan screenshot ya.",
+		Examples: []string{"cara daftar", "registrasi event", "bantu pendaftaran", "daftar turnamen", "cara bayar", "metode pembayaran", "tiket lomba"},
+		Answer:   "Untuk mendaftar turnamen:\n1. Buka halaman Event dan pilih kategori yang sesuai.\n2. Klik tombol 'Daftar Sekarang'.\n3. Isi data pemanah dan klub.\n4. Lakukan pembayaran tiket sesuai instruksi. Tiket & QR Pass akan langsung aktif!",
 	},
 	{
 		Name:     "score_tracking",
-		Examples: []string{"cek skor", "lihat hasil", "track score"},
-		Answer:   "Untuk cek skor, buka hasil event lalu pilih kategori. Kamu juga bisa kirim nama event biar aku bantu arahkan.",
+		Examples: []string{"cek skor", "lihat hasil", "track score", "scorecard", "hasil kualifikasi", "skor eliminasi", "leaderboard"},
+		Answer:   "Kamu bisa melihat skor kualifikasi dan bagan eliminasi secara langsung di menu 'Hasil Lomba' atau buka 'Event Saya' > 'Laporan Penampilan' untuk memantau performa panahanmu.",
+	},
+	{
+		Name:     "target_info",
+		Examples: []string{"nomor target", "bantalan", "posisi bantalan", "cek target saya", "target tembak"},
+		Answer:   "Nomor target dan posisi bantalan kamu tercantum di tiket digital dan halaman 'Event Saya' > 'My Target'. Penyelenggara akan mengumumkan alokasi target sebelum sesi kualifikasi dimulai.",
+	},
+	{
+		Name:     "marketplace_equipment",
+		Examples: []string{"beli busur", "toko panahan", "marketplace", "jual panah", "beli anak panah", "arrow", "aksesoris panah", "recurve", "compound", "barebow"},
+		Answer:   "Kamu bisa membeli busur, anak panah, stabilizer, finger tab, dan perlengkapan panahan lainnya di menu 'Marketplace'. Semua produk dijual oleh penjual panahan terpercaya!",
+	},
+	{
+		Name:     "certificate_info",
+		Examples: []string{"sertifikat", "unduh sertifikat", "piagam", "e-certificate", "sertifikat juara", "sertifikat peserta"},
+		Answer:   "E-Sertifikat resmi akan otomatis tersedia di menu 'Profil' > 'Sertifikat Saya' atau di halaman 'Event Saya' > 'My Certificate' setelah penyelenggara menyelesaikan turnamen.",
+	},
+	{
+		Name:     "membership_package",
+		Examples: []string{"paket membership", "perpanjang paket", "fitur langganan", "upgrade akun", "paket organizer"},
+		Answer:   "Info paket membership dan upgrade kuota event dapat diakses pada dashboard pengaturan akun atau dashboard organizer.",
+	},
+	{
+		Name:     "contact_support",
+		Examples: []string{"hubungi admin", "customer service", "bantuan cs", "kontak panitia", "nomor wa admin", "kendala teknis"},
+		Answer:   "Jika memerlukan bantuan lebih lanjut atau mengalami kendala, silakan hubungi tim Customer Care Archeris melalui WhatsApp Support di menu Profil > Bantuan & Dukungan.",
 	},
 }
 
+var chatbotIntents = defaultChatbotIntents
 var loadIntentsOnce sync.Once
 
 func loadChatbotIntentsFromFile() {
@@ -60,7 +78,7 @@ func loadChatbotIntentsFromFile() {
 		var fileBytes []byte
 		for _, path := range candidatePaths {
 			b, err := os.ReadFile(path)
-			if err == nil {
+			if err == nil && len(b) > 0 {
 				fileBytes = b
 				break
 			}
@@ -71,14 +89,9 @@ func loadChatbotIntentsFromFile() {
 		}
 
 		var loaded []Intent
-		if err := json.Unmarshal(fileBytes, &loaded); err != nil {
-			return
+		if err := json.Unmarshal(fileBytes, &loaded); err == nil && len(loaded) > 0 {
+			chatbotIntents = loaded
 		}
-		if len(loaded) == 0 {
-			return
-		}
-
-		chatbotIntents = loaded
 	})
 }
 
@@ -134,8 +147,8 @@ func bestIntent(message string) (Intent, float64) {
 			exampleTokens := toTokenSet(normalizedExample)
 			score := jaccardScore(messageTokens, exampleTokens)
 
-			if normalizedExample != "" && strings.Contains(normalizedMessage, normalizedExample) {
-				score += 0.35
+			if normalizedExample != "" && (strings.Contains(normalizedMessage, normalizedExample) || strings.Contains(normalizedExample, normalizedMessage)) {
+				score += 0.40
 			}
 
 			if score > intentScore {
@@ -153,9 +166,13 @@ func bestIntent(message string) (Intent, float64) {
 }
 
 func recommendedQuickActions() []string {
-	actions := []string{"Cek Jadwal Event", "Bantuan Pendaftaran", "Lihat Hasil Skor"}
-	sort.Strings(actions)
-	return actions
+	return []string{
+		"Jadwal Turnamen",
+		"Bantuan Pendaftaran",
+		"Cek Skor & Target",
+		"Marketplace Panahan",
+		"Hubungi Admin",
+	}
 }
 
 // MobileChatbotMessage handles chatbot interaction
@@ -173,17 +190,22 @@ func MobileChatbotMessage() gin.HandlerFunc {
 
 		var req MobileChatbotMessageRequest
 
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Pesan wajib diisi"})
+		if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Message) == "" {
+			c.JSON(http.StatusOK, MobileChatbotResponse{
+				Intent:       "greeting",
+				Confidence:   1.0,
+				Answer:       "Halo! Ada yang bisa saya bantu seputar kejuaraan panahan atau marketplace?",
+				QuickActions: recommendedQuickActions(),
+			})
 			return
 		}
 
 		intent, confidence := bestIntent(req.Message)
-		if intent.Name == "" || confidence < 0.18 {
+		if intent.Name == "" || confidence < 0.15 {
 			c.JSON(http.StatusOK, MobileChatbotResponse{
 				Intent:       "fallback",
 				Confidence:   confidence,
-				Answer:       "Aku siap bantu customer service Archeris. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
+				Answer:       "Maaf, saya belum memahami pertanyaan tersebut secara spesifik. Namun saya dapat membantu menjawab seputar jadwal event panahan, cara pendaftaran, cek nomor bantalan/skor, sertifikat, atau toko peralatan panahan.",
 				QuickActions: recommendedQuickActions(),
 			})
 			return
@@ -211,4 +233,3 @@ func MobileChatbotIntents() gin.HandlerFunc {
 		c.JSON(http.StatusOK, MobileChatbotIntentsResponse{Intents: chatbotIntents})
 	}
 }
-

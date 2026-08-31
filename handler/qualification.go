@@ -918,6 +918,15 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		userID, _ := c.Get("user_id")
 		userIDStr := fmt.Sprintf("%v", userID)
+		userEmailVal, _ := c.Get("email")
+		userEmail := fmt.Sprintf("%v", userEmailVal)
+
+		// Get archer UUID for this user (if any)
+		var archerID string
+		_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?) LIMIT 1`, userIDStr, userIDStr, userEmail)
+		if archerID == "" {
+			archerID = userIDStr
+		}
 
 		type SessionTarget struct {
 			SessionID    string  `json:"session_id" db:"session_id"`
@@ -939,7 +948,7 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(qs.session_code, 'S1') AS session_order,
 				DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
 				DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
-				COALESCE(et.target_name, ep.target_name, 'Target 01') AS target_name,
+				COALESCE(NULLIF(et.target_name, ''), NULLIF(ep.target_name, ''), CONCAT('Target ', COALESCE(NULLIF(qta.target_board_id, ''), '01'))) AS target_name,
 				COALESCE(qta.target_board_id, ep.back_number, 'A') AS target_board,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
 				qta.uuid AS assignment_id
@@ -952,34 +961,48 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			WHERE (e.uuid = ? OR e.slug = ?)
-			  AND (ep.archer_id = ? OR ep.uuid = ?)
+			  AND (
+					ep.archer_id = ? 
+					OR ep.archer_id = ?
+					OR ep.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
+					OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
+					OR ep.uuid = ?
+					OR ep.archer_id IN (SELECT uuid FROM users WHERE id = ? OR uuid = ? OR email = ?)
+			  )
 			ORDER BY qs.start_time ASC
 		`
-		err := db.Select(&targets, query, eventID, eventID, userIDStr, userIDStr)
+		err := db.Select(&targets, query, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userIDStr, userEmail)
 		if err != nil || len(targets) == 0 {
-			// Fallback: check if participant has direct target_name assigned
+			// Fallback: check if participant has direct target_name assigned or qualification sessions
 			fallbackQuery := `
 				SELECT
-					qs.uuid AS session_id,
-					qs.name AS session_name,
+					COALESCE(qs.uuid, ep.uuid) AS session_id,
+					COALESCE(qs.name, 'Sesi Kualifikasi') AS session_name,
 					COALESCE(qs.session_code, 'S1') AS session_order,
 					DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
 					DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
-					COALESCE(ep.target_name, 'Target 01') AS target_name,
-					COALESCE(ep.back_number, 'A') AS target_board,
+					COALESCE(NULLIF(ep.target_name, ''), 'Target 01') AS target_name,
+					COALESCE(NULLIF(ep.back_number, ''), 'A') AS target_board,
 					COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
 					ep.uuid AS assignment_id
 				FROM event_participants ep
 				JOIN events e ON (e.uuid = ep.event_id OR e.slug = ep.event_id)
-				JOIN qualification_sessions qs ON qs.event_uuid = e.uuid
+				LEFT JOIN qualification_sessions qs ON qs.event_uuid = e.uuid
 				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 				LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 				WHERE (e.uuid = ? OR e.slug = ?)
-				  AND (ep.archer_id = ? OR ep.uuid = ?)
+				  AND (
+						ep.archer_id = ? 
+						OR ep.archer_id = ?
+						OR ep.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
+						OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
+						OR ep.uuid = ?
+						OR ep.archer_id IN (SELECT uuid FROM users WHERE id = ? OR uuid = ? OR email = ?)
+				  )
 				LIMIT 1
 			`
-			_ = db.Select(&targets, fallbackQuery, eventID, eventID, userIDStr, userIDStr)
+			_ = db.Select(&targets, fallbackQuery, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userIDStr, userEmail)
 		}
 
 		if targets == nil {
@@ -1872,36 +1895,4 @@ func makeRange(start, end int) []int {
 	return result
 }
 
-func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		eventID := c.Param("id")
-		sessionCode := c.Param("sessionCode")
-		autoprint := c.Query("autoprint")
-
-		// Internal PHP Printout Service URL
-		printoutURL := fmt.Sprintf("http://localhost:8002/api/v1/events/%s/qualification/sessions/%s/scoresheet", eventID, sessionCode)
-		if autoprint != "" {
-			printoutURL += "?autoprint=" + autoprint
-		}
-
-		// Forward the request to the PHP service
-		resp, err := http.Get(printoutURL)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungi layanan cetak internal", "details": err.Error()})
-			return
-		}
-		defer resp.Body.Close()
-
-		// Set headers from the PHP service response (like Content-Type: application/pdf)
-		for k, v := range resp.Header {
-			for _, val := range v {
-				c.Header(k, val)
-			}
-		}
-		c.Status(resp.StatusCode)
-
-		// Stream the PDF response
-		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
-	}
-}
 

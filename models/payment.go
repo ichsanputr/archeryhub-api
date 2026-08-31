@@ -36,6 +36,7 @@ type PaymentTransaction struct {
 	Reference        string          `json:"reference" db:"reference"`
 	TripayReference  *string         `json:"tripay_reference" db:"tripay_reference"`
 	UserID           string          `json:"user_id" db:"user_id"`
+	SellerID         *string         `json:"seller_id,omitempty" db:"seller_id"`
 	EventID          *string         `json:"event_id" db:"event_id"`
 	RegistrationID   *string         `json:"registration_id" db:"registration_id"`
 	SubscriptionPlanID *int          `json:"subscription_plan_id" db:"subscription_plan_id"`

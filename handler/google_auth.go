@@ -396,14 +396,14 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				pageSettingsJSON := fmt.Sprintf(`{"currency": "%s"}`, currency)
 
 				_, insertErr = db.Exec(`
-					INSERT INTO organizers (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, ?, NOW(), NOW())
+					INSERT INTO organizers (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, quota_free, quota_standard, quota_elite, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, ?, 20, 0, 0, NOW(), NOW())
 				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], avatarToSave, pageSettingsJSON)
 			case "club":
 				_, insertErr = db.Exec(`
-					INSERT INTO clubs (uuid, user_id, slug, email, google_id, name, avatar_url, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, avatarToSave)
+					INSERT INTO clubs (uuid, slug, name, logo_url, created_at, updated_at)
+					VALUES (?, ?, ?, ?, NOW(), NOW())
+				`, userID, username, displayName, avatarToSave)
 			case "seller":
 				_, insertErr = db.Exec(`
 					INSERT INTO sellers (uuid, user_id, slug, email, google_id, store_name, avatar_url, status, created_at, updated_at)
@@ -435,13 +435,11 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					if clubSlug == "" {
 						clubSlug = "club-" + newClubUUID[:8]
 					}
-					dummyEmail := "club-" + newClubUUID[:8] + "@archeris.net"
-					dummyPassword := "club-secret-123!"
 
 					_, insertErr = db.Exec(`
-						INSERT INTO clubs (uuid, user_id, slug, email, password, name, created_at, updated_at)
-						VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-					`, newClubUUID, newClubUUID, clubSlug, dummyEmail, dummyPassword, metadata["new_club_name"])
+						INSERT INTO clubs (uuid, slug, name, created_at, updated_at)
+						VALUES (?, ?, ?, NOW(), NOW())
+					`, newClubUUID, clubSlug, metadata["new_club_name"])
 					if insertErr != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat klub baru: " + insertErr.Error()})
 						return

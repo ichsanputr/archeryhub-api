@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"Archeris-api/database"
@@ -145,33 +146,27 @@ func main() {
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
-		allowedOrigins := []string{
-			"https://archeris.net",
-			"http://localhost:9000",
-			"http://localhost:3003",
-			"http://localhost:3000",
-			"http://127.0.0.1:9000",
-			"http://127.0.0.1:3003",
-			"http://127.0.0.1:3000",
-		}
-
-		isAllowed := false
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
-				isAllowed = true
-				break
+		if origin != "" {
+			// Allow localhost / 127.0.0.1 on any port (for Flutter web, Nuxt, etc.) or production domains
+			if strings.HasPrefix(origin, "http://localhost") ||
+				strings.HasPrefix(origin, "http://127.0.0.1") ||
+				strings.HasPrefix(origin, "https://localhost") ||
+				strings.HasPrefix(origin, "https://127.0.0.1") ||
+				strings.HasPrefix(origin, "https://archeris.net") ||
+				strings.HasPrefix(origin, "http://archeris.net") {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Credentials", "true")
+			} else {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Credentials", "true")
 			}
-		}
-
-		if isAllowed {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Credentials", "true")
 		} else {
-			c.Header("Access-Control-Allow-Origin", "https://archeris.net")
+			c.Header("Access-Control-Allow-Origin", "*")
 		}
 
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept, Cache-Control, X-Requested-With")
+		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -187,7 +182,7 @@ func main() {
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'")
+		c.Header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:; style-src 'self' 'unsafe-inline' https: http:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:; img-src 'self' data: blob: https: http:; font-src 'self' data: https: http:;")
 		c.Next()
 	})
 
@@ -333,6 +328,9 @@ func main() {
 			events.GET("/:id/payments", handler.GetEventPayments(db))
 			events.POST("/participants/reregister", handler.ReregisterParticipant(db))
 			events.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
+			events.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
+			events.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
+			events.GET("/:id/accreditation/printout", handler.GetEventAccreditationPrintout(db))
 
 			// Public Results endpoints
 			events.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
@@ -368,6 +366,8 @@ func main() {
 				protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
 				protected.GET("/:id/certificates", handler.GetEventCertificates(db))
 				protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
+				protected.POST("/:id/certificates/generate-all", handler.GenerateAllCertificates(db))
+				protected.DELETE("/:id/certificates/clear-all", handler.ClearAllCertificates(db))
 
 				protected.PUT("/:id/images", middleware.RequireActivePlan(db), handler.UpdateEventImages(db))
 				protected.PUT("/:id/schedule", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
@@ -388,12 +388,12 @@ func main() {
 
 		// Qualification routes (event-level sessions)
 		qualification := api.Group("/events/:id/qualification")
-		qualification.Use(middleware.AuthMiddleware())
+		qualification.Use(middleware.OptionalAuthMiddleware())
 		{
 			qualification.GET("/sessions", handler.GetQualificationSessions(db))
-			qualification.POST("/sessions", middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
-			qualification.PATCH("/sessions/:sessionId", middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
-			qualification.DELETE("/sessions/:sessionId", middleware.RequireActivePlan(db), handler.DeleteQualificationSession(db))
+			qualification.POST("/sessions", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
+			qualification.PATCH("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
+			qualification.DELETE("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.DeleteQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
 			qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
 		}

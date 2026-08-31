@@ -1155,15 +1155,20 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 		if eventID == "" {
 			eventID = c.Param("eventId")
 		}
-		archerID, _ := c.Get("archer_id")
-		if archerID == nil || archerID == "" {
+		
+		var archerID string
+		aID, _ := c.Get("archer_id")
+		if aID != nil && aID != "" {
+			archerID = fmt.Sprintf("%v", aID)
+		}
+		if archerID == "" {
 			userID, _ := c.Get("user_id")
 			if userID != nil && userID != "" {
-				_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR email = (SELECT email FROM users WHERE uuid = ?)`, userID, userID)
+				_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR email = (SELECT email FROM users WHERE uuid = ?)`, userID, userID, userID)
 			}
 		}
 
-		if archerID == nil || archerID == "" {
+		if archerID == "" {
 			c.JSON(http.StatusOK, gin.H{"team": nil})
 			return
 		}
@@ -1194,18 +1199,23 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(t.total_score, 0) as total_score,
 				COALESCE(t.total_x_count, 0) as total_x_count,
 				t.team_rank,
-				t.status,
-				COALESCE(cl.name, 'Sleman Archery Club') as club_name,
-				COALESCE(ec.category_name_custom, 'Recurve Men Team') as category_name
+				COALESCE(t.status, 'registered') as status,
+				COALESCE(cl.name, 'Independen') as club_name,
+				COALESCE(ec.category_name_custom, 'Recurve Team') as category_name
 			FROM teams t
 			JOIN team_members tm ON t.uuid = tm.team_id
 			JOIN event_participants ep ON tm.participant_id = ep.uuid
-			LEFT JOIN clubs cl ON ep.club_id = cl.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN event_categories ec ON t.event_id = ec.uuid
-			WHERE t.tournament_id = ? AND ep.archer_id = ?
+			WHERE t.tournament_id = ? AND (
+				ep.archer_id = ? 
+				OR ep.archer_id IN (SELECT uuid FROM archers WHERE email = (SELECT email FROM archers WHERE uuid = ? OR id = ?))
+				OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ?)
+			)
 			LIMIT 1
 		`
-		err = db.Get(&teamRes, query, eventUUID, archerID)
+		err = db.Get(&teamRes, query, eventUUID, archerID, archerID, archerID, archerID, archerID)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"team": nil})
 			return
@@ -1223,13 +1233,13 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tm.uuid,
 				COALESCE(a.full_name, 'Pemanah') as archer_name,
-				COALESCE(cl.name, 'Sleman Archery Club') as club_name,
+				COALESCE(cl.name, 'Independen') as club_name,
 				tm.member_order,
 				COALESCE(ep.qual_score, tm.total_score, 0) as score
 			FROM team_members tm
 			JOIN event_participants ep ON tm.participant_id = ep.uuid
-			JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN clubs cl ON ep.club_id = cl.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			WHERE tm.team_id = ?
 			ORDER BY tm.member_order ASC
 		`

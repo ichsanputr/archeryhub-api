@@ -83,8 +83,9 @@ func SanitizeHTML(input string) string {
 		`(?i)javascript:`,
 		`(?i)data:text/html`,
 		`(?i)vbscript:`,
-		`(?i)\s+on\w+\s*=\s*(['"]).*?\1`,
-		`(?i)\s+on\w+\s*=\s*[^>\s]+`,
+		`(?i)\s+on[a-zA-Z]+\s*=\s*"[^"]*"`,
+		`(?i)\s+on[a-zA-Z]+\s*=\s*'[^']*'`,
+		`(?i)\s+on[a-zA-Z]+\s*=\s*[^>\s]+`,
 	}
 
 	for _, pattern := range dangerousPatterns {

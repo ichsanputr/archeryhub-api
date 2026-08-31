@@ -196,6 +196,7 @@ type CreateEventRequest struct {
 	TechnicalGuidebookURL *string                   `json:"technical_guidebook_url"`
 	PageSettings          *string                   `json:"page_settings"`
 	FAQ                   interface{}               `json:"faq"`
+	QuotaType             *string                   `json:"quota_type"`
 }
 
 // UpdateEventRequest represents the request payload for updating a Event

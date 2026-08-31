@@ -754,3 +754,79 @@ func DeleteArcherCertificate(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Sertifikat berhasil dihapus"})
 	}
 }
+
+// GenerateAllCertificates creates certificates for all paid participants for an event
+func GenerateAllCertificates(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		type PaidParticipant struct {
+			RegistrationID string `db:"registration_id"`
+			ArcherID       string `db:"archer_id"`
+			AthleteCode    string `db:"athlete_code"`
+			FullName       string `db:"full_name"`
+		}
+
+		var participants []PaidParticipant
+		query := `
+			SELECT 
+				ep.uuid as registration_id,
+				ep.archer_id,
+				COALESCE(a.id, '') as athlete_code,
+				COALESCE(a.full_name, '') as full_name
+			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			WHERE ep.event_id = ? AND (LOWER(ep.payment_status) = 'paid' OR LOWER(ep.payment_status) = 'lunas')
+		`
+		err := db.Select(&participants, query, eventID)
+		if err != nil && err.Error() != "sql: no rows in result set" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data peserta: " + err.Error()})
+			return
+		}
+
+		if len(participants) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada peserta dengan status pembayaran Lunas yang terdaftar"})
+			return
+		}
+
+		generatedCount := 0
+		year := time.Now().Year()
+
+		for _, p := range participants {
+			var exists string
+			err := db.Get(&exists, "SELECT uuid FROM archer_certificates WHERE event_id = ? AND registration_id = ? LIMIT 1", eventID, p.RegistrationID)
+			if err != nil {
+				certNo := fmt.Sprintf("CERT-%d-%s", year, strings.ToUpper(strings.ReplaceAll(uuid.New().String()[:8], "-", "")))
+				newUUID := uuid.New().String()
+				issueDate := time.Now()
+
+				_, err = db.Exec(`
+					INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, issue_date, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+				`, newUUID, eventID, p.ArcherID, p.RegistrationID, certNo, issueDate)
+				if err == nil {
+					generatedCount++
+				}
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":         fmt.Sprintf("Berhasil menerbitkan %d sertifikat baru dari %d peserta lunas", generatedCount, len(participants)),
+			"generated_count": generatedCount,
+			"total_eligible":  len(participants),
+		})
+	}
+}
+
+// ClearAllCertificates deletes all issued certificates for an event
+func ClearAllCertificates(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		_, err := db.Exec("DELETE FROM archer_certificates WHERE event_id = ?", eventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan sertifikat"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Semua sertifikat event berhasil dibersihkan"})
+	}
+}
