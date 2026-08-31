@@ -1055,6 +1055,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN payment_transactions t ON ep.uuid = t.registration_id AND t.status = 'paid'
 			WHERE e.organizer_id = ?
 			GROUP BY e.uuid, e.slug, e.name, e.location_type, e.end_date
+			HAVING COALESCE(SUM(t.amount), 0) > 0
 			ORDER BY e.created_at DESC
 		`
 		err := db.Select(&summaries, query, userID)
