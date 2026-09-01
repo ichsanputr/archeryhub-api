@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"Archeris-api/utils"
 	"fmt"
 	"net/http"
@@ -201,34 +202,60 @@ func PurchaseQuota(db *sqlx.DB) gin.HandlerFunc {
 		refID := fmt.Sprintf("QUOTA-%s-%d", strings.ToUpper(uuid.New().String()[:8]), time.Now().Unix())
 		purchaseUUID := uuid.New().String()
 
-		mayarClient := utils.NewMayarClient()
 		appURL := os.Getenv("APP_URL")
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
-		redirectURL := fmt.Sprintf("%s/dashboard/organizer/package/detail?trx_id=%s", strings.TrimSuffix(appURL, "/"), refID)
 
-		paymentReq := utils.MayarPaymentReq{
-			Name:        fmt.Sprintf("Quota %s x%d - %s", plan.Name, req.Quantity, org.Name),
-			Amount:      int(totalAmount),
-			Email:       org.Email,
-			Mobile:      org.WhatsappNo,
-			Description: fmt.Sprintf("Pembelian %d Paket %s ArcheryHub", req.Quantity, plan.Name),
-			RedirectURL: redirectURL,
+		var checkoutUrl string
+		var externalTxID string
+		paymentMethod := "mayar"
+		if req.PaymentMethod == "paypal" {
+			paymentMethod = "paypal"
 		}
 
-		mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
-			return
-		}
+		if paymentMethod == "paypal" {
+			paypalClient := utils.NewPayPalClient()
+			usdAmount := paypalClient.ConvertIDRToUSD(totalAmount)
+			returnURL := fmt.Sprintf("%s/dashboard/organizer/package/detail?trx_id=%s&provider=paypal", strings.TrimSuffix(appURL, "/"), refID)
+			cancelURL := fmt.Sprintf("%s/dashboard/organizer/package/detail?trx_id=%s&cancelled=true", strings.TrimSuffix(appURL, "/"), refID)
 
-		checkoutUrl := mayarData.Link
-		mayarTxID := mayarData.TransactionID
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			orderResp, approveURL, err := paypalClient.CreateOrder(ctx, refID, fmt.Sprintf("Pembelian %d Paket %s ArcheryHub", req.Quantity, plan.Name), usdAmount, returnURL, cancelURL)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran PayPal: " + err.Error()})
+				return
+			}
+			checkoutUrl = approveURL
+			externalTxID = orderResp.ID
+		} else {
+			mayarClient := utils.NewMayarClient()
+			redirectURL := fmt.Sprintf("%s/dashboard/organizer/package/detail?trx_id=%s", strings.TrimSuffix(appURL, "/"), refID)
+
+			paymentReq := utils.MayarPaymentReq{
+				Name:        fmt.Sprintf("Quota %s x%d - %s", plan.Name, req.Quantity, org.Name),
+				Amount:      int(totalAmount),
+				Email:       org.Email,
+				Mobile:      org.WhatsappNo,
+				Description: fmt.Sprintf("Pembelian %d Paket %s ArcheryHub", req.Quantity, plan.Name),
+				RedirectURL: redirectURL,
+			}
+
+			mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
+				return
+			}
+
+			checkoutUrl = mayarData.Link
+			externalTxID = mayarData.TransactionID
+		}
 
 		insertSQL := `INSERT INTO quota_purchases (uuid, organizer_id, plan_id, quota_type, quantity, unit_price, total_amount, currency, payment_method, payment_reference, checkout_url, tripay_reference, payment_status, purchased_at) 
-					  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'mayar', ?, ?, ?, 'pending', NOW())`
-		_, err = db.Exec(insertSQL, purchaseUUID, org.UUID, req.PlanID, plan.QuotaType, req.Quantity, promoPrice, totalAmount, req.Currency, refID, checkoutUrl, mayarTxID)
+					  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`
+		_, err := db.Exec(insertSQL, purchaseUUID, org.UUID, req.PlanID, plan.QuotaType, req.Quantity, promoPrice, totalAmount, req.Currency, paymentMethod, refID, checkoutUrl, externalTxID)
 		
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save purchase: " + err.Error()})
@@ -238,7 +265,7 @@ func PurchaseQuota(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"purchase_id":    refID,
 			"checkout_url":   checkoutUrl,
-			"transaction_id": mayarTxID,
+			"transaction_id": externalTxID,
 			"total_amount":   totalAmount,
 			"currency":       req.Currency,
 		})

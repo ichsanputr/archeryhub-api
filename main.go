@@ -588,6 +588,8 @@ func main() {
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/mayar/callback", handler.MayarWebhookCallback(db))
 			payment.POST("/callback", handler.MayarWebhookCallback(db))
+			payment.POST("/paypal/webhook", handler.PayPalWebhookCallback(db))
+			payment.POST("/paypal/capture", handler.CapturePayPalPayment(db))
 			payment.GET("/simulate-success/:reference", middleware.AuthMiddleware(), handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
 

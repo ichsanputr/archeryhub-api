@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"Archeris-api/models"
 	"Archeris-api/utils"
 	"database/sql"
@@ -279,12 +280,10 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				ExpiredAt:          time.Now().Add(7 * 24 * time.Hour), // 7 days for manual payment
 			}
 		} else {
-			mayarClient := utils.NewMayarClient()
 			appURL := os.Getenv("APP_URL")
 			if appURL == "" {
 				appURL = "http://localhost:3003"
 			}
-			redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
 
 			description := "Pembayaran Transaksi ArcheryHub"
 			if req.Type == "subscription" {
@@ -293,40 +292,80 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				description = fmt.Sprintf("Registrasi Event: %s", customerName)
 			}
 
-			paymentReq := utils.MayarPaymentReq{
-				Name:        fmt.Sprintf("Payment %s", merchantRef),
-				Amount:      amount,
-				Email:       customerEmail,
-				Mobile:      customerPhone,
-				Description: description,
-				RedirectURL: redirectURL,
-			}
+			if req.Method == "paypal" {
+				paypalClient := utils.NewPayPalClient()
+				usdAmount := paypalClient.ConvertIDRToUSD(float64(amount))
+				returnURL := fmt.Sprintf("%s/payment/status/%s?provider=paypal", strings.TrimSuffix(appURL, "/"), merchantRef)
+				cancelURL := fmt.Sprintf("%s/payment/status/%s?cancelled=true", strings.TrimSuffix(appURL, "/"), merchantRef)
 
-			mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
-				return
-			}
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
 
-			checkoutURL := mayarData.Link
-			mayarTxID := mayarData.TransactionID
+				orderResp, approveURL, err := paypalClient.CreateOrder(ctx, merchantRef, description, usdAmount, returnURL, cancelURL)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran PayPal: " + err.Error()})
+					return
+				}
 
-			transaction = models.PaymentTransaction{
-				UUID:               transactionID,
-				Reference:          merchantRef,
-				TripayReference:    &mayarTxID,
-				UserID:             userID.(string),
-				EventID:            eventID,
-				RegistrationID:     registrationID,
-				SubscriptionPlanID: req.PlanID,
-				Amount:             float64(amount),
-				FeeAmount:          0,
-				TotalAmount:        float64(amount),
-				PaymentMethod:      utils.StringPtr("mayar"),
-				CheckoutURL:        &checkoutURL,
-				Months:             req.Months,
-				Status:             "pending",
-				ExpiredAt:          time.Now().Add(24 * time.Hour),
+				orderID := orderResp.ID
+				checkoutURL := approveURL
+
+				transaction = models.PaymentTransaction{
+					UUID:               transactionID,
+					Reference:          merchantRef,
+					TripayReference:    &orderID,
+					UserID:             userID.(string),
+					EventID:            eventID,
+					RegistrationID:     registrationID,
+					SubscriptionPlanID: req.PlanID,
+					Amount:             float64(amount),
+					FeeAmount:          0,
+					TotalAmount:        float64(amount),
+					PaymentMethod:      utils.StringPtr("paypal"),
+					CheckoutURL:        &checkoutURL,
+					Months:             req.Months,
+					Status:             "pending",
+					ExpiredAt:          time.Now().Add(24 * time.Hour),
+				}
+			} else {
+				mayarClient := utils.NewMayarClient()
+				redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
+
+				paymentReq := utils.MayarPaymentReq{
+					Name:        fmt.Sprintf("Payment %s", merchantRef),
+					Amount:      amount,
+					Email:       customerEmail,
+					Mobile:      customerPhone,
+					Description: description,
+					RedirectURL: redirectURL,
+				}
+
+				mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
+					return
+				}
+
+				checkoutURL := mayarData.Link
+				mayarTxID := mayarData.TransactionID
+
+				transaction = models.PaymentTransaction{
+					UUID:               transactionID,
+					Reference:          merchantRef,
+					TripayReference:    &mayarTxID,
+					UserID:             userID.(string),
+					EventID:            eventID,
+					RegistrationID:     registrationID,
+					SubscriptionPlanID: req.PlanID,
+					Amount:             float64(amount),
+					FeeAmount:          0,
+					TotalAmount:        float64(amount),
+					PaymentMethod:      utils.StringPtr("mayar"),
+					CheckoutURL:        &checkoutURL,
+					Months:             req.Months,
+					Status:             "pending",
+					ExpiredAt:          time.Now().Add(24 * time.Hour),
+				}
 			}
 		}
 	// Set default months if not subscription it should be 1
