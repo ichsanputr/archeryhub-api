@@ -928,6 +928,14 @@ func GetPaymentChannels(db *sqlx.DB) gin.HandlerFunc {
 				IconURL: "/payment-method/bsi.png",
 				Active:  true,
 			},
+			{
+				Code:    "PAYPAL",
+				Name:    "PayPal (International - USD)",
+				Group:   "International",
+				Type:    "redirect",
+				IconURL: "https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg",
+				Active:  true,
+			},
 		}
 		c.JSON(http.StatusOK, gin.H{"data": channels})
 	}
@@ -978,44 +986,75 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		mayarClient := utils.NewMayarClient()
+		var reqBody struct {
+			Method string `json:"method"`
+		}
+		_ = c.ShouldBindJSON(&reqBody)
+
 		appURL := os.Getenv("APP_URL")
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
 		merchantRef := fmt.Sprintf("PAY-REG-%s", uuid.New().String()[:12])
-		redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
 
-		paymentReq := utils.MayarPaymentReq{
-			Name:        fmt.Sprintf("Event Reg - %s", customerName),
-			Amount:      amount,
-			Email:       customerEmail,
-			Mobile:      customerPhone,
-			Description: fmt.Sprintf("Pendaftaran Event: %s", customerName),
-			RedirectURL: redirectURL,
+		var checkoutURL string
+		var externalTxID string
+		paymentMethodStr := "mayar"
+		if reqBody.Method == "paypal" {
+			paymentMethodStr = "paypal"
 		}
 
-		mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
-			return
+		if paymentMethodStr == "paypal" {
+			paypalClient := utils.NewPayPalClient()
+			usdAmount := paypalClient.ConvertIDRToUSD(float64(amount))
+			returnURL := fmt.Sprintf("%s/payment/status/%s?provider=paypal", strings.TrimSuffix(appURL, "/"), merchantRef)
+			cancelURL := fmt.Sprintf("%s/payment/status/%s?cancelled=true", strings.TrimSuffix(appURL, "/"), merchantRef)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			orderResp, approveURL, err := paypalClient.CreateOrder(ctx, merchantRef, fmt.Sprintf("Pendaftaran Event: %s", customerName), usdAmount, returnURL, cancelURL)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran PayPal: " + err.Error()})
+				return
+			}
+			checkoutURL = approveURL
+			externalTxID = orderResp.ID
+		} else {
+			mayarClient := utils.NewMayarClient()
+			redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
+
+			paymentReq := utils.MayarPaymentReq{
+				Name:        fmt.Sprintf("Event Reg - %s", customerName),
+				Amount:      amount,
+				Email:       customerEmail,
+				Mobile:      customerPhone,
+				Description: fmt.Sprintf("Pendaftaran Event: %s", customerName),
+				RedirectURL: redirectURL,
+			}
+
+			mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat transaksi pembayaran Mayar: " + err.Error()})
+				return
+			}
+			checkoutURL = mayarData.Link
+			externalTxID = mayarData.TransactionID
 		}
 
 		transactionID := uuid.New().String()
-		checkoutURL := mayarData.Link
-		mayarTxID := mayarData.TransactionID
 
 		transaction := models.PaymentTransaction{
 			UUID:            transactionID,
 			Reference:       merchantRef,
-			TripayReference: &mayarTxID,
+			TripayReference: &externalTxID,
 			UserID:          userID.(string),
 			EventID:         &reg.EventID,
 			RegistrationID:  &participantID,
 			Amount:          float64(amount),
 			FeeAmount:       0,
 			TotalAmount:     float64(amount),
-			PaymentMethod:   utils.StringPtr("mayar"),
+			PaymentMethod:   utils.StringPtr(paymentMethodStr),
 			CheckoutURL:     &checkoutURL,
 			Status:          "pending",
 			ExpiredAt:       time.Now().Add(24 * time.Hour),
