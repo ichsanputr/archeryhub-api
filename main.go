@@ -598,6 +598,15 @@ func main() {
 			payment.GET("/manual/pending", middleware.AuthMiddleware(), handler.GetPendingManualPayments(db))
 		}
 
+		// PayPal Dev Testing Routes
+		dev := api.Group("/dev")
+		{
+			dev.GET("/paypal/check-token", handler.DevPayPalCheckToken)
+			dev.POST("/paypal/create-order", handler.DevPayPalCreateOrder)
+			dev.POST("/paypal/capture-order", handler.DevPayPalCaptureOrder)
+			dev.GET("/paypal/order/:order_id", handler.DevPayPalGetOrder)
+		}
+
 		// Root/Admin routes
 		root := api.Group("/root")
 		{
