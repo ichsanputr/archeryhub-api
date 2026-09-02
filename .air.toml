@@ -4,11 +4,28 @@ tmp_dir = "tmp_build"
 
 [build]
   args_bin = []
-  bin = ".\\tmp_build\\main.exe"
+  entrypoint = [".\\tmp_build\\main.exe"]
+  # bin = ".\\tmp_build\\main.exe" # deprecated in air v1.50+
   cmd = "go build -o .\\tmp_build\\main.exe ."
-  delay = 1000
-  exclude_dir = ["assets", "tmp_build", "vendor", "testdata", "media", "logs", "printout"]
-  exclude_file = []
+  exclude_dir = [
+    "assets",
+    "tmp_build",
+    "vendor",
+    "testdata",
+    "media",
+    "logs",
+    "printout",
+    "data",
+    "docs",
+    "mayar-docs-api",
+    "tripay-docs",
+    "scratch",
+    "scripts",
+    "migrations",
+    ".cursor",
+    ".git",
+    ".github"
+  ]
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false

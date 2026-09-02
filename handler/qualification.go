@@ -269,61 +269,6 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// DeleteQualificationSession removes a session and all its related data (Destructive)
-func DeleteQualificationSession(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		sessionUUID := c.Param("sessionId")
-		eventID := c.Param("id")
-
-		// Resolve event UUID (allow slug for logging)
-		var eventUUID string
-		_ = db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
-
-		tx, err := db.Beginx()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
-			return
-		}
-		defer tx.Rollback()
-
-		// 1. Delete arrow scores
-		tx.Exec(`
-			DELETE FROM qualification_arrow_scores 
-			WHERE end_score_uuid IN (SELECT uuid FROM qualification_end_scores WHERE session_uuid = ?)`,
-			sessionUUID)
-
-		// 2. Delete end scores
-		tx.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ?`, sessionUUID)
-
-		// 3. Delete assignments
-		tx.Exec(`DELETE FROM qualification_target_assignments WHERE session_uuid = ?`, sessionUUID)
-
-		// 4. Delete session-category links
-		tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
-
-		// 5. Delete board verification codes
-		tx.Exec(`DELETE FROM target_board_qualification WHERE session_uuid = ?`, sessionUUID)
-
-		// 6. Delete the session itself
-		_, err = tx.Exec(`DELETE FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data sesi", "details": err.Error()})
-			return
-		}
-
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
-			return
-		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventUUID, "qualification_session_deleted", "qualification_session", sessionUUID, "Permanently deleted qualification session and all scores/assignments", c.ClientIP(), c.Request.UserAgent())
-
-		c.JSON(http.StatusOK, gin.H{"message": "Sesi kualifikasi dan seluruh data terkait berhasil dihapus"})
-	}
-}
-
 // UpdateQualificationScore updates end scores for an assignment (supports batch)
 // @Summary Update Qualification Score
 // @Description Submit or update scores for a specific qualification assignment (end-by-end)
@@ -1024,7 +969,8 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID       string `json:"category_id" binding:"required"`
 			StartTargetName  string `json:"start_target"`
 			ArchersPerTarget int    `json:"archers_per_target"`
-			DrawType         string `json:"draw_type"` // "standard" or "field"
+			DrawType         string `json:"draw_type"`   // "standard" or "field"
+			AssignMode       string `json:"assign_mode"` // "unassigned_only" (default) or "all"
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1037,6 +983,9 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.DrawType == "" {
 			req.DrawType = "standard"
+		}
+		if req.AssignMode == "" {
+			req.AssignMode = "unassigned_only"
 		}
 
 		// Get session details
@@ -1064,8 +1013,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// CRITICAL GUARD: Block auto-assign if scoring has already started for this category+session
-		// Without this, organizers could accidentally wipe all scores mid-event
+		// Check if scoring has already started for this category+session
 		var endsCompleted int
 		db.Get(&endsCompleted, `
 			SELECT COUNT(*) FROM qualification_end_scores
@@ -1074,47 +1022,24 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			    SELECT uuid FROM event_participants WHERE category_id = ?
 			  )
 		`, sessionID, req.CategoryID)
-		if endsCompleted > 0 {
-			c.JSON(http.StatusConflict, gin.H{
-				"error": "Tidak bisa re-assign: skor sudah mulai diinput untuk kategori ini di sesi ini. Hapus skor terlebih dahulu sebelum mengubah penempatan target.",
-				"ends_completed": endsCompleted,
-			})
-			return
+
+		// If scores already exist and user asked for "all", force "unassigned_only" mode to protect active archers
+		if endsCompleted > 0 && req.AssignMode == "all" {
+			req.AssignMode = "unassigned_only"
 		}
 
-		// 1. Clear all existing assignments for this category in this session first
-		if _, err = db.Exec(`
-			DELETE FROM qualification_arrow_scores
-			WHERE end_score_uuid IN (
-			  SELECT uuid FROM qualification_end_scores
-			  WHERE session_uuid = ?
-			    AND participant_uuid IN (
-			      SELECT uuid FROM event_participants WHERE category_id = ?
-			    )
-			)
-		`, sessionID, req.CategoryID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus skor", "details": err.Error()})
-			return
-		}
-		if _, err = db.Exec(`
-			DELETE FROM qualification_end_scores
-			WHERE session_uuid = ?
-			  AND participant_uuid IN (
-			    SELECT uuid FROM event_participants WHERE category_id = ?
-			  )
-		`, sessionID, req.CategoryID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus skor babak", "details": err.Error()})
-			return
-		}
-		if _, err = db.Exec(`
-			DELETE FROM qualification_target_assignments
-			WHERE session_uuid = ?
-			  AND participant_uuid IN (
-			    SELECT uuid FROM event_participants WHERE category_id = ?
-			  )
-		`, sessionID, req.CategoryID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data penempatan", "details": err.Error()})
-			return
+		// 1. If mode is "all" and no scores exist, clear existing assignments for this category in this session
+		if req.AssignMode == "all" && endsCompleted == 0 {
+			if _, err = db.Exec(`
+				DELETE FROM qualification_target_assignments
+				WHERE session_uuid = ?
+				  AND participant_uuid IN (
+				    SELECT uuid FROM event_participants WHERE category_id = ?
+				  )
+			`, sessionID, req.CategoryID); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data penempatan sebelumnya", "details": err.Error()})
+				return
+			}
 		}
 
 		// 2. Build map of targets grouped by number
@@ -1146,12 +1071,23 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// 3. Build available slots based on Draw Type
 		var existing []string
-		db.Select(&existing, `
-			SELECT qta.target_uuid
-			FROM qualification_target_assignments qta
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
-			WHERE qta.session_uuid = ? AND ep.category_id != ?
-		`, sessionID, req.CategoryID)
+		if req.AssignMode == "unassigned_only" {
+			// In unassigned_only mode, all currently assigned targets in this session are taken
+			db.Select(&existing, `
+				SELECT qta.target_uuid
+				FROM qualification_target_assignments qta
+				WHERE qta.session_uuid = ?
+			`, sessionID)
+		} else {
+			// In "all" mode (0 scores), targets taken by other categories are preserved
+			db.Select(&existing, `
+				SELECT qta.target_uuid
+				FROM qualification_target_assignments qta
+				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				WHERE qta.session_uuid = ? AND ep.category_id != ?
+			`, sessionID, req.CategoryID)
+		}
+
 		isTaken := make(map[string]bool)
 		for _, e := range existing {
 			isTaken[e] = true
@@ -1188,7 +1124,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				if !exists {
 					continue
 				}
-				
+
 				// Ensure index of letter < ArchersPerTarget
 				idxInAlphabet := int(letter[0] - 'A')
 				if idxInAlphabet >= req.ArchersPerTarget {
@@ -1201,20 +1137,37 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// 4. Get ALL participants for this category (assignments were cleared in step 1)
+		// 4. Get participants for this category
 		type ParticipantWithClub struct {
 			ParticipationUUID string  `db:"uuid"`
 			ClubName          *string `db:"club_name"`
 		}
 		var participants []ParticipantWithClub
-		err = db.Select(&participants, `
-			SELECT ep.uuid, c.name as club_name
-			FROM event_participants ep
-			JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN clubs c ON a.club_id = c.uuid
-			WHERE ep.category_id = ?
-			ORDER BY ep.uuid
-		`, req.CategoryID)
+
+		if req.AssignMode == "unassigned_only" {
+			// Fetch only participants who are NOT yet assigned in this session
+			err = db.Select(&participants, `
+				SELECT ep.uuid, c.name as club_name
+				FROM event_participants ep
+				JOIN archers a ON ep.archer_id = a.uuid
+				LEFT JOIN clubs c ON a.club_id = c.uuid
+				WHERE ep.category_id = ?
+				  AND ep.uuid NOT IN (
+				    SELECT participant_uuid FROM qualification_target_assignments WHERE session_uuid = ?
+				  )
+				ORDER BY ep.uuid
+			`, req.CategoryID, sessionID)
+		} else {
+			// Fetch ALL participants for this category
+			err = db.Select(&participants, `
+				SELECT ep.uuid, c.name as club_name
+				FROM event_participants ep
+				JOIN archers a ON ep.archer_id = a.uuid
+				LEFT JOIN clubs c ON a.club_id = c.uuid
+				WHERE ep.category_id = ?
+				ORDER BY ep.uuid
+			`, req.CategoryID)
+		}
 
 		if err != nil || len(participants) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada peserta untuk ditempatkan", "count": 0})
@@ -1362,27 +1315,7 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// First delete all related arrow scores
-		_, err = db.Exec(`
-			DELETE FROM qualification_arrow_scores 
-			WHERE end_score_uuid IN (
-				SELECT uuid FROM qualification_end_scores 
-				WHERE session_uuid = ? AND participant_uuid = ?
-			)`, sessionUUID, participantUUID)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete arrow scores"})
-			return
-		}
-
-		// Delete end scores
-		_, err = db.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, participantUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete end scores"})
-			return
-		}
-
-		// Then delete the assignment
+		// Delete only the assignment, keeping recorded scores safe attached to the participant
 		result, err := db.Exec("DELETE FROM qualification_target_assignments WHERE uuid = ?", assignmentID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete assignment"})
@@ -1559,7 +1492,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// ResetSessionAssignments removes all assignments and scores for a category in a session
+// ResetSessionAssignments removes assignments for unscored participants for a category in a session
 func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
@@ -1575,6 +1508,15 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		categoryID := req.CategoryID
 
+		// Count participants with scores in this session + category
+		var scoredCount int
+		db.Get(&scoredCount, `
+			SELECT COUNT(DISTINCT qes.participant_uuid)
+			FROM qualification_end_scores qes
+			JOIN event_participants ep ON qes.participant_uuid = ep.uuid
+			WHERE qes.session_uuid = ? AND ep.category_id = ?
+		`, sessionID, categoryID)
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
@@ -1582,41 +1524,31 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 1. Delete arrow scores for this category and session
-		_, err = tx.Exec(`
-			DELETE FROM qualification_arrow_scores 
-			WHERE end_score_uuid IN (
-				SELECT qes.uuid 
-				FROM qualification_end_scores qes
-				JOIN event_participants ep ON qes.participant_uuid = ep.uuid
-				WHERE qes.session_uuid = ? AND ep.category_id = ?
-			)`, sessionID, categoryID)
+		// ONLY delete assignments for participants who DO NOT have scores yet
+		var res sql.Result
+		if scoredCount > 0 {
+			res, err = tx.Exec(`
+				DELETE qta FROM qualification_target_assignments qta
+				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				WHERE qta.session_uuid = ? AND ep.category_id = ?
+				  AND ep.uuid NOT IN (
+				    SELECT DISTINCT participant_uuid FROM qualification_end_scores WHERE session_uuid = ?
+				  )
+			`, sessionID, categoryID, sessionID)
+		} else {
+			res, err = tx.Exec(`
+				DELETE qta FROM qualification_target_assignments qta
+				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				WHERE qta.session_uuid = ? AND ep.category_id = ?`,
+				sessionID, categoryID)
+		}
+
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete arrow scores", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset assignments", "details": err.Error()})
 			return
 		}
 
-		// 2. Delete end scores
-		_, err = tx.Exec(`
-			DELETE qes FROM qualification_end_scores qes
-			JOIN event_participants ep ON qes.participant_uuid = ep.uuid
-			WHERE qes.session_uuid = ? AND ep.category_id = ?`,
-			sessionID, categoryID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete end scores", "details": err.Error()})
-			return
-		}
-
-		// 3. Delete assignments
-		_, err = tx.Exec(`
-			DELETE qta FROM qualification_target_assignments qta
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
-			WHERE qta.session_uuid = ? AND ep.category_id = ?`,
-			sessionID, categoryID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete assignments", "details": err.Error()})
-			return
-		}
+		rowsAffected, _ := res.RowsAffected()
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
@@ -1635,7 +1567,11 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Penempatan berhasil direset"})
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Penempatan berhasil direset",
+			"reset_count":    rowsAffected,
+			"retained_count": scoredCount,
+		})
 	}
 }
 

@@ -35,7 +35,11 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				ID            string `json:"id" db:"assignment_uuid"`
 				ParticipantID string `json:"participant_id" db:"participant_uuid"`
 				Name          string `json:"name" db:"archer_name"`
+				Club          string `json:"club" db:"club_name"`
 				Division      string `json:"division" db:"division_name"`
+				TotalScore    int    `json:"total_score"`
+				EndsCompleted int    `json:"ends_completed"`
+				HasScore      bool   `json:"has_score"`
 			}
 
 			type TargetInfo struct {
@@ -49,27 +53,36 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				AssignmentUUID  string `db:"assignment_uuid"`
 				ParticipantUUID string `db:"participant_uuid"`
 				ArcherName      string `db:"archer_name"`
+				ClubName        string `db:"club_name"`
 				DivisionName    string `db:"division_name"`
+				TotalScore      int    `db:"total_score"`
+				EndsCompleted   int    `db:"ends_completed"`
 			}
 
 			var assignments []AssignmentRow
 			err := db.Select(&assignments, `
 				SELECT 
-				et.target_name,
-				qta.uuid as assignment_uuid,
-				qta.participant_uuid,
-				COALESCE(a.full_name, '') as archer_name,
-				COALESCE(ec.category_name_custom, CONCAT(bt.name, ' ', ag.name), '') as division_name
-			FROM qualification_target_assignments qta
-			JOIN event_targets et ON qta.target_uuid = et.uuid
-			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
-			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
-			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
-			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-			WHERE qta.session_uuid = ?
-			ORDER BY et.board_number ASC, et.target_name ASC`,
+					et.target_name,
+					qta.uuid as assignment_uuid,
+					qta.participant_uuid,
+					COALESCE(a.full_name, '') as archer_name,
+					COALESCE(cl.name, '') as club_name,
+					COALESCE(ec.category_name_custom, CONCAT(bt.name, ' ', ag.name), '') as division_name,
+					COALESCE(SUM(qes.total_score_end), 0) as total_score,
+					COUNT(qes.uuid) as ends_completed
+				FROM qualification_target_assignments qta
+				JOIN event_targets et ON qta.target_uuid = et.uuid
+				JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				LEFT JOIN archers a ON ep.archer_id = a.uuid
+				LEFT JOIN clubs cl ON a.club_id = cl.uuid
+				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+				LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
+				LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
+				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qs.uuid
+				WHERE qta.session_uuid = ?
+				GROUP BY et.target_name, qta.uuid, qta.participant_uuid, a.full_name, cl.name, ec.category_name_custom, bt.name, ag.name, et.board_number
+				ORDER BY et.board_number ASC, et.target_name ASC`,
 				sessionID)
 
 			if err != nil {
@@ -83,7 +96,11 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 					ID:            a.AssignmentUUID,
 					ParticipantID: a.ParticipantUUID,
 					Name:          a.ArcherName,
+					Club:          a.ClubName,
 					Division:      a.DivisionName,
+					TotalScore:    a.TotalScore,
+					EndsCompleted: a.EndsCompleted,
+					HasScore:      a.EndsCompleted > 0,
 				}
 				targetMap[a.TargetName] = append(targetMap[a.TargetName], archer)
 			}

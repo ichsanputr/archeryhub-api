@@ -330,7 +330,6 @@ func main() {
 			events.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
 			events.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
 			events.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
-			events.GET("/:id/accreditation/printout", handler.GetEventAccreditationPrintout(db))
 
 			// Public Results endpoints
 			events.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
@@ -393,7 +392,6 @@ func main() {
 			qualification.GET("/sessions", handler.GetQualificationSessions(db))
 			qualification.POST("/sessions", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
 			qualification.PATCH("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
-			qualification.DELETE("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.DeleteQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
 			qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
 		}

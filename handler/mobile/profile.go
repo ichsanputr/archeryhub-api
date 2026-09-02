@@ -648,7 +648,7 @@ func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.id, a.username, a.full_name, a.email, a.avatar_url,
+				a.uuid, COALESCE(a.id, '') as id, a.username, a.full_name, a.email, a.avatar_url,
 				a.phone, a.gender, CAST(a.date_of_birth AS CHAR) as date_of_birth,
 				'' as city, a.address, a.bow_type,
 				a.club_id, c.name as club_name

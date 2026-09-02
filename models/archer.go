@@ -72,6 +72,7 @@ type CreateArcherRequest struct {
 	BowType     *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country     *string       `json:"country"`
 	ClubID      *string       `json:"club_id"`
+	ClubName    *string       `json:"club_name"`
 
 	AvatarURL *string `json:"avatar_url"`
 	Address   *string `json:"address"`
@@ -133,7 +134,6 @@ type EventParticipant struct {
 	RegistrationDate     time.Time  `json:"registration_date" db:"registration_date"`
 	PaymentStatus        string     `json:"payment_status" db:"payment_status"` // menunggu_acc, belum_lunas, lunas
 	PaymentAmount        float64    `json:"payment_amount" db:"payment_amount"`
-	AccreditationStatus  string     `json:"accreditation_status" db:"accreditation_status"` // pending, printed, collected
 	RegistrationSource   string     `json:"registration_source" db:"registration_source"`   // invited, admin_created, self_register
 	Notes                *string    `json:"notes" db:"notes"`
 }

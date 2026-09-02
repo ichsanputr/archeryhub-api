@@ -312,7 +312,12 @@ func ApproveParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Update related payment transaction if exists and pending
-		db.Exec("UPDATE payment_transactions SET status = 'paid', updated_at = NOW() WHERE registration_id = ? AND status IN ('pending', 'awaiting_verification')", participantID)
+		db.Exec(`
+			UPDATE payment_transactions 
+			SET status = 'paid', updated_at = NOW(), paid_at = COALESCE(paid_at, NOW()) 
+			WHERE (registration_id = ? OR (event_id = ? AND user_id = ?)) 
+			  AND status IN ('pending', 'awaiting_verification', 'unpaid')
+		`, participantID, pInfo.EventID, pInfo.ArcherID)
 
 		// Get categories
 		var categories []string

@@ -553,10 +553,19 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Count participants and auto-calculate bracket size (smallest power of 2 >= count)
+		// Count participants with qualification scores and auto-calculate bracket size (smallest power of 2 >= count)
 		var participantCount int
 		if req.BracketType == "individual" {
-			db.Get(&participantCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')`, req.CategoryID)
+			db.Get(&participantCount, `
+				SELECT COUNT(*) FROM (
+					SELECT ep.uuid
+					FROM event_participants ep
+					JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
+					WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
+					GROUP BY ep.uuid
+					HAVING SUM(qes.total_score_end) > 0 OR COUNT(qes.uuid) > 0
+				) scored_archers
+			`, req.CategoryID)
 		} else {
 			// SyncTeams stores: tournament_id = eventUUID, event_id = categoryID
 			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE event_id = ? AND tournament_id = ?`, req.CategoryID, eventUUID)
@@ -631,9 +640,10 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
 				FROM event_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
-				WHERE ep.category_id = ?
+				JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
+				WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
 				GROUP BY ep.uuid
+				HAVING SUM(qes.total_score_end) > 0 OR COUNT(qes.uuid) > 0
 				ORDER BY total_score DESC, total_x DESC, total_10 DESC
 				LIMIT ?
 			`, req.CategoryID, bracketSize)
@@ -859,9 +869,10 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
 				FROM event_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
-				WHERE ep.category_id = ?
+				JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
+				WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
 				GROUP BY ep.uuid
+				HAVING SUM(qes.total_score_end) > 0 OR COUNT(qes.uuid) > 0
 				ORDER BY total_score DESC, total_x DESC, total_10 DESC
 				LIMIT ?
 			`, bracket.CategoryUUID, bracket.BracketSize)
@@ -1029,12 +1040,12 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// calcBracketSize returns the smallest power of 2 that is >= n (per docs: Bracket Size = 2^âŒˆlogâ‚‚(N)âŒ‰)
+// calcBracketSize returns the smallest power of 2 (min 4) that is >= n (per docs: Bracket Size = 2^⌈log₂(N)⌉)
 func calcBracketSize(n int) int {
-	if n <= 0 {
+	if n < 2 {
 		return 0
 	}
-	size := 1
+	size := 4
 	for size < n {
 		size *= 2
 	}
@@ -1072,7 +1083,16 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 		teamSize := 1
 
 		if bracketType == "individual" {
-			db.Get(&effectiveCount, `SELECT COUNT(*) FROM event_participants WHERE category_id = ? AND payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')`, categoryID)
+			db.Get(&effectiveCount, `
+				SELECT COUNT(*) FROM (
+					SELECT ep.uuid
+					FROM event_participants ep
+					JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
+					WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
+					GROUP BY ep.uuid
+					HAVING SUM(qes.total_score_end) > 0 OR COUNT(qes.uuid) > 0
+				) scored_archers
+			`, categoryID)
 		} else {
 			// Fetch category type info (same as SyncTeams does)
 			var catInfo struct {

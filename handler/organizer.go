@@ -231,6 +231,14 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Add social_media if exists
+		if org.SocialMedia != nil && *org.SocialMedia != "" {
+			var sm []interface{}
+			if err := json.Unmarshal([]byte(*org.SocialMedia), &sm); err == nil {
+				response["organizer"].(gin.H)["social_media"] = sm
+			}
+		}
+
 		// Add page_settings if exists
 		if orgData.PageSettings != nil && *orgData.PageSettings != "" {
 			var pageSettings map[string]interface{}

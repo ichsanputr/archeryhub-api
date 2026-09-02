@@ -296,9 +296,9 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Get(&revSummary, fmt.Sprintf(`
 			SELECT 
-				COALESCE(SUM(CASE WHEN pt.status = 'paid' THEN pt.amount ELSE 0 END), 0) as total_paid,
-				COALESCE(SUM(CASE WHEN pt.status = 'pending' THEN pt.amount ELSE 0 END), 0) as total_pending,
-				COALESCE(SUM(CASE WHEN pt.status IN ('expired', 'failed') THEN pt.amount ELSE 0 END), 0) as total_failed
+				COALESCE(SUM(CASE WHEN pt.status IN ('paid', 'success', 'settlement', 'completed') THEN pt.amount ELSE 0 END), 0) as total_paid,
+				COALESCE(SUM(CASE WHEN pt.status IN ('pending', 'awaiting_verification', 'unpaid') THEN pt.amount ELSE 0 END), 0) as total_pending,
+				COALESCE(SUM(CASE WHEN pt.status IN ('expired', 'failed', 'cancelled') THEN pt.amount ELSE 0 END), 0) as total_failed
 			FROM payment_transactions pt
 			JOIN events e ON pt.event_id = e.uuid
 			WHERE %s

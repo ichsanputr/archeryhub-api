@@ -110,7 +110,6 @@ type EventWithDetails struct {
 	Currency              string                     `json:"currency" db:"-"`
 	ParticipantCount      int                        `json:"participant_count" db:"participant_count" example:"128"`
 	EventCount            int                        `json:"event_count" db:"event_count" example:"12"`
-	AccreditationStatus   *string                    `json:"accreditation_status" db:"accreditation_status" example:"approved"`
 	PaymentStatus         *string                    `json:"payment_status" db:"payment_status" example:"paid"`
 	ParticipantUUID       *string                    `json:"participant_uuid" db:"participant_uuid" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
 	ParticipantStatus     *string                    `json:"participant_status" db:"participant_status" example:"registered"`

@@ -1094,7 +1094,6 @@ type MobileOrganizationUpdateParticipantRequest struct {
 	PaymentStatus       *string   `json:"payment_status"`
 	PaymentAmount       *float64  `json:"payment_amount"`
 	PaymentProofURLs    []string  `json:"payment_proof_urls"`
-	AccreditationStatus *string   `json:"accreditation_status"`
 	IsVerified          *bool     `json:"is_verified"`
 }
 

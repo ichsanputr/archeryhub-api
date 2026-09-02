@@ -40,6 +40,11 @@ func CleanUsername(username string) string {
 	return strings.Trim(result.String(), "-")
 }
 
+// CleanSlug converts any string to a URL-friendly slug
+func CleanSlug(input string) string {
+	return CleanUsername(input)
+}
+
 // IsValidUsername checks if a username contains only allowed characters.
 func IsValidUsername(username string) bool {
 	if len(username) == 0 {

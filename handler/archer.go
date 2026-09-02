@@ -118,8 +118,10 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.id, a.username, a.full_name, a.date_of_birth,
+				a.uuid, COALESCE(a.id, '') as id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.banner_url, a.address,
+				a.city, a.province, a.country, a.postal_code,
+				a.hand_dominance, a.blood_type, a.height_cm, a.weight_kg,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
@@ -421,8 +423,25 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var clubID *string
-		if req.ClubID != nil {
+		if req.ClubID != nil && *req.ClubID != "" {
 			clubID = req.ClubID
+		} else if req.ClubName != nil && strings.TrimSpace(*req.ClubName) != "" {
+			cleanClubName := strings.TrimSpace(*req.ClubName)
+			var existingClubID string
+			if err := db.Get(&existingClubID, "SELECT uuid FROM clubs WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))", cleanClubName); err == nil {
+				clubID = &existingClubID
+			} else {
+				// Auto-create club
+				newClubUUID := uuid.New().String()
+				clubSlug := utils.CleanSlug(cleanClubName)
+				if clubSlug == "" {
+					clubSlug = "club-" + uuid.New().String()[:6]
+				}
+				_, err := db.Exec("INSERT INTO clubs (uuid, name, slug, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())", newClubUUID, cleanClubName, clubSlug)
+				if err == nil {
+					clubID = &newClubUUID
+				}
+			}
 		}
 
 		// Generate id (ARC-XXXX)
@@ -846,7 +865,7 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		userEmail := fmt.Sprintf("%v", userEmailVal)
 
 		err := db.Get(&archer, `
-		SELECT a.uuid, a.id, a.username, a.email, a.avatar_url, a.banner_url,
+		SELECT a.uuid, COALESCE(a.id, '') as id, a.username, a.email, a.avatar_url, a.banner_url,
 		       COALESCE(a.full_name, '') as full_name, a.nickname, a.nik, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
 		       a.blood_type, COALESCE(a.hand_dominance, 'right') as hand_dominance,
@@ -958,7 +977,7 @@ func GetArcherRegistrationProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				a.uuid, a.id, a.full_name, a.email, a.avatar_url,
+				a.uuid, COALESCE(a.id, '') as id, a.full_name, a.email, a.avatar_url,
 				a.gender, a.date_of_birth, a.phone,
 				a.bow_type,
 				a.club_id, c.name as club_name

@@ -465,30 +465,14 @@ func cleanString(s string) string {
 	reg, _ := regexp.Compile("[^a-zA-Z0-9]+")
 	return strings.ToLower(reg.ReplaceAllString(s, ""))
 }
-
 func UploadCertificatesZIP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
-		file, header, err := c.Request.FormFile("file")
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", eventID, eventID)
 		if err != nil {
-			file, header, err = c.Request.FormFile("zip_file")
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "File zip tidak ditemukan"})
-				return
-			}
-		}
-		defer file.Close()
-
-		buf := bytes.NewBuffer(nil)
-		if _, err := io.Copy(buf, file); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca file"})
-			return
-		}
-
-		zipReader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "File bukan zip valid"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
@@ -503,109 +487,303 @@ func UploadCertificatesZIP(db *sqlx.DB) gin.HandlerFunc {
 			FROM event_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			WHERE ep.event_id = ?
-		`, eventID)
+		`, eventUUID)
 
 		if err != nil && err.Error() != "sql: no rows in result set" {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data partisipan"})
 			return
 		}
 
-		uploadDir := filepath.Join(".", "uploads", "certificates", eventID)
+		uploadDir := filepath.Join(".", "uploads", "certificates", eventUUID)
 		os.MkdirAll(uploadDir, os.ModePerm)
 
 		var matched []MatchedCert
 		var unmatched []UnmatchedCert
 		batchID := uuid.New().String()
 		totalFiles := 0
+		batchName := "Upload Batch"
 
-		for _, zf := range zipReader.File {
-			if zf.FileInfo().IsDir() {
-				continue
-			}
-			if strings.Contains(zf.Name, "__MACOSX") || strings.HasPrefix(filepath.Base(zf.Name), ".") {
-				continue
-			}
-			if !strings.HasSuffix(strings.ToLower(zf.Name), ".pdf") {
-				continue
-			}
-			totalFiles++
+		// Process single or multiple uploaded files
+		form, err := c.MultipartForm()
+		if err == nil && form != nil && len(form.File) > 0 {
+			for _, fileHeaders := range form.File {
+				for _, fh := range fileHeaders {
+					lowerName := strings.ToLower(fh.Filename)
+					if strings.HasSuffix(lowerName, ".zip") {
+						batchName = fh.Filename
+						f, err := fh.Open()
+						if err != nil {
+							continue
+						}
+						buf := bytes.NewBuffer(nil)
+						io.Copy(buf, f)
+						f.Close()
 
-			baseName := filepath.Base(zf.Name)
-			ext := filepath.Ext(baseName)
-			nameWithoutExt := strings.TrimSuffix(baseName, ext)
-			
-			cleanName := cleanString(nameWithoutExt)
+						zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+						if err != nil {
+							continue
+						}
 
-			var match *ParticipantInfo
-			for _, p := range participants {
-				if p.AthleteCode != "" && strings.Contains(strings.ToLower(nameWithoutExt), strings.ToLower(p.AthleteCode)) {
-					match = &p
-					break
-				}
-			}
-			
-			if match == nil {
-				for _, p := range participants {
-					if p.FullName != "" && strings.Contains(cleanName, cleanString(p.FullName)) {
-						match = &p
-						break
+						for _, zf := range zr.File {
+							if zf.FileInfo().IsDir() || strings.Contains(zf.Name, "__MACOSX") || strings.HasPrefix(filepath.Base(zf.Name), ".") {
+								continue
+							}
+							if !strings.HasSuffix(strings.ToLower(zf.Name), ".pdf") {
+								continue
+							}
+							totalFiles++
+
+							baseName := filepath.Base(zf.Name)
+							ext := filepath.Ext(baseName)
+							nameWithoutExt := strings.TrimSuffix(baseName, ext)
+							cleanName := cleanString(nameWithoutExt)
+
+							var match *ParticipantInfo
+							for _, p := range participants {
+								if p.AthleteCode != "" && strings.Contains(strings.ToLower(nameWithoutExt), strings.ToLower(p.AthleteCode)) {
+									match = &p
+									break
+								}
+							}
+							if match == nil {
+								for _, p := range participants {
+									if p.FullName != "" && (strings.Contains(cleanName, cleanString(p.FullName)) || strings.Contains(cleanString(p.FullName), cleanName)) {
+										match = &p
+										break
+									}
+								}
+							}
+							if match == nil {
+								for _, p := range participants {
+									if p.ArcherUUID != "" && strings.Contains(nameWithoutExt, p.ArcherUUID) {
+										match = &p
+										break
+									}
+								}
+							}
+
+							rc, err := zf.Open()
+							if err != nil {
+								continue
+							}
+							outPath := filepath.Join(uploadDir, baseName)
+							outFile, err := os.Create(outPath)
+							if err == nil {
+								io.Copy(outFile, rc)
+								outFile.Close()
+							}
+							rc.Close()
+
+							pdfURL := "/uploads/certificates/" + eventUUID + "/" + baseName
+
+							if match != nil {
+								certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventUUID[:6]), strings.ToUpper(uuid.New().String()[:6]))
+								_, _ = db.Exec(`
+									INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, upload_batch_id, issue_date, created_at)
+									VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+									ON DUPLICATE KEY UPDATE pdf_url = VALUES(pdf_url), original_filename = VALUES(original_filename), upload_batch_id = VALUES(upload_batch_id)
+								`, uuid.New().String(), eventUUID, match.ArcherID, match.RegistrationID, certNo, pdfURL, baseName, batchID)
+
+								matched = append(matched, MatchedCert{
+									Filename:      baseName,
+									ArcherName:    match.FullName,
+									AthleteCode:   match.AthleteCode,
+									CertificateNo: certNo,
+									PDFURL:        pdfURL,
+								})
+							} else {
+								unmatched = append(unmatched, UnmatchedCert{
+									Filename: baseName,
+									PDFURL:   pdfURL,
+								})
+							}
+						}
+					} else if strings.HasSuffix(lowerName, ".pdf") {
+						if batchName == "Upload Batch" {
+							batchName = fh.Filename
+						}
+						totalFiles++
+
+						baseName := filepath.Base(fh.Filename)
+						ext := filepath.Ext(baseName)
+						nameWithoutExt := strings.TrimSuffix(baseName, ext)
+						cleanName := cleanString(nameWithoutExt)
+
+						var match *ParticipantInfo
+						for _, p := range participants {
+							if p.AthleteCode != "" && strings.Contains(strings.ToLower(nameWithoutExt), strings.ToLower(p.AthleteCode)) {
+								match = &p
+								break
+							}
+						}
+						if match == nil {
+							for _, p := range participants {
+								if p.FullName != "" && (strings.Contains(cleanName, cleanString(p.FullName)) || strings.Contains(cleanString(p.FullName), cleanName)) {
+									match = &p
+									break
+								}
+							}
+						}
+						if match == nil {
+							for _, p := range participants {
+								if p.ArcherUUID != "" && strings.Contains(nameWithoutExt, p.ArcherUUID) {
+									match = &p
+									break
+								}
+							}
+						}
+
+						src, err := fh.Open()
+						if err != nil {
+							continue
+						}
+						outPath := filepath.Join(uploadDir, baseName)
+						outFile, err := os.Create(outPath)
+						if err == nil {
+							io.Copy(outFile, src)
+							outFile.Close()
+						}
+						src.Close()
+
+						pdfURL := "/uploads/certificates/" + eventUUID + "/" + baseName
+
+						if match != nil {
+							certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventUUID[:6]), strings.ToUpper(uuid.New().String()[:6]))
+							_, _ = db.Exec(`
+								INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, upload_batch_id, issue_date, created_at)
+								VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+								ON DUPLICATE KEY UPDATE pdf_url = VALUES(pdf_url), original_filename = VALUES(original_filename), upload_batch_id = VALUES(upload_batch_id)
+							`, uuid.New().String(), eventUUID, match.ArcherID, match.RegistrationID, certNo, pdfURL, baseName, batchID)
+
+							matched = append(matched, MatchedCert{
+								Filename:      baseName,
+								ArcherName:    match.FullName,
+								AthleteCode:   match.AthleteCode,
+								CertificateNo: certNo,
+								PDFURL:        pdfURL,
+							})
+						} else {
+							unmatched = append(unmatched, UnmatchedCert{
+								Filename: baseName,
+								PDFURL:   pdfURL,
+							})
+						}
 					}
 				}
 			}
-
-			if match == nil {
-				for _, p := range participants {
-					if p.ArcherUUID != "" && strings.Contains(nameWithoutExt, p.ArcherUUID) {
-						match = &p
-						break
-					}
-				}
-			}
-
-			rc, err := zf.Open()
+		} else {
+			// Fallback to single file
+			file, header, err := c.Request.FormFile("file")
 			if err != nil {
-				continue
+				file, header, err = c.Request.FormFile("zip_file")
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "File tidak ditemukan"})
+					return
+				}
 			}
-			outPath := filepath.Join(uploadDir, baseName)
-			outFile, err := os.Create(outPath)
-			if err == nil {
-				io.Copy(outFile, rc)
-				outFile.Close()
+			defer file.Close()
+
+			buf := bytes.NewBuffer(nil)
+			if _, err := io.Copy(buf, file); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca file"})
+				return
 			}
-			rc.Close()
 
-			pdfURL := "/uploads/certificates/" + eventID + "/" + baseName
+			batchName = header.Filename
+			zipReader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "File bukan zip valid"})
+				return
+			}
 
-			if match != nil {
-				certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventID[:6]), strings.ToUpper(uuid.New().String()[:6]))
-				_, err = db.Exec(`
-					INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, upload_batch_id, issue_date, created_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-					ON DUPLICATE KEY UPDATE pdf_url = VALUES(pdf_url), original_filename = VALUES(original_filename), upload_batch_id = VALUES(upload_batch_id)
-				`, uuid.New().String(), eventID, match.ArcherID, match.RegistrationID, certNo, pdfURL, baseName, batchID)
-				
-				matched = append(matched, MatchedCert{
-					Filename:      baseName,
-					ArcherName:    match.FullName,
-					AthleteCode:   match.AthleteCode,
-					CertificateNo: certNo,
-					PDFURL:        pdfURL,
-				})
-			} else {
-				unmatched = append(unmatched, UnmatchedCert{
-					Filename: baseName,
-					PDFURL:   pdfURL,
-				})
+			for _, zf := range zipReader.File {
+				if zf.FileInfo().IsDir() || strings.Contains(zf.Name, "__MACOSX") || strings.HasPrefix(filepath.Base(zf.Name), ".") {
+					continue
+				}
+				if !strings.HasSuffix(strings.ToLower(zf.Name), ".pdf") {
+					continue
+				}
+				totalFiles++
+
+				baseName := filepath.Base(zf.Name)
+				ext := filepath.Ext(baseName)
+				nameWithoutExt := strings.TrimSuffix(baseName, ext)
+				cleanName := cleanString(nameWithoutExt)
+
+				var match *ParticipantInfo
+				for _, p := range participants {
+					if p.AthleteCode != "" && strings.Contains(strings.ToLower(nameWithoutExt), strings.ToLower(p.AthleteCode)) {
+						match = &p
+						break
+					}
+				}
+				if match == nil {
+					for _, p := range participants {
+						if p.FullName != "" && (strings.Contains(cleanName, cleanString(p.FullName)) || strings.Contains(cleanString(p.FullName), cleanName)) {
+							match = &p
+							break
+						}
+					}
+				}
+				if match == nil {
+					for _, p := range participants {
+						if p.ArcherUUID != "" && strings.Contains(nameWithoutExt, p.ArcherUUID) {
+							match = &p
+							break
+						}
+					}
+				}
+
+				rc, err := zf.Open()
+				if err != nil {
+					continue
+				}
+				outPath := filepath.Join(uploadDir, baseName)
+				outFile, err := os.Create(outPath)
+				if err == nil {
+					io.Copy(outFile, rc)
+					outFile.Close()
+				}
+				rc.Close()
+
+				pdfURL := "/uploads/certificates/" + eventUUID + "/" + baseName
+
+				if match != nil {
+					certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventUUID[:6]), strings.ToUpper(uuid.New().String()[:6]))
+					_, _ = db.Exec(`
+						INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, upload_batch_id, issue_date, created_at)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+						ON DUPLICATE KEY UPDATE pdf_url = VALUES(pdf_url), original_filename = VALUES(original_filename), upload_batch_id = VALUES(upload_batch_id)
+					`, uuid.New().String(), eventUUID, match.ArcherID, match.RegistrationID, certNo, pdfURL, baseName, batchID)
+
+					matched = append(matched, MatchedCert{
+						Filename:      baseName,
+						ArcherName:    match.FullName,
+						AthleteCode:   match.AthleteCode,
+						CertificateNo: certNo,
+						PDFURL:        pdfURL,
+					})
+				} else {
+					unmatched = append(unmatched, UnmatchedCert{
+						Filename: baseName,
+						PDFURL:   pdfURL,
+					})
+				}
 			}
 		}
 
-		var organizerID string
-		db.Get(&organizerID, "SELECT COALESCE(organizer_id, '') FROM events WHERE uuid = ?", eventID)
+		if totalFiles == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada file sertifikat PDF yang ditemukan"})
+			return
+		}
 
-		_, err = db.Exec(`
+		var organizerID string
+		db.Get(&organizerID, "SELECT COALESCE(organizer_id, '') FROM events WHERE uuid = ?", eventUUID)
+
+		_, _ = db.Exec(`
 			INSERT INTO certificate_upload_batches (uuid, event_id, organizer_id, zip_filename, total_files, matched, unmatched, uploaded_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-		`, batchID, eventID, organizerID, header.Filename, totalFiles, len(matched), len(unmatched))
+		`, batchID, eventUUID, organizerID, batchName, totalFiles, len(matched), len(unmatched))
 
 		c.JSON(http.StatusOK, gin.H{
 			"batch_id":        batchID,
@@ -668,12 +846,12 @@ func ManualAssignCertificate(db *sqlx.DB) gin.HandlerFunc {
 		var archerID string
 		err := db.Get(&archerID, "SELECT archer_id FROM event_participants WHERE uuid = ?", req.ParticipantID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Partisipan tidak ditemukan"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Peserta tidak ditemukan"})
 			return
 		}
 
 		certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventID[:6]), strings.ToUpper(uuid.New().String()[:6]))
-		
+
 		_, err = db.Exec(`
 			INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, upload_batch_id, issue_date, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
@@ -703,11 +881,21 @@ func GetEventCertificates(db *sqlx.DB) gin.HandlerFunc {
 		SELECT 
 			ac.uuid, ac.event_id, ac.certificate_no, ac.issue_date, ac.pdf_url, ac.original_filename, ac.created_at,
 			COALESCE(a.full_name, '') as archer_name, COALESCE(a.id, '') as athlete_code,
-			COALESCE(ec.category_name_custom, '') as category_name
+			COALESCE(cl.name, '') as club_name,
+			COALESCE(
+				NULLIF(ec.category_name_custom, ''),
+				CONCAT_WS(' ', rd.name, rc.name, ret.name, rgd.name),
+				''
+			) as category_name
 		FROM archer_certificates ac
 		LEFT JOIN archers a ON ac.archer_id = a.uuid
+		LEFT JOIN clubs cl ON a.club_id = cl.uuid
 		LEFT JOIN event_participants ep ON ac.registration_id = ep.uuid
 		LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+		LEFT JOIN ref_divisions rd ON ec.division_uuid = rd.uuid
+		LEFT JOIN ref_categories rc ON ec.category_uuid = rc.uuid
+		LEFT JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+		LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 		WHERE ac.event_id = ?
 		ORDER BY ac.created_at DESC
 		`

@@ -1439,6 +1439,8 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				"event_type_name":      r.EventTypeName,
 				"gender_division_name": r.GenderDivisionName,
 				"payment_status":       r.PaymentStatus,
+				"payment_amount":       r.PaymentAmount,
+				"fee":                  r.PaymentAmount,
 				"registration_date":    r.RegistrationDate,
 			}
 			resp.Categories = append(resp.Categories, catItem)
@@ -2231,16 +2233,22 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		userRole, _ := c.Get("role")
 		orgID, _ := c.Get("org_id")
 
-		isPrivileged := userRole == "admin" || (userRole == "organizer" && orgID != nil && fmt.Sprintf("%v", orgID) == event.OrganizerID)
+		isPrivileged := userRole == "admin" || userRole == "superadmin" || (userRole == "organizer" && (orgID == nil || fmt.Sprintf("%v", orgID) == event.OrganizerID || event.OrganizerID == ""))
 
 		paymentStatus := "unpaid"
-
 		registrationSource := "self_register"
+
 		if isPrivileged {
+			if req.PaymentStatus != "" {
+				paymentStatus = req.PaymentStatus
+			} else {
+				paymentStatus = "paid"
+			}
+
 			if req.RegistrationSource != "" {
 				registrationSource = req.RegistrationSource
 			} else {
-				registrationSource = "organizer_added"
+				registrationSource = "invited"
 			}
 		}
 
@@ -2626,7 +2634,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus       *string   `json:"payment_status"`
 			PaymentAmount       *float64  `json:"payment_amount"`
 			PaymentProofURLs    *[]string `json:"payment_proof_urls"`
-			AccreditationStatus *string   `json:"accreditation_status"`
 			IsVerified          *bool     `json:"is_verified"`
 			Reregistered        *bool     `json:"reregistered"`
 		}
@@ -2800,10 +2807,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			query += ", payment_amount = ?"
 			args = append(args, *req.PaymentAmount)
 		}
-		if req.AccreditationStatus != nil {
-			query += ", accreditation_status = ?"
-			args = append(args, *req.AccreditationStatus)
-		}
 		if req.Reregistered != nil {
 			query += ", last_reregistration_at = ?"
 			if *req.Reregistered {
@@ -2837,6 +2840,26 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data peserta", "details": err.Error()})
 			return
+		}
+
+		// Synchronize payment_transactions status if payment_status was updated
+		if req.PaymentStatus != nil {
+			statusVal := strings.ToLower(*req.PaymentStatus)
+			if statusVal == "paid" || statusVal == "lunas" {
+				_, _ = db.Exec(`
+					UPDATE payment_transactions 
+					SET status = 'paid', updated_at = NOW(), paid_at = COALESCE(paid_at, NOW()) 
+					WHERE ((event_id = ? AND user_id = ?) OR registration_id = ?) 
+					  AND status IN ('pending', 'awaiting_verification', 'unpaid')
+				`, actualEventID, *pInfo.ArcherID, actualParticipantID)
+			} else if statusVal == "pending" || statusVal == "unpaid" {
+				_, _ = db.Exec(`
+					UPDATE payment_transactions 
+					SET status = 'pending', updated_at = NOW() 
+					WHERE ((event_id = ? AND user_id = ?) OR registration_id = ?) 
+					  AND status NOT IN ('paid', 'success', 'settlement', 'completed')
+				`, actualEventID, *pInfo.ArcherID, actualParticipantID)
+			}
 		}
 
 		// Log activity
@@ -4406,9 +4429,20 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				newUUID := uuid.New().String()
 				var clubUUID sql.NullString
 				if clubName != "" {
+					cleanClubName := strings.TrimSpace(clubName)
 					var cID string
-					if err := db.Get(&cID, "SELECT uuid FROM clubs WHERE LOWER(name) = LOWER(?)", clubName); err == nil {
+					if err := db.Get(&cID, "SELECT uuid FROM clubs WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))", cleanClubName); err == nil {
 						clubUUID = sql.NullString{String: cID, Valid: true}
+					} else {
+						newClubUUID := uuid.New().String()
+						clubSlug := utils.CleanSlug(cleanClubName)
+						if clubSlug == "" {
+							clubSlug = "club-" + uuid.New().String()[:6]
+						}
+						_, err := db.Exec("INSERT INTO clubs (uuid, name, slug, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())", newClubUUID, cleanClubName, clubSlug)
+						if err == nil {
+							clubUUID = sql.NullString{String: newClubUUID, Valid: true}
+						}
 					}
 				}
 
