@@ -46,8 +46,29 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Fixed entry fee for now or get from event categories
-		entryFee := 350000.0 // Default
+		// Dynamic entry fee and quota from event categories or event default
+		var cat struct {
+			UUID                string  `db:"uuid"`
+			Fee                 float64 `db:"fee"`
+			Quota               int     `db:"quota"`
+			CurrentParticipants int     `db:"current_participants"`
+		}
+		catErr := db.Get(&cat, `
+			SELECT uuid, COALESCE(fee, 0) as fee, COALESCE(quota, 0) as quota, COALESCE(current_participants, 0) as current_participants 
+			FROM event_categories 
+			WHERE (event_id = ? OR event_id = ?) AND (category_name = ? OR name = ? OR CONCAT(division_name, ' ', category_name) = ?)
+			LIMIT 1
+		`, eventID, event.UUID, req.Category, req.Category, req.Category)
+
+		entryFee := event.EntryFee
+		if catErr == nil && cat.Fee > 0 {
+			entryFee = cat.Fee
+		}
+		if catErr == nil && cat.Quota > 0 && cat.CurrentParticipants >= cat.Quota {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kuota untuk kategori ini sudah penuh"})
+			return
+		}
+
 		adminFee := 5000.0
 		totalFee := entryFee + adminFee
 
@@ -2020,10 +2041,22 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				pt.*,
-				e.name as event_name,
-				sp.name as plan_name
+				COALESCE(e.name, (SELECT name FROM events WHERE uuid = ep.event_id LIMIT 1), (SELECT name FROM events WHERE uuid = pt.event_id LIMIT 1)) as event_name,
+				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '') as category_name,
+				sp.name as plan_name,
+				CASE 
+					WHEN pt.subscription_plan_id IS NOT NULL THEN 'Langganan Organisasi / Klub'
+					WHEN pt.registration_id IS NOT NULL OR pt.event_id IS NOT NULL THEN 'Registrasi Turnamen Panahan'
+					WHEN pt.order_id IS NOT NULL THEN 'Pembelian Produk Toko'
+					ELSE 'Transaksi Pembayaran'
+				END as purpose
 			FROM payment_transactions pt
 			LEFT JOIN events e ON pt.event_id = e.uuid
+			LEFT JOIN event_participants ep ON pt.registration_id = ep.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN subscription_plans sp ON pt.subscription_plan_id = sp.id
 			WHERE (
 				pt.user_id = ?
@@ -2036,8 +2069,10 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 
 		type PaymentWithExtra struct {
 			models.PaymentTransaction
-			EventName *string `json:"event_name" db:"event_name"`
-			PlanName  *string `json:"plan_name" db:"plan_name"`
+			EventName    *string `json:"event_name" db:"event_name"`
+			CategoryName *string `json:"category_name" db:"category_name"`
+			PlanName     *string `json:"plan_name" db:"plan_name"`
+			Purpose      *string `json:"purpose" db:"purpose"`
 		}
 
 		uid := userID.(string)

@@ -24,7 +24,6 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 			Email               *string `json:"email" db:"email"`
 			Address             *string `json:"address" db:"address"`
 			City                *string `json:"city" db:"city"`
-			Province            *string `json:"province" db:"province"`
 			BankName            *string `json:"bank_name" db:"bank_name"`
 			BankAccountNumber   *string `json:"bank_account_number" db:"bank_account_number"`
 			BankAccountHolder   *string `json:"bank_account_holder" db:"bank_account_holder"`
@@ -34,7 +33,7 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&seller, `
 			SELECT uuid, store_name, slug, description, avatar_url, banner_url, 
-			       phone, email, address, city, province, 
+			       phone, email, address, city, 
 			       COALESCE(bank_name, '') AS bank_name,
 			       COALESCE(bank_account_number, '') AS bank_account_number,
 			       COALESCE(bank_account_holder, '') AS bank_account_holder,
@@ -83,7 +82,6 @@ func GetSellerProfile(db *sqlx.DB) gin.HandlerFunc {
 		data["email"] = seller.Email
 		data["address"] = seller.Address
 		data["city"] = seller.City
-		data["province"] = seller.Province
 		data["bank_name"] = seller.BankName
 		data["bank_account_number"] = seller.BankAccountNumber
 		data["bank_account_holder"] = seller.BankAccountHolder
@@ -185,7 +183,6 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 			Email       *string `json:"email"`
 			Phone       *string `json:"phone"`
 			City        *string `json:"city"`
-			Province    *string `json:"province"`
 			Address     *string `json:"address"`
 			Description *string `json:"description"`
 			AvatarURL           *string `json:"avatar_url"`
@@ -229,10 +226,6 @@ func UpdateSellerProfileBasic(db *sqlx.DB) gin.HandlerFunc {
 		if req.City != nil {
 			query += ", city = ?"
 			args = append(args, *req.City)
-		}
-		if req.Province != nil {
-			query += ", province = ?"
-			args = append(args, *req.Province)
 		}
 		if req.Address != nil {
 			query += ", address = ?"

@@ -480,14 +480,14 @@ func UploadCertificatesZIP(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&participants, `
 			SELECT 
 				ep.uuid as registration_id,
-				ep.archer_id,
-				COALESCE(a.id, '') as athlete_code,
+				COALESCE(ep.archer_id, ep.uuid) as archer_id,
+				COALESCE(ep.back_number, a.id, '') as athlete_code,
 				COALESCE(a.full_name, '') as full_name,
 				COALESCE(a.uuid, '') as archer_uuid
 			FROM event_participants ep
-			JOIN archers a ON ep.archer_id = a.uuid
-			WHERE ep.event_id = ?
-		`, eventUUID)
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			WHERE ep.event_id = ? OR ep.event_id = ?
+		`, eventUUID, eventID)
 
 		if err != nil && err.Error() != "sql: no rows in result set" {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data partisipan"})
@@ -796,6 +796,59 @@ func UploadCertificatesZIP(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetBatchProgress returns the extraction and matching progress for a certificate upload batch
+func GetBatchProgress(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		batchID := c.Param("batchId")
+
+		type BatchProgress struct {
+			UUID           string    `db:"uuid" json:"batch_id"`
+			EventID        string    `db:"event_id" json:"event_id"`
+			ZipFilename    string    `db:"zip_filename" json:"zip_filename"`
+			TotalFiles     int       `db:"total_files" json:"total_files"`
+			ProcessedFiles int       `db:"processed_files" json:"processed_files"`
+			Matched        int       `db:"matched" json:"matched"`
+			Unmatched      int       `db:"unmatched" json:"unmatched"`
+			Status         string    `db:"status" json:"status"`
+			ErrorMessage   *string   `db:"error_message" json:"error_message"`
+			UploadedAt     time.Time `db:"uploaded_at" json:"uploaded_at"`
+		}
+
+		var batch BatchProgress
+		err := db.Get(&batch, `
+			SELECT uuid, event_id, zip_filename, total_files, COALESCE(processed_files, 0) as processed_files,
+				matched, unmatched, COALESCE(status, 'completed') as status, error_message, uploaded_at
+			FROM certificate_upload_batches
+			WHERE uuid = ?
+			LIMIT 1
+		`, batchID)
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Batch tidak ditemukan"})
+			return
+		}
+
+		percent := 100
+		if batch.TotalFiles > 0 {
+			percent = int((float64(batch.ProcessedFiles) / float64(batch.TotalFiles)) * 100)
+			if percent > 100 {
+				percent = 100
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"batch_id":        batch.UUID,
+			"status":          batch.Status,
+			"total_files":     batch.TotalFiles,
+			"processed_files": batch.ProcessedFiles,
+			"matched_count":   batch.Matched,
+			"unmatched_count": batch.Unmatched,
+			"progress_pct":    percent,
+			"error_message":   batch.ErrorMessage,
+		})
+	}
+}
+
 func GetCertificateUploadBatches(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -829,6 +882,90 @@ func GetCertificateUploadBatches(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+func UploadParticipantCertificate(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		participantID := c.Param("participantId")
+
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		type PartData struct {
+			UUID        string `db:"uuid"`
+			ArcherID    string `db:"archer_id"`
+			FullName    string `db:"full_name"`
+			AthleteCode string `db:"athlete_code"`
+		}
+		var part PartData
+		err = db.Get(&part, `
+			SELECT ep.uuid, COALESCE(ep.archer_id, ep.uuid) AS archer_id, COALESCE(a.full_name, '') AS full_name, COALESCE(ep.back_number, a.id, '') AS athlete_code
+			FROM event_participants ep
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			WHERE (ep.uuid = ? OR ep.archer_id = ?) AND (ep.event_id = ? OR ep.event_id = ?)
+			LIMIT 1
+		`, participantID, participantID, eventUUID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data peserta tidak ditemukan"})
+			return
+		}
+
+		file, header, err := c.Request.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Berkas PDF tidak ditemukan"})
+			return
+		}
+		defer file.Close()
+
+		uploadDir := filepath.Join(".", "uploads", "certificates", eventUUID)
+		os.MkdirAll(uploadDir, os.ModePerm)
+
+		safeFilename := fmt.Sprintf("%s_%s", participantID[:8], filepath.Base(header.Filename))
+		outPath := filepath.Join(uploadDir, safeFilename)
+		outFile, err := os.Create(outPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan berkas PDF"})
+			return
+		}
+		_, err = io.Copy(outFile, file)
+		outFile.Close()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menulis berkas PDF"})
+			return
+		}
+
+		pdfURL := "/uploads/certificates/" + eventUUID + "/" + safeFilename
+		certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventUUID[:6]), strings.ToUpper(uuid.New().String()[:6]))
+
+		certUUID := uuid.New().String()
+		_, err = db.Exec(`
+			INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, issue_date, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+			ON DUPLICATE KEY UPDATE pdf_url = VALUES(pdf_url), original_filename = VALUES(original_filename)
+		`, certUUID, eventUUID, part.ArcherID, part.UUID, certNo, pdfURL, header.Filename)
+		if err != nil {
+			// Check if duplicate on registration_id exists and update it
+			db.Exec(`
+				UPDATE archer_certificates
+				SET pdf_url = ?, original_filename = ?
+				WHERE event_id = ? AND registration_id = ?
+			`, pdfURL, header.Filename, eventUUID, part.UUID)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":         "Sertifikat berhasil diunggah",
+			"certificate_no":  certNo,
+			"pdf_url":         pdfURL,
+			"participant_id":  part.UUID,
+			"registration_id": part.UUID,
+			"archer_id":       part.ArcherID,
+		})
+	}
+}
+
 func ManualAssignCertificate(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -843,48 +980,73 @@ func ManualAssignCertificate(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
 		var archerID string
-		err := db.Get(&archerID, "SELECT archer_id FROM event_participants WHERE uuid = ?", req.ParticipantID)
+		err = db.Get(&archerID, "SELECT COALESCE(archer_id, uuid) FROM event_participants WHERE uuid = ?", req.ParticipantID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Peserta tidak ditemukan"})
 			return
 		}
 
-		certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventID[:6]), strings.ToUpper(uuid.New().String()[:6]))
+		certNo := fmt.Sprintf("CERT-%d-%s-%s", time.Now().Year(), strings.ToUpper(eventUUID[:6]), strings.ToUpper(uuid.New().String()[:6]))
 
 		_, err = db.Exec(`
 			INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, pdf_url, original_filename, upload_batch_id, issue_date, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 			ON DUPLICATE KEY UPDATE pdf_url = VALUES(pdf_url), original_filename = VALUES(original_filename), upload_batch_id = VALUES(upload_batch_id)
-		`, uuid.New().String(), eventID, archerID, req.ParticipantID, certNo, req.PDFURL, req.OriginalFilename, req.BatchID)
+		`, uuid.New().String(), eventUUID, archerID, req.ParticipantID, certNo, req.PDFURL, req.OriginalFilename, req.BatchID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal assign sertifikat"})
-			return
+			// Update if registration_id duplicate
+			db.Exec(`
+				UPDATE archer_certificates
+				SET pdf_url = ?, original_filename = ?, upload_batch_id = ?
+				WHERE event_id = ? AND registration_id = ?
+			`, req.PDFURL, req.OriginalFilename, req.BatchID, eventUUID, req.ParticipantID)
 		}
 
 		if req.BatchID != "" {
 			db.Exec(`UPDATE certificate_upload_batches SET matched = matched + 1, unmatched = GREATEST(unmatched - 1, 0) WHERE uuid = ?`, req.BatchID)
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Berhasil assign sertifikat"})
+		c.JSON(http.StatusOK, gin.H{
+			"message":         "Berhasil assign sertifikat",
+			"certificate_no":  certNo,
+			"participant_id":  req.ParticipantID,
+			"registration_id": req.ParticipantID,
+			"pdf_url":         req.PDFURL,
+		})
 	}
 }
 
 func GetEventCertificates(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
+
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			eventUUID = eventID
+		}
 		
 		var certs []map[string]interface{}
 		
 		query := `
 		SELECT 
-			ac.uuid, ac.event_id, ac.certificate_no, ac.issue_date, ac.pdf_url, ac.original_filename, ac.created_at,
-			COALESCE(a.full_name, '') as archer_name, COALESCE(a.id, '') as athlete_code,
+			ac.uuid, ac.event_id, ac.archer_id, ac.registration_id, ac.registration_id AS participant_id,
+			ac.certificate_no, ac.issue_date, ac.pdf_url, ac.original_filename, ac.created_at,
+			COALESCE(a.full_name, '') as archer_name,
+			COALESCE(ep.back_number, a.id, '') as athlete_code,
 			COALESCE(cl.name, '') as club_name,
 			COALESCE(
 				NULLIF(ec.category_name_custom, ''),
-				CONCAT_WS(' ', rd.name, rc.name, ret.name, rgd.name),
+				CONCAT_WS(' ', rbt.name, rag.name, rgd.name),
 				''
 			) as category_name
 		FROM archer_certificates ac
@@ -892,15 +1054,14 @@ func GetEventCertificates(db *sqlx.DB) gin.HandlerFunc {
 		LEFT JOIN clubs cl ON a.club_id = cl.uuid
 		LEFT JOIN event_participants ep ON ac.registration_id = ep.uuid
 		LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
-		LEFT JOIN ref_divisions rd ON ec.division_uuid = rd.uuid
-		LEFT JOIN ref_categories rc ON ec.category_uuid = rc.uuid
-		LEFT JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+		LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+		LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 		LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-		WHERE ac.event_id = ?
+		WHERE ac.event_id = ? OR ac.event_id = ?
 		ORDER BY ac.created_at DESC
 		`
 		
-		rows, err := db.Queryx(query, eventID)
+		rows, err := db.Queryx(query, eventUUID, eventID)
 		if err != nil {
 			c.JSON(http.StatusOK, []interface{}{})
 			return
@@ -932,8 +1093,14 @@ func DeleteArcherCertificate(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		certID := c.Param("certId")
+
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			eventUUID = eventID
+		}
 		
-		_, err := db.Exec("DELETE FROM archer_certificates WHERE uuid = ? AND event_id = ?", certID, eventID)
+		_, err = db.Exec("DELETE FROM archer_certificates WHERE (uuid = ? OR registration_id = ?) AND (event_id = ? OR event_id = ?)", certID, certID, eventUUID, eventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus sertifikat"})
 			return
@@ -948,6 +1115,12 @@ func GenerateAllCertificates(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			eventUUID = eventID
+		}
+
 		type PaidParticipant struct {
 			RegistrationID string `db:"registration_id"`
 			ArcherID       string `db:"archer_id"`
@@ -960,13 +1133,13 @@ func GenerateAllCertificates(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				ep.uuid as registration_id,
 				ep.archer_id,
-				COALESCE(a.id, '') as athlete_code,
+				COALESCE(ep.back_number, CAST(a.id AS CHAR), '') as athlete_code,
 				COALESCE(a.full_name, '') as full_name
 			FROM event_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
-			WHERE ep.event_id = ? AND (LOWER(ep.payment_status) = 'paid' OR LOWER(ep.payment_status) = 'lunas')
+			WHERE ep.event_id = ? AND ep.payment_status IN ('paid', 'lunas')
 		`
-		err := db.Select(&participants, query, eventID)
+		err = db.Select(&participants, query, eventUUID)
 		if err != nil && err.Error() != "sql: no rows in result set" {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data peserta: " + err.Error()})
 			return
@@ -982,16 +1155,16 @@ func GenerateAllCertificates(db *sqlx.DB) gin.HandlerFunc {
 
 		for _, p := range participants {
 			var exists string
-			err := db.Get(&exists, "SELECT uuid FROM archer_certificates WHERE event_id = ? AND registration_id = ? LIMIT 1", eventID, p.RegistrationID)
+			err := db.Get(&exists, "SELECT uuid FROM archer_certificates WHERE event_id = ? AND registration_id = ? LIMIT 1", eventUUID, p.RegistrationID)
 			if err != nil {
 				certNo := fmt.Sprintf("CERT-%d-%s", year, strings.ToUpper(strings.ReplaceAll(uuid.New().String()[:8], "-", "")))
 				newUUID := uuid.New().String()
 				issueDate := time.Now()
 
 				_, err = db.Exec(`
-					INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, issue_date, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-				`, newUUID, eventID, p.ArcherID, p.RegistrationID, certNo, issueDate)
+					INSERT INTO archer_certificates (uuid, event_id, archer_id, registration_id, certificate_no, issue_date, created_at)
+					VALUES (?, ?, ?, ?, ?, ?, NOW())
+				`, newUUID, eventUUID, p.ArcherID, p.RegistrationID, certNo, issueDate)
 				if err == nil {
 					generatedCount++
 				}
@@ -1010,7 +1183,14 @@ func GenerateAllCertificates(db *sqlx.DB) gin.HandlerFunc {
 func ClearAllCertificates(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		_, err := db.Exec("DELETE FROM archer_certificates WHERE event_id = ?", eventID)
+
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if err != nil {
+			eventUUID = eventID
+		}
+
+		_, err = db.Exec("DELETE FROM archer_certificates WHERE event_id = ? OR event_id = ?", eventUUID, eventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan sertifikat"})
 			return

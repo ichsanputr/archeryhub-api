@@ -120,8 +120,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				a.uuid, COALESCE(a.id, '') as id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.banner_url, a.address,
-				a.city, a.province, a.country, a.postal_code,
-				a.hand_dominance, a.blood_type, a.height_cm, a.weight_kg,
+				a.city, a.country,
+				a.hand_dominance, a.height_cm, a.weight_kg,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
@@ -611,10 +611,6 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", nik = ?"
 			args = append(args, *req.NIK)
 		}
-		if req.BloodType != nil {
-			query += ", blood_type = ?"
-			args = append(args, *req.BloodType)
-		}
 		if req.HandDominance != nil {
 			query += ", hand_dominance = ?"
 			args = append(args, *req.HandDominance)
@@ -631,21 +627,9 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", emergency_contact_name = ?"
 			args = append(args, *req.EmergencyContactName)
 		}
-		if req.EmergencyContactPhone != nil {
-			query += ", emergency_contact_phone = ?"
-			args = append(args, *req.EmergencyContactPhone)
-		}
-		if req.Province != nil {
-			query += ", province = ?"
-			args = append(args, *req.Province)
-		}
 		if req.City != nil {
 			query += ", city = ?"
 			args = append(args, *req.City)
-		}
-		if req.PostalCode != nil {
-			query += ", postal_code = ?"
-			args = append(args, *req.PostalCode)
 		}
 		if req.Address != nil {
 			query += ", address = ?"
@@ -829,17 +813,13 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			NIK                   *string `json:"nik" db:"nik"`
 			DateOfBirth           *string `json:"date_of_birth" db:"date_of_birth"`
 			Gender                string  `json:"gender" db:"gender"`
-			BloodType             *string `json:"blood_type" db:"blood_type"`
 			HandDominance         *string `json:"hand_dominance" db:"hand_dominance"`
 			HeightCM              *int    `json:"height_cm" db:"height_cm"`
 			WeightKG              *int    `json:"weight_kg" db:"weight_kg"`
 			Phone                 *string `json:"phone" db:"phone"`
 			EmergencyContactName  *string `json:"emergency_contact_name" db:"emergency_contact_name"`
-			EmergencyContactPhone *string `json:"emergency_contact_phone" db:"emergency_contact_phone"`
 			Address               *string `json:"address" db:"address"`
 			City                  *string `json:"city" db:"city"`
-			Province              *string `json:"province" db:"province"`
-			PostalCode            *string `json:"postal_code" db:"postal_code"`
 			Country               *string `json:"country" db:"country"`
 			BowType               string  `json:"bow_type" db:"bow_type"`
 			ClubID                *string `json:"club_id" db:"club_id"`
@@ -868,10 +848,10 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		SELECT a.uuid, COALESCE(a.id, '') as id, a.username, a.email, a.avatar_url, a.banner_url,
 		       COALESCE(a.full_name, '') as full_name, a.nickname, a.nik, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       a.blood_type, COALESCE(a.hand_dominance, 'right') as hand_dominance,
+		       COALESCE(a.hand_dominance, 'right') as hand_dominance,
 		       a.height_cm, a.weight_kg,
-		       a.phone, a.emergency_contact_name, a.emergency_contact_phone,
-		       a.address, a.city, a.province, a.postal_code, a.country, 
+		       a.phone, a.emergency_contact_name,
+		       a.address, a.city, a.country, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
 		       a.club_id, c.name as club_name,
 		       COALESCE(a.status, 'active') as status,
@@ -900,17 +880,13 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"nik":                     archer.NIK,
 			"date_of_birth":           archer.DateOfBirth,
 			"gender":                  archer.Gender,
-			"blood_type":              archer.BloodType,
 			"hand_dominance":          archer.HandDominance,
 			"height_cm":               archer.HeightCM,
 			"weight_kg":               archer.WeightKG,
 			"phone":                   archer.Phone,
 			"emergency_contact_name":  archer.EmergencyContactName,
-			"emergency_contact_phone": archer.EmergencyContactPhone,
 			"address":                 archer.Address,
 			"city":                    archer.City,
-			"province":                archer.Province,
-			"postal_code":             archer.PostalCode,
 			"country":                 archer.Country,
 			"bow_type":                archer.BowType,
 			"club_id":                 archer.ClubID,

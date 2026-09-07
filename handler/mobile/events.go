@@ -629,25 +629,31 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		_ = tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = ? AND archer_id = ? AND category_id = ? AND payment_status != 'cancelled')", event.UUID, archerUUID, catID)
 		if exists { continue }
 
-		// Check category quota capacity
-		var catQuota struct {
-			Quota        int `db:"quota"`
-			CurrentCount int `db:"current_count"`
+		// Check category quota capacity and fee
+		var catInfo struct {
+			Quota        int     `db:"quota"`
+			Fee          float64 `db:"fee"`
+			CurrentCount int     `db:"current_count"`
 		}
-		qErr := tx.Get(&catQuota, `
+		qErr := tx.Get(&catInfo, `
 			SELECT 
 				COALESCE(ec.quota, 0) as quota,
+				COALESCE(ec.fee, 0.0) as fee,
 				(SELECT COUNT(*) FROM event_participants WHERE category_id = ec.uuid AND payment_status != 'cancelled') as current_count
-			FROM event_categories ec WHERE ec.uuid = ?
+			FROM event_categories ec WHERE ec.uuid = ? FOR UPDATE
 		`, catID)
-		if qErr == nil && catQuota.Quota > 0 && catQuota.CurrentCount >= catQuota.Quota {
+		if qErr == nil && catInfo.Quota > 0 && catInfo.CurrentCount >= catInfo.Quota {
 			c.JSON(http.StatusConflict, gin.H{"error": "Kuota pendaftaran untuk kategori ini telah penuh"})
 			return
 		}
 
+		catFee := event.EntryFee
+		if catInfo.Fee > 0 {
+			catFee = catInfo.Fee
+		}
+
 		regUUID := uuid.New().String()
 		if i == 0 { firstRegID = regUUID }
-
 
 		_, err = tx.Exec(`
 			INSERT INTO event_participants (
@@ -655,7 +661,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				registration_date, payment_status, payment_amount,
 				registration_source
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, regUUID, event.UUID, archerUUID, catID, registrationDate, paymentStatus, event.EntryFee, "self_register")
+		`, regUUID, event.UUID, archerUUID, catID, registrationDate, paymentStatus, catFee, "self_register")
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan ke kategori: " + catID})

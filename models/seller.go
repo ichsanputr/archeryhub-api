@@ -17,7 +17,6 @@ type Seller struct {
 	Phone       *string   `json:"phone" db:"phone"`
 	Address     *string   `json:"address" db:"address"`
 	City        *string   `json:"city" db:"city"`
-	Province    *string   `json:"province" db:"province"`
 	Role        string    `json:"role" db:"role"`
 	IsVerified  bool      `json:"is_verified" db:"is_verified"`
 	Rating           float64    `json:"rating" db:"rating"`
@@ -47,7 +46,6 @@ type UpdateSellerRequest struct {
 	Email               *string `json:"email"`
 	Address             *string `json:"address"`
 	City                *string `json:"city"`
-	Province            *string `json:"province"`
 	BankName            *string `json:"bank_name"`
 	BankAccountNumber   *string `json:"bank_account_number"`
 	BankAccountHolder   *string `json:"bank_account_holder"`

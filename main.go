@@ -10,6 +10,7 @@ import (
 	"Archeris-api/handler"
 	mobilehandler "Archeris-api/handler/mobile"
 	"Archeris-api/middleware"
+	"Archeris-api/utils"
 
 	_ "Archeris-api/docs"
 
@@ -176,13 +177,18 @@ func main() {
 		c.Next()
 	})
 
+	// Global panic recovery and standardized error response
+	r.Use(utils.GlobalRecoveryMiddleware())
+
 	// Security headers middleware
 	r.Use(func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		if !strings.Contains(c.Request.URL.Path, "/printout") && !strings.Contains(c.Request.URL.Path, "/scoresheet") && !strings.Contains(c.Request.URL.Path, "/statistics-") {
+			c.Header("X-Frame-Options", "SAMEORIGIN")
+		}
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:; style-src 'self' 'unsafe-inline' https: http:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:; img-src 'self' data: blob: https: http:; font-src 'self' data: https: http:;")
+		c.Header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:; style-src 'self' 'unsafe-inline' https: http:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:; img-src 'self' data: blob: https: http:; font-src 'self' data: https: http:; frame-ancestors 'self' http://localhost:* https://localhost:* http://127.0.0.1:* https://archeris.net https://*.archeris.net;")
 		c.Next()
 	})
 
@@ -207,7 +213,7 @@ func main() {
 		})
 	})
 
-	// Media is served via handlers under /media (see routes below).
+	// Static uploads (media is handled dynamically via media.GET below)
 	r.Static("/uploads", "./uploads")
 
 	// Swagger UI
@@ -252,7 +258,8 @@ func main() {
 		{
 			// Traditional auth
 			auth.POST("/register", handler.Register(db))
-			auth.POST("/login", handler.Login(db))
+			auth.POST("/login", middleware.RateLimit(10, 1*time.Minute), handler.Login(db))
+			auth.POST("/refresh", handler.RefreshToken(db))
 			auth.POST("/logout", handler.Logout())
 			auth.GET("/check-name", handler.CheckNameExists(db))
 			auth.GET("/check-username", handler.CheckUsernameExists(db))
@@ -264,14 +271,14 @@ func main() {
 
 			auth.GET("/avatar/:identifier", handler.GetArcherProfileImage(db))
 
-			// Forgot / Reset password (public Ã¢â‚¬â€ no auth required)
-			auth.POST("/forgot-password", handler.ForgotPassword(db))
-			auth.POST("/verify-reset-otp", handler.VerifyResetOTP(db))
-			auth.POST("/reset-password", handler.ResetPassword(db))
-			auth.POST("/change-password-otp", handler.ChangePasswordWithOTP(db))
+			// Forgot / Reset password (public — rate limited to prevent abuse)
+			auth.POST("/forgot-password", middleware.RateLimit(5, 1*time.Minute), handler.ForgotPassword(db))
+			auth.POST("/verify-reset-otp", middleware.RateLimit(10, 1*time.Minute), handler.VerifyResetOTP(db))
+			auth.POST("/reset-password", middleware.RateLimit(5, 1*time.Minute), handler.ResetPassword(db))
+			auth.POST("/change-password-otp", middleware.RateLimit(5, 1*time.Minute), handler.ChangePasswordWithOTP(db))
 
 			// Alias for mobile login to satisfy public URL expectations
-			auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
+			auth.POST("/archer/login", middleware.RateLimit(10, 1*time.Minute), mobilehandler.MobileArcherLogin(db))
 		}
 
 		// Payment cleanup endpoint & background ticker
@@ -308,7 +315,7 @@ func main() {
 		events.Use(middleware.OptionalAuthMiddleware())
 		{
 			// Public Event routes
-			events.GET("", handler.GetEvents(db))
+			events.GET("", middleware.RateLimit(60, 1*time.Minute), handler.GetEvents(db))
 			events.GET("/:id", handler.GetEventByID(db))
 			events.GET("/:id/categories", handler.GetEventEvents(db))
 			events.GET("/:id/participants", handler.GetEventParticipants(db))
@@ -330,6 +337,10 @@ func main() {
 			events.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
 			events.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
 			events.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
+			events.GET("/:id/qualification/start-list/printout", handler.GetQualificationStartListPrintout(db))
+			events.GET("/:id/qualification/results/printout", handler.GetQualificationResultsPrintout(db))
+			events.GET("/:id/results/medals/printout", handler.GetMedalStandingsPrintout(db))
+			events.GET("/:id/targets/labels/printout", handler.GetTargetLabelsPrintout(db))
 
 			// Public Results endpoints
 			events.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
@@ -358,10 +369,12 @@ func main() {
 				protected.GET("/:id/participants/:participantId/payments", handler.GetParticipantPayments(db))
 				protected.POST("/:id/participants/:participantId/payments", handler.AddParticipantPayment(db))
 				protected.PATCH("/:id/participants/:participantId/approve-payment", handler.ApproveParticipantPayment(db))
+				protected.POST("/:id/participants/:participantId/certificate", handler.UploadParticipantCertificate(db))
 				
 				// Certificate distribution & management
 				protected.POST("/:id/certificates/upload-zip", handler.UploadCertificatesZIP(db))
 				protected.GET("/:id/certificates/upload-batches", handler.GetCertificateUploadBatches(db))
+				protected.GET("/:id/certificates/upload-batches/:batchId/progress", handler.GetBatchProgress(db))
 				protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
 				protected.GET("/:id/certificates", handler.GetEventCertificates(db))
 				protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
@@ -392,6 +405,7 @@ func main() {
 			qualification.GET("/sessions", handler.GetQualificationSessions(db))
 			qualification.POST("/sessions", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
 			qualification.PATCH("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
+			qualification.POST("/sessions/:sessionId/lock", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ToggleLockQualificationSession(db))
 			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
 			qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
 		}
@@ -405,7 +419,7 @@ func main() {
 			elimination.POST("/brackets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateBracket(db))
 			elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
 			elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateBracket(db))
-			elimination.DELETE("/brackets/:bracketId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.DeleteBracket(db))
+			elimination.POST("/brackets/:bracketId/lock", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ToggleLockEliminationBracket(db))
 			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.GenerateBracket(db))
 			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
 			elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
@@ -468,7 +482,7 @@ func main() {
 			archers.Use(middleware.OptionalAuthMiddleware())
 
 			// Public archer routes
-			archers.GET("", handler.GetArchers(db))
+			archers.GET("", middleware.RateLimit(60, 1*time.Minute), handler.GetArchers(db))
 			archers.GET("/:id", handler.GetArcherByID(db))
 			archers.GET("/:id/events", handler.GetArcherEvents(db))
 			archers.GET("/registration-profile/:uuid", handler.GetArcherRegistrationProfile(db))
@@ -565,7 +579,7 @@ func main() {
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
-		// Chat routes (archer Ã¢â€ â€ seller)
+		// Chat routes (archer <-> seller)
 		chat := api.Group("/chat")
 		chat.Use(middleware.AuthMiddleware())
 		{
@@ -574,6 +588,19 @@ func main() {
 			chat.GET("/conversations/:id/messages", handler.GetConversationMessages(db))
 			chat.POST("/conversations/:id/messages", handler.SendMessage(db))
 			chat.GET("/unread", handler.GetChatUnreadCount(db))
+		}
+
+		// Notification routes (protected)
+		notifications := api.Group("/notifications")
+		notifications.Use(middleware.AuthMiddleware())
+		{
+			notifications.GET("", handler.GetNotifications(db))
+			notifications.GET("/unread-count", handler.GetUnreadNotificationCount(db))
+			notifications.PUT("/:id/read", handler.MarkNotificationAsRead(db))
+			notifications.PUT("/read-all", handler.MarkAllNotificationsAsRead(db))
+			notifications.DELETE("/:id", handler.DeleteNotification(db))
+			notifications.DELETE("/clear-all", handler.DeleteAllNotifications(db))
+			notifications.POST("", handler.CreateNotification(db))
 		}
 
 		// Payment & Registration routes
@@ -645,6 +672,7 @@ func main() {
 			auth := mobile.Group("/auth")
 			{
 				auth.POST("/scorekeeper/login", mobilehandler.MobileScorekeeperLogin(db))
+				auth.POST("/scorekeeper/verify-code", mobilehandler.MobileVerifyScorekeeperCode(db))
 				auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 				auth.POST("/organizer/login", mobilehandler.MobileOrganizationLogin(db))
 				auth.POST("/seller/login", mobilehandler.MobileSellerLogin(db))
@@ -659,8 +687,8 @@ func main() {
 			}
 
 			// 2. Events (public)
-			mobile.GET("/events", mobilehandler.MobileListEvents(db))
-			mobile.GET("/events/history", mobilehandler.MobileListEvents(db)) // Alias/Filter trigger
+			mobile.GET("/events", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db))
+			mobile.GET("/events/history", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db)) // Alias/Filter trigger
 			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
 			mobile.GET("/events/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
 			mobile.GET("/events/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))
@@ -762,6 +790,24 @@ func main() {
 				g.GET("/events/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
 				g.POST("/events/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
 
+				// Check-in & Search
+				g.GET("/events/:id/checkin-summary", mobilehandler.MobileGetCheckinSummary(db))
+				g.POST("/events/:id/participants/:participantId/manual-checkin", mobilehandler.MobileManualCheckin(db))
+				g.GET("/search-global", mobilehandler.MobileGlobalSearch(db))
+
+				// Broadcast Extras
+				g.POST("/events/:id/broadcasts/reminder-unpaid", mobilehandler.MobileBroadcastReminderUnpaid(db))
+
+				// Payments & Invoices
+				g.GET("/events/:id/payments", mobilehandler.MobileGetEventPayments(db))
+				g.GET("/payments/:transactionId/invoice", mobilehandler.MobileGetInvoiceDetail(db))
+				g.POST("/payments/:transactionId/manual-approve", mobilehandler.MobileManualApprovePayment(db))
+				g.POST("/payments/:transactionId/refund", mobilehandler.MobileRefundPayment(db))
+
+				// Notifications
+				g.GET("/notifications", mobilehandler.MobileGetOrganizerNotifications(db))
+				g.PUT("/notifications/mark-read", mobilehandler.MobileMarkAllOrganizerNotificationsRead(db))
+
 				// Finance
 				g.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))
 				g.GET("/finance/balance", mobilehandler.MobileGetOrganizationWallet(db))
@@ -801,6 +847,8 @@ func main() {
 				qual.GET("/scoring/cards", handler.GetScoringCards(db))
 				qual.GET("/scoring/targets", handler.GetScoringTargets(db))
 				qual.POST("/scoring/scores/:assignmentId", handler.UpdateQualificationScore(db))
+				qual.PUT("/scoring/arrow", mobilehandler.MobileEditArrowScoreAudit(db))
+				qual.POST("/scoring/scores/:assignmentId/submit-final", mobilehandler.MobileSubmitFinalScoresheet(db))
 			}
 
 			// 5. Elimination Scoring
@@ -820,6 +868,9 @@ func main() {
 			{
 				sk.GET("/me", mobilehandler.MobileGetScorekeeperMe(db))
 				sk.GET("/events", mobilehandler.MobileGetScorekeeperEvents(db))
+				sk.POST("/verify-code", mobilehandler.MobileVerifyScorekeeperCode(db))
+				sk.GET("/recent-scans", mobilehandler.MobileGetScorekeeperRecentScans(db))
+				sk.GET("/history", mobilehandler.MobileGetScorekeeperHistory(db))
 			}
 
 			// 7. Options (Public)
@@ -922,6 +973,7 @@ func main() {
 					wallet.GET("", handler.GetMyWallet(db))
 					wallet.GET("/withdrawals", handler.GetWithdrawals(db))
 					wallet.POST("/withdrawals", middleware.RequireActivePlan(db), handler.CreateWithdrawal(db))
+					wallet.GET("/mutations", handler.GetWalletMutations(db))
 				}
 
 				// Earnings
@@ -987,6 +1039,7 @@ func main() {
 			sellersProtected.GET("/wallet", handler.GetMyWallet(db))
 			sellersProtected.GET("/wallet/withdrawals", handler.GetWithdrawals(db))
 			sellersProtected.POST("/wallet/withdrawals", handler.CreateWithdrawal(db))
+			sellersProtected.GET("/wallet/mutations", handler.GetWalletMutations(db))
 		}
 
 		// Order routes (seller) — also accessible as /api/v1/orders

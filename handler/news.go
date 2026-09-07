@@ -245,7 +245,7 @@ func CreateNews(db *sqlx.DB) gin.HandlerFunc {
 			req.Category = "pengumuman"
 		}
 		if req.Status == "" {
-			req.Status = "draft"
+			req.Status = "published"
 		}
 
 		// Determine which ID to use

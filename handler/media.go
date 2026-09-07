@@ -79,9 +79,34 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			contentType = strings.TrimSpace(contentType)
 		}
+
+		// Sniff real magic bytes from the first 512 bytes
+		sniffBuf := make([]byte, 512)
+		n, _ := file.Read(sniffBuf)
+		if seeker, ok := file.(io.ReadSeeker); ok {
+			_, _ = seeker.Seek(0, io.SeekStart)
+		}
+
+		detectedType := http.DetectContentType(sniffBuf[:n])
+		if idx := strings.Index(detectedType, ";"); idx >= 0 {
+			detectedType = strings.TrimSpace(detectedType[:idx])
+		}
+
+		// Prohibit dangerous executable / script content
+		disallowedTypes := []string{
+			"application/x-dosexec", "application/x-executable", "application/x-sharedlib",
+			"application/javascript", "text/javascript", "text/html", "application/x-sh",
+		}
+		for _, dt := range disallowedTypes {
+			if detectedType == dt {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Format file berbahaya atau tidak diizinkan."})
+				return
+			}
+		}
+
 		isAllowed := false
 		for _, t := range allowedTypes {
-			if contentType == t {
+			if contentType == t || detectedType == t {
 				isAllowed = true
 				break
 			}

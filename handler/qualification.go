@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -50,6 +49,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			ParticipantCount int      `db:"participant_count" json:"participant_count"`
 			CategoryIDs      string   `db:"category_ids" json:"-"`
 			CategoryList     []string `json:"category_ids"`
+			IsLocked         bool     `db:"is_locked" json:"is_locked"`
 		}
 
 		var sessions []SessionWithCount
@@ -66,13 +66,14 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 				qs.arrows_per_end,
 				qs.created_at,
 				qs.updated_at,
+				COALESCE(qs.is_locked, 0) as is_locked,
 				COUNT(DISTINCT qta.participant_uuid) as participant_count,
 				COALESCE(GROUP_CONCAT(DISTINCT qsc.category_uuid), '') as category_ids
 			FROM qualification_sessions qs
 			LEFT JOIN qualification_target_assignments qta ON qs.uuid = qta.session_uuid
 			LEFT JOIN qualification_session_categories qsc ON qs.uuid = qsc.session_uuid
 			WHERE qs.event_uuid = ?
-			GROUP BY qs.uuid, qs.session_date, qs.name, qs.start_time, qs.end_time, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at
+			GROUP BY qs.uuid, qs.event_uuid, qs.session_code, qs.session_date, qs.name, qs.start_time, qs.end_time, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at, qs.is_locked
 			ORDER BY qs.session_date ASC, qs.start_time ASC, qs.created_at ASC
 		`, eventUUID)
 		if err != nil {
@@ -132,10 +133,16 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			req.ArrowsPerEnd = 6
 		}
 
-		// Generate session code (e.g., QS-20260203-001)
-		var sessionCount int
-		_ = db.Get(&sessionCount, `SELECT COUNT(*) FROM qualification_sessions WHERE event_uuid = ?`, eventUUID)
-		sessionCode := fmt.Sprintf("QS-%s-%03d", time.Now().Format("20060102"), sessionCount+1)
+		// Generate clean short session code (e.g., QS-7K9M2)
+		var sessionCode string
+		for {
+			sessionCode = utils.GenerateShortCode("QS", 5)
+			var count int
+			err := db.Get(&count, "SELECT COUNT(*) FROM qualification_sessions WHERE session_code = ?", sessionCode)
+			if err == nil && count == 0 {
+				break
+			}
+		}
 
 		// Handle StartTime and EndTime if they are just "HH:MM" and session_date is provided
 		var finalStartTime, finalEndTime *string
@@ -269,6 +276,41 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// ToggleLockQualificationSession locks or unlocks scoring for a qualification session
+func ToggleLockQualificationSession(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("sessionId")
+		if sessionID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId wajib diisi"})
+			return
+		}
+
+		var isLocked bool
+		err := db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ? OR session_code = ?`, sessionID, sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi kualifikasi tidak ditemukan"})
+			return
+		}
+
+		newLockState := !isLocked
+		_, err = db.Exec(`UPDATE qualification_sessions SET is_locked = ? WHERE uuid = ? OR session_code = ?`, newLockState, sessionID, sessionID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengubah status kunci sesi"})
+			return
+		}
+
+		msg := "Sesi kualifikasi berhasil dikunci"
+		if !newLockState {
+			msg = "Sesi kualifikasi berhasil dibuka kembali (unlocked)"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":   msg,
+			"is_locked": newLockState,
+		})
+	}
+}
+
 // UpdateQualificationScore updates end scores for an assignment (supports batch)
 // @Summary Update Qualification Score
 // @Description Submit or update scores for a specific qualification assignment (end-by-end)
@@ -290,6 +332,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if err := db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			return
+		}
+
+		var isLocked bool
+		_ = db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
+		if isLocked {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Sesi kualifikasi telah dikunci oleh panitia/wasit. Perubahan skor tidak diperbolehkan."})
 			return
 		}
 
@@ -341,11 +390,36 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			existingMap[ee.EndNumber] = ee.UUID
 		}
 
+		if len(ends) == 0 {
+			// Clear all existing end scores and arrows for this participant in this session
+			var oldUUIDs []string
+			for _, ee := range existingEnds {
+				oldUUIDs = append(oldUUIDs, ee.UUID)
+			}
+			if len(oldUUIDs) > 0 {
+				query, args, inErr := sqlx.In(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (?)`, oldUUIDs)
+				if inErr == nil {
+					query = tx.Rebind(query)
+					_, _ = tx.Exec(query, args...)
+				}
+				_, _ = tx.Exec(`DELETE FROM qualification_end_scores WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, participantUUID)
+			}
+		}
+
 		var allEndScoreUUIDs []string
 		var arrowValues []interface{}
 		arrowCount := 0
 
 		for _, end := range ends {
+			if len(end.Arrows) == 0 {
+				// If this end is sent as empty, delete it if it existed
+				if currentEndScoreUUID, exists := existingMap[end.EndNumber]; exists {
+					_, _ = tx.Exec(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid = ?`, currentEndScoreUUID)
+					_, _ = tx.Exec(`DELETE FROM qualification_end_scores WHERE uuid = ?`, currentEndScoreUUID)
+				}
+				continue
+			}
+
 			total, xCount, tenCount := 0, 0, 0
 			for _, arrow := range end.Arrows {
 				val, x, ten := calculateArrowValue(arrow)
@@ -599,7 +673,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
 			JOIN qualification_sessions qs ON qs.uuid = qta.session_uuid
-			LEFT JOIN (
+			JOIN (
 				SELECT 
 					participant_uuid, 
 					session_uuid,
@@ -611,7 +685,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 				FROM qualification_end_scores
 				GROUP BY participant_uuid, session_uuid
 			) score_summary ON score_summary.participant_uuid = ep.uuid AND score_summary.session_uuid = qs.uuid
-			WHERE ep.category_id = ?
+			WHERE ep.category_id = ? AND score_summary.ends_completed > 0
 			ORDER BY participant_uuid, qs.created_at ASC`,
 			categoryID)
 
@@ -652,10 +726,12 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Convert map to slice and sort by total score
+		// Convert map to slice (only include archers with completed ends / recorded scores) and sort by total score
 		leaderboard := make([]*Entry, 0, len(archerOrder))
 		for _, uuid := range archerOrder {
-			leaderboard = append(leaderboard, archerMap[uuid])
+			if archerMap[uuid].EndsCompleted > 0 {
+				leaderboard = append(leaderboard, archerMap[uuid])
+			}
 		}
 
 		sort.Slice(leaderboard, func(i, j int) bool {

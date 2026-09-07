@@ -1,25 +1,28 @@
-﻿package handler
+package handler
 
 import (
 	"Archeris-api/models"
-	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 // GetNotifications returns notifications for the current user
 func GetNotifications(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get("user")
-		if !exists {
+		userIDVal, exists := c.Get("user_id")
+		if !exists || userIDVal == nil || userIDVal.(string) == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
-
-		claims := user.(map[string]interface{})
-		userID := claims["user_id"].(string)
-		userRole := claims["role"].(string)
+		userID := userIDVal.(string)
+		orgIDVal, _ := c.Get("org_id")
+		orgID, _ := orgIDVal.(string)
+		if orgID == "" {
+			orgID = userID
+		}
 
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -31,26 +34,25 @@ func GetNotifications(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `SELECT id, user_id, user_role, type, title, message, link, is_read, created_at, updated_at
 				  FROM notifications
-				  WHERE user_id = ? AND user_role = ?`
-		
+				  WHERE (user_id = ? OR user_id = ?)`
+
 		if unreadOnly {
 			query += " AND is_read = FALSE"
 		}
-		
+
 		query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
 
 		var notifications []models.Notification
-		err := db.Select(&notifications, query, userID, userRole, limit, offset)
+		err := db.Select(&notifications, query, userID, orgID, limit, offset)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil notifikasi"})
-			return
+			notifications = []models.Notification{}
 		}
 
 		var unreadCount int
-		_ = db.Get(&unreadCount, "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND user_role = ? AND is_read = FALSE", userID, userRole)
+		_ = db.Get(&unreadCount, "SELECT COUNT(*) FROM notifications WHERE (user_id = ? OR user_id = ?) AND is_read = FALSE", userID, orgID)
 
 		var total int
-		_ = db.Get(&total, "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND user_role = ?", userID, userRole)
+		_ = db.Get(&total, "SELECT COUNT(*) FROM notifications WHERE (user_id = ? OR user_id = ?)", userID, orgID)
 
 		c.JSON(http.StatusOK, models.NotificationListResponse{
 			Notifications: notifications,
@@ -60,23 +62,53 @@ func GetNotifications(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MarkNotificationAsRead marks a specific notification as read
-func MarkNotificationAsRead(db *sqlx.DB) gin.HandlerFunc {
+// GetUnreadNotificationCount returns the count of unread notifications for current user
+func GetUnreadNotificationCount(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get("user")
-		if !exists {
+		userIDVal, exists := c.Get("user_id")
+		if !exists || userIDVal == nil || userIDVal.(string) == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
+		userID := userIDVal.(string)
+		orgIDVal, _ := c.Get("org_id")
+		orgID, _ := orgIDVal.(string)
+		if orgID == "" {
+			orgID = userID
+		}
 
-		claims := user.(map[string]interface{})
-		userID := claims["user_id"].(string)
-		userRole := claims["role"].(string)
+		var count int
+		err := db.Get(&count, "SELECT COUNT(*) FROM notifications WHERE (user_id = ? OR user_id = ?) AND is_read = FALSE", userID, orgID)
+		if err != nil {
+			count = 0
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"count":        count,
+			"unread_count": count,
+		})
+	}
+}
+
+// MarkNotificationAsRead marks a specific notification as read
+func MarkNotificationAsRead(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDVal, exists := c.Get("user_id")
+		if !exists || userIDVal == nil || userIDVal.(string) == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+		userID := userIDVal.(string)
+		orgIDVal, _ := c.Get("org_id")
+		orgID, _ := orgIDVal.(string)
+		if orgID == "" {
+			orgID = userID
+		}
 		notificationID := c.Param("id")
 
 		result, err := db.Exec(
-			"UPDATE notifications SET is_read = TRUE WHERE id = ? AND user_id = ? AND user_role = ?",
-			notificationID, userID, userRole,
+			"UPDATE notifications SET is_read = TRUE WHERE id = ? AND (user_id = ? OR user_id = ?)",
+			notificationID, userID, orgID,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui notifikasi"})
@@ -96,19 +128,21 @@ func MarkNotificationAsRead(db *sqlx.DB) gin.HandlerFunc {
 // MarkAllNotificationsAsRead marks all user notifications as read
 func MarkAllNotificationsAsRead(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get("user")
-		if !exists {
+		userIDVal, exists := c.Get("user_id")
+		if !exists || userIDVal == nil || userIDVal.(string) == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
-
-		claims := user.(map[string]interface{})
-		userID := claims["user_id"].(string)
-		userRole := claims["role"].(string)
+		userID := userIDVal.(string)
+		orgIDVal, _ := c.Get("org_id")
+		orgID, _ := orgIDVal.(string)
+		if orgID == "" {
+			orgID = userID
+		}
 
 		result, err := db.Exec(
-			"UPDATE notifications SET is_read = TRUE WHERE user_id = ? AND user_role = ? AND is_read = FALSE",
-			userID, userRole,
+			"UPDATE notifications SET is_read = TRUE WHERE (user_id = ? OR user_id = ?) AND is_read = FALSE",
+			userID, orgID,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui notifikasi"})
@@ -123,23 +157,76 @@ func MarkAllNotificationsAsRead(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// CreateNotification creates a new notification (admin only)
-func CreateNotification(db *sqlx.DB) gin.HandlerFunc {
+// DeleteNotification deletes a specific notification
+func DeleteNotification(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get("user")
-		if !exists {
+		userIDVal, exists := c.Get("user_id")
+		if !exists || userIDVal == nil || userIDVal.(string) == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
 			return
 		}
+		userID := userIDVal.(string)
+		orgIDVal, _ := c.Get("org_id")
+		orgID, _ := orgIDVal.(string)
+		if orgID == "" {
+			orgID = userID
+		}
+		notificationID := c.Param("id")
 
-		claims := user.(map[string]interface{})
-		role := claims["role"].(string)
-
-		if role != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya admin yang dapat membuat notifikasi"})
+		result, err := db.Exec(
+			"DELETE FROM notifications WHERE id = ? AND (user_id = ? OR user_id = ?)",
+			notificationID, userID, orgID,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus notifikasi"})
 			return
 		}
 
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Notifikasi tidak ditemukan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Notifikasi berhasil dihapus"})
+	}
+}
+
+// DeleteAllNotifications deletes all notifications for current user
+func DeleteAllNotifications(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDVal, exists := c.Get("user_id")
+		if !exists || userIDVal == nil || userIDVal.(string) == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+		userID := userIDVal.(string)
+		orgIDVal, _ := c.Get("org_id")
+		orgID, _ := orgIDVal.(string)
+		if orgID == "" {
+			orgID = userID
+		}
+
+		result, err := db.Exec(
+			"DELETE FROM notifications WHERE (user_id = ? OR user_id = ?)",
+			userID, orgID,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus notifikasi"})
+			return
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Semua notifikasi berhasil dihapus",
+			"count":   rowsAffected,
+		})
+	}
+}
+
+// CreateNotification creates a new notification
+func CreateNotification(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var req models.CreateNotificationRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

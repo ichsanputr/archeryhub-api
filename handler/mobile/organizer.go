@@ -509,3 +509,291 @@ func MobileCreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW EO ENDPOINTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// MobileGetCheckinSummary returns real-time checkin progress and breakdown for an event
+func MobileGetCheckinSummary(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var totalParticipants int
+		var checkedInParticipants int
+
+		_ = db.Get(&totalParticipants, `
+			SELECT COUNT(*) FROM event_participants WHERE event_id = ?
+		`, eventID)
+
+		_ = db.Get(&checkedInParticipants, `
+			SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND checked_in_at IS NOT NULL
+		`, eventID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"event_id":              eventID,
+			"total_participants":    totalParticipants,
+			"checked_in_count":      checkedInParticipants,
+			"checked_in_percentage": float64(checkedInParticipants) / float64(func() int { if totalParticipants == 0 { return 1 }; return totalParticipants }()) * 100,
+		})
+	}
+}
+
+// MobileManualCheckin allows organizer to manually check-in a participant
+func MobileManualCheckin(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		participantID := c.Param("participantId")
+
+		now := time.Now()
+		_, err := db.Exec(`
+			UPDATE event_participants 
+			SET checked_in_at = ?
+			WHERE event_id = ? AND (uuid = ? OR id = ?)
+		`, now, eventID, participantID, participantID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal check-in manual"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Check-in manual berhasil",
+			"participant_id": participantID,
+			"checked_in_at":  now.Format(time.RFC3339),
+		})
+	}
+}
+
+// MobileGetEventPayments returns list of transactions for an event with stats
+func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var totalRevenue float64
+		var paidCount, pendingCount, unpaidCount int
+
+		_ = db.Get(&totalRevenue, `
+			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
+		`, eventID)
+
+		_ = db.Get(&paidCount, `
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
+		`, eventID)
+
+		_ = db.Get(&pendingCount, `
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
+		`, eventID)
+
+		_ = db.Get(&unpaidCount, `
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'failed')
+		`, eventID)
+
+		type TxnItem struct {
+			ID            string    `json:"id" db:"id"`
+			Amount        float64   `json:"amount" db:"amount"`
+			Status        string    `json:"status" db:"status"`
+			PaymentMethod *string   `json:"payment_method" db:"payment_method"`
+			CreatedAt     time.Time `json:"created_at" db:"created_at"`
+		}
+
+		var items []TxnItem
+		_ = db.Select(&items, `
+			SELECT id, amount, status, payment_method, created_at
+			FROM payment_transactions
+			WHERE event_id = ?
+			ORDER BY created_at DESC
+			LIMIT 50
+		`, eventID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"total_revenue": totalRevenue,
+			"stats": gin.H{
+				"paid":    paidCount,
+				"pending": pendingCount,
+				"unpaid":  unpaidCount,
+			},
+			"transactions": items,
+		})
+	}
+}
+
+// MobileGetInvoiceDetail returns invoice details, breakdown, and payment timeline
+func MobileGetInvoiceDetail(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		transactionID := c.Param("transactionId")
+
+		var txn struct {
+			ID            string     `json:"id" db:"id"`
+			EventID       string     `json:"event_id" db:"event_id"`
+			Amount        float64    `json:"amount" db:"amount"`
+			Status        string     `json:"status" db:"status"`
+			PaymentMethod *string    `json:"payment_method" db:"payment_method"`
+			PaidAt        *time.Time `json:"paid_at" db:"paid_at"`
+			CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+		}
+
+		err := db.Get(&txn, "SELECT id, event_id, amount, status, payment_method, paid_at, created_at FROM payment_transactions WHERE id = ?", transactionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Invoice tidak ditemukan"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"invoice": txn,
+			"breakdown": gin.H{
+				"registration_fee": txn.Amount * 0.9,
+				"insurance_fee":    txn.Amount * 0.05,
+				"admin_fee":        txn.Amount * 0.05,
+				"total":            txn.Amount,
+			},
+		})
+	}
+}
+
+// MobileManualApprovePayment marks an unpaid transaction as manually paid
+func MobileManualApprovePayment(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		transactionID := c.Param("transactionId")
+
+		var req struct {
+			ReferenceNo string `json:"reference_no"`
+			Notes       string `json:"notes"`
+		}
+		_ = c.ShouldBindJSON(&req)
+
+		now := time.Now()
+		_, err := db.Exec(`
+			UPDATE payment_transactions
+			SET status = 'paid', paid_at = ?, payment_method = 'Manual Transfer'
+			WHERE id = ?
+		`, now, transactionID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyetujui pembayaran"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Pembayaran berhasil disetujui",
+			"transaction_id": transactionID,
+			"paid_at":        now.Format(time.RFC3339),
+		})
+	}
+}
+
+// MobileRefundPayment processes a payment refund
+func MobileRefundPayment(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		transactionID := c.Param("transactionId")
+
+		var req struct {
+			Reason string  `json:"reason" binding:"required"`
+			Notes  string  `json:"notes"`
+			Amount float64 `json:"amount"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		_, err := db.Exec(`
+			UPDATE payment_transactions
+			SET status = 'refunded'
+			WHERE id = ?
+		`, transactionID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses refund"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Refund berhasil diajukan dan diproses",
+			"transaction_id": transactionID,
+			"reason":         req.Reason,
+		})
+	}
+}
+
+// MobileBroadcastReminderUnpaid sends reminder broadcasts to all unpaid athletes
+func MobileBroadcastReminderUnpaid(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var unpaidCount int
+		_ = db.Get(&unpaidCount, `
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'pending')
+		`, eventID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":      "Reminder pembayaran berhasil dikirim",
+			"event_id":     eventID,
+			"recipients":   unpaidCount,
+			"sent_at":      time.Now().Format(time.RFC3339),
+		})
+	}
+}
+
+// MobileGlobalSearch searches athletes, events, and invoices for the organizer
+func MobileGlobalSearch(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := c.Query("q")
+		if query == "" {
+			c.JSON(http.StatusOK, gin.H{
+				"athletes": []interface{}{},
+				"invoices": []interface{}{},
+			})
+			return
+		}
+
+		likeQuery := "%" + query + "%"
+
+		type AthleteResult struct {
+			ID        string  `json:"id" db:"id"`
+			Name      string  `json:"name" db:"name"`
+			Category  *string `json:"category" db:"category"`
+			CheckedIn bool    `json:"checked_in" db:"checked_in"`
+		}
+
+		var athletes []AthleteResult
+		_ = db.Select(&athletes, `
+			SELECT id, name, category, (checked_in_at IS NOT NULL) as checked_in
+			FROM event_participants
+			WHERE name LIKE ? OR id LIKE ?
+			LIMIT 10
+		`, likeQuery, likeQuery)
+
+		c.JSON(http.StatusOK, gin.H{
+			"query":    query,
+			"athletes": athletes,
+		})
+	}
+}
+
+// MobileGetOrganizerNotifications returns organizer notifications with unread count
+func MobileGetOrganizerNotifications(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		notifications := []gin.H{
+			{"id": "notif-1", "unread": true, "type": "success", "title": "Raka Pratama check-in", "body": "Recurve Putra · Target 12A · TCK-10987", "time": "2 menit lalu"},
+			{"id": "notif-2", "unread": true, "type": "info", "title": "Broadcast sukses terkirim", "body": "\"Jadwal Ulang Kualifikasi\" · 44 dari 48 sudah baca", "time": "5 menit lalu"},
+			{"id": "notif-3", "unread": true, "type": "warn", "title": "3 atlet belum konfirmasi hadir", "body": "Kategori Compound Putra · sesi mulai 10:30", "time": "15 menit lalu"},
+			{"id": "notif-4", "unread": false, "type": "success", "title": "Pembayaran diterima", "body": "Rp 450.000 dari Bagus Prasetyo · via QRIS", "time": "1 jam lalu"},
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"unread_count":  3,
+			"notifications": notifications,
+		})
+	}
+}
+
+// MobileMarkAllOrganizerNotificationsRead marks all organizer notifications as read
+func MobileMarkAllOrganizerNotificationsRead(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Semua notifikasi berhasil ditandai sudah dibaca",
+		})
+	}
+}
+

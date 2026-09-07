@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/utils"
@@ -121,12 +121,16 @@ func MobileListNewsComments(db *sqlx.DB) gin.HandlerFunc {
 		var comments []MobileNewsComment
 		query := `
 			SELECT c.uuid, c.news_id, c.user_id, c.user_type, c.guest_name, c.content, c.created_at,
-				CASE 
-					WHEN c.user_type = 'archer' THEN (SELECT full_name FROM archers WHERE uuid = c.user_id)
-					WHEN c.user_type = 'organizer' THEN (SELECT name FROM organizers WHERE uuid = c.user_id)
-					WHEN c.user_type = 'seller' THEN (SELECT store_name FROM sellers WHERE uuid = c.user_id)
-					ELSE c.guest_name
-				END as user_name
+				COALESCE(
+					CASE 
+						WHEN c.user_type = 'archer' THEN (SELECT full_name FROM archers WHERE uuid = c.user_id)
+						WHEN c.user_type = 'organizer' OR c.user_type = 'organization' THEN (SELECT name FROM organizers WHERE uuid = c.user_id)
+						WHEN c.user_type = 'seller' THEN (SELECT store_name FROM sellers WHERE uuid = c.user_id)
+						ELSE c.guest_name
+					END,
+					c.guest_name,
+					'User'
+				) as user_name
 			FROM news_comments c
 			JOIN news n ON c.news_id = n.uuid
 			WHERE (n.uuid = ? OR n.slug = ?) AND c.status = 'approved'

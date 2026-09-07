@@ -63,9 +63,13 @@ func MobileListClubs(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		var totalCount int
+		countArgs := args[:len(args)-2]
+		_ = db.Get(&totalCount, "SELECT COUNT(*) FROM clubs "+whereClause, countArgs...)
+
 		c.JSON(http.StatusOK, MobileClubListResponse{
 			Clubs:      clubs,
-			TotalCount: len(clubs),
+			TotalCount: totalCount,
 		})
 	}
 }

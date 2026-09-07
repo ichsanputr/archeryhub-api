@@ -48,7 +48,7 @@ func NewPayPalClient() *PayPalClient {
 	clientSecret := os.Getenv("PAYPAL_CLIENT_SECRET")
 	webhookID := os.Getenv("PAYPAL_WEBHOOK_ID")
 
-	exchangeRate := 16000.0
+	exchangeRate := 20000.0
 	if rateStr := os.Getenv("USD_IDR_EXCHANGE_RATE"); rateStr != "" {
 		if rate, err := strconv.ParseFloat(rateStr, 64); err == nil && rate > 0 {
 			exchangeRate = rate

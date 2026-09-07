@@ -3,13 +3,12 @@ package handler
 import (
 	"database/sql"
 	"fmt"
-	"html"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/jung-kurt/gofpdf"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,8 +39,6 @@ type PrintScoresheetEntry struct {
 	DivisionName    string         `db:"division_name"`
 	AgeGroup        string         `db:"age_group"`
 	Gender          string         `db:"gender"`
-	Distance        sql.NullInt64  `db:"distance"`
-	TargetFace      sql.NullString `db:"target_face"`
 	SessionCode     string         `db:"session_code"`
 	SessionName     string         `db:"session_name"`
 	BirthDate       sql.NullTime   `db:"birth_date"`
@@ -113,71 +110,38 @@ func formatPrintDateRange(start, end sql.NullTime) string {
 	return fmt.Sprintf("%d %s %d - %d %s %d", st.Day(), months[int(st.Month())], st.Year(), et.Day(), months[int(et.Month())], et.Year())
 }
 
-func getPrintCommonCSS() string {
-	return `
-		@page {
-			size: A4 portrait;
-			margin: 8mm;
+func printPdfHeader(pdf *gofpdf.Fpdf, ev *PrintEventInfo, docTitle string) {
+	pdf.SetFillColor(15, 23, 42) // Navy #0f172a
+	pdf.Rect(0, 0, 210, 24, "F")
+
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 12)
+	pdf.SetXY(10, 6)
+	pdf.CellFormat(120, 6, ev.Name, "", 0, "L", false, 0, "")
+
+	pdf.SetFont("Arial", "B", 10)
+	pdf.SetXY(130, 6)
+	pdf.CellFormat(70, 6, docTitle, "", 0, "R", false, 0, "")
+
+	pdf.SetTextColor(203, 213, 225) // Slate-300
+	pdf.SetFont("Arial", "", 8)
+	loc := ev.Venue.String
+	if ev.City.Valid && ev.City.String != "" {
+		if loc != "" {
+			loc += ", "
 		}
-		* {
-			box-sizing: border-box;
-			-webkit-print-color-adjust: exact !important;
-			print-color-adjust: exact !important;
-		}
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-			margin: 0;
-			padding: 0;
-			color: #0f172a;
-			background: #ffffff;
-			font-size: 11px;
-			line-height: 1.3;
-		}
-		.page-break {
-			page-break-after: always;
-			break-after: page;
-		}
-		.avoid-break {
-			page-break-inside: avoid;
-			break-inside: avoid;
-		}
-		.no-print {
-			display: block;
-		}
-		@media print {
-			.no-print {
-				display: none !important;
-			}
-			body {
-				padding: 0 !important;
-			}
-		}
-		.btn-print {
-			position: fixed;
-			bottom: 20px;
-			right: 20px;
-			background: #0f172a;
-			color: #ffffff;
-			padding: 12px 24px;
-			border-radius: 12px;
-			font-weight: 800;
-			font-size: 13px;
-			border: none;
-			cursor: pointer;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-			z-index: 9999;
-			display: flex;
-			align-items: center;
-			gap: 8px;
-		}
-		.btn-print:hover {
-			background: #1e293b;
-		}
-	`
+		loc += ev.City.String
+	}
+	dateStr := formatPrintDateRange(ev.StartDate, ev.EndDate)
+	pdf.SetXY(10, 14)
+	pdf.CellFormat(190, 5, fmt.Sprintf("%s | %s", loc, dateStr), "", 0, "L", false, 0, "")
+
+	pdf.SetY(30)
+	pdf.SetTextColor(15, 23, 42)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. QUALIFICATION SCORESHEET HANDLER (PURE GOLANG)
+// 1. SCORESHEET PDF HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
 
 func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
@@ -189,9 +153,6 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		targetFromStr := c.Query("target_from")
 		targetToStr := c.Query("target_to")
 		blankMode := c.Query("blank") == "1"
-		autoPrint := c.Query("autoprint") == "1"
-		showHeader := c.DefaultQuery("header", "1") == "1"
-		showFlags := c.DefaultQuery("flags", "1") == "1"
 
 		ev, err := fetchPrintEvent(db, eventID)
 		if err != nil {
@@ -200,21 +161,19 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			SELECT
-				COALESCE(ep.uuid, '') AS participant_uuid,
-				COALESCE(et.board_number, 1) AS target_no,
+			SELECT 
+				ep.uuid AS participant_uuid,
+				COALESCE(et.board_number, 0) AS target_no,
 				COALESCE(et.target_name, ep.target_name, '1A') AS target_name,
-				COALESCE(a.full_name, 'Peserta Belum Ditentukan') AS archer_name,
-				COALESCE(ep.back_number, CAST(a.id AS CHAR)) AS archer_code,
+				a.full_name AS archer_name,
+				ep.back_number AS archer_code,
 				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
 				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name,
 				COALESCE(rbt.name, '-') AS division_name,
 				COALESCE(rag.name, '-') AS age_group,
 				COALESCE(rgd.name, '-') AS gender,
-				NULL as distance,
-				NULL as target_face,
-				COALESCE(qs.session_code, ?) AS session_code,
-				COALESCE(qs.name, CONCAT('Sesi ', ?)) AS session_name,
+				COALESCE(qs.session_code, '1') AS session_code,
+				COALESCE(qs.name, 'Sesi 1') AS session_name,
 				a.birth_date,
 				a.email
 			FROM event_participants ep
@@ -231,11 +190,11 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		`
 
 		var args []interface{}
-		args = append(args, sessionCode, sessionCode, ev.UUID)
+		args = append(args, ev.UUID)
 
 		if sessionCode != "" && sessionCode != "all" {
-			query += " AND (qs.session_code = ? OR qs.session_code IS NULL)"
-			args = append(args, sessionCode)
+			query += " AND (qs.session_code = ? OR qs.uuid = ?)"
+			args = append(args, sessionCode, sessionCode)
 		}
 
 		if categoryID != "" {
@@ -244,20 +203,20 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if targetFromStr != "" {
-			if tFrom, err := strconv.Atoi(targetFromStr); err == nil {
+			if tf, err := strconv.Atoi(targetFromStr); err == nil {
 				query += " AND et.board_number >= ?"
-				args = append(args, tFrom)
+				args = append(args, tf)
 			}
 		}
 
 		if targetToStr != "" {
-			if tTo, err := strconv.Atoi(targetToStr); err == nil {
+			if tt, err := strconv.Atoi(targetToStr); err == nil {
 				query += " AND et.board_number <= ?"
-				args = append(args, tTo)
+				args = append(args, tt)
 			}
 		}
 
-		query += " ORDER BY et.board_number ASC, ep.target_name ASC, a.full_name ASC"
+		query += " ORDER BY qs.session_code ASC, et.board_number ASC, ep.target_name ASC, a.full_name ASC"
 
 		var entries []PrintScoresheetEntry
 		err = db.Select(&entries, query, args...)
@@ -270,234 +229,151 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			entries = append(entries, PrintScoresheetEntry{
 				TargetName:   "1A",
 				ArcherName:   "........................................",
-				ClubName:     "........................................",
-				CategoryName: "........................................",
-				SessionCode:  sessionCode,
-				SessionName:  "Sesi " + sessionCode,
+				ClubName:     "-",
+				CategoryName: "-",
+				SessionName:  "Sesi 1",
+				SessionCode:  "1",
 			})
 		}
 
-		dateStr := formatPrintDateRange(ev.StartDate, ev.EndDate)
-		locationStr := html.EscapeString(ev.Venue.String)
-		if ev.City.Valid && ev.City.String != "" {
-			if locationStr != "" {
-				locationStr += ", "
-			}
-			locationStr += html.EscapeString(ev.City.String)
-		}
+		pdf := gofpdf.New("P", "mm", "A4", "")
 
-		var sb strings.Builder
-		sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'>")
-		sb.WriteString(fmt.Sprintf("<title>Scoresheet Kualifikasi - %s</title>", html.EscapeString(ev.Name)))
-		sb.WriteString("<style>")
-		sb.WriteString(getPrintCommonCSS())
-		sb.WriteString(`
-			.sheet-container {
-				width: 100%;
-				height: 138mm;
-				border: 1.5px solid #0f172a;
-				border-radius: 8px;
-				padding: 5mm 6mm;
-				margin-bottom: 6mm;
-				background: #ffffff;
-				display: flex;
-				flex-direction: column;
-				justify-content: space-between;
-				position: relative;
-				box-sizing: border-box;
-			}
-			.sheet-header {
-				display: flex;
-				justify-content: space-between;
-				align-items: flex-start;
-				border-bottom: 1.5px solid #0f172a;
-				padding-bottom: 4px;
-				margin-bottom: 4px;
-			}
-			.target-badge {
-				font-size: 26px;
-				font-weight: 900;
-				color: #ffffff;
-				background: #0f172a;
-				padding: 2px 10px;
-				border-radius: 6px;
-				letter-spacing: 1px;
-				display: inline-block;
-			}
-			.info-grid {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 4px;
-				font-size: 10px;
-				margin-bottom: 4px;
-			}
-			.info-item {
-				display: flex;
-				gap: 4px;
-			}
-			.info-label {
-				font-weight: bold;
-				color: #475569;
-				min-width: 55px;
-			}
-			.info-value {
-				font-weight: 900;
-				color: #0f172a;
-				text-transform: uppercase;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-			table.scoresheet-table {
-				width: 100%;
-				border-collapse: collapse;
-				font-size: 9.5px;
-				text-align: center;
-				margin-top: 2px;
-			}
-			table.scoresheet-table th {
-				background: #f1f5f9;
-				border: 1px solid #0f172a;
-				padding: 3px 2px;
-				font-weight: 900;
-				font-size: 9px;
-			}
-			table.scoresheet-table td {
-				border: 1px solid #0f172a;
-				height: 15px;
-				padding: 2px;
-				font-weight: bold;
-			}
-			.sig-grid {
-				display: grid;
-				grid-template-columns: 1fr 1fr 1fr;
-				gap: 10px;
-				margin-top: 4px;
-				padding-top: 4px;
-				font-size: 9px;
-				text-align: center;
-			}
-			.sig-line {
-				border-bottom: 1px solid #0f172a;
-				height: 18px;
-				margin-bottom: 2px;
-			}
-		`)
-		sb.WriteString("</style></head><body>")
+		for _, e := range entries {
+			pdf.AddPage()
 
-		if autoPrint {
-			sb.WriteString("<script>window.onload = function() { setTimeout(function(){ window.print(); }, 500); };</script>")
-		}
-		sb.WriteString("<button class='btn-print no-print' onclick='window.print()'>🖨️ Cetak Dokumen</button>")
+			// Header Banner
+			printPdfHeader(pdf, ev, "LEMBAR SKOR KUALIFIKASI")
 
-		for i, entry := range entries {
-			if i > 0 && i%2 == 0 {
-				sb.WriteString("<div class='page-break'></div>")
-			}
+			// Athlete info Card
+			pdf.SetFillColor(248, 250, 252)
+			pdf.SetDrawColor(226, 232, 240)
+			pdf.RoundedRect(10, 28, 190, 22, 2, "1234", "FD")
 
-			sb.WriteString("<div class='sheet-container'>")
+			// Target Badge (Right)
+			pdf.SetFillColor(15, 23, 42)
+			pdf.SetTextColor(255, 255, 255)
+			pdf.SetFont("Arial", "B", 16)
+			pdf.SetXY(168, 30)
+			pdf.CellFormat(30, 18, e.TargetName, "", 0, "C", true, 0, "")
 
-			// Header
-			sb.WriteString("<div class='sheet-header'>")
-			sb.WriteString("<div>")
-			if showHeader {
-				sb.WriteString(fmt.Sprintf("<div style='font-size: 13px; font-weight: 900; color: #0f172a;'>%s</div>", html.EscapeString(ev.Name)))
-				sb.WriteString(fmt.Sprintf("<div style='font-size: 9px; color: #64748b;'>%s &bull; %s</div>", locationStr, dateStr))
-			} else {
-				sb.WriteString("<div style='font-size: 13px; font-weight: 900;'>LEMBAR SKOR RESMI KUALIFIKASI</div>")
-			}
-			sb.WriteString("</div>")
-
-			sb.WriteString("<div style='text-align: right;'>")
-			sb.WriteString(fmt.Sprintf("<div class='target-badge'>%s</div>", html.EscapeString(entry.TargetName)))
-			sb.WriteString("</div>")
-			sb.WriteString("</div>")
-
-			// Athlete & Category Info
-			sb.WriteString("<div class='info-grid'>")
-			sb.WriteString("<div class='info-item'>")
-			sb.WriteString("<span class='info-label'>Atlet:</span>")
+			// Info Text (Left)
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.SetXY(14, 31)
+			pdf.CellFormat(25, 5, "NAMA ATLET:", "", 0, "L", false, 0, "")
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 10)
+			archerName := e.ArcherName
 			if blankMode {
-				sb.WriteString("<span class='info-value'>..................................................</span>")
-			} else {
-				sb.WriteString(fmt.Sprintf("<span class='info-value'>%s</span>", html.EscapeString(entry.ArcherName)))
+				archerName = "...................................................."
 			}
-			sb.WriteString("</div>")
+			pdf.CellFormat(80, 5, archerName, "", 0, "L", false, 0, "")
 
-			sb.WriteString("<div class='info-item'>")
-			sb.WriteString("<span class='info-label'>Kategori:</span>")
-			sb.WriteString(fmt.Sprintf("<span class='info-value'>%s</span>", html.EscapeString(entry.CategoryName)))
-			sb.WriteString("</div>")
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.CellFormat(20, 5, "SESI:", "", 0, "L", false, 0, "")
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 9)
+			pdf.CellFormat(30, 5, fmt.Sprintf("%s (%s)", e.SessionName, e.SessionCode), "", 1, "L", false, 0, "")
 
-			if showFlags {
-				sb.WriteString("<div class='info-item'>")
-				sb.WriteString("<span class='info-label'>Klub:</span>")
-				sb.WriteString(fmt.Sprintf("<span class='info-value'>%s</span>", html.EscapeString(entry.ClubName)))
-				sb.WriteString("</div>")
-			}
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.SetX(14)
+			pdf.CellFormat(25, 5, "KATEGORI:", "", 0, "L", false, 0, "")
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 9)
+			pdf.CellFormat(80, 5, e.CategoryName, "", 0, "L", false, 0, "")
 
-			sb.WriteString("<div class='info-item'>")
-			sb.WriteString("<span class='info-label'>Sesi:</span>")
-			sb.WriteString(fmt.Sprintf("<span class='info-value'>%s (%s)</span>", html.EscapeString(entry.SessionName), html.EscapeString(entry.SessionCode)))
-			sb.WriteString("</div>")
-			sb.WriteString("</div>")
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.CellFormat(20, 5, "KLUB:", "", 0, "L", false, 0, "")
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 9)
+			pdf.CellFormat(30, 5, e.ClubName, "", 1, "L", false, 0, "")
 
-			// Scoresheet Table (6 Ends, 6 Arrows Each)
-			sb.WriteString("<table class='scoresheet-table'>")
-			sb.WriteString("<thead><tr>")
-			sb.WriteString("<th style='width: 30px;'>End</th>")
-			sb.WriteString("<th style='width: 25px;'>1</th><th style='width: 25px;'>2</th><th style='width: 25px;'>3</th>")
-			sb.WriteString("<th style='width: 25px;'>4</th><th style='width: 25px;'>5</th><th style='width: 25px;'>6</th>")
-			sb.WriteString("<th style='width: 45px;'>End Total</th>")
-			sb.WriteString("<th style='width: 55px;'>Running Total</th>")
-			sb.WriteString("<th style='width: 30px;'>10+X</th><th style='width: 30px;'>X</th>")
-			sb.WriteString("</tr></thead><tbody>")
+			// Scoresheet Table (6 Ends, 6 Arrows)
+			pdf.SetY(54)
+			pdf.SetX(10)
+			pdf.SetFillColor(241, 245, 249)
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetDrawColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 8)
 
+			pdf.CellFormat(14, 8, "End", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(16, 8, "1", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(16, 8, "2", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(16, 8, "3", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(16, 8, "4", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(16, 8, "5", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(16, 8, "6", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(26, 8, "End Total", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(28, 8, "Running Total", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(13, 8, "10+X", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(13, 8, "X", "1", 1, "C", true, 0, "")
+
+			pdf.SetFont("Arial", "B", 9)
 			for endNum := 1; endNum <= 6; endNum++ {
-				sb.WriteString("<tr>")
-				sb.WriteString(fmt.Sprintf("<td style='background: #f8fafc; font-weight: 900;'>%d</td>", endNum))
-				sb.WriteString("<td></td><td></td><td></td><td></td><td></td><td></td>")
-				sb.WriteString("<td style='background: #f8fafc;'></td>")
-				sb.WriteString("<td></td>")
-				sb.WriteString("<td></td><td></td>")
-				sb.WriteString("</tr>")
+				pdf.SetX(10)
+				pdf.SetFillColor(248, 250, 252)
+				pdf.CellFormat(14, 18, fmt.Sprintf("%d", endNum), "1", 0, "C", true, 0, "")
+				pdf.CellFormat(16, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(16, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(16, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(16, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(16, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(16, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(26, 18, "", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(28, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(13, 18, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(13, 18, "", "1", 1, "C", false, 0, "")
 			}
 
 			// Total Row
-			sb.WriteString("<tr style='background: #f1f5f9; font-weight: 900;'>")
-			sb.WriteString("<td colspan='7' style='text-align: right; padding-right: 8px;'>TOTAL SKOR BABAK INI</td>")
-			sb.WriteString("<td style='font-size: 11px;'></td>")
-			sb.WriteString("<td></td><td></td><td></td>")
-			sb.WriteString("</tr>")
+			pdf.SetX(10)
+			pdf.SetFillColor(241, 245, 249)
+			pdf.SetFont("Arial", "B", 10)
+			pdf.CellFormat(110, 10, " TOTAL SKOR BABAK INI", "1", 0, "R", true, 0, "")
+			pdf.CellFormat(26, 10, "", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(28, 10, "", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(13, 10, "", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(13, 10, "", "1", 1, "C", true, 0, "")
 
-			sb.WriteString("</tbody></table>")
+			// Signatures Block
+			pdf.SetY(190)
+			pdf.SetDrawColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.SetTextColor(15, 23, 42)
 
-			// Signatures Footer
-			sb.WriteString("<div class='sig-grid'>")
-			sb.WriteString("<div><div class='sig-line'></div><strong>Tanda Tangan Atlet</strong></div>")
-			sb.WriteString("<div><div class='sig-line'></div><strong>Pencatat Skor (Scorer)</strong></div>")
-			sb.WriteString("<div><div class='sig-line'></div><strong>Wasit / Bantalan (Judge)</strong></div>")
-			sb.WriteString("</div>")
+			pdf.Line(15, 215, 65, 215)
+			pdf.SetXY(15, 217)
+			pdf.CellFormat(50, 5, "Tanda Tangan Atlet", "", 0, "C", false, 0, "")
 
-			sb.WriteString("</div>")
+			pdf.Line(80, 215, 130, 215)
+			pdf.SetXY(80, 217)
+			pdf.CellFormat(50, 5, "Pencatat Skor (Scorer)", "", 0, "C", false, 0, "")
+
+			pdf.Line(145, 215, 195, 215)
+			pdf.SetXY(145, 217)
+			pdf.CellFormat(50, 5, "Wasit / Bantalan (Judge)", "", 1, "C", false, 0, "")
 		}
 
-		sb.WriteString("</body></html>")
-
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, sb.String())
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=Scoresheet-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output scoresheet PDF"})
+		}
 	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. PARTICIPANT LIST HANDLER (PURE GOLANG)
+// 2. PARTICIPANT LIST PDF HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
 
 func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		listType := c.DefaultQuery("type", "alphabetical")
-		autoPrint := c.Query("autoprint") == "1"
 
 		ev, err := fetchPrintEvent(db, eventID)
 		if err != nil {
@@ -532,6 +408,8 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 
 		if listType == "by-club" {
 			query += " ORDER BY cl.name ASC, a.full_name ASC"
+		} else if listType == "by-category" {
+			query += " ORDER BY category_name ASC, et.board_number ASC, ep.target_name ASC, a.full_name ASC"
 		} else {
 			query += " ORDER BY a.full_name ASC"
 		}
@@ -543,156 +421,73 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		docTitle := "Daftar Peserta (Urutan Abjad)"
+		docTitle := "Daftar Peserta (Abjad A-Z)"
 		if listType == "by-club" {
-			docTitle = "Daftar Peserta (Per Klub / Kontingen)"
+			docTitle = "Daftar Peserta (Per Klub)"
+		} else if listType == "by-category" {
+			docTitle = "Daftar Peserta (Per Kategori)"
 		}
 
-		dateStr := formatPrintDateRange(ev.StartDate, ev.EndDate)
-		locationStr := html.EscapeString(ev.Venue.String)
-		if ev.City.Valid && ev.City.String != "" {
-			if locationStr != "" {
-				locationStr += ", "
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+		printPdfHeader(pdf, ev, docTitle)
+
+		pdf.SetFillColor(241, 245, 249)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetDrawColor(203, 213, 225)
+		pdf.SetFont("Arial", "B", 8)
+
+		pdf.CellFormat(10, 7, "No", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(18, 7, "No Dada", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(55, 7, "Nama Atlet", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(45, 7, "Klub / Kontingen", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(46, 7, "Kategori Lomba", "1", 1, "L", true, 0, "")
+
+		pdf.SetFont("Arial", "", 8)
+		for i, p := range participants {
+			if pdf.GetY() > 270 {
+				pdf.AddPage()
+				printPdfHeader(pdf, ev, docTitle)
+				pdf.SetFillColor(241, 245, 249)
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(10, 7, "No", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(18, 7, "No Dada", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(55, 7, "Nama Atlet", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(45, 7, "Klub / Kontingen", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(46, 7, "Kategori Lomba", "1", 1, "L", true, 0, "")
+				pdf.SetFont("Arial", "", 8)
 			}
-			locationStr += html.EscapeString(ev.City.String)
+
+			fill := i%2 == 1
+			if fill {
+				pdf.SetFillColor(248, 250, 252)
+			}
+			pdf.CellFormat(10, 6, fmt.Sprintf("%d", i+1), "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(16, 6, p.TargetName, "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(18, 6, p.AthleteCode.String, "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(55, 6, p.AthleteName, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(45, 6, p.ClubName, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(46, 6, p.CategoryName, "1", 1, "L", fill, 0, "")
 		}
 
-		var sb strings.Builder
-		sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'>")
-		sb.WriteString(fmt.Sprintf("<title>%s - %s</title>", docTitle, html.EscapeString(ev.Name)))
-		sb.WriteString("<style>")
-		sb.WriteString(getPrintCommonCSS())
-		sb.WriteString(`
-			.header-box {
-				border-bottom: 2px solid #0f172a;
-				padding-bottom: 8px;
-				margin-bottom: 12px;
-			}
-			.group-title {
-				background: #0f172a;
-				color: #ffffff;
-				font-size: 11px;
-				font-weight: 900;
-				padding: 4px 8px;
-				margin: 12px 0 4px 0;
-				border-radius: 4px;
-			}
-			table.report-table {
-				width: 100%;
-				border-collapse: collapse;
-				font-size: 10px;
-			}
-			table.report-table th {
-				background: #f1f5f9;
-				border-bottom: 1.5px solid #0f172a;
-				border-top: 1px solid #cbd5e1;
-				padding: 5px 6px;
-				font-weight: 900;
-				text-align: left;
-			}
-			table.report-table td {
-				border-bottom: 1px solid #e2e8f0;
-				padding: 4px 6px;
-			}
-			table.report-table tr:nth-child(even) td {
-				background: #f8fafc;
-			}
-			.grand-total {
-				background: #0f172a;
-				color: #ffffff;
-				padding: 8px 12px;
-				font-weight: 900;
-				text-align: right;
-				margin-top: 16px;
-				border-radius: 6px;
-				font-size: 11px;
-			}
-		`)
-		sb.WriteString("</style></head><body>")
-
-		if autoPrint {
-			sb.WriteString("<script>window.onload = function() { setTimeout(function(){ window.print(); }, 500); };</script>")
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=Participants-%s-%s.pdf", listType, ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output participants PDF"})
 		}
-		sb.WriteString("<button class='btn-print no-print' onclick='window.print()'>🖨️ Cetak Dokumen</button>")
-
-		// Header
-		sb.WriteString("<div class='header-box'>")
-		sb.WriteString(fmt.Sprintf("<div style='font-size: 16px; font-weight: 900; color: #0f172a;'>%s</div>", html.EscapeString(ev.Name)))
-		sb.WriteString(fmt.Sprintf("<div style='font-size: 12px; font-weight: 800; color: #475569; margin: 2px 0;'>%s</div>", docTitle))
-		sb.WriteString(fmt.Sprintf("<div style='font-size: 9px; color: #64748b;'>Lokasi: %s &bull; Tanggal: %s</div>", locationStr, dateStr))
-		sb.WriteString("</div>")
-
-		currentGroup := ""
-		groupCount := 0
-		rowNum := 0
-
-		for _, p := range participants {
-			groupKey := ""
-			if listType == "by-club" {
-				groupKey = p.ClubName
-			} else {
-				if len(p.AthleteName) > 0 {
-					groupKey = strings.ToUpper(string([]rune(p.AthleteName)[0]))
-				} else {
-					groupKey = "#"
-				}
-			}
-
-			if groupKey != currentGroup {
-				if currentGroup != "" {
-					sb.WriteString("</tbody></table>")
-					sb.WriteString(fmt.Sprintf("<div style='text-align: right; font-size: 9px; font-weight: bold; color: #64748b; margin-bottom: 12px;'>Subtotal %s: %d Atlet</div>", html.EscapeString(currentGroup), groupCount))
-				}
-
-				currentGroup = groupKey
-				groupCount = 0
-
-				sb.WriteString(fmt.Sprintf("<div class='group-title'>%s</div>", html.EscapeString(currentGroup)))
-				sb.WriteString("<table class='report-table'>")
-				sb.WriteString("<thead><tr>")
-				sb.WriteString("<th style='width: 30px;'>No</th>")
-				sb.WriteString("<th style='width: 160px;'>Nama Atlet</th>")
-				sb.WriteString("<th style='width: 140px;'>Klub / Kontingen</th>")
-				sb.WriteString("<th style='width: 140px;'>Kategori Lomba</th>")
-				sb.WriteString("<th style='width: 50px; text-align: center;'>Sesi</th>")
-				sb.WriteString("<th style='width: 60px; text-align: center;'>Bantalan</th>")
-				sb.WriteString("</tr></thead><tbody>")
-			}
-
-			rowNum++
-			groupCount++
-
-			sb.WriteString("<tr>")
-			sb.WriteString(fmt.Sprintf("<td style='text-align: center; color: #64748b;'>%d</td>", rowNum))
-			sb.WriteString(fmt.Sprintf("<td><strong>%s</strong></td>", html.EscapeString(p.AthleteName)))
-			sb.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(p.ClubName)))
-			sb.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(p.CategoryName)))
-			sb.WriteString(fmt.Sprintf("<td style='text-align: center;'>%s</td>", html.EscapeString(p.SessionCode)))
-			sb.WriteString(fmt.Sprintf("<td style='text-align: center; font-weight: 900;'>%s</td>", html.EscapeString(p.TargetName)))
-			sb.WriteString("</tr>")
-		}
-
-		if currentGroup != "" {
-			sb.WriteString("</tbody></table>")
-			sb.WriteString(fmt.Sprintf("<div style='text-align: right; font-size: 9px; font-weight: bold; color: #64748b; margin-bottom: 12px;'>Subtotal %s: %d Atlet</div>", html.EscapeString(currentGroup), groupCount))
-		}
-
-		sb.WriteString(fmt.Sprintf("<div class='grand-total'>TOTAL KESELURUHAN PESERTA: %d ATLET</div>", len(participants)))
-		sb.WriteString("</body></html>")
-
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, sb.String())
 	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. PARTICIPANT STATISTICS (CLASSES & CLUBS) HANDLERS (PURE GOLANG)
+// 3. STATISTICS CLASSES PDF HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
 
 func GetEventStatisticsClasses(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		autoPrint := c.Query("autoprint") == "1"
 
 		ev, err := fetchPrintEvent(db, eventID)
 		if err != nil {
@@ -703,17 +498,17 @@ func GetEventStatisticsClasses(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT
 				COALESCE(rag.name, 'Umum') AS age_group,
-				COALESCE(rbt.name, 'Standard') AS division_name,
-				COALESCE(rgd.name, '-') AS gender,
+				COALESCE(rbt.name, 'Standar') AS division_name,
+				COALESCE(rgd.name, 'Campuran') AS gender,
 				COUNT(ep.uuid) AS total_count
 			FROM event_participants ep
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			WHERE ep.event_id = ?
 			GROUP BY rag.name, rbt.name, rgd.name
-			ORDER BY rag.name ASC, rbt.name ASC
+			ORDER BY division_name ASC, age_group ASC, gender ASC
 		`
 
 		var stats []PrintClassStatRow
@@ -723,65 +518,58 @@ func GetEventStatisticsClasses(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var sb strings.Builder
-		sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'>")
-		sb.WriteString(fmt.Sprintf("<title>Statistik Kelas & Divisi - %s</title>", html.EscapeString(ev.Name)))
-		sb.WriteString("<style>")
-		sb.WriteString(getPrintCommonCSS())
-		sb.WriteString(`
-			.header-box { border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 16px; }
-			table.stat-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-			table.stat-table th { background: #f1f5f9; border: 1px solid #0f172a; padding: 6px 8px; font-weight: 900; }
-			table.stat-table td { border: 1px solid #cbd5e1; padding: 6px 8px; }
-		`)
-		sb.WriteString("</style></head><body>")
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+		printPdfHeader(pdf, ev, "STATISTIK KELAS & DIVISI")
 
-		if autoPrint {
-			sb.WriteString("<script>window.onload = function() { setTimeout(function(){ window.print(); }, 500); };</script>")
-		}
-		sb.WriteString("<button class='btn-print no-print' onclick='window.print()'>🖨️ Cetak Dokumen</button>")
+		pdf.SetFillColor(241, 245, 249)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetDrawColor(203, 213, 225)
+		pdf.SetFont("Arial", "B", 9)
 
-		sb.WriteString("<div class='header-box'>")
-		sb.WriteString(fmt.Sprintf("<div style='font-size: 16px; font-weight: 900;'>%s</div>", html.EscapeString(ev.Name)))
-		sb.WriteString("<div style='font-size: 12px; font-weight: 800; color: #475569;'>Statistik Jumlah Peserta Berdasarkan Kelas & Divisi Lomba</div>")
-		sb.WriteString("</div>")
+		pdf.CellFormat(15, 8, "No", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(60, 8, "Divisi Busur", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(55, 8, "Kelas Usia", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(30, 8, "Gender", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(30, 8, "Peserta", "1", 1, "R", true, 0, "")
 
-		sb.WriteString("<table class='stat-table'>")
-		sb.WriteString("<thead><tr>")
-		sb.WriteString("<th style='width: 40px;'>No</th>")
-		sb.WriteString("<th>Kelompok Usia</th>")
-		sb.WriteString("<th>Divisi Busur</th>")
-		sb.WriteString("<th>Kategori Gender</th>")
-		sb.WriteString("<th style='width: 100px; text-align: right;'>Jumlah Atlet</th>")
-		sb.WriteString("</tr></thead><tbody>")
-
+		pdf.SetFont("Arial", "", 9)
 		grandTotal := 0
 		for i, s := range stats {
 			grandTotal += s.TotalCount
-			sb.WriteString("<tr>")
-			sb.WriteString(fmt.Sprintf("<td style='text-align: center;'>%d</td>", i+1))
-			sb.WriteString(fmt.Sprintf("<td><strong>%s</strong></td>", html.EscapeString(s.AgeGroup)))
-			sb.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(s.DivisionName)))
-			sb.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(s.Gender)))
-			sb.WriteString(fmt.Sprintf("<td style='text-align: right; font-weight: 900;'>%d</td>", s.TotalCount))
-			sb.WriteString("</tr>")
+			fill := i%2 == 1
+			if fill {
+				pdf.SetFillColor(248, 250, 252)
+			}
+			pdf.CellFormat(15, 7, fmt.Sprintf("%d", i+1), "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(60, 7, s.DivisionName, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(55, 7, s.AgeGroup, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(30, 7, s.Gender, "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(30, 7, fmt.Sprintf("%d", s.TotalCount), "1", 1, "R", fill, 0, "")
 		}
 
-		sb.WriteString("<tr style='background: #0f172a; color: #ffffff; font-weight: 900;'>")
-		sb.WriteString("<td colspan='4' style='text-align: right;'>TOTAL KESELURUHAN PESERTA</td>")
-		sb.WriteString(fmt.Sprintf("<td style='text-align: right; font-size: 12px;'>%d</td>", grandTotal))
-		sb.WriteString("</tr>")
-		sb.WriteString("</tbody></table></body></html>")
+		pdf.SetFont("Arial", "B", 10)
+		pdf.SetFillColor(15, 23, 42)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.CellFormat(160, 9, " TOTAL KESELURUHAN PESERTA ", "1", 0, "R", true, 0, "")
+		pdf.CellFormat(30, 9, fmt.Sprintf("%d", grandTotal), "1", 1, "R", true, 0, "")
 
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, sb.String())
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=Statistics-Classes-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output statistics PDF"})
+		}
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. STATISTICS CLUBS PDF HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
 
 func GetEventStatisticsClubs(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		autoPrint := c.Query("autoprint") == "1"
 
 		ev, err := fetchPrintEvent(db, eventID)
 		if err != nil {
@@ -808,53 +596,495 @@ func GetEventStatisticsClubs(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var sb strings.Builder
-		sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'>")
-		sb.WriteString(fmt.Sprintf("<title>Statistik Klub & Kontingen - %s</title>", html.EscapeString(ev.Name)))
-		sb.WriteString("<style>")
-		sb.WriteString(getPrintCommonCSS())
-		sb.WriteString(`
-			.header-box { border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 16px; }
-			table.stat-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-			table.stat-table th { background: #f1f5f9; border: 1px solid #0f172a; padding: 6px 8px; font-weight: 900; }
-			table.stat-table td { border: 1px solid #cbd5e1; padding: 6px 8px; }
-		`)
-		sb.WriteString("</style></head><body>")
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+		printPdfHeader(pdf, ev, "STATISTIK KLUB & KONTINGEN")
 
-		if autoPrint {
-			sb.WriteString("<script>window.onload = function() { setTimeout(function(){ window.print(); }, 500); };</script>")
-		}
-		sb.WriteString("<button class='btn-print no-print' onclick='window.print()'>🖨️ Cetak Dokumen</button>")
+		pdf.SetFillColor(241, 245, 249)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetDrawColor(203, 213, 225)
+		pdf.SetFont("Arial", "B", 9)
 
-		sb.WriteString("<div class='header-box'>")
-		sb.WriteString(fmt.Sprintf("<div style='font-size: 16px; font-weight: 900;'>%s</div>", html.EscapeString(ev.Name)))
-		sb.WriteString("<div style='font-size: 12px; font-weight: 800; color: #475569;'>Statistik Kontribusi Peserta Berdasarkan Klub & Kontingen</div>")
-		sb.WriteString("</div>")
+		pdf.CellFormat(15, 8, "No", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(135, 8, "Nama Klub / Kontingen", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(40, 8, "Jumlah Atlet", "1", 1, "R", true, 0, "")
 
-		sb.WriteString("<table class='stat-table'>")
-		sb.WriteString("<thead><tr>")
-		sb.WriteString("<th style='width: 40px;'>No</th>")
-		sb.WriteString("<th>Nama Klub / Kontingen</th>")
-		sb.WriteString("<th style='width: 120px; text-align: right;'>Jumlah Peserta</th>")
-		sb.WriteString("</tr></thead><tbody>")
-
+		pdf.SetFont("Arial", "", 9)
 		grandTotal := 0
 		for i, s := range stats {
 			grandTotal += s.TotalCount
-			sb.WriteString("<tr>")
-			sb.WriteString(fmt.Sprintf("<td style='text-align: center;'>%d</td>", i+1))
-			sb.WriteString(fmt.Sprintf("<td><strong>%s</strong></td>", html.EscapeString(s.ClubName)))
-			sb.WriteString(fmt.Sprintf("<td style='text-align: right; font-weight: 900;'>%d</td>", s.TotalCount))
-			sb.WriteString("</tr>")
+			fill := i%2 == 1
+			if fill {
+				pdf.SetFillColor(248, 250, 252)
+			}
+			pdf.CellFormat(15, 7, fmt.Sprintf("%d", i+1), "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(135, 7, s.ClubName, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(40, 7, fmt.Sprintf("%d", s.TotalCount), "1", 1, "R", fill, 0, "")
 		}
 
-		sb.WriteString("<tr style='background: #0f172a; color: #ffffff; font-weight: 900;'>")
-		sb.WriteString("<td colspan='2' style='text-align: right;'>TOTAL KESELURUHAN PESERTA</td>")
-		sb.WriteString(fmt.Sprintf("<td style='text-align: right; font-size: 12px;'>%d</td>", grandTotal))
-		sb.WriteString("</tr>")
-		sb.WriteString("</tbody></table></body></html>")
+		pdf.SetFont("Arial", "B", 10)
+		pdf.SetFillColor(15, 23, 42)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.CellFormat(150, 9, " TOTAL ATLET TERDAFTAR ", "1", 0, "R", true, 0, "")
+		pdf.CellFormat(40, 9, fmt.Sprintf("%d", grandTotal), "1", 1, "R", true, 0, "")
 
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, sb.String())
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=Statistics-Clubs-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output statistics clubs PDF"})
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. QUALIFICATION START LIST PDF HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+func GetQualificationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		sessionCode := c.Query("session")
+
+		ev, err := fetchPrintEvent(db, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		query := `
+			SELECT
+				COALESCE(qs.session_code, '1') AS session_code,
+				COALESCE(qs.name, 'Sesi 1') AS session_name,
+				COALESCE(et.board_number, 0) AS board_number,
+				COALESCE(et.target_name, ep.target_name, '-') AS target_name,
+				a.full_name AS athlete_name,
+				COALESCE(ep.back_number, CAST(a.id AS CHAR)) AS athlete_code,
+				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
+				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name,
+				COALESCE(rgd.name, '-') AS gender
+			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
+			LEFT JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
+			WHERE ep.event_id = ?
+		`
+
+		var args []interface{}
+		args = append(args, ev.UUID)
+
+		if sessionCode != "" && sessionCode != "all" {
+			query += " AND (qs.session_code = ? OR qs.session_code IS NULL)"
+			args = append(args, sessionCode)
+		}
+
+		query += " ORDER BY qs.session_code ASC, et.board_number ASC, ep.target_name ASC, a.full_name ASC"
+
+		type StartListRow struct {
+			SessionCode  string         `db:"session_code"`
+			SessionName  string         `db:"session_name"`
+			BoardNumber  int            `db:"board_number"`
+			TargetName   string         `db:"target_name"`
+			AthleteName  string         `db:"athlete_name"`
+			AthleteCode  sql.NullString `db:"athlete_code"`
+			ClubName     string         `db:"club_name"`
+			CategoryName string         `db:"category_name"`
+			Gender       string         `db:"gender"`
+		}
+
+		var rows []StartListRow
+		err = db.Select(&rows, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil start list: " + err.Error()})
+			return
+		}
+
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+		printPdfHeader(pdf, ev, "START LIST BANTALAN")
+
+		currentSession := ""
+		for _, r := range rows {
+			if r.SessionCode != currentSession {
+				currentSession = r.SessionCode
+				pdf.SetY(pdf.GetY() + 4)
+				pdf.SetFillColor(15, 23, 42)
+				pdf.SetTextColor(255, 255, 255)
+				pdf.SetFont("Arial", "B", 9)
+				pdf.CellFormat(190, 7, fmt.Sprintf(" %s (Sesi %s)", r.SessionName, r.SessionCode), "", 1, "L", true, 0, "")
+
+				pdf.SetFillColor(241, 245, 249)
+				pdf.SetTextColor(15, 23, 42)
+				pdf.SetDrawColor(203, 213, 225)
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(18, 7, "No Dada", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(56, 7, "Nama Atlet", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(50, 7, "Klub / Kontingen", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(50, 7, "Kategori Lomba", "1", 1, "L", true, 0, "")
+			}
+
+			if pdf.GetY() > 270 {
+				pdf.AddPage()
+				printPdfHeader(pdf, ev, "START LIST BANTALAN")
+				pdf.SetFillColor(241, 245, 249)
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(18, 7, "No Dada", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(56, 7, "Nama Atlet", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(50, 7, "Klub / Kontingen", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(50, 7, "Kategori Lomba", "1", 1, "L", true, 0, "")
+			}
+
+			pdf.SetFont("Arial", "", 8)
+			pdf.CellFormat(16, 6, r.TargetName, "1", 0, "C", false, 0, "")
+			pdf.CellFormat(18, 6, r.AthleteCode.String, "1", 0, "C", false, 0, "")
+			pdf.CellFormat(56, 6, r.AthleteName, "1", 0, "L", false, 0, "")
+			pdf.CellFormat(50, 6, r.ClubName, "1", 0, "L", false, 0, "")
+			pdf.CellFormat(50, 6, r.CategoryName, "1", 1, "L", false, 0, "")
+		}
+
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=StartList-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output start list PDF"})
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. QUALIFICATION RESULTS PDF HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+func GetQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		categoryID := c.Query("category_id")
+
+		ev, err := fetchPrintEvent(db, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		query := `
+			SELECT
+				ep.category_id,
+				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name,
+				a.full_name AS athlete_name,
+				COALESCE(ep.back_number, CAST(a.id AS CHAR)) AS athlete_code,
+				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
+				COALESCE(et.target_name, ep.target_name, '-') AS target_name,
+				COALESCE(SUM(qes.total_score_end), 0) AS total_score,
+				COALESCE(SUM(qes.ten_count_end), 0) AS total_10,
+				COALESCE(SUM(qes.x_count_end), 0) AS total_x
+			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
+			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
+			WHERE ep.event_id = ?
+		`
+
+		var args []interface{}
+		args = append(args, ev.UUID)
+
+		if categoryID != "" {
+			query += " AND (ep.category_id = ? OR ec.uuid = ?)"
+			args = append(args, categoryID, categoryID)
+		}
+
+		query += " GROUP BY ep.uuid ORDER BY category_name ASC, total_score DESC, total_x DESC, total_10 DESC, a.full_name ASC"
+
+		type ResultRow struct {
+			CategoryID   string         `db:"category_id"`
+			CategoryName string         `db:"category_name"`
+			AthleteName  string         `db:"athlete_name"`
+			AthleteCode  sql.NullString `db:"athlete_code"`
+			ClubName     string         `db:"club_name"`
+			TargetName   string         `db:"target_name"`
+			TotalScore   int            `db:"total_score"`
+			Total10      int            `db:"total_10"`
+			TotalX       int            `db:"total_x"`
+		}
+
+		var results []ResultRow
+		err = db.Select(&results, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil hasil kualifikasi: " + err.Error()})
+			return
+		}
+
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+		printPdfHeader(pdf, ev, "HASIL RESMI KUALIFIKASI")
+
+		currentCat := ""
+		rank := 0
+		for _, r := range results {
+			if r.CategoryName != currentCat {
+				currentCat = r.CategoryName
+				rank = 0
+				pdf.SetY(pdf.GetY() + 4)
+				pdf.SetFillColor(15, 23, 42)
+				pdf.SetTextColor(255, 255, 255)
+				pdf.SetFont("Arial", "B", 9)
+				pdf.CellFormat(190, 7, fmt.Sprintf(" %s", r.CategoryName), "", 1, "L", true, 0, "")
+
+				pdf.SetFillColor(241, 245, 249)
+				pdf.SetTextColor(15, 23, 42)
+				pdf.SetDrawColor(203, 213, 225)
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(12, 7, "Pos", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(18, 7, "No Dada", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(54, 7, "Nama Atlet", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(44, 7, "Klub / Kontingen", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(22, 7, "Total", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(12, 7, "10s", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(12, 7, "Xs", "1", 1, "C", true, 0, "")
+			}
+
+			if pdf.GetY() > 270 {
+				pdf.AddPage()
+				printPdfHeader(pdf, ev, "HASIL RESMI KUALIFIKASI")
+				pdf.SetFillColor(241, 245, 249)
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(12, 7, "Pos", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(18, 7, "No Dada", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(54, 7, "Nama Atlet", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(44, 7, "Klub / Kontingen", "1", 0, "L", true, 0, "")
+				pdf.CellFormat(22, 7, "Total", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(12, 7, "10s", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(12, 7, "Xs", "1", 1, "C", true, 0, "")
+			}
+
+			rank++
+			pdf.SetFont("Arial", "", 8)
+			pdf.CellFormat(12, 6, fmt.Sprintf("%d", rank), "1", 0, "C", false, 0, "")
+			pdf.CellFormat(16, 6, r.TargetName, "1", 0, "C", false, 0, "")
+			pdf.CellFormat(18, 6, r.AthleteCode.String, "1", 0, "C", false, 0, "")
+			pdf.CellFormat(54, 6, r.AthleteName, "1", 0, "L", false, 0, "")
+			pdf.CellFormat(44, 6, r.ClubName, "1", 0, "L", false, 0, "")
+			pdf.SetFont("Arial", "B", 8)
+			pdf.CellFormat(22, 6, fmt.Sprintf("%d", r.TotalScore), "1", 0, "C", false, 0, "")
+			pdf.SetFont("Arial", "", 8)
+			pdf.CellFormat(12, 6, fmt.Sprintf("%d", r.Total10), "1", 0, "C", false, 0, "")
+			pdf.CellFormat(12, 6, fmt.Sprintf("%d", r.TotalX), "1", 1, "C", false, 0, "")
+		}
+
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=Results-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output results PDF"})
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. MEDAL STANDINGS PDF HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+func GetMedalStandingsPrintout(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		ev, err := fetchPrintEvent(db, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		type ClubMedalRow struct {
+			ClubName string `db:"club_name"`
+			Total    int    `db:"total_count"`
+		}
+		var clubRows []ClubMedalRow
+		db.Select(&clubRows, `
+			SELECT COALESCE(cl.name, 'Individu') AS club_name, COUNT(ep.uuid) AS total_count
+			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			WHERE ep.event_id = ?
+			GROUP BY cl.name ORDER BY total_count DESC LIMIT 25
+		`, ev.UUID)
+
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+		printPdfHeader(pdf, ev, "KLASEMEN PEROLEHAN MEDALI")
+
+		pdf.SetFillColor(241, 245, 249)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetDrawColor(203, 213, 225)
+		pdf.SetFont("Arial", "B", 9)
+
+		pdf.CellFormat(15, 8, "Pos", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(85, 8, "Nama Klub / Kontingen", "1", 0, "L", true, 0, "")
+		pdf.CellFormat(22, 8, "Emas", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(22, 8, "Perak", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(22, 8, "Perunggu", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(24, 8, "Total", "1", 1, "C", true, 0, "")
+
+		pdf.SetFont("Arial", "", 9)
+		for i, cRow := range clubRows {
+			fill := i%2 == 1
+			if fill {
+				pdf.SetFillColor(248, 250, 252)
+			}
+			pdf.CellFormat(15, 7, fmt.Sprintf("%d", i+1), "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(85, 7, cRow.ClubName, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(22, 7, "-", "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(22, 7, "-", "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(22, 7, "-", "1", 0, "C", fill, 0, "")
+			pdf.CellFormat(24, 7, "-", "1", 1, "C", fill, 0, "")
+		}
+
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=MedalStandings-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output medal standings PDF"})
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. TARGET LABELS PDF HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+func GetTargetLabelsPrintout(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+		sessionCode := c.Query("session")
+
+		ev, err := fetchPrintEvent(db, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		query := `
+			SELECT
+				COALESCE(et.target_name, ep.target_name, '1A') AS target_name,
+				a.full_name AS athlete_name,
+				COALESCE(ep.back_number, CAST(a.id AS CHAR)) AS athlete_code,
+				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
+				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name,
+				COALESCE(qs.session_code, '1') AS session_code
+			FROM event_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
+			LEFT JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
+			WHERE ep.event_id = ?
+		`
+
+		var args []interface{}
+		args = append(args, ev.UUID)
+
+		if sessionCode != "" && sessionCode != "all" {
+			query += " AND (qs.session_code = ? OR qs.session_code IS NULL)"
+			args = append(args, sessionCode)
+		}
+
+		query += " ORDER BY et.board_number ASC, ep.target_name ASC, a.full_name ASC"
+
+		type LabelRow struct {
+			TargetName   string         `db:"target_name"`
+			AthleteName  string         `db:"athlete_name"`
+			AthleteCode  sql.NullString `db:"athlete_code"`
+			ClubName     string         `db:"club_name"`
+			CategoryName string         `db:"category_name"`
+			SessionCode  string         `db:"session_code"`
+		}
+
+		var labels []LabelRow
+		err = db.Select(&labels, query, args...)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data label target: " + err.Error()})
+			return
+		}
+
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.AddPage()
+
+		// Draw sticker grid (2 cols x 7 rows per page)
+		cardW := 92.0
+		cardH := 36.0
+		marginX := 10.0
+		marginY := 10.0
+		gapX := 6.0
+		gapY := 4.0
+
+		for i, l := range labels {
+			itemsPerPage := 14
+			pageIndex := i % itemsPerPage
+			if i > 0 && pageIndex == 0 {
+				pdf.AddPage()
+			}
+
+			col := pageIndex % 2
+			row := pageIndex / 2
+
+			x := marginX + float64(col)*(cardW+gapX)
+			y := marginY + float64(row)*(cardH+gapY)
+
+			// Border
+			pdf.SetDrawColor(15, 23, 42)
+			pdf.SetFillColor(255, 255, 255)
+			pdf.RoundedRect(x, y, cardW, cardH, 2, "1234", "D")
+
+			// Target Box
+			pdf.SetFillColor(15, 23, 42)
+			pdf.SetTextColor(255, 255, 255)
+			pdf.SetFont("Arial", "B", 18)
+			pdf.SetXY(x+3, y+3)
+			pdf.CellFormat(22, 30, l.TargetName, "", 0, "C", true, 0, "")
+
+			// Details Text
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 10)
+			pdf.SetXY(x+28, y+4)
+			pdf.CellFormat(60, 5, l.AthleteName, "", 1, "L", false, 0, "")
+
+			pdf.SetTextColor(71, 85, 105)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.SetXY(x+28, y+11)
+			pdf.CellFormat(60, 4, l.ClubName, "", 1, "L", false, 0, "")
+
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "", 7)
+			pdf.SetXY(x+28, y+18)
+			pdf.CellFormat(60, 4, l.CategoryName, "", 1, "L", false, 0, "")
+
+			pdf.SetXY(x+28, y+24)
+			pdf.CellFormat(60, 4, fmt.Sprintf("Sesi %s - %s", l.SessionCode, ev.Name), "", 1, "L", false, 0, "")
+		}
+
+		c.Header("Content-Type", "application/pdf")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=TargetLabels-%s.pdf", ev.Slug))
+		err = pdf.Output(c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output target labels PDF"})
+		}
 	}
 }

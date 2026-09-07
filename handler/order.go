@@ -86,13 +86,37 @@ func CreateMarketplaceOrder(db *sqlx.DB) gin.HandlerFunc {
 			_ = db.Get(&sellerUUID, "SELECT uuid FROM sellers ORDER BY created_at ASC LIMIT 1")
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi pesanan"})
+			return
+		}
+		defer tx.Rollback()
+
 		var totalAmount float64
 		for _, it := range req.Items {
+			// Check and deduct stock atomically
+			var prod struct {
+				Stock *int   `db:"stock"`
+				Name  string `db:"name"`
+			}
+			if err := tx.Get(&prod, "SELECT stock, name FROM products WHERE uuid = ? FOR UPDATE", it.ProductID); err == nil {
+				if prod.Stock != nil && *prod.Stock < it.Quantity {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": fmt.Sprintf("Stok produk '%s' tidak mencukupi (sisa: %d)", prod.Name, *prod.Stock),
+					})
+					return
+				}
+				if prod.Stock != nil {
+					_, _ = tx.Exec("UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE uuid = ? AND stock >= ?", it.Quantity, it.ProductID, it.Quantity)
+				}
+			}
+
 			totalAmount += it.Price * float64(it.Quantity)
 		}
 
 		orderUUID := uuid.New().String()
-		_, err := db.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO orders (uuid, seller_id, buyer_id, total_amount, status, payment_status, shipping_address, created_at, updated_at)
 			VALUES (?, ?, ?, ?, 'pending', 'unpaid', ?, NOW(), NOW())
 		`, orderUUID, sellerUUID, userIDStr, totalAmount, req.ShippingAddress)
@@ -104,10 +128,20 @@ func CreateMarketplaceOrder(db *sqlx.DB) gin.HandlerFunc {
 
 		for _, it := range req.Items {
 			itemUUID := uuid.New().String()
-			_, _ = db.Exec(`
+			_, err = tx.Exec(`
 				INSERT INTO order_items (uuid, order_id, product_id, quantity, price, created_at)
 				VALUES (?, ?, ?, ?, ?, NOW())
 			`, itemUUID, orderUUID, it.ProductID, it.Quantity, it.Price)
+			if err != nil {
+				logrus.WithError(err).Error("[CreateMarketplaceOrder] INSERT order_items failed")
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan rincian item pesanan"})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi pesanan"})
+			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -159,7 +193,7 @@ func GetSellerOrders(db *sqlx.DB) gin.HandlerFunc {
 		`
 		args := []interface{}{sellerUUID, userIDStr}
 		if status != "" && strings.ToLower(status) != "all" {
-			query += " AND LOWER(o.status) = ?"
+			query += " AND o.status = ?"
 			args = append(args, strings.ToLower(status))
 		}
 		query += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?"

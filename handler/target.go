@@ -208,12 +208,20 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi penempatan target"})
+			return
+		}
+		defer tx.Rollback()
+
 		// Check if target is already taken by another archer in this session
 		var existingAssignment string
-		err := db.Get(&existingAssignment, `
+		err = tx.Get(&existingAssignment, `
 			SELECT uuid FROM qualification_target_assignments 
 			WHERE session_uuid = ? AND target_uuid = ? 
 			AND uuid != COALESCE(?, '')
+			FOR UPDATE
 		`, req.SessionUUID, req.TargetUUID, req.AssignmentUUID)
 
 		if err == nil && existingAssignment != "" {
@@ -223,30 +231,36 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if participant already has an assignment in this session
 		var existingParticipantAssignment string
-		err = db.Get(&existingParticipantAssignment, `
+		err = tx.Get(&existingParticipantAssignment, `
 			SELECT uuid FROM qualification_target_assignments 
 			WHERE session_uuid = ? AND participant_uuid = ? AND uuid != COALESCE(?, '')
+			FOR UPDATE
 		`, req.SessionUUID, req.ParticipantUUID, req.AssignmentUUID)
 
 		if err == nil && existingParticipantAssignment != "" {
 			// Update existing assignment for this participant
 			var boardNumber int
-			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
+			_ = tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
 
 			var categoryID string
-			db.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
+			_ = tx.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
 
 			var targetBoardUUID sql.NullString
-			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
 				req.SessionUUID, categoryID, boardNumber)
 
-			_, err = db.Exec(`
+			_, err = tx.Exec(`
 					UPDATE qualification_target_assignments 
 					SET target_uuid = ?, target_board_id = ?, updated_at = NOW()
 					WHERE uuid = ? AND session_uuid = ?
 				`, req.TargetUUID, targetBoardUUID, existingParticipantAssignment, req.SessionUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui penempatan"})
+				return
+			}
+
+			if err := tx.Commit(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi"})
 				return
 			}
 
@@ -260,16 +274,16 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		if req.AssignmentUUID != nil && *req.AssignmentUUID != "" {
 			// Update existing assignment
 			var boardNumber int
-			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
+			_ = tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
 
 			var categoryID string
-			db.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
+			_ = tx.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
 
 			var targetBoardUUID sql.NullString
-			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
 				req.SessionUUID, categoryID, boardNumber)
 
-			_, err = db.Exec(`
+			_, err = tx.Exec(`
 				UPDATE qualification_target_assignments 
 				SET target_uuid = ?, target_board_id = ?, updated_at = NOW()
 				WHERE uuid = ? AND session_uuid = ?
@@ -280,6 +294,11 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
+			if err := tx.Commit(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi"})
+				return
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"message":       "Penempatan berhasil diperbarui",
 				"assignment_id": *req.AssignmentUUID,
@@ -287,23 +306,28 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			// Create new assignment
 			var boardNumber int
-			db.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
+			_ = tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", req.TargetUUID)
 
 			var categoryID string
-			db.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
+			_ = tx.Get(&categoryID, "SELECT category_id FROM event_participants WHERE uuid = ?", req.ParticipantUUID)
 
 			var targetBoardUUID sql.NullString
-			db.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
+			_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
 				req.SessionUUID, categoryID, boardNumber)
 
 			newUUID := uuid.New().String()
-			_, err = db.Exec(`
+			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id)
 				VALUES (?, ?, ?, ?, ?)
 			`, newUUID, req.SessionUUID, req.ParticipantUUID, req.TargetUUID, targetBoardUUID)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat penempatan"})
+				return
+			}
+
+			if err := tx.Commit(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi"})
 				return
 			}
 

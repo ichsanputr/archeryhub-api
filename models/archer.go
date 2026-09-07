@@ -12,20 +12,16 @@ type Archer struct {
 	NIK                    *string    `json:"nik" db:"nik"`
 	DateOfBirth            *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender                 *string    `json:"gender" db:"gender"` // M, F, X
-	BloodType              *string    `json:"blood_type" db:"blood_type"`
 	HandDominance          *string    `json:"hand_dominance" db:"hand_dominance"`
 	HeightCM               *int       `json:"height_cm" db:"height_cm"`
 	WeightKG               *int       `json:"weight_kg" db:"weight_kg"`
 	Email                  *string    `json:"email" db:"email"`
 	Phone                  *string    `json:"phone" db:"phone"`
 	EmergencyContactName   *string    `json:"emergency_contact_name" db:"emergency_contact_name"`
-	EmergencyContactPhone  *string    `json:"emergency_contact_phone" db:"emergency_contact_phone"`
 	AvatarURL              *string    `json:"avatar_url" db:"avatar_url"`
 	BannerURL              *string    `json:"banner_url" db:"banner_url"`
 	Address                *string    `json:"address" db:"address"`
 	City                   *string    `json:"city" db:"city"`
-	Province               *string    `json:"province" db:"province"`
-	PostalCode             *string    `json:"postal_code" db:"postal_code"`
 	Bio                    *string    `json:"bio" db:"bio"`
 	Status                 string     `json:"status" db:"status"` // active, inactive, suspended, pending
 	BowType                *string    `json:"bow_type" db:"bow_type"`
@@ -86,20 +82,16 @@ type UpdateArcherRequest struct {
 	NIK                   *string       `json:"nik"`
 	DateOfBirth           *FlexibleTime `json:"date_of_birth"`
 	Gender                *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
-	BloodType             *string       `json:"blood_type"`
 	HandDominance         *string       `json:"hand_dominance" binding:"omitempty,oneof=right left"`
 	HeightCM              *int          `json:"height_cm"`
 	WeightKG              *int          `json:"weight_kg"`
 	BowType               *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country               *string       `json:"country"`
-	Province              *string       `json:"province"`
 	City                  *string       `json:"city"`
-	PostalCode            *string       `json:"postal_code"`
 	ClubID                *string       `json:"club_id"`
 	Email                 *string       `json:"email" binding:"omitempty,email"`
 	Phone                 *string       `json:"phone"`
 	EmergencyContactName  *string       `json:"emergency_contact_name"`
-	EmergencyContactPhone *string       `json:"emergency_contact_phone"`
 	AvatarURL             *string       `json:"avatar_url"`
 	BannerURL             *string       `json:"banner_url"`
 	Address               *string       `json:"address"`

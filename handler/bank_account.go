@@ -67,6 +67,12 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
+		var count int
+		_ = tx.Get(&count, "SELECT COUNT(*) FROM bank_accounts WHERE user_id = ?", userID)
+		if count == 0 {
+			req.IsPrimary = true
+		}
+
 		// If this is primary, unset other primaries for this user
 		if req.IsPrimary {
 			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ?", userID)
@@ -126,11 +132,25 @@ func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		if req.IsPrimary {
-			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ?", userID)
+		var otherCount int
+		_ = tx.Get(&otherCount, "SELECT COUNT(*) FROM bank_accounts WHERE user_id = ? AND uuid != ?", userID, accountID)
+
+		if otherCount == 0 {
+			// If this is the only account, it must remain primary
+			req.IsPrimary = true
+		} else if req.IsPrimary {
+			// If marked primary, unset any other primary
+			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ? AND uuid != ?", userID, accountID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status utama"})
 				return
+			}
+		} else {
+			// If unmarking primary, ensure at least one other account is primary
+			var primaryCount int
+			_ = tx.Get(&primaryCount, "SELECT COUNT(*) FROM bank_accounts WHERE user_id = ? AND uuid != ? AND is_primary = TRUE", userID, accountID)
+			if primaryCount == 0 {
+				_, _ = tx.Exec("UPDATE bank_accounts SET is_primary = TRUE WHERE user_id = ? AND uuid != ? ORDER BY created_at ASC LIMIT 1", userID, accountID)
 			}
 		}
 
@@ -163,9 +183,29 @@ func DeleteBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		accountID := c.Param("id")
 
-		_, err := db.Exec("DELETE FROM bank_accounts WHERE uuid = ? AND user_id = ?", accountID, userID)
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			return
+		}
+		defer tx.Rollback()
+
+		var isPrimary bool
+		_ = tx.Get(&isPrimary, "SELECT is_primary FROM bank_accounts WHERE uuid = ? AND user_id = ?", accountID, userID)
+
+		_, err = tx.Exec("DELETE FROM bank_accounts WHERE uuid = ? AND user_id = ?", accountID, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus rekening bank"})
+			return
+		}
+
+		// If the deleted account was primary, make the oldest remaining account primary
+		if isPrimary {
+			_, _ = tx.Exec("UPDATE bank_accounts SET is_primary = TRUE WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", userID)
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
@@ -216,14 +256,23 @@ func SyncBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 		// Keep track of IDs we processed in the request
 		processedIDs := make(map[string]bool)
 
-		// Unset all primary flags first if there is at least one primary in request
+		// Ensure only one is primary, or default first item to primary
 		hasPrimary := false
-		for _, item := range req {
-			if item.IsPrimary {
-				hasPrimary = true
-				break
+		for i := range req {
+			if req[i].IsPrimary {
+				if !hasPrimary {
+					hasPrimary = true
+				} else {
+					// Only the first encountered primary remains true
+					req[i].IsPrimary = false
+				}
 			}
 		}
+		if !hasPrimary && len(req) > 0 {
+			req[0].IsPrimary = true
+			hasPrimary = true
+		}
+
 		if hasPrimary {
 			_, err = tx.Exec("UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = ?", userID)
 			if err != nil {

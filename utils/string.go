@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 	"unicode"
@@ -100,3 +102,22 @@ func SanitizeHTML(input string) string {
 
 	return strings.TrimSpace(s)
 }
+
+// GenerateShortCode generates a concise, readable uppercase alphanumeric code (e.g. BR-7K9M2, QS-8N3F)
+func GenerateShortCode(prefix string, length int) string {
+	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // omits 0/O, 1/I for readability
+	b := make([]byte, length)
+	for i := range b {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			b[i] = charset[i%len(charset)]
+		} else {
+			b[i] = charset[num.Int64()]
+		}
+	}
+	if prefix != "" {
+		return fmt.Sprintf("%s-%s", prefix, string(b))
+	}
+	return string(b)
+}
+

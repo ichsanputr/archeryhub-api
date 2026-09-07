@@ -1,7 +1,8 @@
-﻿package database
+package database
 
 import (
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -31,6 +32,37 @@ func InitDB() (*sqlx.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Configure connection pool parameters for high-concurrency tournament traffic
+	db.SetMaxOpenConns(50)                  // Max simultaneous open connections
+	db.SetMaxIdleConns(25)                  // Idle connections preserved in pool for instant response
+	db.SetConnMaxLifetime(5 * time.Minute)  // Connection maximum lifetime to avoid stale TCP connections
+	db.SetConnMaxIdleTime(2 * time.Minute)  // Idle timeout to release unused connections
+
+	// Ensure required tables exist
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS wallet_mutations (
+			id BIGINT AUTO_INCREMENT PRIMARY KEY,
+			uuid VARCHAR(64) NOT NULL UNIQUE,
+			wallet_id VARCHAR(64) NOT NULL,
+			user_id VARCHAR(64) NOT NULL,
+			mutation_type ENUM('credit', 'debit') NOT NULL,
+			amount DECIMAL(15, 2) NOT NULL,
+			balance_before DECIMAL(15, 2) NOT NULL,
+			balance_after DECIMAL(15, 2) NOT NULL,
+			reference_type VARCHAR(50) NOT NULL,
+			reference_id VARCHAR(100) NULL,
+			description TEXT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			INDEX idx_user_id (user_id),
+			INDEX idx_wallet_id (wallet_id),
+			INDEX idx_created_at (created_at)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
+	// Ensure is_locked columns exist for scoring lock features
+	_, _ = db.Exec(`ALTER TABLE qualification_sessions ADD COLUMN is_locked TINYINT(1) DEFAULT 0`)
+	_, _ = db.Exec(`ALTER TABLE elimination_brackets ADD COLUMN is_locked TINYINT(1) DEFAULT 0`)
 
 	return db, nil
 }

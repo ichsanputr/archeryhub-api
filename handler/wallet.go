@@ -4,6 +4,7 @@ import (
 	"Archeris-api/utils"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,21 +139,25 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Check balance
-		var balance float64
-		err = tx.Get(&balance, "SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE", userID)
+		// Check balance and wallet uuid
+		var walletInfo struct {
+			UUID    string  `db:"uuid"`
+			Balance float64 `db:"balance"`
+		}
+		err = tx.Get(&walletInfo, "SELECT uuid, balance FROM wallets WHERE user_id = ? FOR UPDATE", userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil saldo"})
 			return
 		}
 
+		balance := walletInfo.Balance
 		if balance < req.Amount {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi"})
 			return
 		}
 
 		// Deduct balance
-		_, err = tx.Exec("UPDATE wallets SET balance = balance - ? WHERE user_id = ?", req.Amount, userID)
+		_, err = tx.Exec("UPDATE wallets SET balance = balance - ?, updated_at = NOW() WHERE user_id = ?", req.Amount, userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui saldo"})
 			return
@@ -171,12 +176,68 @@ func CreateWithdrawal(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Record ledger mutation
+		mutationID := uuid.New().String()
+		_, _ = tx.Exec(`
+			INSERT INTO wallet_mutations (uuid, wallet_id, user_id, mutation_type, amount, balance_before, balance_after, reference_type, reference_id, description, created_at)
+			VALUES (?, ?, ?, 'debit', ?, ?, ?, 'withdrawal', ?, ?, NOW())
+		`, mutationID, walletInfo.UUID, userID, req.Amount, balance, balance-req.Amount, refNo, "Penarikan saldo ("+refNo+")")
+
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"message": "Permintaan penarikan berhasil diajukan", "id": withdrawalID, "reference_no": refNo})
+	}
+}
+
+type WalletMutation struct {
+	UUID          string  `db:"uuid"           json:"uuid"`
+	WalletID      string  `db:"wallet_id"      json:"wallet_id"`
+	UserID        string  `db:"user_id"        json:"user_id"`
+	MutationType  string  `db:"mutation_type"  json:"mutation_type"`
+	Amount        float64 `db:"amount"         json:"amount"`
+	BalanceBefore float64 `db:"balance_before" json:"balance_before"`
+	BalanceAfter  float64 `db:"balance_after"  json:"balance_after"`
+	ReferenceType string  `db:"reference_type" json:"reference_type"`
+	ReferenceID   string  `db:"reference_id"   json:"reference_id"`
+	Description   *string `db:"description"    json:"description"`
+	CreatedAt     string  `db:"created_at"     json:"created_at"`
+}
+
+// GetWalletMutations returns paginated ledger mutation history for the logged-in user
+func GetWalletMutations(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
+		if page < 1 {
+			page = 1
+		}
+		if limit < 1 || limit > 50 {
+			limit = 15
+		}
+		offset := (page - 1) * limit
+
+		var totalCount int
+		_ = db.Get(&totalCount, "SELECT COUNT(*) FROM wallet_mutations WHERE user_id = ?", userID)
+
+		var mutations []WalletMutation
+		_ = db.Select(&mutations, `
+			SELECT uuid, wallet_id, user_id, mutation_type, amount, balance_before, balance_after, reference_type, reference_id, description, created_at
+			FROM wallet_mutations
+			WHERE user_id = ?
+			ORDER BY created_at DESC
+			LIMIT ? OFFSET ?
+		`, userID, limit, offset)
+
+		if mutations == nil {
+			mutations = []WalletMutation{}
+		}
+
+		meta := utils.CalculatePagination(totalCount, limit, offset, page)
+		c.JSON(http.StatusOK, gin.H{"data": mutations, "meta": meta})
 	}
 }
 

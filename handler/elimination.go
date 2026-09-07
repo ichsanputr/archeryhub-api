@@ -69,6 +69,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 			GeneratedAt  *string `json:"generated_at" db:"generated_at"`
 			CreatedAt    string  `json:"created_at" db:"created_at"`
 			MatchCount   int     `json:"match_count" db:"match_count"`
+			IsLocked     bool    `json:"is_locked" db:"is_locked"`
 		}
 
 		query := `
@@ -76,6 +77,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name,
 				eb.bracket_type, eb.format, eb.bracket_size, eb.status, eb.ends_per_match, eb.arrows_per_end,
 				eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
+				COALESCE(eb.is_locked, 0) as is_locked,
 				(SELECT COUNT(*) FROM elimination_matches em WHERE em.bracket_uuid = eb.uuid) as match_count
 			FROM elimination_brackets eb
 			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
@@ -605,7 +607,15 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		bracketSize := req.BracketSize
 
 		bracketUUID := uuid.New().String()
-		bracketID := fmt.Sprintf("BR-%s-%s", time.Now().Format("20060102"), bracketUUID[:8])
+		var bracketID string
+		for {
+			bracketID = utils.GenerateShortCode("BR", 5)
+			var count int
+			err := db.Get(&count, "SELECT COUNT(*) FROM elimination_brackets WHERE bracket_id = ?", bracketID)
+			if err == nil && count == 0 {
+				break
+			}
+		}
 
 		tx, err := db.Beginx()
 		if err != nil {
@@ -791,6 +801,41 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Bracket berhasil diperbarui"})
+	}
+}
+
+// ToggleLockEliminationBracket toggles lock status of an elimination bracket
+func ToggleLockEliminationBracket(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bracketID := c.Param("bracketId")
+		if bracketID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bracketId wajib diisi"})
+			return
+		}
+
+		var isLocked bool
+		err := db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM elimination_brackets WHERE uuid = ? OR bracket_id = ?`, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Braket eliminasi tidak ditemukan"})
+			return
+		}
+
+		newLockState := !isLocked
+		_, err = db.Exec(`UPDATE elimination_brackets SET is_locked = ? WHERE uuid = ? OR bracket_id = ?`, newLockState, bracketID, bracketID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengubah status kunci braket"})
+			return
+		}
+
+		msg := "Braket eliminasi berhasil dikunci"
+		if !newLockState {
+			msg = "Braket eliminasi berhasil dibuka kembali (unlocked)"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":   msg,
+			"is_locked": newLockState,
+		})
 	}
 }
 
@@ -1471,66 +1516,6 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// DeleteBracket deletes a bracket and all related data (Destructive)
-func DeleteBracket(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		bracketID := c.Param("bracketId")
-		eventID := c.Param("id")
-
-		// Get bracket information
-		var bracket struct {
-			UUID   string `db:"uuid"`
-			Status string `db:"status"`
-		}
-		err := db.Get(&bracket, `SELECT uuid, status FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
-			return
-		}
-
-		tx, err := db.Beginx()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
-			return
-		}
-		defer tx.Rollback()
-
-		// 1. Delete match arrows, ends, matches, entries
-		tx.Exec(`DELETE emas FROM elimination_match_arrow_scores emas 
-			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
-			JOIN elimination_matches em ON eme.match_uuid = em.uuid
-			WHERE em.bracket_uuid = ?`, bracket.UUID)
-
-		tx.Exec(`DELETE eme FROM elimination_match_ends eme 
-			JOIN elimination_matches em ON eme.match_uuid = em.uuid
-			WHERE em.bracket_uuid = ?`, bracket.UUID)
-
-		tx.Exec(`DELETE FROM elimination_matches WHERE bracket_uuid = ?`, bracket.UUID)
-		tx.Exec(`DELETE FROM elimination_entries WHERE bracket_uuid = ?`, bracket.UUID)
-
-		// 2. Delete board verification codes
-		tx.Exec(`DELETE FROM target_board_elimination WHERE bracket_uuid = ?`, bracket.UUID)
-
-		// 3. Delete the bracket itself
-		_, err = tx.Exec(`DELETE FROM elimination_brackets WHERE uuid = ?`, bracket.UUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data bracket", "details": err.Error()})
-			return
-		}
-
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan penghapusan"})
-			return
-		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventID, "elimination_bracket_deleted", "elimination_bracket", bracket.UUID, "Permanently deleted elimination bracket and all match history", c.ClientIP(), c.Request.UserAgent())
-
-		c.JSON(http.StatusOK, gin.H{"message": "Bracket eliminasi dan seluruh data terkait berhasil dihapus"})
-	}
-}
-
 // ============= MATCH SCORING =============
 
 // GetMatch returns a match with its scoring details
@@ -1868,6 +1853,19 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 		matchID = actualMatchUUID
+
+		// Check if bracket is locked
+		var isLocked bool
+		_ = db.Get(&isLocked, `
+			SELECT COALESCE(eb.is_locked, 0) 
+			FROM elimination_matches em
+			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
+			WHERE em.uuid = ?
+		`, matchID)
+		if isLocked {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Braket eliminasi telah dikunci oleh panitia/wasit. Perubahan skor tidak diperbolehkan."})
+			return
+		}
 
 		tx, err := db.Beginx()
 		if err != nil {

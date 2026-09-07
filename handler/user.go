@@ -242,10 +242,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 				query += ", city = ?"
 				args = append(args, *req.City)
 			}
-			if req.Province != nil {
-				query += ", province = ?"
-				args = append(args, *req.Province)
-			}
 			if req.AvatarURL != nil {
 				query += ", avatar_url = ?"
 				args = append(args, utils.ExtractFilename(*req.AvatarURL))
@@ -384,10 +380,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", gender = ?"
 			args = append(args, *req.Gender)
 		}
-		if req.BloodType != nil {
-			query += ", blood_type = ?"
-			args = append(args, *req.BloodType)
-		}
 		if req.HandDominance != nil {
 			query += ", hand_dominance = ?"
 			args = append(args, *req.HandDominance)
@@ -404,21 +396,9 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", emergency_contact_name = ?"
 			args = append(args, *req.EmergencyContactName)
 		}
-		if req.EmergencyContactPhone != nil {
-			query += ", emergency_contact_phone = ?"
-			args = append(args, *req.EmergencyContactPhone)
-		}
-		if req.Province != nil {
-			query += ", province = ?"
-			args = append(args, *req.Province)
-		}
 		if req.City != nil {
 			query += ", city = ?"
 			args = append(args, *req.City)
-		}
-		if req.PostalCode != nil {
-			query += ", postal_code = ?"
-			args = append(args, *req.PostalCode)
 		}
 		if req.BowType != nil {
 			query += ", bow_type = ?"

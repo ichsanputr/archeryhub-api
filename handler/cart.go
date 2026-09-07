@@ -212,22 +212,63 @@ func CheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 
 		// 2. Handle Wallet Payment
 		if req.Method == "wallet" || req.Method == "WALLET" {
-			var walletBalance float64
-			err := db.Get(&walletBalance, "SELECT COALESCE(balance, 0) FROM wallets WHERE user_id = ?", userIDStr)
-			if err != nil || walletBalance < totalAmount {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Saldo dompet Anda tidak mencukupi (Rp %.0f). Total tagihan: Rp %.0f", walletBalance, totalAmount)})
+			tx, errTx := db.Beginx()
+			if errTx != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi pembayaran dompet"})
+				return
+			}
+			defer tx.Rollback()
+
+			var buyerWallet struct {
+				UUID    string  `db:"uuid"`
+				Balance float64 `db:"balance"`
+			}
+			err := tx.Get(&buyerWallet, "SELECT uuid, COALESCE(balance, 0) as balance FROM wallets WHERE user_id = ? FOR UPDATE", userIDStr)
+			if err != nil || buyerWallet.Balance < totalAmount {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Saldo dompet Anda tidak mencukupi (Rp %.0f). Total tagihan: Rp %.0f", buyerWallet.Balance, totalAmount)})
 				return
 			}
 
-			// Deduct wallet balance
-			_, err = db.Exec("UPDATE wallets SET balance = balance - ?, updated_at = NOW() WHERE user_id = ?", totalAmount, userIDStr)
+			// Deduct buyer wallet balance
+			_, err = tx.Exec("UPDATE wallets SET balance = balance - ?, updated_at = NOW() WHERE user_id = ?", totalAmount, userIDStr)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memotong saldo dompet"})
 				return
 			}
 
-			// ── Credit seller wallet & deduct product stock for each item (95% seller, 5% fee) ────
+			refNo := fmt.Sprintf("PAY-WLT-%d", time.Now().Unix())
+
+			// Record buyer wallet debit mutation
+			buyerMutID := uuid.New().String()
+			_, _ = tx.Exec(`
+				INSERT INTO wallet_mutations (uuid, wallet_id, user_id, mutation_type, amount, balance_before, balance_after, reference_type, reference_id, description, created_at)
+				VALUES (?, ?, ?, 'debit', ?, ?, ?, 'marketplace_purchase', ?, ?, NOW())
+			`, buyerMutID, buyerWallet.UUID, userIDStr, totalAmount, buyerWallet.Balance, buyerWallet.Balance-totalAmount, refNo, "Pembelian produk marketplace ("+refNo+")")
+
+			// Check stock and credit seller atomically
 			for _, item := range items {
+				var prod struct {
+					Stock    *int    `db:"stock"`
+					Name     string  `db:"name"`
+					SellerID *string `db:"seller_id"`
+				}
+				if err := tx.Get(&prod, "SELECT stock, name, seller_id FROM products WHERE uuid = ? FOR UPDATE", item.ProductID); err != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan: " + item.ProductName})
+					return
+				}
+
+				if prod.Stock != nil && *prod.Stock < item.Quantity {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": fmt.Sprintf("Stok produk '%s' tidak mencukupi (sisa: %d)", prod.Name, *prod.Stock),
+					})
+					return
+				}
+
+				// Deduct stock
+				if prod.Stock != nil {
+					_, _ = tx.Exec("UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE uuid = ?", item.Quantity, item.ProductID)
+				}
+
 				itemPrice := item.ProductPrice
 				if item.ProductSale != nil && *item.ProductSale > 0 {
 					itemPrice = *item.ProductSale
@@ -235,33 +276,50 @@ func CheckoutCart(db *sqlx.DB) gin.HandlerFunc {
 				itemTotal := itemPrice * float64(item.Quantity)
 				sellerAmount := itemTotal * 0.95
 
-				// Deduct stock from product
-				_, _ = db.Exec("UPDATE products SET stock = GREATEST(0, stock - ?) WHERE uuid = ?", item.Quantity, item.ProductID)
+				if prod.SellerID != nil && *prod.SellerID != "" {
+					sellerID := *prod.SellerID
+					var sellerWallet struct {
+						UUID    string  `db:"uuid"`
+						Balance float64 `db:"balance"`
+					}
+					// Ensure seller wallet exists
+					sErr := tx.Get(&sellerWallet, "SELECT uuid, balance FROM wallets WHERE user_id = ? FOR UPDATE", sellerID)
+					if sErr != nil {
+						newWID := uuid.New().String()
+						_, _ = tx.Exec("INSERT INTO wallets (uuid, user_id, balance) VALUES (?, ?, 0)", newWID, sellerID)
+						sellerWallet = struct {
+							UUID    string  `db:"uuid"`
+							Balance float64 `db:"balance"`
+						}{UUID: newWID, Balance: 0}
+					}
 
-				// Find seller_id for this product
-				var sellerID string
-				_ = db.Get(&sellerID, "SELECT COALESCE(seller_id, '') FROM products WHERE uuid = ?", item.ProductID)
-				if sellerID == "" {
-					continue
+					// Credit seller wallet
+					_, _ = tx.Exec("UPDATE wallets SET balance = balance + ?, updated_at = NOW() WHERE user_id = ?", sellerAmount, sellerID)
+
+					// Record seller credit mutation
+					sellerMutID := uuid.New().String()
+					_, _ = tx.Exec(`
+						INSERT INTO wallet_mutations (uuid, wallet_id, user_id, mutation_type, amount, balance_before, balance_after, reference_type, reference_id, description, created_at)
+						VALUES (?, ?, ?, 'credit', ?, ?, ?, 'marketplace_sale', ?, ?, NOW())
+					`, sellerMutID, sellerWallet.UUID, sellerID, sellerAmount, sellerWallet.Balance, sellerWallet.Balance+sellerAmount, refNo, "Hasil penjualan produk '"+prod.Name+"' ("+refNo+")")
 				}
-				// Upsert seller wallet and credit
-				_, _ = db.Exec(`
-					INSERT INTO wallets (uuid, user_id, balance) VALUES (UUID(), ?, ?)
-					ON DUPLICATE KEY UPDATE balance = balance + ?
-				`, sellerID, sellerAmount, sellerAmount)
 			}
 
 			// Record payment transaction as PAID
 			txUUID := uuid.New().String()
-			refNo := fmt.Sprintf("PAY-WLT-%d", time.Now().Unix())
-			_, _ = db.Exec(`
+			_, _ = tx.Exec(`
 				INSERT INTO payment_transactions 
 				(uuid, user_id, payment_type, reference, merchant_ref, payment_method, amount, fee_amount, total_amount, status, paid_at, created_at)
 				VALUES (?, ?, 'marketplace_product', ?, ?, 'WALLET', ?, 0, ?, 'PAID', NOW(), NOW())
 			`, txUUID, userIDStr, refNo, refNo, totalAmount, totalAmount)
 
 			// Clear user's cart
-			_, _ = db.Exec("DELETE FROM cart_items WHERE user_id = ?", userIDStr)
+			_, _ = tx.Exec("DELETE FROM cart_items WHERE user_id = ?", userIDStr)
+
+			if err := tx.Commit(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan pembayaran dompet"})
+				return
+			}
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Pembayaran berhasil menggunakan Saldo Dompet!",

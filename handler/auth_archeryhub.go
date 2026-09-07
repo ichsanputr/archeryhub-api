@@ -689,7 +689,71 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// generateJWT generates a JWT token for the user
+// setRefreshTokenCookie sets the refresh token cookie
+func setRefreshTokenCookie(c *gin.Context, token string, maxAge int) {
+	isProduction := os.Getenv("ENV") == "production"
+	host := c.Request.Host
+
+	isLocal := strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") || strings.HasPrefix(host, "0.0.0.0")
+
+	domain := ""
+	secure := false
+
+	if isProduction && !isLocal {
+		domain = ".archeris.net"
+		secure = true
+	}
+
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("refresh_token", token, maxAge, "/", domain, secure, true)
+}
+
+// generateAccessToken generates a short-lived access token (1 hour)
+func generateAccessToken(userID, email, role, userType, name, avatar, orgUUID string, tokenVersion int) (string, error) {
+	secret := []byte(os.Getenv("JWT_SECRET"))
+	if len(secret) == 0 {
+		secret = []byte("Archeris-secret-key-change-in-production")
+	}
+
+	claims := jwt.MapClaims{
+		"user_id":       userID,
+		"email":         email,
+		"name":          name,
+		"avatar":        avatar,
+		"role":          role,
+		"user_type":     userType,
+		"org_id":        orgUUID,
+		"token_version": tokenVersion,
+		"token_type":    "access",
+		"exp":           time.Now().Add(time.Hour * 1).Unix(), // 1 hour
+		"iat":           time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(secret)
+}
+
+// generateRefreshToken generates a long-lived refresh token (60 days)
+func generateRefreshToken(userID, email, role, userType string, tokenVersion int) (string, error) {
+	secret := []byte(os.Getenv("JWT_SECRET"))
+	if len(secret) == 0 {
+		secret = []byte("Archeris-secret-key-change-in-production")
+	}
+
+	claims := jwt.MapClaims{
+		"user_id":       userID,
+		"email":         email,
+		"role":          role,
+		"user_type":     userType,
+		"token_version": tokenVersion,
+		"token_type":    "refresh",
+		"exp":           time.Now().Add(time.Hour * 24 * 60).Unix(), // 60 days
+		"iat":           time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(secret)
+}
+
+// generateJWT generates a JWT token for the user (backwards-compatible)
 func generateJWT(userID, email, role, userType, name, avatar, orgUUID string, tokenVersion int) (string, error) {
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	if len(secret) == 0 {
@@ -710,6 +774,153 @@ func generateJWT(userID, email, role, userType, name, avatar, orgUUID string, to
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
+}
+
+// RefreshToken handles token refresh via refresh_token cookie or body
+func RefreshToken(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tokenString := ""
+		// 1. Try cookie
+		if cookie, err := c.Cookie("refresh_token"); err == nil && cookie != "" {
+			tokenString = cookie
+		}
+
+		// 2. Try JSON body
+		if tokenString == "" {
+			var bodyReq struct {
+				RefreshToken string `json:"refresh_token"`
+			}
+			if err := c.ShouldBindJSON(&bodyReq); err == nil && bodyReq.RefreshToken != "" {
+				tokenString = bodyReq.RefreshToken
+			}
+		}
+
+		// 3. Try Authorization header
+		if tokenString == "" {
+			authHeader := c.GetHeader("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+			}
+		}
+
+		if tokenString == "" {
+			utils.Error(c, http.StatusUnauthorized, "REFRESH_TOKEN_REQUIRED", "Refresh token diperlukan")
+			return
+		}
+
+		secret := []byte(os.Getenv("JWT_SECRET"))
+		if len(secret) == 0 {
+			secret = []byte("Archeris-secret-key-change-in-production")
+		}
+
+		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method")
+			}
+			return secret, nil
+		})
+
+		if err != nil || !token.Valid {
+			utils.Error(c, http.StatusUnauthorized, "INVALID_REFRESH_TOKEN", "Refresh token tidak valid atau telah kadaluarsa")
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			utils.Error(c, http.StatusUnauthorized, "INVALID_CLAIMS", "Klaim token tidak valid")
+			return
+		}
+
+		userID, _ := claims["user_id"].(string)
+		userType, _ := claims["user_type"].(string)
+		if userType == "" {
+			userType, _ = claims["role"].(string)
+		}
+		if userID == "" || userType == "" {
+			utils.Error(c, http.StatusUnauthorized, "USER_NOT_FOUND", "Informasi user pada token tidak lengkap")
+			return
+		}
+
+		// Verify user exists and is active in DB
+		table := "archers"
+		nameField := "full_name"
+		switch userType {
+		case "organizer":
+			table = "organizers"
+			nameField = "name"
+		case "club":
+			table = "clubs"
+			nameField = "name"
+		case "seller":
+			table = "sellers"
+			nameField = "store_name"
+		case "scorekeeper":
+			table = "scorekeepers"
+			nameField = "name"
+		}
+
+		var userInfo struct {
+			UUID      string  `db:"uuid"`
+			Email     string  `db:"email"`
+			Name      string  `db:"name"`
+			AvatarURL *string `db:"avatar_url"`
+			Status    string  `db:"status"`
+		}
+
+		err = db.Get(&userInfo, fmt.Sprintf("SELECT uuid, COALESCE(email, '') as email, %s as name, avatar_url, COALESCE(status, 'active') as status FROM %s WHERE uuid = ? LIMIT 1", nameField, table), userID)
+		if err != nil {
+			utils.Error(c, http.StatusUnauthorized, "USER_NOT_FOUND", "Akun user tidak ditemukan")
+			return
+		}
+
+		if userInfo.Status == "banned" || userInfo.Status == "suspended" || userInfo.Status == "inactive" {
+			utils.Error(c, http.StatusForbidden, "ACCOUNT_SUSPENDED", "Akun Anda telah dinonaktifkan")
+			return
+		}
+
+		orgID := ""
+		if userType == "organizer" {
+			orgID = userID
+		}
+
+		avatar := ""
+		if userInfo.AvatarURL != nil {
+			avatar = *userInfo.AvatarURL
+		}
+
+		newAccessToken, err := generateAccessToken(userID, userInfo.Email, userType, userType, userInfo.Name, avatar, orgID, 1)
+		if err != nil {
+			utils.Error(c, http.StatusInternalServerError, "TOKEN_GEN_ERROR", "Gagal menghasilkan access token baru")
+			return
+		}
+
+		newRefreshToken, err := generateRefreshToken(userID, userInfo.Email, userType, userType, 1)
+		if err != nil {
+			utils.Error(c, http.StatusInternalServerError, "TOKEN_GEN_ERROR", "Gagal menghasilkan refresh token baru")
+			return
+		}
+
+		// Set new cookies
+		setAuthCookie(c, newAccessToken, 60*60*24*60)
+		setRefreshTokenCookie(c, newRefreshToken, 60*60*24*60)
+
+		c.JSON(http.StatusOK, gin.H{
+			"success":       true,
+			"token":         newAccessToken,
+			"access_token":  newAccessToken,
+			"refresh_token": newRefreshToken,
+			"expires_in":    3600,
+			"user": gin.H{
+				"id":         userInfo.UUID,
+				"email":      userInfo.Email,
+				"name":       userInfo.Name,
+				"full_name":  userInfo.Name,
+				"avatar_url": avatar,
+				"role":       userType,
+				"user_type":  userType,
+			},
+		})
+	}
 }
 
 // generateRandomToken generates a random token for various purposes

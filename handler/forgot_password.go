@@ -215,7 +215,7 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// ResetPassword â€” Step 3: set the new password using the verified reset token
+// ResetPassword — Step 3: set the new password using the verified reset token
 func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -228,6 +228,13 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		tx, txErr := db.Beginx()
+		if txErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses reset password"})
+			return
+		}
+		defer tx.Rollback()
+
 		type ResetRow struct {
 			UUID      string    `db:"uuid"`
 			UserID    string    `db:"user_id"`
@@ -236,11 +243,11 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			ExpiresAt time.Time `db:"expires_at"`
 		}
 		var row ResetRow
-		err := db.Get(&row, `
+		err := tx.Get(&row, `
 			SELECT uuid, user_id, user_type, is_used, expires_at
 			FROM password_resets
 			WHERE email = ? AND otp_code = ?
-			ORDER BY created_at DESC LIMIT 1
+			ORDER BY created_at DESC LIMIT 1 FOR UPDATE
 		`, req.Email, "VERIFIED:"+req.ResetToken)
 
 		if err != nil {
@@ -267,8 +274,8 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			table = "sellers"
 		}
 
-		// Update password (plain text, matching existing auth pattern) and increment token_version to invalidate other sessions
-		_, err = db.Exec(fmt.Sprintf(
+		// Update password and increment token_version to invalidate other sessions
+		_, err = tx.Exec(fmt.Sprintf(
 			"UPDATE %s SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?",
 			table,
 		), req.NewPassword, row.UserID)
@@ -278,7 +285,16 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Mark token as used
-		db.Exec(`UPDATE password_resets SET is_used = 1 WHERE uuid = ?`, row.UUID)
+		_, err = tx.Exec(`UPDATE password_resets SET is_used = 1 WHERE uuid = ?`, row.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan masuk dengan password baru."})
 	}
