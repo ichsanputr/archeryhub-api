@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ── Scorekeeper login rate limiter ────────────────────────────────────────────
@@ -89,7 +90,10 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Akun ini menggunakan Google sign-in. Silakan masuk menggunakan Google.", "code": "use_google_signin"})
 		return
 	}
-	if user.Password != req.Password {
+	// Verify password (supports bcrypt hash and fallback plain text for legacy accounts)
+	isBcryptMatch := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) == nil
+	isPlainTextMatch := user.Password == req.Password
+	if !isBcryptMatch && !isPlainTextMatch {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau kata sandi tidak valid", "code": "invalid_credentials"})
 		return
 	}
@@ -260,7 +264,7 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 		handleMobileEmailPasswordLogin(
 			c,
 			db,
-			`SELECT uuid, id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status, token_version FROM archers WHERE email = ?`,
+			`SELECT uuid, COALESCE(id, uuid) as id, username, email, COALESCE(password,'') as password, full_name, avatar_url, COALESCE(status,'') as status, token_version FROM archers WHERE email = ?`,
 			req,
 			"archer",
 			"archer",
