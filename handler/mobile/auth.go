@@ -380,10 +380,17 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 
 		avatarURL := utils.DiceBearAvatar(req.FullName)
 
-		_, err := db.Exec(`
-			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, bow_type)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?)
-		`, userID, athleteID, username, req.Email, req.Password, req.FullName, req.Phone, avatarURL, req.Gender, req.DateOfBirth, req.BowType)
+		// Hash password with bcrypt for security
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kata sandi"})
+			return
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, bow_type, token_version)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, 1)
+		`, userID, athleteID, username, req.Email, string(hashedPassword), req.FullName, req.Phone, avatarURL, req.Gender, req.DateOfBirth, req.BowType)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
@@ -448,10 +455,17 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 		}
 		slug = slug + "-" + sellerUUID[:8]
 
-		_, err := db.Exec(`
-			INSERT INTO sellers (uuid, slug, store_name, email, password, phone, city, province, address, status, is_verified, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW())
-		`, sellerUUID, slug, req.StoreName, req.Email, req.Password, req.Phone, req.City, req.Province, req.Address)
+		// Hash password with bcrypt for security
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kata sandi"})
+			return
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO sellers (uuid, slug, store_name, email, password, phone, city, province, address, status, is_verified, token_version, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, 1, NOW(), NOW())
+		`, sellerUUID, slug, req.StoreName, req.Email, string(hashedPassword), req.Phone, req.City, req.Province, req.Address)
 		
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun toko: " + err.Error()})
@@ -673,7 +687,8 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 				// Try sellers
 				err = db.Get(&userData, "SELECT uuid, store_name as full_name, 'seller' as user_type FROM sellers WHERE email = ? LIMIT 1", req.Email)
 				if err != nil {
-					c.JSON(http.StatusNotFound, gin.H{"error": "Email tidak terdaftar"})
+					// Return 200 to prevent email enumeration
+					c.JSON(http.StatusOK, gin.H{"message": "Jika email terdaftar, kode OTP telah dikirim ke email Anda"})
 					return
 				}
 			}
@@ -691,20 +706,11 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		emailBody := fmt.Sprintf(`
-			<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-				<h3 style="color: #333;">Pemulihan Kata Sandi Archeris</h3>
-				<p>Halo <strong>%s</strong>,</p>
-				<p>Anda telah meminta pemulihan kata sandi. Gunakan kode OTP berikut untuk melanjutkan:</p>
-				<div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-					<h2 style="letter-spacing: 12px; color: #C1121F; margin: 0; font-size: 32px;">%s</h2>
-				</div>
-				<p style="color: #666; font-size: 14px;">Kode ini akan kadaluwarsa dalam 15 menit.</p>
-				<p style="color: #999; font-size: 12px; margin-top: 30px;">Jika Anda tidak merasa meminta ini, silakan abaikan email ini.</p>
-			</div>
-		`, userData.FullName, otp)
-
-		_ = utils.SendEmail(req.Email, "Kode OTP Pemulihan Kata Sandi - Archeris", emailBody)
+		// Kirim email OTP dengan design system Archeris (navy + neon yellow)
+		if err := utils.SendOTPEmail(req.Email, userData.FullName, otp, 15); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim email OTP", "code": "email_send_failed"})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke email Anda"})
 	}
@@ -783,6 +789,13 @@ func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			tableName = "sellers"
 		}
 
+		// Hash the new password with bcrypt
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kata sandi"})
+			return
+		}
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses permintaan"})
@@ -790,7 +803,7 @@ func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		_, err = tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, token_version = token_version + 1 WHERE uuid = ?", tableName), req.NewPassword, reset.UserID)
+		_, err = tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, token_version = token_version + 1 WHERE uuid = ?", tableName), string(hashedPassword), reset.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset kata sandi"})
 			return
