@@ -351,8 +351,19 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Normalize gender to match enum('male','female') in DB.
+		req.Gender = normalizeGender(req.Gender)
+		// Normalize bow_type to match enum('recurve','compound','barebow','traditional').
+		req.BowType = normalizeBowType(req.BowType)
+
 		var exists bool
-		db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM archers WHERE email = ?)`, req.Email)
+		db.Get(&exists, `SELECT EXISTS(
+			SELECT 1 FROM archers WHERE email = ?
+			UNION ALL
+			SELECT 1 FROM sellers WHERE email = ?
+			UNION ALL
+			SELECT 1 FROM organizers WHERE email = ?
+		)`, req.Email, req.Email, req.Email)
 		if exists {
 			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar", "code": "email_exists"})
 			return
@@ -387,10 +398,19 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// date_of_birth is nullable; empty string must be stored as NULL to
+		// avoid "Incorrect date value" errors in MySQL strict mode.
+		var dob interface{}
+		if strings.TrimSpace(req.DateOfBirth) == "" {
+			dob = nil
+		} else {
+			dob = req.DateOfBirth
+		}
+
 		_, err = db.Exec(`
-			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, bow_type, token_version)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, 1)
-		`, userID, athleteID, username, req.Email, string(hashedPassword), req.FullName, req.Phone, avatarURL, req.Gender, req.DateOfBirth, req.BowType)
+			INSERT INTO archers (uuid, id, username, email, password, full_name, phone, avatar_url, status, is_verified, gender, date_of_birth, bow_type, city, token_version)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?, 1)
+		`, userID, athleteID, username, req.Email, string(hashedPassword), req.FullName, req.Phone, avatarURL, req.Gender, dob, req.BowType, req.City)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
 			return
@@ -442,7 +462,13 @@ func MobileSellerRegister(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var exists bool
-		db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM sellers WHERE email = ?)`, req.Email)
+		db.Get(&exists, `SELECT EXISTS(
+			SELECT 1 FROM sellers WHERE email = ?
+			UNION ALL
+			SELECT 1 FROM archers WHERE email = ?
+			UNION ALL
+			SELECT 1 FROM organizers WHERE email = ?
+		)`, req.Email, req.Email, req.Email)
 		if exists {
 			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar", "code": "email_exists"})
 			return
@@ -907,6 +933,42 @@ func MobileGoogleBind(db *sqlx.DB) gin.HandlerFunc {
 			"status":  "success",
 			"message": "Berhasil menghubungkan akun Google",
 		})
+	}
+}
+
+// normalizeGender maps common gender representations to enum('male','female').
+// Any unrecognized value falls back to "male" (the DB default).
+func normalizeGender(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "male", "m", "l", "laki", "laki-laki", "pria", "putra", "cowok":
+		return "male"
+	case "female", "f", "p", "perempuan", "wanita", "putri", "cewek":
+		return "female"
+	default:
+		if v == "" {
+			return "male"
+		}
+		return "male"
+	}
+}
+
+// normalizeBowType maps common bow type representations to the DB enum
+// ('recurve','compound','barebow','traditional').
+func normalizeBowType(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "recurve", "standard", "standar":
+		return "recurve"
+	case "compound":
+		return "compound"
+	case "barebow", "bare bow", "bare-bow":
+		return "barebow"
+	case "traditional", "tradisional", "horsebow", "horse bow":
+		return "traditional"
+	default:
+		if v == "" {
+			return "recurve"
+		}
+		return "recurve"
 	}
 }
 
