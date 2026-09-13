@@ -515,29 +515,6 @@ func main() {
 		api.GET("/cities", handler.GetCities())
 		api.POST("/contact", handler.SubmitContactMessage(db))
 
-		// News routes
-		news := api.Group("/news")
-		{
-			// Public news routes
-			news.GET("", handler.GetNewsPublic(db))
-			news.GET("/:id", handler.GetNewsByID(db))
-			news.POST("/:id/views", handler.IncrementNewsViews(db))
-			news.POST("/subscribe", handler.SubscribeNews(db))
-			news.GET("/:id/comments", mobilehandler.MobileListNewsComments(db))
-			news.POST("/:id/comments", middleware.OptionalAuthMiddleware(), mobilehandler.MobileAddNewsComment(db))
-			news.GET("/:id/related", mobilehandler.MobileListRelatedNews(db))
-
-			// Protected news routes
-			protectedNews := news.Group("")
-			protectedNews.Use(middleware.AuthMiddleware())
-			{
-				protectedNews.GET("/my", handler.GetNews(db))
-				protectedNews.POST("", handler.CreateNews(db))
-				protectedNews.PUT("/:id", handler.UpdateNews(db))
-				protectedNews.DELETE("/:id", handler.DeleteNews(db))
-			}
-		}
-
 		// Blog routes
 		blog := api.Group("/blog")
 		{
@@ -702,13 +679,7 @@ func main() {
 			mobile.GET("/events/:slug/results/elimination", handler.GetPublicEliminationResults(db))
 			mobile.GET("/events/:slug/results/files", handler.GetEventResultFiles(db))
 
-			// 2b. News (public read-only)
-			mobile.GET("/news", mobilehandler.MobileListNews(db))
 			mobile.GET("/clubs", mobilehandler.MobileListClubs(db))
-			mobile.GET("/news/:id", mobilehandler.MobileGetNewsDetail(db))
-			mobile.GET("/news/:id/comments", mobilehandler.MobileListNewsComments(db))
-			mobile.POST("/news/:id/comments", middleware.OptionalAuthMiddleware(), mobilehandler.MobileAddNewsComment(db))
-			mobile.GET("/news/:id/related", mobilehandler.MobileListRelatedNews(db))
 
 			// 2d. Chatbot (public)
 			chatbot := mobile.Group("/chatbot")

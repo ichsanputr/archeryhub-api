@@ -96,13 +96,6 @@ type MobileRegisterEventRequest struct {
 	RegistrationSource string   `json:"registration_source"`
 }
 
-// MobileAddNewsCommentRequest represents the payload for adding a news comment.
-type MobileAddNewsCommentRequest struct {
-	UserID    string `json:"user_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
-	GuestName string `json:"guest_name" example:"Budi Santoso"`
-	Content   string `json:"content" example:"Wah acaranya seru banget!"`
-}
-
 // MobileSellerRegisterRequest represents the registration payload for a new seller.
 type MobileSellerRegisterRequest struct {
 	StoreName string `json:"store_name" binding:"required"`

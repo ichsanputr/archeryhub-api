@@ -29,6 +29,7 @@ graph/models_gen.go
 mayar-docs-api.zip
 mayar-docs-api/
 # Build directory
+tmp/
 tmp_build/
 bin/
 
