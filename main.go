@@ -237,7 +237,6 @@ func main() {
 
 		api.GET("/archer/me", middleware.AuthMiddleware(), handler.GetArcherProfile(db))
 		api.GET("/organizer/me", middleware.AuthMiddleware(), handler.GetOrganizationProfile(db))
-		api.GET("/seller/me", middleware.AuthMiddleware(), handler.GetSellerProfile(db))
 
 		// Project Task Management
 		/*
@@ -556,17 +555,6 @@ func main() {
 			teams.GET("/event/:eventId/rankings", handler.GetTeamRankings(db))
 		}
 
-		// Chat routes (archer <-> seller)
-		chat := api.Group("/chat")
-		chat.Use(middleware.AuthMiddleware())
-		{
-			chat.POST("/conversations", handler.StartOrGetConversation(db))
-			chat.GET("/conversations", handler.ListConversations(db))
-			chat.GET("/conversations/:id/messages", handler.GetConversationMessages(db))
-			chat.POST("/conversations/:id/messages", handler.SendMessage(db))
-			chat.GET("/unread", handler.GetChatUnreadCount(db))
-		}
-
 		// Notification routes (protected)
 		notifications := api.Group("/notifications")
 		notifications.Use(middleware.AuthMiddleware())
@@ -652,9 +640,7 @@ func main() {
 				auth.POST("/scorekeeper/verify-code", mobilehandler.MobileVerifyScorekeeperCode(db))
 				auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 				auth.POST("/organizer/login", mobilehandler.MobileOrganizationLogin(db))
-				auth.POST("/seller/login", mobilehandler.MobileSellerLogin(db))
 				auth.POST("/archer/register", mobilehandler.MobileArcherRegister(db))
-				auth.POST("/seller/register", mobilehandler.MobileSellerRegister(db))
 				auth.POST("/google/login", mobilehandler.MobileGoogleLogin(db))
 				auth.POST("/forgot-password", mobilehandler.MobileForgotPassword(db))
 				auth.POST("/verify-otp", mobilehandler.MobileVerifyOTP(db))
@@ -688,9 +674,6 @@ func main() {
 				chatbot.POST("/message", mobilehandler.MobileChatbotMessage())
 			}
 
-			// 2c. Marketplace (public read-only)
-			mobile.GET("/marketplace/products", mobilehandler.MobileMarketplaceListProducts(db))
-			mobile.GET("/marketplace/products/:id", mobilehandler.MobileMarketplaceGetProductDetail(db))
 			mobile.GET("/results/recent", mobilehandler.MobileRecentResults(db))
 			mobile.GET("/payment/channels", handler.GetPaymentChannels(db))
 			mobile.GET("/events/:slug/payment-method", mobilehandler.MobileGetEventPaymentMethods(db))
@@ -705,32 +688,13 @@ func main() {
 				mobileAuth.GET("/assignments/:assignmentId/detail", mobilehandler.MobileGetAssignmentScoreDetail(db))
 			}
 
-			// 3b. Chat archer <-> seller (requires auth)
-			mobileChat := mobile.Group("/chat")
-			mobileChat.Use(middleware.AuthMiddleware())
-			{
-				mobileChat.POST("/conversations", mobilehandler.MobileStartOrGetConversation(db))
-				mobileChat.GET("/conversations", mobilehandler.MobileListConversations(db))
-				mobileChat.GET("/conversations/:id/messages", mobilehandler.MobileGetConversationMessages(db))
-				mobileChat.POST("/conversations/:id/messages", mobilehandler.MobileSendMessage(db))
-				mobileChat.GET("/unread", mobilehandler.MobileGetChatUnreadCount(db))
-				mobileChat.GET("/last-active", mobilehandler.MobileGetPeerLastActive(db))
-			}
-
 			// 4b. Archer account (requires auth)
 			mobileArcher := mobile.Group("/archer")
 			mobileArcher.Use(middleware.AuthMiddleware())
 			{
 				mobileArcher.GET("/me", mobilehandler.MobileGetArcherMe(db))
 				mobileArcher.PUT("/me", mobilehandler.MobileUpdateArcherMe(db))
-				mobileArcher.GET("/cart", mobilehandler.MobileArcherGetCart(db))
-				mobileArcher.POST("/cart", mobilehandler.MobileArcherAddToCart(db))
-				mobileArcher.PUT("/cart/:id", mobilehandler.MobileArcherUpdateCartItem(db))
-				mobileArcher.DELETE("/cart/:id", mobilehandler.MobileArcherRemoveFromCart(db))
-				mobileArcher.DELETE("/cart", mobilehandler.MobileArcherClearCart(db))
-				mobileArcher.POST("/cart/checkout", mobilehandler.MobileArcherCheckoutCart(db))
-				mobileArcher.GET("/orders", mobilehandler.MobileArcherGetOrderHistory(db))
-	mobileArcher.GET("/certificates", mobilehandler.MobileArcherGetCertificates(db))
+				mobileArcher.GET("/certificates", mobilehandler.MobileArcherGetCertificates(db))
 
 				mobileArcher.GET("/payments/:reference", mobilehandler.MobileGetPaymentDetail(db))
 				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
@@ -797,19 +761,6 @@ func main() {
 			mobileOrganization := mobile.Group("/organization")
 			mobileOrganization.Use(middleware.AuthMiddleware())
 			registerOrgRoutes(mobileOrganization)
-
-			mobileSeller := mobile.Group("/seller")
-			mobileSeller.Use(middleware.AuthMiddleware())
-			{
-				mobileSeller.GET("/me", mobilehandler.MobileGetSellerMe(db))
-				mobileSeller.PUT("/me", mobilehandler.MobileUpdateSellerMe(db))
-				mobileSeller.PUT("/me/page", mobilehandler.MobileUpdateSellerPage(db))
-				mobileSeller.GET("/products", mobilehandler.MobileGetSellerProducts(db))
-				mobileSeller.POST("/products", mobilehandler.MobileCreateProduct(db))
-				mobileSeller.PUT("/products/:id", mobilehandler.MobileUpdateProduct(db))
-				mobileSeller.DELETE("/products/:id", mobilehandler.MobileDeleteProduct(db))
-				mobileSeller.GET("/dashboard", mobilehandler.MobileGetSellerDashboard(db))
-			}
 
 			// 4. Qualification Scoring
 			qual := mobile.Group("/qualification")
@@ -958,73 +909,6 @@ func main() {
 		{
 			cbr.GET("", handler.GetClubs(db))
 			cbr.GET("/:id", handler.GetClubByID(db))
-		}
-
-		// Product routes Ã¢â‚¬â€ /my must be registered BEFORE /:id to avoid wildcard conflict
-		products := api.Group("/products")
-		{
-			products.GET("", handler.GetProducts(db))
-
-			// Protected product routes (specific paths before wildcard)
-			protectedProducts := products.Group("")
-			protectedProducts.Use(middleware.AuthMiddleware())
-			{
-				protectedProducts.GET("/my", handler.GetMyProducts(db))
-				protectedProducts.POST("", handler.CreateProduct(db))
-			}
-
-			// Wildcard routes - must come after static ones
-			products.GET("/:id", handler.GetProductByID(db))
-			products.POST("/:id/views", handler.IncrementProductViews(db))
-			products.PUT("/:id", middleware.AuthMiddleware(), handler.UpdateProduct(db))
-			products.DELETE("/:id", middleware.AuthMiddleware(), handler.DeleteProduct(db))
-		}
-
-		// Cart routes
-		cart := api.Group("/cart")
-		cart.Use(middleware.AuthMiddleware()) // Archers only
-		{
-			cart.GET("", handler.GetCart(db))
-			cart.POST("", handler.AddToCart(db))
-			cart.PUT("/:id", handler.UpdateCartItem(db))
-			cart.DELETE("/:id", handler.DeleteCartItem(db))
-			cart.POST("/checkout", handler.CheckoutCart(db))
-		}
-
-		// Seller routes (protected)
-		sellersProtected := api.Group("/sellers")
-		sellersProtected.Use(middleware.AuthMiddleware())
-		{
-			sellersProtected.GET("/me", handler.GetSellerProfile(db))
-			sellersProtected.GET("/profile", handler.GetSellerProfile(db))
-			sellersProtected.PUT("/me", handler.UpdateSellerProfileBasic(db))
-			sellersProtected.PUT("/profile", handler.UpdateSellerProfileBasic(db))
-			sellersProtected.PUT("/me/page", handler.UpdateSellerProfile(db))
-
-			// Seller finance
-			sellersProtected.GET("/bank-accounts", handler.GetBankAccounts(db))
-			sellersProtected.POST("/bank-accounts", handler.CreateBankAccount(db))
-			sellersProtected.PUT("/bank-accounts/:id", handler.UpdateBankAccount(db))
-			sellersProtected.DELETE("/bank-accounts/:id", handler.DeleteBankAccount(db))
-
-			sellersProtected.GET("/wallet", handler.GetMyWallet(db))
-			sellersProtected.GET("/wallet/withdrawals", handler.GetWithdrawals(db))
-			sellersProtected.POST("/wallet/withdrawals", handler.CreateWithdrawal(db))
-			sellersProtected.GET("/wallet/mutations", handler.GetWalletMutations(db))
-		}
-
-		// Order routes (seller) — also accessible as /api/v1/orders
-		ordersGroup := api.Group("/orders")
-		ordersGroup.Use(middleware.AuthMiddleware())
-		{
-			ordersGroup.POST("", handler.CreateMarketplaceOrder(db))
-			ordersGroup.GET("", handler.GetSellerOrders(db))
-			ordersGroup.GET("/:id", handler.GetSellerOrderByID(db))
-			ordersGroup.GET("/export", handler.ExportSellerOrders(db))
-			ordersGroup.GET("/stats", handler.GetSellerStats(db))
-			ordersGroup.PUT("/:id/status", handler.UpdateOrderStatus(db))
-			ordersGroup.PATCH("/:id/approve-payment", handler.ApproveSellerOrderPayment(db))
-			ordersGroup.POST("/:id/upload-proof", handler.UploadOrderProof(db))
 		}
 
 		// Media routes

@@ -86,10 +86,6 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		case "organizer":
 			table = "organizers"
 			role = "organizer"
-
-		case "seller":
-			table = "sellers"
-			role = "seller"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return
@@ -315,10 +311,6 @@ func CheckNameExists(db *sqlx.DB) gin.HandlerFunc {
 		case "organizer":
 			table = "organizers"
 			column = "name"
-
-		case "seller":
-			table = "sellers"
-			column = "store_name"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return
@@ -392,24 +384,7 @@ func CheckUsernameExists(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 3. Check sellers
-		if excludeUUID != "" {
-			query = "SELECT EXISTS(SELECT 1 FROM sellers WHERE slug = ? AND uuid != ?)"
-			err = db.Get(&exists, query, username, excludeUUID)
-		} else {
-			query = "SELECT EXISTS(SELECT 1 FROM sellers WHERE slug = ?)"
-			err = db.Get(&exists, query, username)
-		}
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
-			return
-		}
-		if exists {
-			c.JSON(http.StatusOK, gin.H{"exists": true, "source": "seller"})
-			return
-		}
-
-		// 4. Check clubs
+		// 3. Check clubs
 		query = "SELECT EXISTS(SELECT 1 FROM clubs WHERE slug = ?)"
 		err = db.Get(&exists, query, username)
 		if err != nil {
@@ -483,15 +458,6 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, name as full_name, avatar_url, 'club' as role, 'active' as status, '' as organization_uuid, token_version FROM clubs WHERE email = ?", req.Email)
 			if err == nil {
 				user.Type = "club"
-				found = true
-			}
-		}
-
-		// Check sellers
-		if !found {
-			err = db.Get(&user, "SELECT uuid, uuid as id, slug, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, 'seller' as role, COALESCE(status,'') as status, '' as organization_uuid, token_version FROM sellers WHERE email = ?", req.Email)
-			if err == nil {
-				user.Type = "seller"
 				found = true
 			}
 		}
@@ -599,9 +565,6 @@ func GetCurrentUser(db *sqlx.DB) gin.HandlerFunc {
 		case "club":
 			table = "clubs"
 			nameField = "name"
-		case "seller":
-			table = "sellers"
-			nameField = "store_name"
 		case "scorekeeper":
 			table = "scorekeepers"
 			nameField = "name"
@@ -851,9 +814,6 @@ func RefreshToken(db *sqlx.DB) gin.HandlerFunc {
 		case "club":
 			table = "clubs"
 			nameField = "name"
-		case "seller":
-			table = "sellers"
-			nameField = "store_name"
 		case "scorekeeper":
 			table = "scorekeepers"
 			nameField = "name"

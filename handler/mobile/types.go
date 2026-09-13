@@ -246,21 +246,6 @@ type MobileNewsCommentsResponse struct {
 	Count    int                 `json:"count"`
 }
 
-// MobileMarketplaceProductsResponse represents marketplace products list.
-type MobileMarketplaceProductsResponse struct {
-	Products    []models.Product `json:"products"`
-	TotalCount  int              `json:"total_count"`
-	Limit       int              `json:"limit"`
-	Offset      int              `json:"offset"`
-	CurrentPage int              `json:"current_page"`
-	LastPage    int              `json:"last_page"`
-}
-
-// MobileMarketplaceProductResponse represents marketplace product detail.
-type MobileMarketplaceProductResponse struct {
-	Product models.Product `json:"product"`
-}
-
 // MobileRelatedNewsResponse represents related news items.
 type MobileRelatedNewsResponse struct {
 	News []MobileNewsItem `json:"news"`
@@ -279,26 +264,6 @@ type MobilePaymentTransactionResponse struct {
 	QRURL           *string `json:"qr_url"`
 	Instructions    *string `json:"instructions"`
 	Status          string  `json:"status"`
-}
-
-// MobileCartResponse represents cart contents.
-type MobileCartResponse struct {
-	Data []models.CartItem `json:"data"`
-}
-
-// MobileCheckoutResponse represents checkout result.
-type MobileCheckoutResponse struct {
-	Message   string                           `json:"message"`
-	Reference string                           `json:"reference"`
-	Payment   MobilePaymentTransactionResponse `json:"payment"`
-}
-
-// MobileArcherOrdersResponse represents orders for an archer.
-type MobileArcherOrdersResponse struct {
-	Orders []MobileOrderHistoryItem `json:"orders"`
-	Total  int                      `json:"total"`
-	Limit  int                      `json:"limit"`
-	Offset int                      `json:"offset"`
 }
 
 // MobileChatbotResponse represents chatbot message response.
@@ -479,21 +444,6 @@ type MobileMyEventItem struct {
 	RegistrationDate *string `db:"registration_date" json:"registration_date"`
 }
 
-// MobileOrderHistoryItem represents one row in order history.
-type MobileOrderHistoryItem struct {
-	ID               string  `db:"uuid" json:"id"`
-	SellerID         string  `db:"seller_id" json:"seller_id"`
-	SellerName       string  `db:"seller_name" json:"seller_name"`
-	TotalAmount      float64 `db:"total_amount" json:"total_amount"`
-	Status           string  `db:"status" json:"status"`
-	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
-	TotalItems       int     `db:"total_items" json:"total_items"`
-	PaymentReference *string `db:"reference" json:"payment_reference"`
-	CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
-	PaymentMethod    *string `db:"payment_method" json:"payment_method"`
-	CreatedAt        string  `db:"created_at" json:"created_at"`
-}
-
 // MobileRegisterEventResponse represents a success response for event registration.
 type MobileRegisterEventResponse struct {
 	Message              string   `json:"message"`
@@ -510,44 +460,6 @@ type MobileRegisterEventResponse struct {
 // ErrorResponse represents a standard error response.
 type ErrorResponse struct {
 	Error string `json:"error"`
-}
-
-// MobileSellerProfileData represents seller profile data for mobile.
-type MobileSellerProfileData struct {
-	ID            string                 `json:"id" example:"sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"`
-	UUID          string                 `json:"uuid" example:"sel-7d7e8b16-5a11-4c4f-8f13-1c4f14d97d8e"`
-	StoreName     string                 `json:"store_name" example:"Archeris Store Jakarta"`
-	Slug          *string                `json:"slug" example:"Archeris-store-jakarta"`
-	StoreSlug     *string                `json:"store_slug" example:"Archeris-store-jakarta"`
-	Name          string                 `json:"name" example:"Archeris Store Jakarta"`
-	Username      *string                `json:"username" example:"Archeris-store-jakarta"`
-	Description   *string                `json:"description" example:"Toko perlengkapan panahan untuk kebutuhan latihan dan kompetisi."`
-	AvatarURL     *string                `json:"avatar_url" example:"https://cdn.archeris.net/media/seller/logo-store.png"`
-	BannerURL     *string                `json:"banner_url" example:"https://cdn.archeris.net/media/seller/banner-store.jpg"`
-	Logo          *string                `json:"logo" example:"https://cdn.archeris.net/media/seller/logo-store.png"`
-	Banner        *string                `json:"banner" example:"https://cdn.archeris.net/media/seller/banner-store.jpg"`
-	Phone         *string                `json:"phone" example:"081234567890"`
-	Email         *string                `json:"email" example:"seller@archeris.net"`
-	Address       *string                `json:"address" example:"Jl. Panahan No. 10, Jakarta"`
-	City          *string                `json:"city" example:"Jakarta"`
-	Province      *string                `json:"province" example:"DKI Jakarta"`
-	Sections      map[string]interface{} `json:"sections,omitempty" swaggertype:"object"`
-	CatalogConfig map[string]interface{} `json:"catalog_config,omitempty" swaggertype:"object"`
-	ThemeColor    *string                `json:"theme_color,omitempty" example:"#C1121F"`
-	BannerText    *string                `json:"banner_text,omitempty" example:"Perlengkapan panahan lengkap untuk semua level"`
-	PageSettings  map[string]interface{} `json:"page_settings,omitempty" swaggertype:"object"`
-	UserType      string                 `json:"user_type" example:"seller"`
-}
-
-// MobileSellerProfileResponse represents /mobile/seller/me.
-type MobileSellerProfileResponse struct {
-	Data MobileSellerProfileData `json:"data"`
-}
-
-// MobileSellerProductsResponse represents /mobile/seller/products.
-type MobileSellerProductsResponse struct {
-	Data []models.Product `json:"data"`
-	Meta interface{}      `json:"meta"`
 }
 
 // MobileOrganizationProfileData represents organizer profile data for mobile.

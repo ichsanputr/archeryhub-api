@@ -382,8 +382,6 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 			table = "archers"
 		case "organizer":
 			table = "organizers"
-		case "seller":
-			table = "sellers"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return
@@ -474,13 +472,8 @@ func RootCreateAccount(db *sqlx.DB) gin.HandlerFunc {
 				INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL)
 			`, newUUID, newUUID, slug, req.Email, hashedPass, req.Name, req.Acronym, whatsApp, req.City, req.Address)
-		case "seller":
-			_, err = db.Exec(`
-				INSERT INTO sellers (uuid, user_id, slug, email, password, store_name, status)
-				VALUES (?, ?, ?, ?, ?, ?, 'active')
-			`, newUUID, newUUID, slug, req.Email, hashedPass, req.Name)
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus organizer atau seller"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_type harus organizer"})
 			return
 		}
 
@@ -542,7 +535,7 @@ func GetSubscriptionPlans(db *sqlx.DB) gin.HandlerFunc {
 func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userUUID := c.Param("uuid")
-		userType := c.Param("type") // "archer", "club", "organizer", "seller"
+		userType := c.Param("type") // "archer", "club", "organizer"
 
 		var req struct {
 			Password string `json:"password" binding:"required,min=5"`
@@ -558,8 +551,6 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 			table = "archers"
 		case "organizer":
 			table = "organizers"
-		case "seller":
-			table = "sellers"
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe user tidak valid"})
 			return

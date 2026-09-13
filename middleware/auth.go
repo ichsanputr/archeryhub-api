@@ -99,8 +99,6 @@ func AuthMiddleware() gin.HandlerFunc {
 					table = "organizers"
 				case "club":
 					table = "clubs"
-				case "seller":
-					table = "sellers"
 				case "scorekeeper":
 					table = "scorekeepers"
 				}
@@ -211,8 +209,6 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 						table = "organizers"
 					case "club":
 						table = "clubs"
-					case "seller":
-						table = "sellers"
 					case "scorekeeper":
 						table = "scorekeepers"
 					}

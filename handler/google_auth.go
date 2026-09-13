@@ -169,7 +169,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			oauthMode = "login"
 		}
 		// Validate user_type to prevent self-registration of restricted roles like scorekeeper
-		allowedTypes := map[string]bool{"archer": true, "organizer": true, "club": true, "seller": true}
+		allowedTypes := map[string]bool{"archer": true, "organizer": true, "club": true}
 		if !allowedTypes[requestedUserType] {
 			requestedUserType = "archer"
 		}
@@ -324,8 +324,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				table = "organizers"
 			case "club":
 				table = "clubs"
-			case "seller":
-				table = "sellers"
 			default:
 				table = "archers"
 			}
@@ -348,8 +346,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				tableName, nameCol = "organizers", "name"
 			case "club":
 				tableName, nameCol = "clubs", "name"
-			case "seller":
-				tableName, nameCol = "sellers", "store_name"
 			default:
 				tableName, nameCol = "archers", "full_name"
 			}
@@ -404,11 +400,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 					INSERT INTO clubs (uuid, slug, name, logo_url, created_at, updated_at)
 					VALUES (?, ?, ?, ?, NOW(), NOW())
 				`, userID, username, displayName, avatarToSave)
-			case "seller":
-				_, insertErr = db.Exec(`
-					INSERT INTO sellers (uuid, user_id, slug, email, google_id, store_name, avatar_url, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
-				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, avatarToSave)
 			default: // archer
 				userType = "archer"
 				role = "archer"
@@ -503,8 +494,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			avatarTable = "organizers"
 		case "club":
 			avatarTable = "clubs"
-		case "seller":
-			avatarTable = "sellers"
 		default:
 			avatarTable = "archers"
 		}

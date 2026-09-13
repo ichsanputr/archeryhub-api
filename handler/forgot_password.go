@@ -40,7 +40,6 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			{"archers", "full_name", "archer"},
 			{"organizers", "name", "organizer"},
 			{"clubs", "name", "club"},
-			{"sellers", "store_name", "seller"},
 		}
 
 		for _, t := range tables {
@@ -195,8 +194,6 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			table = "organizers"
 		case "club":
 			table = "clubs"
-		case "seller":
-			table = "sellers"
 		}
 
 		// Update password and increment token_version to invalidate other sessions
@@ -278,8 +275,6 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 			table = "organizers"
 		case "club":
 			table = "clubs"
-		case "seller":
-			table = "sellers"
 		}
 
 		tx, txErr := db.Beginx()

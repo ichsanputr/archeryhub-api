@@ -47,8 +47,6 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "organizer":
 			table = "organizers"
-		case "seller":
-			table = "sellers"
 		}
 
 		// Get current user data
@@ -117,8 +115,6 @@ func GetUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		switch userType {
 		case "organizer":
 			table = "organizers"
-		case "seller":
-			table = "sellers"
 		}
 
 		var user struct {
@@ -201,74 +197,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 
 
 
-		if userType == "seller" {
-			var req models.UpdateSellerRequest
-			if err := c.ShouldBindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid", "details": err.Error()})
-				return
-			}
-
-			query := "UPDATE sellers SET updated_at = NOW()"
-			args := []interface{}{}
-
-			if req.StoreName != nil {
-				query += ", store_name = ?"
-				args = append(args, *req.StoreName)
-			}
-			if req.Slug != nil {
-				un := utils.CleanUsername(*req.Slug)
-				if un != "" {
-					query += ", slug = ?"
-					args = append(args, un)
-				}
-			}
-			if req.Description != nil {
-				query += ", description = ?"
-				args = append(args, *req.Description)
-			}
-			if req.Phone != nil {
-				query += ", phone = ?"
-				args = append(args, *req.Phone)
-			}
-			if req.Email != nil {
-				query += ", email = ?"
-				args = append(args, *req.Email)
-			}
-			if req.Address != nil {
-				query += ", address = ?"
-				args = append(args, *req.Address)
-			}
-			if req.City != nil {
-				query += ", city = ?"
-				args = append(args, *req.City)
-			}
-			if req.AvatarURL != nil {
-				query += ", avatar_url = ?"
-				args = append(args, utils.ExtractFilename(*req.AvatarURL))
-			}
-			if req.BannerURL != nil {
-				query += ", banner_url = ?"
-				args = append(args, utils.ExtractFilename(*req.BannerURL))
-			}
-
-			if len(args) == 0 {
-				c.JSON(http.StatusOK, gin.H{"message": "Tidak ada perubahan untuk disimpan"})
-				return
-			}
-
-			query += " WHERE uuid = ?"
-			args = append(args, userID)
-
-			_, err := db.Exec(query, args...)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui profil seller: " + err.Error()})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{"message": "Profil toko berhasil diperbarui"})
-			return
-		}
-
 		// Default to Archer update if not club (or implement others if needed)
 		var req models.UpdateArcherRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -279,8 +207,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		table := "archers"
 		if userType == "organizer" {
 			table = "organizers"
-		} else if userType == "seller" {
-			table = "sellers"
 		}
 
 		query := "UPDATE " + table + " SET updated_at = NOW()"
@@ -290,8 +216,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			field := "full_name"
 			if userType == "organizer" {
 				field = "name"
-			} else if userType == "seller" {
-				field = "store_name"
 			}
 			query += ", " + field + " = ?"
 			args = append(args, *req.FullName)
@@ -299,7 +223,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.Username != nil {
 			un := utils.CleanUsername(*req.Username)
 			if un != "" {
-				// check if username is taken in archers, organizers, or sellers
+				// check if username is taken in archers or organizers
 				// excluding the current user UUID
 				var exists bool
 				
@@ -325,19 +249,8 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 					return
 				}
 
-				// Check in sellers
-				err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM sellers WHERE slug = ? AND uuid != ?)", un, userID)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Kesalahan database: " + err.Error()})
-					return
-				}
-				if exists {
-					c.JSON(http.StatusConflict, gin.H{"error": "Username sudah digunakan oleh toko lain"})
-					return
-				}
-
 				field := "username"
-				if userType == "organizer" || userType == "seller" {
+				if userType == "organizer" {
 					field = "slug"
 				}
 				query += ", " + field + " = ?"
@@ -358,7 +271,7 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.Bio != nil {
 			field := "bio"
-			if userType == "organizer" || userType == "seller" {
+			if userType == "organizer" {
 				field = "description"
 			}
 			query += ", " + field + " = ?"
@@ -501,9 +414,9 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if new email already exists in any table (archers, organizers, clubs, sellers)
+		// Check if new email already exists in any table (archers, organizers)
 		var exists bool
-		tables := []string{"archers", "organizers", "sellers"}
+		tables := []string{"archers", "organizers"}
 		for _, t := range tables {
 			err := db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM "+t+" WHERE email = ?)", req.NewEmail)
 			if err == nil && exists {
@@ -517,7 +430,6 @@ func RequestEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		table := "archers"
 		switch userType {
 		case "organizer": table = "organizers"
-		case "seller": table = "sellers"
 		}
 		
 		err := db.Get(&oldEmail, "SELECT email FROM "+table+" WHERE uuid = ?", userID)
@@ -619,7 +531,6 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 		table := "archers"
 		switch otpRecord.UserType {
 		case "organizer": table = "organizers"
-		case "seller": table = "sellers"
 		}
 
 		_, err = tx.Exec("UPDATE "+table+" SET email = ?, updated_at = NOW() WHERE uuid = ?", req.NewEmail, userID)
