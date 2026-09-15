@@ -319,12 +319,12 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 			FROM tournaments e
 			LEFT JOIN (
 				SELECT
-					event_id,
+					tournament_id,
 					COUNT(*) as participant_count,
 					SUM(CASE WHEN payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END) as verified_count,
 					SUM(CASE WHEN payment_status IN ('pending', 'menunggu_acc', 'menunggu acc') THEN 1 ELSE 0 END) as pending_count
 				FROM tournament_participants
-				GROUP BY event_id
+				GROUP BY tournament_id
 			) ps ON ps.tournament_id = e.uuid
 			` + whereClause + `
 			ORDER BY e.start_date DESC, e.created_at DESC

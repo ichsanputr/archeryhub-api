@@ -213,8 +213,10 @@ func main() {
 		})
 	})
 
-	// Static uploads (media is handled dynamically via media.GET below)
+	// Static uploads & images (media is handled dynamically via media.GET below)
 	r.Static("/uploads", "./uploads")
+	r.Static("/images", "../app/public/images")
+	r.StaticFile("/profile-author.png", "../app/public/profile-author.png")
 
 	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

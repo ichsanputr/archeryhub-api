@@ -3,6 +3,7 @@ package mobile
 import (
 	"Archeris-api/models"
 	"Archeris-api/utils"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -66,10 +67,10 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN tournament_participants tp ON t.uuid = tp.tournament_id
 			LEFT JOIN (
-				SELECT event_id, COUNT(*) as cat_count
+				SELECT tournament_id, COUNT(*) as cat_count
 				FROM tournament_categories
-				GROUP BY event_id
-			) cat_stats ON t.uuid = cat_stats.event_id
+				GROUP BY tournament_id
+			) cat_stats ON t.uuid = cat_stats.tournament_id
 			` + whereClause + `
 			GROUP BY t.uuid, t.slug, u.full_name, u.avatar_url, cat_stats.cat_count, t.entry_fee
 			ORDER BY t.start_date DESC
@@ -139,10 +140,10 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, NULL as phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
-				SELECT event_id, COUNT(*) as participant_count
+				SELECT tournament_id, COUNT(*) as participant_count
 				FROM tournament_participants
-				GROUP BY event_id
-			) active_target_stats ON t.uuid = active_target_stats.event_id
+				GROUP BY tournament_id
+			) active_target_stats ON t.uuid = active_target_stats.tournament_id
 			WHERE t.uuid = ? OR t.slug = ?
 			LIMIT 1
 		`
@@ -236,10 +237,10 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, NULL as phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
-				SELECT event_id, COUNT(*) as participant_count
+				SELECT tournament_id, COUNT(*) as participant_count
 				FROM tournament_participants
-				GROUP BY event_id
-			) active_target_stats ON t.uuid = active_target_stats.event_id
+				GROUP BY tournament_id
+			) active_target_stats ON t.uuid = active_target_stats.tournament_id
 			WHERE t.uuid = ? OR t.slug = ?
 			LIMIT 1
 		`
@@ -657,7 +658,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 
 		_, err = tx.Exec(`
 			INSERT INTO tournament_participants (
-				uuid, event_id, archer_id, category_id, 
+				uuid, tournament_id, archer_id, category_id, 
 				registration_date, payment_status, payment_amount,
 				registration_source
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -687,7 +688,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 
 	totalAmount := float64(len(registeredCats)) * event.EntryFee
 
-	if req.PaymentMethod != "" && req.PaymentMethod != "manual" && totalAmount > 0 {
+	if req.PaymentMethod != "" && totalAmount > 0 {
 		var archer struct {
 			FullName string  `db:"full_name"`
 			Email    *string `db:"email"`
@@ -695,70 +696,116 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		}
 		_ = db.Get(&archer, "SELECT full_name, email, phone FROM archers WHERE uuid = ?", archerUUID)
 
-		amountInt := int(totalAmount)
 		customerName := archer.FullName
 		customerEmail := utils.StringValue(archer.Email, "user@archeris.net")
 		customerPhone := utils.StringValue(archer.Phone, "08123456789")
 
-		mayarClient := utils.NewMayarClient()
 		appURL := os.Getenv("APP_URL")
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
 		merchantRef := fmt.Sprintf("PAY-REG-%s", uuid.New().String()[:12])
-		redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
+		transactionID := uuid.New().String()
 
-		paymentReq := utils.MayarPaymentReq{
-			Name:        fmt.Sprintf("Event Reg - %s", customerName),
-			Amount:      amountInt,
-			Email:       customerEmail,
-			Mobile:      customerPhone,
-			Description: fmt.Sprintf("Pendaftaran Event: %s", customerName),
-			RedirectURL: redirectURL,
-		}
+		if req.PaymentMethod == "paypal" {
+			paypalClient := utils.NewPayPalClient()
+			usdAmount := paypalClient.ConvertIDRToUSD(totalAmount)
+			returnURL := fmt.Sprintf("%s/payment/status/%s?provider=paypal", strings.TrimSuffix(appURL, "/"), merchantRef)
+			cancelURL := fmt.Sprintf("%s/payment/status/%s?cancelled=true", strings.TrimSuffix(appURL, "/"), merchantRef)
+			description := fmt.Sprintf("Event Reg - %s", customerName)
 
-		mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
-		if err == nil {
-			transactionID := uuid.New().String()
-			checkoutURLVal := mayarData.Link
-			mayarTxID := mayarData.TransactionID
-			expiredAt := time.Now().Add(24 * time.Hour)
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
 
+			orderResp, approveURL, err := paypalClient.CreateOrder(ctx, merchantRef, description, usdAmount, returnURL, cancelURL)
+			if err == nil {
+				orderID := orderResp.ID
+				checkoutURLVal := approveURL
+				expiredAt := time.Now().Add(24 * time.Hour)
+
+				transaction := models.PaymentTransaction{
+					UUID:            transactionID,
+					Reference:       merchantRef,
+					TripayReference: &orderID,
+					UserID:          archerUUID,
+					EventID:         &event.UUID,
+					RegistrationID:  &firstRegID,
+					Amount:          totalAmount,
+					FeeAmount:       0,
+					TotalAmount:     totalAmount,
+					PaymentMethod:   utils.StringPtr("paypal"),
+					CheckoutURL:     &checkoutURLVal,
+					Months:          1,
+					Status:          "pending",
+					ExpiredAt:       expiredAt,
+				}
+
+				query := `
+					INSERT INTO payment_transactions (
+						uuid, reference, tripay_reference, user_id, tournament_id, registration_id,
+						amount, fee_amount, total_amount, payment_method,
+						checkout_url, months, status, expired_at
+					) VALUES (
+						:uuid, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id,
+						:amount, :fee_amount, :total_amount, :payment_method,
+						:checkout_url, :months, :status, :expired_at
+					)
+				`
+				_, err = db.NamedExec(query, transaction)
+				if err == nil {
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE tournament_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
+					tripayReference = &orderID
+					checkoutURL = &checkoutURLVal
+					paymentStatus = "pending"
+
+					c.JSON(http.StatusOK, MobileRegisterEventResponse{
+						Message:              "Pendaftaran berhasil",
+						RegistrationID:       firstRegID,
+						RegisteredCategories: registeredCats,
+						PaymentStatus:        paymentStatus,
+						TotalFee:             totalAmount,
+						CheckoutURL:          checkoutURL,
+						VANumber:             vaNumber,
+						QRURL:                qrURL,
+						TripayReference:      tripayReference,
+					})
+					return
+				}
+			}
+		} else if req.PaymentMethod == "manual" {
+			expiredAt := time.Now().Add(7 * 24 * time.Hour)
 			transaction := models.PaymentTransaction{
-				UUID:            transactionID,
-				Reference:       merchantRef,
-				TripayReference: &mayarTxID,
-				UserID:          archerUUID,
-				EventID:         &event.UUID,
-				RegistrationID:  &firstRegID,
-				Amount:          totalAmount,
-				FeeAmount:       0,
-				TotalAmount:     totalAmount,
-				PaymentMethod:   utils.StringPtr("mayar"),
-				CheckoutURL:     &checkoutURLVal,
-				Months:          1,
-				Status:          "pending",
-				ExpiredAt:       expiredAt,
+				UUID:           transactionID,
+				Reference:      merchantRef,
+				UserID:         archerUUID,
+				EventID:        &event.UUID,
+				RegistrationID: &firstRegID,
+				Amount:         totalAmount,
+				FeeAmount:      0,
+				TotalAmount:    totalAmount,
+				PaymentMethod:  utils.StringPtr("manual"),
+				Months:         1,
+				Status:         "pending",
+				ExpiredAt:      expiredAt,
 			}
 
 			query := `
 				INSERT INTO payment_transactions (
-					uuid, reference, tripay_reference, user_id, event_id, registration_id,
+					uuid, reference, user_id, tournament_id, registration_id,
 					amount, fee_amount, total_amount, payment_method,
-					checkout_url, months, status, expired_at
+					months, status, expired_at
 				) VALUES (
-					:uuid, :reference, :tripay_reference, :user_id, :event_id, :registration_id,
+					:uuid, :reference, :user_id, :tournament_id, :registration_id,
 					:amount, :fee_amount, :total_amount, :payment_method,
-					:checkout_url, :months, :status, :expired_at
+					:months, :status, :expired_at
 				)
 			`
 			_, err = db.NamedExec(query, transaction)
 			if err == nil {
-				_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE tournament_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
-				qrURL = transaction.QRURL
-				tripayReference = &mayarTxID
-				checkoutURL = &checkoutURLVal
+				_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'manual' WHERE tournament_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
 				paymentStatus = "pending"
+				refVal := merchantRef
+				tripayReference = &refVal
 
 				c.JSON(http.StatusOK, MobileRegisterEventResponse{
 					Message:              "Pendaftaran berhasil",
@@ -766,12 +813,83 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 					RegisteredCategories: registeredCats,
 					PaymentStatus:        paymentStatus,
 					TotalFee:             totalAmount,
-					CheckoutURL:          checkoutURL,
-					VANumber:             vaNumber,
-					QRURL:                qrURL,
+					CheckoutURL:          nil,
+					VANumber:             nil,
+					QRURL:                nil,
 					TripayReference:      tripayReference,
 				})
 				return
+			}
+		} else {
+			// Mayar gateway
+			amountInt := int(totalAmount)
+			mayarClient := utils.NewMayarClient()
+			redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
+
+			paymentReq := utils.MayarPaymentReq{
+				Name:        fmt.Sprintf("Event Reg - %s", customerName),
+				Amount:      amountInt,
+				Email:       customerEmail,
+				Mobile:      customerPhone,
+				Description: fmt.Sprintf("Pendaftaran Event: %s", customerName),
+				RedirectURL: redirectURL,
+			}
+
+			mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
+			if err == nil {
+				checkoutURLVal := mayarData.Link
+				mayarTxID := mayarData.TransactionID
+				expiredAt := time.Now().Add(24 * time.Hour)
+
+				transaction := models.PaymentTransaction{
+					UUID:            transactionID,
+					Reference:       merchantRef,
+					TripayReference: &mayarTxID,
+					UserID:          archerUUID,
+					EventID:         &event.UUID,
+					RegistrationID:  &firstRegID,
+					Amount:          totalAmount,
+					FeeAmount:       0,
+					TotalAmount:     totalAmount,
+					PaymentMethod:   utils.StringPtr("mayar"),
+					CheckoutURL:     &checkoutURLVal,
+					Months:          1,
+					Status:          "pending",
+					ExpiredAt:       expiredAt,
+				}
+
+				query := `
+					INSERT INTO payment_transactions (
+						uuid, reference, tripay_reference, user_id, tournament_id, registration_id,
+						amount, fee_amount, total_amount, payment_method,
+						checkout_url, months, status, expired_at
+					) VALUES (
+						:uuid, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id,
+						:amount, :fee_amount, :total_amount, :payment_method,
+						:checkout_url, :months, :status, :expired_at
+					)
+				`
+				_, err = db.NamedExec(query, transaction)
+				if err == nil {
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE tournament_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
+					qrURL = transaction.QRURL
+					tripayReference = &mayarTxID
+					checkoutURL = &checkoutURLVal
+					paymentStatus = "pending"
+
+					c.JSON(http.StatusOK, MobileRegisterEventResponse{
+						Message:              "Pendaftaran berhasil",
+						RegistrationID:       firstRegID,
+						RegisteredCategories: registeredCats,
+						PaymentStatus:        paymentStatus,
+						TotalFee:             totalAmount,
+						CheckoutURL:          checkoutURL,
+						VANumber:             vaNumber,
+						QRURL:                qrURL,
+						TripayReference:      tripayReference,
+					})
+					return
+				}
 			}
 		}
 	}
@@ -840,15 +958,17 @@ func MobileGetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			})
 		}
 
-		// 3. Fetch Gateway Payment Methods (Mayar)
-		mayarChannels := []struct{ Code, Name, Icon string }{
-			{"QRIS", "QRIS (All E-Wallet & Bank)", "/payment-method/qris.png"},
+		// 3. Fetch Gateway Payment Methods (Mayar & PayPal)
+		gatewayChannels := []struct{ Code, Name, Icon string }{
+			{"mayar", "Mayar Payment Gateway (QRIS, VA & Kartu Debit/Kredit)", "/payment-method/mayar.png"},
+			{"paypal", "PayPal (Kartu Internasional & Saldo USD)", "/payment-method/paypal.png"},
+			{"QRIS", "QRIS (Semua E-Wallet & Bank)", "/payment-method/qris.png"},
 			{"BCAVA", "BCA Virtual Account", "/payment-method/bca.png"},
 			{"BNIVA", "BNI Virtual Account", "/payment-method/bni.png"},
 			{"BRIVA", "BRI Virtual Account", "/payment-method/bri.png"},
 			{"MANDIRIVA", "Mandiri Virtual Account", "/payment-method/mandiri.png"},
 		}
-		for _, ch := range mayarChannels {
+		for _, ch := range gatewayChannels {
 			cCode := ch.Code
 			cIcon := ch.Icon
 			methods = append(methods, MobileEventPaymentMethodItem{

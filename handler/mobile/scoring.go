@@ -1,4 +1,4 @@
-﻿package mobile
+package mobile
 
 import (
 	"Archeris-api/utils"
@@ -97,14 +97,17 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&board, `
 			SELECT 
 				tbq.uuid, tbq.session_uuid, tbq.category_uuid, tbq.board_number, tbq.code,
-				qs.name as session_name, qs.tournament_uuid,
+				qs.name as session_name, e.uuid as event_uuid,
 				e.name as event_name
 			FROM target_board_qualification tbq
 			JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
 			JOIN tournaments e ON qs.tournament_uuid = e.uuid
 			WHERE tbq.code = ?
+			   OR CAST(tbq.board_number AS CHAR) = ?
+			   OR CONCAT(CAST(tbq.board_number AS CHAR), 'A') = ?
+			   OR tbq.code = CONCAT(LPAD(?, 3, '0'), 'JFR')
 			LIMIT 1
-		`, code)
+		`, code, code, code, code)
 
 		if err == nil {
 			// --- Handle Qualification Board ---
@@ -176,8 +179,11 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 			JOIN tournaments e ON eb.tournament_uuid = e.uuid
 			LEFT JOIN tournament_categories ec ON tbe.category_uuid = ec.uuid
 			WHERE tbe.code = ?
+			   OR CAST(tbe.board_number AS CHAR) = ?
+			   OR CONCAT(CAST(tbe.board_number AS CHAR), 'A') = ?
+			   OR tbe.code = CONCAT(LPAD(?, 3, '0'), 'JFR')
 			LIMIT 1
-		`, code)
+		`, code, code, code, code)
 
 		if err == nil {
 			// Fetch matches on this elimination board
