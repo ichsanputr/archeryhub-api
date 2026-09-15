@@ -260,8 +260,11 @@ func main() {
 		// Authentication routes (public)
 		auth := api.Group("/auth")
 		{
-			// Traditional auth
+			// Traditional auth & OTP registration
 			auth.POST("/register", handler.Register(db))
+			auth.POST("/register-email", middleware.RateLimit(10, 1*time.Minute), handler.RegisterWithEmail(db))
+			auth.POST("/verify-register-otp", middleware.RateLimit(15, 1*time.Minute), handler.VerifyRegisterOTP(db))
+			auth.POST("/resend-register-otp", middleware.RateLimit(5, 1*time.Minute), handler.ResendRegisterOTP(db))
 			auth.POST("/login", middleware.RateLimit(10, 1*time.Minute), handler.Login(db))
 			auth.POST("/refresh", handler.RefreshToken(db))
 			auth.POST("/logout", handler.Logout())

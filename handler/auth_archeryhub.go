@@ -3,6 +3,7 @@ package handler
 import (
 	"Archeris-api/utils"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -198,15 +199,11 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			} else {
 				// For archers, include id and is_verified
 				// Generate id (ARC-XXXX)
-				var lastID string
-				_ = db.Get(&lastID, "SELECT id FROM archers WHERE id LIKE 'ARC-%' ORDER BY id DESC LIMIT 1")
+				var maxID sql.NullInt64
+				_ = db.Get(&maxID, "SELECT MAX(CAST(SUBSTRING(id, 5) AS UNSIGNED)) FROM archers WHERE id REGEXP '^ARC-[0-9]+$'")
 				nextIDNum := 1
-				if lastID != "" {
-					parts := strings.Split(lastID, "-")
-					if len(parts) == 2 {
-						fmt.Sscanf(parts[1], "%d", &nextIDNum)
-						nextIDNum++
-					}
+				if maxID.Valid && maxID.Int64 > 0 {
+					nextIDNum = int(maxID.Int64) + 1
 				}
 				athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
 
