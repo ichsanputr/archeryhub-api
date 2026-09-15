@@ -44,7 +44,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -55,7 +55,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		type BracketInfo struct {
 			BracketID    string  `json:"id" db:"bracket_id"`
 			UUID         string  `json:"uuid" db:"uuid"`
-			EventUUID    string  `json:"event_id" db:"event_uuid"`
+			EventUUID    string  `json:"event_id" db:"tournament_uuid"`
 			CategoryUUID string  `json:"category_id" db:"category_uuid"`
 			CategoryName string  `json:"category_name" db:"category_name"`
 			BracketType  string  `json:"bracket_type" db:"bracket_type"`
@@ -73,18 +73,18 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			SELECT COALESCE(eb.bracket_id, eb.uuid) as bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, 
+			SELECT COALESCE(eb.bracket_id, eb.uuid) as bracket_id, eb.uuid, eb.tournament_uuid, eb.category_uuid, 
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name,
 				eb.bracket_type, eb.format, eb.bracket_size, eb.status, eb.ends_per_match, eb.arrows_per_end,
 				eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
 				COALESCE(eb.is_locked, 0) as is_locked,
 				(SELECT COUNT(*) FROM elimination_matches em WHERE em.bracket_uuid = eb.uuid) as match_count
 			FROM elimination_brackets eb
-			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
+			LEFT JOIN tournament_categories ec ON eb.category_uuid = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			WHERE eb.event_uuid = ?
+			WHERE eb.tournament_uuid = ?
 		`
 		args := []interface{}{eventUUID}
 
@@ -118,7 +118,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 		type Bracket struct {
 			BracketID    string  `json:"id" db:"bracket_id"`
 			UUID         string  `json:"uuid" db:"uuid"`
-			EventUUID    string  `json:"event_id" db:"event_uuid"`
+			EventUUID    string  `json:"event_id" db:"tournament_uuid"`
 			CategoryUUID string  `json:"category_id" db:"category_uuid"`
 			CategoryName string  `json:"category_name" db:"category_name"`
 			BracketType  string  `json:"bracket_type" db:"bracket_type"`
@@ -135,10 +135,10 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		var bracket Bracket
 		err := db.Get(&bracket, `
-			SELECT eb.bracket_id, eb.uuid, eb.event_uuid, eb.category_uuid, eb.bracket_type, eb.status, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end, eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
+			SELECT eb.bracket_id, eb.uuid, eb.tournament_uuid, eb.category_uuid, eb.bracket_type, eb.status, eb.format, eb.bracket_size, eb.ends_per_match, eb.arrows_per_end, eb.start_time, eb.end_time, eb.generated_at, eb.created_at,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name
 			FROM elimination_brackets eb
-			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
+			LEFT JOIN tournament_categories ec ON eb.category_uuid = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
@@ -173,7 +173,7 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 				END as participant_name,
 				ee.seed, ee.qual_total_score, ee.qual_total_x, ee.qual_total_10
 			FROM elimination_entries ee
-			LEFT JOIN event_participants ep ON ee.participant_type = 'archer' AND ee.participant_uuid = ep.uuid
+			LEFT JOIN tournament_participants ep ON ee.participant_type = 'archer' AND ee.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN teams t ON ee.participant_type = 'team' AND ee.participant_uuid = t.uuid
 			WHERE ee.bracket_uuid = ?
@@ -235,13 +235,13 @@ func GetBracket(db *sqlx.DB) gin.HandlerFunc {
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
-			LEFT JOIN event_participants epA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = epA.uuid
-			LEFT JOIN event_participants epB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = epB.uuid
+			LEFT JOIN tournament_participants epA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = epA.uuid
+			LEFT JOIN tournament_participants epB ON eeB.participant_type = 'archer' AND eeB.participant_uuid = epB.uuid
 			LEFT JOIN archers aA ON epA.archer_id = aA.uuid
 			LEFT JOIN archers aB ON epB.archer_id = aB.uuid
 			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
 			LEFT JOIN teams tB ON eeB.participant_type = 'team' AND eeB.participant_uuid = tB.uuid
-			LEFT JOIN event_targets et ON em.target_uuid = et.uuid
+			LEFT JOIN tournament_targets et ON em.target_uuid = et.uuid
 			LEFT JOIN target_board_elimination tbe ON em.bracket_uuid = tbe.bracket_uuid AND et.board_number = tbe.board_number
 			WHERE em.bracket_uuid = ?
 			ORDER BY em.round_no ASC, em.match_no ASC
@@ -533,7 +533,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -561,7 +561,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			db.Get(&participantCount, `
 				SELECT COUNT(*) FROM (
 					SELECT ep.uuid
-					FROM event_participants ep
+					FROM tournament_participants ep
 					JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 					WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
 					GROUP BY ep.uuid
@@ -625,7 +625,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		_, err = tx.Exec(`
-			INSERT INTO elimination_brackets (uuid, bracket_id, event_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end, start_time, end_time, status)
+			INSERT INTO elimination_brackets (uuid, bracket_id, tournament_uuid, category_uuid, bracket_type, format, bracket_size, ends_per_match, arrows_per_end, start_time, end_time, status)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated')
 		`, bracketUUID, bracketID, eventUUID, req.CategoryID, req.BracketType, req.Format, bracketSize, req.EndsPerMatch, req.ArrowsPerEnd, req.StartTime, req.EndTime)
 
@@ -648,7 +648,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(qes.total_score_end), 0) as total_score,
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
-				FROM event_participants ep
+				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
@@ -856,7 +856,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		var bracket Bracket
 		err := db.Get(&bracket, `
-			SELECT uuid, event_uuid, category_uuid, bracket_type, bracket_size, status
+			SELECT uuid, tournament_uuid as event_uuid, category_uuid, bracket_type, bracket_size, status
 			FROM elimination_brackets
 			WHERE bracket_id = ? OR uuid = ?
 		`, bracketID, bracketID)
@@ -912,7 +912,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(qes.total_score_end), 0) as total_score,
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
 					COALESCE(SUM(qes.ten_count_end), 0) as total_10
-				FROM event_participants ep
+				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
@@ -1116,7 +1116,7 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -1131,7 +1131,7 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 			db.Get(&effectiveCount, `
 				SELECT COUNT(*) FROM (
 					SELECT ep.uuid
-					FROM event_participants ep
+					FROM tournament_participants ep
 					JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 					WHERE ep.category_id = ? AND ep.payment_status IN ('paid', 'pending', 'lunas', 'menunggu acc')
 					GROUP BY ep.uuid
@@ -1151,8 +1151,8 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 				SELECT ret.code as type_code,
 					CASE WHEN ret.code = 'mixed_team' THEN 2 WHEN ret.code = 'team' THEN 3 ELSE 1 END as team_size,
 					ec.division_uuid, ec.category_uuid as age_uuid, ec.gender_division_uuid
-				FROM event_categories ec
-				JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+				FROM tournament_categories ec
+				JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
 				WHERE ec.uuid = ?
 			`, categoryID)
 			teamSize = catInfo.TeamSize
@@ -1173,9 +1173,9 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 				var indivCatID string
 				if err2 := db.Get(&indivCatID, `
 					SELECT ec.uuid
-					FROM event_categories ec
-					JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
-					WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+					FROM tournament_categories ec
+					JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+					WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
 					  AND ec.gender_division_uuid = ? AND ret.code = 'individual'
 				`, eventUUID, catInfo.DivUUID, catInfo.AgeUUID, catInfo.GenderUUID); err2 == nil && indivCatID != "" {
 					participantCatID = indivCatID
@@ -1189,7 +1189,7 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 						FROM (
 							SELECT a.uuid as archer_id, cl.uuid as club_id,
 								ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY COALESCE(SUM(s.total_score_end), 0) DESC) as club_rank
-							FROM event_participants ep
+							FROM tournament_participants ep
 							JOIN archers a ON ep.archer_id = a.uuid
 							LEFT JOIN clubs cl ON a.club_id = cl.uuid
 							LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
@@ -1207,11 +1207,11 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 				db.Get(&possibleTeams, `
 					SELECT COUNT(*) FROM (
 						SELECT a.club_id
-						FROM event_participants ep
+						FROM tournament_participants ep
 						JOIN archers a ON ep.archer_id = a.uuid
-						JOIN event_categories ec ON ep.category_id = ec.uuid
+						JOIN tournament_categories ec ON ep.category_id = ec.uuid
 						JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-						WHERE ec.event_id = ?
+						WHERE ec.tournament_id = ?
 						  AND ec.division_uuid = ?
 						  AND ec.category_uuid = ?
 						  AND a.club_id IS NOT NULL
@@ -1299,7 +1299,7 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			UUID      string `db:"uuid"`
 			EventUUID string `db:"event_uuid"`
 		}
-		err := db.Get(&bracket, `SELECT uuid, event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		err := db.Get(&bracket, `SELECT uuid, tournament_uuid as event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
 			return
@@ -1326,7 +1326,7 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 				count, _ := res.RowsAffected()
 				updated += int(count)
 			} else if assignment.BoardNumber > 0 {
-				_, err := tx.Exec(`REPLACE INTO event_target_boards (uuid, event_uuid, bracket_uuid, board_number, target_uuid, code, is_active, updated_at)
+				_, err := tx.Exec(`REPLACE INTO tournament_target_boards (uuid, event_uuid, bracket_uuid, board_number, target_uuid, code, is_active, updated_at)
 					VALUES (UUID(), ?, ?, ?, ?, ?, 1, NOW())`,
 					bracket.EventUUID, bracket.UUID, assignment.BoardNumber, assignment.TargetID, assignment.Code)
 				if err != nil {
@@ -1377,7 +1377,7 @@ func GetBracketTeamMembers(db *sqlx.DB) gin.HandlerFunc {
 			FROM elimination_entries ee
 			JOIN teams t ON ee.participant_uuid = t.uuid AND ee.participant_type = 'team'
 			JOIN team_members tm ON tm.team_id = t.uuid
-			JOIN event_participants ep ON tm.participant_id = ep.uuid
+			JOIN tournament_participants ep ON tm.participant_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			WHERE ee.bracket_uuid = ?
 			ORDER BY ee.uuid, tm.member_order ASC
@@ -1422,7 +1422,7 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			UUID      string `db:"uuid"`
 			EventUUID string `db:"event_uuid"`
 		}
-		err = db.Get(&bracket, `SELECT uuid, event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		err = db.Get(&bracket, `SELECT uuid, tournament_uuid as event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
 			return
@@ -1461,7 +1461,7 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		var targets []TargetInfo
 		err = db.Select(&targets, `
 			SELECT uuid 
-			FROM event_targets 
+			FROM tournament_targets 
 			WHERE event_uuid = ? 
 			ORDER BY board_number ASC, target_name ASC`,
 			bracket.EventUUID)
@@ -1583,8 +1583,8 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN elimination_entries eeB ON em.entry_b_uuid = eeB.uuid
-			LEFT JOIN event_participants epA ON (eeA.participant_uuid = epA.uuid OR em.entry_a_uuid = epA.uuid)
-			LEFT JOIN event_participants epB ON (eeB.participant_uuid = epB.uuid OR em.entry_b_uuid = epB.uuid)
+			LEFT JOIN tournament_participants epA ON (eeA.participant_uuid = epA.uuid OR em.entry_a_uuid = epA.uuid)
+			LEFT JOIN tournament_participants epB ON (eeB.participant_uuid = epB.uuid OR em.entry_b_uuid = epB.uuid)
 			LEFT JOIN archers aA ON epA.archer_id = aA.uuid
 			LEFT JOIN archers aB ON epB.archer_id = aB.uuid
 			LEFT JOIN teams tA ON eeA.participant_uuid = tA.uuid
@@ -2050,7 +2050,7 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			details, _ := json.Marshal(req)
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_match_score", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
@@ -2218,7 +2218,7 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 			details, _ := json.Marshal(req)
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "finish_match", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
@@ -2561,7 +2561,7 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			details, _ := json.Marshal(req)
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "end_match", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
@@ -2703,7 +2703,7 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 			orgID, _ := c.Get("org_id")
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.event_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
+			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_match", "Match reset to in_progress", c.ClientIP(), c.Request.UserAgent())
 		}
@@ -2730,7 +2730,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 			EventUUID    string `db:"event_uuid"`
 			CategoryUUID string `db:"category_uuid"`
 		}
-		err := db.Get(&bracket, `SELECT uuid, event_uuid, category_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
+		err := db.Get(&bracket, `SELECT uuid, tournament_uuid as event_uuid, category_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
 			return
@@ -2741,7 +2741,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&boardNumbers, `
 			SELECT DISTINCT et.board_number 
 			FROM elimination_matches em 
-			JOIN event_targets et ON em.target_uuid = et.uuid 
+			JOIN tournament_targets et ON em.target_uuid = et.uuid 
 			WHERE em.bracket_uuid = ? AND et.board_number > 0
 			ORDER BY et.board_number ASC
 		`, bracket.UUID)
@@ -2756,7 +2756,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 			SELECT RIGHT(code, 3) 
 			FROM target_board_elimination tbe
 			JOIN elimination_brackets eb ON tbe.bracket_uuid = eb.uuid
-			WHERE eb.event_uuid = ? LIMIT 1
+			WHERE eb.tournament_uuid = ? LIMIT 1
 		`, bracket.EventUUID)
 
 		if suffix == "" {
@@ -2849,7 +2849,7 @@ type ElimScoresheetData struct {
 }
 
 // GetEliminationScoresheet generates a printable HTML scoresheet for an elimination bracket.
-// Route: GET /api/v1/events/:id/elimination/brackets/:bracketId/scoresheet
+// Route: GET /api/v1/tournaments/:id/elimination/brackets/:bracketId/scoresheet
 func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -2870,7 +2870,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&ev, `
 			SELECT e.uuid, e.name, e.venue, e.location, e.city, e.start_date, e.end_date,
 			       o.name AS org_name
-			FROM events e
+			FROM tournaments e
 			LEFT JOIN organizers o ON e.organizer_id = o.uuid
 			WHERE e.uuid = ? OR e.slug = ?`, eventID, eventID)
 		if err != nil {
@@ -2931,11 +2931,11 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			           CONCAT_WS(' ', rbt.name, rag.name, rgd.name)
 			       ) AS category_name
 			FROM elimination_brackets eb
-			LEFT JOIN event_categories ec ON eb.category_uuid = ec.uuid
+			LEFT JOIN tournament_categories ec ON eb.category_uuid = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			WHERE eb.event_uuid = ? AND (eb.uuid = ? OR eb.bracket_id = ?)`,
+			WHERE eb.tournament_uuid = ? AND (eb.uuid = ? OR eb.bracket_id = ?)`,
 			ev.UUID, bracketID, bracketID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
@@ -2958,7 +2958,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			_ = db.Select(&boardNums, `
 				SELECT DISTINCT et.board_number
 				FROM elimination_matches em
-				JOIN event_targets et ON em.target_uuid = et.uuid
+				JOIN tournament_targets et ON em.target_uuid = et.uuid
 				WHERE em.bracket_uuid = ? AND et.board_number > 0
 				ORDER BY et.board_number ASC`, bracket.UUID)
 			for _, bn := range boardNums {
@@ -3020,7 +3020,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN archers aB       ON eeB.participant_type = 'archer' AND eeB.participant_uuid = aB.uuid
 			LEFT JOIN clubs   cB       ON aB.club_id = cB.uuid
 			LEFT JOIN teams   tB       ON eeB.participant_type = 'team'   AND eeB.participant_uuid = tB.uuid
-			LEFT JOIN event_targets et ON em.target_uuid = et.uuid
+			LEFT JOIN tournament_targets et ON em.target_uuid = et.uuid
 			LEFT JOIN target_board_elimination tbe ON tbe.bracket_uuid = em.bracket_uuid AND tbe.board_number = et.board_number
 			WHERE em.bracket_uuid = ? AND (em.is_bye = 0 OR em.is_bye IS NULL)
 			ORDER BY COALESCE(et.board_number, 9999) ASC, em.round_no ASC, em.match_no ASC`, bracket.UUID)

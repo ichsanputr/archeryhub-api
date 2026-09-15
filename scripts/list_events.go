@@ -38,8 +38,8 @@ func main() {
 	}
 	defer db.Close()
 
-	// Query events
-	rows, err := db.Query(`SELECT uuid, code, name, short_name, venue, city, start_date, end_date, status FROM events ORDER BY start_date DESC LIMIT 100`)
+	// Query tournaments
+	rows, err := db.Query(`SELECT uuid, code, name, short_name, venue, city, start_date, end_date, status FROM tournaments ORDER BY start_date DESC LIMIT 100`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,5 +79,5 @@ func main() {
 			uuid, code, name, shortStr, venueStr, cityStr, startStr, endStr, status)
 		count++
 	}
-	fmt.Printf("\nTotal events: %d\n", count)
+	fmt.Printf("\nTotal tournaments: %d\n", count)
 }

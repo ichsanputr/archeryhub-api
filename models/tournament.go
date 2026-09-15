@@ -228,7 +228,7 @@ type UpdateEventRequest struct {
 // EventEvent represents an event within a Event (division + category)
 type EventEvent struct {
 	UUID                string    `json:"id" db:"uuid"`
-	EventID             string    `json:"event_id" db:"event_id"`
+	EventID             string    `json:"event_id" db:"tournament_id"`
 	DivisionUUID        string    `json:"division_id" db:"division_uuid"`
 	CategoryUUID        string    `json:"category_id" db:"category_uuid"`
 	MaxParticipants     int       `json:"max_participants" db:"max_participants"`
@@ -250,7 +250,7 @@ type EventEventWithDetails struct {
 // Session represents a competition session
 type Session struct {
 	UUID             string     `json:"id" db:"uuid"`
-	EventID          string     `json:"Event_id" db:"Event_id"`
+	EventID          string     `json:"Event_id" db:"tournament_id"`
 	SessionOrder     int        `json:"session_order" db:"session_order"`
 	Name             *string    `json:"name" db:"name"`
 	SessionDate      *time.Time `json:"session_date" db:"session_date"`
@@ -265,7 +265,7 @@ type Session struct {
 // EventSchedule represents a schedule item for an event
 type EventSchedule struct {
 	UUID        string     `json:"id" db:"uuid"`
-	EventID     string     `json:"event_id" db:"event_id"`
+	EventID     string     `json:"event_id" db:"tournament_id"`
 	Title       string     `json:"title" db:"title"`
 	Description *string    `json:"description" db:"description"`
 	StartTime   time.Time  `json:"start_time" db:"start_time"`
@@ -291,7 +291,7 @@ type EventCategoryRef struct {
 // EventTarget represents a physical target in an event
 type EventTarget struct {
 	UUID        string    `json:"id" db:"uuid"`
-	EventUUID   string    `json:"event_id" db:"event_uuid"`
+	EventUUID   string    `json:"event_id" db:"tournament_id"`
 	TargetName  string    `json:"target_name" db:"target_name"`
 	BoardNumber int       `json:"board_number" db:"board_number"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`

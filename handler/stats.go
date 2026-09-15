@@ -19,9 +19,9 @@ func GetDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Active Events (status is 'published' or 'ongoing')
-		err := db.Get(&stats.ActiveEvents, "SELECT COUNT(*) FROM events WHERE status IN ('published', 'ongoing')")
+		err := db.Get(&stats.ActiveEvents, "SELECT COUNT(*) FROM tournaments WHERE status IN ('published', 'ongoing')")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch active events count"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch active tournaments count"})
 			return
 		}
 
@@ -33,15 +33,15 @@ func GetDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Live Events (status is 'ongoing')
-		err = db.Get(&stats.LiveEvents, "SELECT COUNT(*) FROM events WHERE status = 'ongoing'")
+		err = db.Get(&stats.LiveEvents, "SELECT COUNT(*) FROM tournaments WHERE status = 'ongoing'")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch live events count"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch live tournaments count"})
 			return
 		}
 
 		// Completed Today
 		today := time.Now().Format("2006-01-02")
-		err = db.Get(&stats.CompletedToday, "SELECT COUNT(*) FROM events WHERE status = 'completed' AND end_date = ?", today)
+		err = db.Get(&stats.CompletedToday, "SELECT COUNT(*) FROM tournaments WHERE status = 'completed' AND end_date = ?", today)
 		if err != nil {
 			// If end_date is just a string or date, this should work.
 			// If it fails, we'll just default to 0 for now.

@@ -68,7 +68,7 @@ func main() {
 
 		// Check event participants
 		var participantCount int
-		err = db.QueryRow("SELECT COUNT(*) FROM event_participants WHERE archer_id = ?", uuid).Scan(&participantCount)
+		err = db.QueryRow("SELECT COUNT(*) FROM tournament_participants WHERE archer_id = ?", uuid).Scan(&participantCount)
 		if err == nil && participantCount > 0 {
 			fmt.Printf("⚠️  %s has %d event participant records\n", email, participantCount)
 		}
@@ -97,9 +97,9 @@ func main() {
 		fmt.Printf("\n🗑️  Deleting related data for %s...\n", email)
 
 		// Delete event participants
-		result, err := db.Exec("DELETE FROM event_participants WHERE archer_id = ?", uuid)
+		result, err := db.Exec("DELETE FROM tournament_participants WHERE archer_id = ?", uuid)
 		if err != nil {
-			fmt.Printf("❌ Error deleting event_participants: %v\n", err)
+			fmt.Printf("❌ Error deleting tournament_participants: %v\n", err)
 		} else {
 			rows, _ := result.RowsAffected()
 			if rows > 0 {

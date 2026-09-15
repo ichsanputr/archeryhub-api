@@ -70,7 +70,7 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 						COALESCE(CONCAT(' [', (
 							SELECT GROUP_CONCAT(COALESCE(a2.full_name, '-') SEPARATOR ', ')
 							FROM qualification_target_assignments qta2
-							JOIN event_participants ep2 ON qta2.participant_uuid = ep2.uuid
+							JOIN tournament_participants ep2 ON qta2.participant_uuid = ep2.uuid
 							JOIN archers a2 ON ep2.archer_id = a2.uuid
 							WHERE qta2.session_uuid = qs.uuid AND qta2.target_uuid = et.uuid
 						), ']'), ' (Kosong)')) as label,
@@ -82,8 +82,8 @@ func GetScoringCards(db *sqlx.DB) gin.HandlerFunc {
 					et.target_name,
 					et.target_name as card_name
 				FROM qualification_sessions qs
-				JOIN event_targets et ON et.event_uuid = qs.event_uuid
-				WHERE qs.event_uuid = (SELECT event_id FROM event_categories WHERE uuid = ?)
+				JOIN tournament_targets et ON et.tournament_uuid = qs.tournament_uuid
+				WHERE qs.tournament_uuid = (SELECT event_id FROM tournament_categories WHERE uuid = ?)
 				ORDER BY qs.created_at ASC, et.board_number ASC, et.target_name ASC
 			`, categoryID)
 			if err != nil {
@@ -127,12 +127,12 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Resolve target name from event_targets
+		// Resolve target name from tournament_targets
 		cardName := ""
 		_ = db.Get(&cardName, `
 			SELECT et.target_name
-			FROM event_targets et
-			JOIN qualification_sessions qs ON qs.event_uuid = et.event_uuid
+			FROM tournament_targets et
+			JOIN qualification_sessions qs ON qs.tournament_uuid = et.tournament_uuid
 			WHERE qs.uuid = ? AND et.target_name = ?
 			LIMIT 1
 		`, sessionID, targetName)
@@ -146,7 +146,7 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&qualificationArrows, `
 			SELECT e.qualification_arrows
 			FROM qualification_sessions qs
-			JOIN events e ON qs.event_uuid = e.uuid
+			JOIN tournaments e ON qs.tournament_uuid = e.uuid
 			WHERE qs.uuid = ?
 			LIMIT 1
 		`, sessionID)
@@ -176,10 +176,10 @@ func GetScoringTargets(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(SUM(qes.total_score_end), 0) as current_score,
 				COUNT(qes.uuid) as ends_completed
 			FROM qualification_target_assignments qta
-			JOIN event_targets et ON qta.target_uuid = et.uuid
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid

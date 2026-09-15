@@ -34,7 +34,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 				CASE 
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
 					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
-					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
+					WHEN t.tournament_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
 					ELSE 'Transaksi Archeris'
 				END as description,
 				p.name as plan_name,
@@ -46,10 +46,10 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(u.full_name, u.username) as user_name
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
-			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN events e ON t.event_id = e.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournaments e ON t.tournament_id = e.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN (

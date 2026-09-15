@@ -36,7 +36,7 @@ var chatbotIntents = []Intent{
 		Answer:   "Info paket ada di dashboard subscription, termasuk status aktif dan tanggal berakhir.",
 	},
 	{
-		Name:     "event_schedule",
+		Name:     "tournament_schedules",
 		Examples: []string{"jadwal event", "schedule pertandingan", "kapan lomba"},
 		Answer:   "Kamu bisa cek jadwal event di menu Event. Kalau mau, kirim nama event yang ingin dicek.",
 	},

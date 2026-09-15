@@ -24,7 +24,7 @@ var defaultChatbotIntents = []Intent{
 		Answer:   "Kamu bisa melihat semua jadwal turnamen panahan yang sedang dan akan datang pada menu 'Event'. Gunakan filter lokasi kota atau divisi busur untuk menemukan turnamen yang cocok!",
 	},
 	{
-		Name:     "event_schedule",
+		Name:     "tournament_schedules",
 		Examples: []string{"jadwal event", "schedule pertandingan", "kapan lomba", "tanggal turnamen", "rundown acara", "jadwal sesi"},
 		Answer:   "Jadwal lengkap dan rundown sesi turnamen dapat dilihat pada halaman detail event masing-masing. Silakan pilih event yang kamu ikuti untuk melihat jadwal sesi dan target.",
 	},

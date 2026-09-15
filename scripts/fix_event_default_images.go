@@ -31,7 +31,7 @@ func main() {
 
 	// Update logo_url if null or empty
 	_, err = db.Exec(`
-		UPDATE events 
+		UPDATE tournaments 
 		SET logo_url = CONCAT('https://picsum.photos/seed/', uuid, '/400/400')
 		WHERE logo_url IS NULL OR logo_url = ''
 	`)
@@ -41,7 +41,7 @@ func main() {
 
 	// Update banner_url if null or empty
 	_, err = db.Exec(`
-		UPDATE events 
+		UPDATE tournaments 
 		SET banner_url = CONCAT('https://picsum.photos/seed/', uuid, '_banner/1200/400')
 		WHERE banner_url IS NULL OR banner_url = ''
 	`)
@@ -49,5 +49,5 @@ func main() {
 		fmt.Printf("Error updating banner_url: %v\n", err)
 	}
 
-	fmt.Println("Successfully updated events with default images to Picsum images.")
+	fmt.Println("Successfully updated tournaments with default images to Picsum images.")
 }

@@ -24,14 +24,14 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/archer/events": {
+        "/archer/tournaments": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of all events the archer is registered in",
+                "description": "Get list of all tournaments the archer is registered in",
                 "produces": [
                     "application/json"
                 ],
@@ -49,7 +49,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/archer/events/{id}/detail": {
+        "/archer/tournaments/{id}/detail": {
             "get": {
                 "security": [
                     {
@@ -83,7 +83,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/archer/events/{id}/qr": {
+        "/archer/tournaments/{id}/qr": {
             "get": {
                 "security": [
                     {
@@ -118,7 +118,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/archer/events/{id}/registration": {
+        "/archer/tournaments/{id}/registration": {
             "get": {
                 "security": [
                     {
@@ -152,9 +152,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/events": {
+        "/tournaments": {
             "get": {
-                "description": "Get a list of active or past events optimized for mobile",
+                "description": "Get a list of active or past tournaments optimized for mobile",
                 "produces": [
                     "application/json"
                 ],
@@ -183,7 +183,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Filter past events",
+                        "description": "Filter past tournaments",
                         "name": "history",
                         "in": "query"
                     }
@@ -198,7 +198,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}": {
+        "/tournaments/{slug}": {
             "get": {
                 "description": "Get summary and location details for a specific event\nGet summary details for a specific event without location, FAQ, or other granular info",
                 "produces": [
@@ -243,7 +243,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/categories": {
+        "/tournaments/{slug}/categories": {
             "get": {
                 "description": "Get list of divisions and age groups in this event",
                 "produces": [
@@ -272,7 +272,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/faq": {
+        "/tournaments/{slug}/faq": {
             "get": {
                 "description": "Get the list of frequently asked questions for an event",
                 "produces": [
@@ -301,7 +301,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/gallery": {
+        "/tournaments/{slug}/gallery": {
             "get": {
                 "description": "Get event gallery and documentation images",
                 "produces": [
@@ -330,7 +330,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/location": {
+        "/tournaments/{slug}/location": {
             "get": {
                 "description": "Get detailed location information and accessibility for an event",
                 "produces": [
@@ -359,7 +359,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/participants": {
+        "/tournaments/{slug}/participants": {
             "get": {
                 "description": "Get the list of registered archers for an event",
                 "produces": [
@@ -388,7 +388,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/payment-method": {
+        "/tournaments/{slug}/payment-method": {
             "get": {
                 "description": "Get a list of available payment methods (manual bank transfer and online gateway) for an event",
                 "produces": [
@@ -417,7 +417,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/registration-fee": {
+        "/tournaments/{slug}/registration-fee": {
             "get": {
                 "description": "Get the list of registration fees and categories for an event",
                 "produces": [
@@ -446,7 +446,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/rewards": {
+        "/tournaments/{slug}/rewards": {
             "get": {
                 "description": "Get the list of prizes and rewards for an event",
                 "produces": [
@@ -475,7 +475,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/events/{slug}/schedule": {
+        "/tournaments/{slug}/schedule": {
             "get": {
                 "description": "Get the daily schedule and rundown for an event",
                 "produces": [
@@ -706,7 +706,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/payments": {
+        "/mobile/archer/tournaments/payments": {
             "get": {
                 "security": [
                     {
@@ -745,7 +745,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/payments/{slug}": {
+        "/mobile/archer/tournaments/payments/{slug}": {
             "get": {
                 "security": [
                     {
@@ -779,7 +779,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/archer/events/register": {
+        "/mobile/archer/tournaments/register": {
             "post": {
                 "security": [
                     {
@@ -1859,7 +1859,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/payments/{reference}/instructions": {
+        "/mobile/tournaments/payments/{reference}/instructions": {
             "get": {
                 "security": [
                     {
@@ -1894,7 +1894,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/{slug}/results/elimination": {
+        "/mobile/tournaments/{slug}/results/elimination": {
             "get": {
                 "description": "Get the elimination match brackets and results for a specific category",
                 "produces": [
@@ -1930,7 +1930,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/{slug}/results/files": {
+        "/mobile/tournaments/{slug}/results/files": {
             "get": {
                 "description": "Get list of result files (PDF/XLSX) uploaded for an event",
                 "produces": [
@@ -1959,7 +1959,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/events/{slug}/results/qualification": {
+        "/mobile/tournaments/{slug}/results/qualification": {
             "get": {
                 "description": "Get complete leaderboard for a specific category, including end-by-end scores",
                 "produces": [
@@ -2497,14 +2497,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organizer/events": {
+        "/mobile/organizer/tournaments": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of events organized by the authenticated organizer",
+                "description": "Get list of tournaments organized by the authenticated organizer",
                 "produces": [
                     "application/json"
                 ],
@@ -2533,7 +2533,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Search events",
+                        "description": "Search tournaments",
                         "name": "search",
                         "in": "query"
                     }
@@ -2548,7 +2548,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organizer/events/{id}/participants": {
+        "/mobile/organizer/tournaments/{id}/participants": {
             "get": {
                 "security": [
                     {
@@ -2612,7 +2612,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/organizer/events/{id}/participants/{user_id}": {
+        "/mobile/organizer/tournaments/{id}/participants/{user_id}": {
             "get": {
                 "security": [
                     {
@@ -3087,14 +3087,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/mobile/scorekeeper/events": {
+        "/mobile/scorekeeper/tournaments": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of events owned by the scorekeeper's organizer",
+                "description": "Get list of tournaments owned by the scorekeeper's organizer",
                 "produces": [
                     "application/json"
                 ],
@@ -4829,7 +4829,7 @@ const docTemplate = `{
         "mobile.MobileEventsResponse": {
             "type": "object",
             "properties": {
-                "events": {
+                "tournaments": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/mobile.MobileEvent"
@@ -4954,7 +4954,7 @@ const docTemplate = `{
         "mobile.MobileMyEventsResponse": {
             "type": "object",
             "properties": {
-                "events": {
+                "tournaments": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/mobile.MobileMyEventItem"
@@ -5332,7 +5332,7 @@ const docTemplate = `{
             "properties": {
                 "banner_url": {
                     "type": "string",
-                    "example": "https://cdn.archeris.net/media/events/banner-jkt-open-2026.jpg"
+                    "example": "https://cdn.archeris.net/media/tournaments/banner-jkt-open-2026.jpg"
                 },
                 "end_date": {
                     "type": "string",
@@ -5344,7 +5344,7 @@ const docTemplate = `{
                 },
                 "logo_url": {
                     "type": "string",
-                    "example": "https://cdn.archeris.net/media/events/logo-jkt-open-2026.png"
+                    "example": "https://cdn.archeris.net/media/tournaments/logo-jkt-open-2026.png"
                 },
                 "name": {
                     "type": "string",
@@ -5417,7 +5417,7 @@ const docTemplate = `{
         "mobile.MobileOrganizationEventsResponse": {
             "type": "object",
             "properties": {
-                "events": {
+                "tournaments": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/mobile.MobileOrganizationEventItem"
@@ -6140,7 +6140,7 @@ const docTemplate = `{
         "mobile.MobileScorekeeperEventsResponse": {
             "type": "object",
             "properties": {
-                "events": {
+                "tournaments": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/mobile.MobileEvent"

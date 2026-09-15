@@ -239,7 +239,7 @@ func getOwnedEventUUID(c *gin.Context, db *sqlx.DB, organizationUUID, eventID st
 	var eventUUID string
 	err := db.Get(&eventUUID, `
 		SELECT uuid
-		FROM events
+		FROM tournaments
 		WHERE organizer_id = ? AND (uuid = ? OR slug = ?)
 		LIMIT 1
 	`, organizationUUID, eventID, eventID)
@@ -250,18 +250,18 @@ func getOwnedEventUUID(c *gin.Context, db *sqlx.DB, organizationUUID, eventID st
 	return eventUUID, true
 }
 
-// MobileGetOrganizationEvents returns events owned by organizer
+// MobileGetOrganizationEvents returns tournaments owned by organizer
 // @Summary Get Organizer Events
-// @Description Get list of events organized by the authenticated organizer
+// @Description Get list of tournaments organized by the authenticated organizer
 // @Tags Mobile - Organizer
 // @Produce json
 // @Security ApiKeyAuth
 // @Param limit query int false "Pagination limit"
 // @Param offset query int false "Pagination offset"
 // @Param status query string false "Filter by status"
-// @Param search query string false "Search events"
+// @Param search query string false "Search tournaments"
 // @Success 200 {object} MobileOrganizationEventsResponse
-// @Router /mobile/organizer/events [get]
+// @Router /mobile/organizer/tournaments [get]
 func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organizer") {
@@ -291,12 +291,12 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var total int
-		if err := db.Get(&total, `SELECT COUNT(*) FROM events e `+whereClause, args...); err != nil {
+		if err := db.Get(&total, `SELECT COUNT(*) FROM tournaments e `+whereClause, args...); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung event organisasi", "details": err.Error()})
 			return
 		}
 
-		var events []MobileOrganizationEventItem
+		var tournaments []MobileOrganizationEventItem
 		query := `
 			SELECT
 				e.uuid,
@@ -316,39 +316,39 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 					WHEN e.registration_deadline IS NOT NULL AND e.registration_deadline < NOW() THEN TRUE
 					ELSE FALSE
 				END as registration_closed
-			FROM events e
+			FROM tournaments e
 			LEFT JOIN (
 				SELECT
 					event_id,
 					COUNT(*) as participant_count,
 					SUM(CASE WHEN payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END) as verified_count,
 					SUM(CASE WHEN payment_status IN ('pending', 'menunggu_acc', 'menunggu acc') THEN 1 ELSE 0 END) as pending_count
-				FROM event_participants
+				FROM tournament_participants
 				GROUP BY event_id
-			) ps ON ps.event_id = e.uuid
+			) ps ON ps.tournament_id = e.uuid
 			` + whereClause + `
 			ORDER BY e.start_date DESC, e.created_at DESC
 			LIMIT ? OFFSET ?
 		`
 		queryArgs := append(args, limit, offset)
-		if err := db.Select(&events, query, queryArgs...); err != nil {
+		if err := db.Select(&tournaments, query, queryArgs...); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil event organisasi", "details": err.Error()})
 			return
 		}
 
-		for i := range events {
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+		for i := range tournaments {
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
-			if events[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*events[i].BannerURL)
-				events[i].BannerURL = &masked
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
 			}
 		}
 
 		c.JSON(http.StatusOK, MobileOrganizationEventsResponse{
-			Events: events,
+			Events: tournaments,
 			Total:  total,
 			Limit:  limit,
 			Offset: offset,
@@ -369,7 +369,7 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 // @Param payment_status query string false "Filter by payment status"
 // @Param category_id query string false "Filter by category"
 // @Success 200 {object} MobileOrganizationEventParticipantsResponse
-// @Router /mobile/organizer/events/{id}/participants [get]
+// @Router /mobile/organizer/tournaments/{id}/participants [get]
 func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !requireMobileUserType(c, "organizer") {
@@ -392,7 +392,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := strings.TrimSpace(c.Query("category_id"))
 		reregistered := strings.TrimSpace(c.Query("reregistered")) // "true", "false", or ""
 
-		whereClause := "WHERE tp.event_id = ?"
+		whereClause := "WHERE tp.tournament_id = ?"
 		args := []interface{}{eventUUID}
 		countArgs := []interface{}{eventUUID}
 		if categoryID != "" {
@@ -424,7 +424,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var total int
-		countQuery := "SELECT COUNT(*) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
+		countQuery := "SELECT COUNT(*) FROM tournament_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
 		if err := db.Get(&total, countQuery, countArgs...); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah peserta", "details": err.Error()})
 			return
@@ -442,7 +442,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				'' as city,
 				a.club_id,
 				NULLIF(COALESCE(cl.name, ''), '') as club_name,
-				tp.event_id,
+				tp.tournament_id,
 				tp.category_id,
 				COALESCE(bt.name, '') as division_name,
 				COALESCE(ec.category_name_custom, ag.name, '') as category_name,
@@ -453,13 +453,13 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				a.avatar_url,
 				tp.registration_date,
 				COALESCE(tp.payment_status, 'pending') as payment_status
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON tp.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-			LEFT JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON ec.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
 			` + whereClause + `
 			ORDER BY tp.registration_date DESC, a.full_name ASC
@@ -479,15 +479,15 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			participants[i].QRCodeDataURL = buildMobileQRCodeDataURL(participants[i].QRRaw)
 		}
 
-		statusWhere := "WHERE event_id = ?"
+		statusWhere := "WHERE tournament_id = ?"
 		statusArgs := []interface{}{eventUUID}
 		if categoryID != "" {
 			statusWhere += " AND category_id = ?"
 			statusArgs = append(statusArgs, categoryID)
 		}
 		var verifiedCount, pendingCount int
-		_ = db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants "+statusWhere+" AND payment_status IN ('paid', 'lunas')", statusArgs...)
-		_ = db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants "+statusWhere+" AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", statusArgs...)
+		_ = db.Get(&verifiedCount, "SELECT COUNT(*) FROM tournament_participants "+statusWhere+" AND payment_status IN ('paid', 'lunas')", statusArgs...)
+		_ = db.Get(&pendingCount, "SELECT COUNT(*) FROM tournament_participants "+statusWhere+" AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", statusArgs...)
 
 		c.JSON(http.StatusOK, MobileOrganizationEventParticipantsResponse{
 			Participants:  participants,
@@ -682,11 +682,11 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 				cl.name as club_name,
 				COALESCE(ep.payment_status, 'unpaid') as payment_status,
 				ep.last_reregistration_at
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
 			WHERE ep.qr_raw = ? AND e.organizer_id = ?
 			LIMIT 1
@@ -698,7 +698,7 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Update reregistration time
-		_, err = db.Exec(`UPDATE event_participants SET last_reregistration_at = NOW() WHERE uuid = ?`, resp.ParticipantUUID)
+		_, err = db.Exec(`UPDATE tournament_participants SET last_reregistration_at = NOW() WHERE uuid = ?`, resp.ParticipantUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data pendaftaran", "details": err.Error()})
 			return
@@ -723,7 +723,7 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 // @Param id path string true "Event UUID"
 // @Param user_id path string true "Archer UUID or Participant UUID"
 // @Success 200 {object} MobileOrganizationParticipantDetail
-// @Router /mobile/organizer/events/{id}/participants/{user_id} [get]
+// @Router /mobile/organizer/tournaments/{id}/participants/{user_id} [get]
 func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -736,12 +736,12 @@ func MobileGetOrganizationParticipantDetail(db *sqlx.DB) gin.HandlerFunc {
 				ec.uuid as category_uuid, COALESCE(ec.category_name_custom, r_ag.name, '') as category_name,
 				tp.target_name, tp.back_number, tp.payment_status, tp.payment_amount,
 				tp.registration_date, tp.last_reregistration_at
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON tp.category_id = ec.uuid
 			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
-			WHERE tp.event_id = ? AND (tp.uuid = ? OR tp.archer_id = ?)
+			WHERE tp.tournament_id = ? AND (tp.uuid = ? OR tp.archer_id = ?)
 			LIMIT 1
 		`
 
@@ -829,9 +829,9 @@ func MobileGetScanHistory(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.id, '') as athlete_code,
 				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name
 			FROM activity_logs al
-			JOIN event_participants ep ON al.description = CONCAT('Scanned QR for reregistration: ', ep.uuid)
+			JOIN tournament_participants ep ON al.description = CONCAT('Scanned QR for reregistration: ', ep.uuid)
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
 			WHERE al.action = 'mobile_reregistration_scan' AND al.user_id = ?
 			ORDER BY al.created_at DESC

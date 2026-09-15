@@ -74,7 +74,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 					COUNT(uuid) as total_events,
 					COUNT(CASE WHEN payment_status = 'verified' THEN uuid END) as completed_events,
 					MAX(registration_date) as last_event_date
-				FROM event_participants
+				FROM tournament_participants
 				GROUP BY archer_id
 			) stats ON a.uuid = stats.archer_id
 			` + whereClause + `
@@ -135,8 +135,8 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				MAX(t.end_date) as last_event_date
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_participants tp ON a.uuid = tp.archer_id
-			LEFT JOIN events t ON tp.event_id = t.uuid
+			LEFT JOIN tournament_participants tp ON a.uuid = tp.archer_id
+			LEFT JOIN tournaments t ON tp.tournament_id = t.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
 			GROUP BY a.uuid
 			LIMIT 1
@@ -178,7 +178,7 @@ type ArcherEventHistory struct {
 	GenderDivisionName string     `json:"gender_division_name" db:"gender_division_name"`
 }
 
-// GetArcherEvents returns the event history for a specific archer
+// GetArcherEvents returns the tournament history for a specific archer
 func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -196,33 +196,33 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name,
 				COALESCE(gd.name, '') as gender_division_name
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories te ON ep.category_id = te.uuid
+			LEFT JOIN tournament_categories te ON ep.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.event_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
 			ORDER BY e.start_date DESC, e.name ASC
 		`
 
-		var events []ArcherEventHistory
-		err := db.Select(&events, query, id, id, id)
+		var tournaments []ArcherEventHistory
+		err := db.Select(&tournaments, query, id, id, id)
 		if err != nil {
-			logrus.WithError(err).Error("Gagal mengambil riwayat event pemanah")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil riwayat event pemanah", "details": err.Error()})
+			logrus.WithError(err).Error("Gagal mengambil riwayat turnamen pemanah")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil riwayat turnamen pemanah", "details": err.Error()})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"events": events,
+			"tournaments": tournaments,
 		})
 	}
 }
 
-// GetMyArcherEvents returns events that the authenticated archer is registered for
+// GetMyArcherEvents returns tournaments that the authenticated archer is registered for
 func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -267,12 +267,12 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 		var total int
 		err := db.Get(&total, `
 			SELECT COUNT(DISTINCT e.uuid) 
-			FROM events e
-			INNER JOIN event_participants ep ON e.uuid = ep.event_id
+			FROM tournaments e
+			INNER JOIN tournament_participants ep ON e.uuid = ep.tournament_id
 			`+whereClause, args...)
 		if err != nil {
-			logrus.WithError(err).Error("Gagal menghitung riwayat event pemanah")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung riwayat event pemanah", "details": err.Error()})
+			logrus.WithError(err).Error("Gagal menghitung riwayat turnamen pemanah")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung riwayat turnamen pemanah", "details": err.Error()})
 			return
 		}
 
@@ -289,15 +289,15 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				CASE WHEN MAX(ep.payment_status) IN ('paid', 'lunas') THEN 'registered' ELSE 'pending' END as participant_status,
 				MAX(ep.uuid) as participant_uuid,
 				MAX(ep.qr_raw) as qr_raw
-			FROM events e
-			INNER JOIN event_participants ep ON e.uuid = ep.event_id
+			FROM tournaments e
+			INNER JOIN tournament_participants ep ON e.uuid = ep.tournament_id
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url FROM clubs
 			) o ON e.organizer_id = o.id
-			LEFT JOIN event_participants ep2 ON e.uuid = ep2.event_id
-			LEFT JOIN event_categories ec ON e.uuid = ec.event_id
+			LEFT JOIN tournament_participants ep2 ON e.uuid = ep2.tournament_id
+			LEFT JOIN tournament_categories ec ON e.uuid = ec.tournament_id
 			` + whereClause + `
 			GROUP BY e.uuid, o.full_name, o.email, o.slug, o.avatar_url
 			ORDER BY e.start_date DESC
@@ -305,42 +305,43 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 		`
 		args = append(args, limit, offset)
 
-		var events []models.EventWithDetails
-		err = db.Select(&events, query, args...)
+		var tournaments []models.EventWithDetails
+		err = db.Select(&tournaments, query, args...)
 		if err != nil {
-			logrus.WithError(err).Error("Gagal mengambil riwayat event pemanah")
+			logrus.WithError(err).Error("Gagal mengambil riwayat turnamen pemanah")
 			c.JSON(http.StatusOK, gin.H{
-				"events": []interface{}{},
+				"tournaments": []interface{}{},
 				"total":  0,
 			})
 			return
 		}
 
 		// Mask URLs
-		for i := range events {
-			if events[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*events[i].BannerURL)
-				events[i].BannerURL = &masked
+		for i := range tournaments {
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
 			}
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
-			if events[i].TechnicalGuidebookURL != nil {
-				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
-				events[i].TechnicalGuidebookURL = &masked
+			if tournaments[i].TechnicalGuidebookURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].TechnicalGuidebookURL)
+				tournaments[i].TechnicalGuidebookURL = &masked
 			}
-			if events[i].OrganizerAvatarURL != nil {
-				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
-				events[i].OrganizerAvatarURL = &masked
+			if tournaments[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].OrganizerAvatarURL)
+				tournaments[i].OrganizerAvatarURL = &masked
 			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"events": events,
-			"total":  total,
-			"limit":  limit,
-			"offset": offset,
+			"tournaments": tournaments,
+			"events":      tournaments,
+			"total":       total,
+			"limit":       limit,
+			"offset":      offset,
 		})
 	}
 }
@@ -763,10 +764,10 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if archer has any event participations
 		var participationCount int
-		db.Get(&participationCount, "SELECT COUNT(*) FROM event_participants WHERE archer_id = ?", id)
+		db.Get(&participationCount, "SELECT COUNT(*) FROM tournament_participants WHERE archer_id = ?", id)
 
 		if participationCount > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Pemanah tidak bisa dihapus karena sudah memiliki riwayat event"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pemanah tidak bisa dihapus karena sudah memiliki riwayat turnamen"})
 			return
 		}
 
@@ -1045,10 +1046,10 @@ func GetMyArcherStats(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.uuid) as total_events,
 				COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN tp.uuid END) as completed_events,
 				MAX(t.end_date) as last_event_date,
-				(SELECT MAX(qual_score) FROM event_participants WHERE archer_id = ?) as best_score,
-				(SELECT COUNT(*) FROM event_participants WHERE archer_id = ? AND qual_rank <= 3) as podium_count
-			FROM event_participants tp
-			LEFT JOIN events t ON tp.event_id = t.uuid
+				(SELECT MAX(qual_score) FROM tournament_participants WHERE archer_id = ?) as best_score,
+				(SELECT COUNT(*) FROM tournament_participants WHERE archer_id = ? AND qual_rank <= 3) as podium_count
+			FROM tournament_participants tp
+			LEFT JOIN tournaments t ON tp.tournament_id = t.uuid
 			WHERE tp.archer_id = ?
 		`
 

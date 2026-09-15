@@ -10,7 +10,7 @@ import (
 func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		type SitemapData struct {
-			Events     []string `json:"events"`
+			Events     []string `json:"tournaments"`
 			Archers    []string `json:"archers"`
 			Organizers []string `json:"organizers"`
 			Products   []string `json:"products"`
@@ -19,7 +19,7 @@ func GetSitemapData(db *sqlx.DB) gin.HandlerFunc {
 		var data SitemapData
 
 		// Fetch Event slugs - include anything that isn't a draft
-		err := db.Select(&data.Events, "SELECT slug FROM events WHERE slug IS NOT NULL AND slug != '' AND status != 'draft'")
+		err := db.Select(&data.Events, "SELECT slug FROM tournaments WHERE slug IS NOT NULL AND slug != '' AND status != 'draft'")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data slug event: " + err.Error()})
 			return

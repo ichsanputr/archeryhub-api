@@ -46,8 +46,8 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 				WHEN ret.code = 'team' THEN 3 
 				ELSE 1 
 			END as team_size
-			FROM event_categories ec
-			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			FROM tournament_categories ec
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
 			WHERE ec.uuid = ?`, req.CategoryID)
 		if err != nil {
 			teamSize = 3 // Fallback
@@ -85,7 +85,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -146,7 +146,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
 					tm.member_order
 				FROM team_members tm
-				JOIN event_participants ep ON tm.participant_id = ep.uuid
+				JOIN tournament_participants ep ON tm.participant_id = ep.uuid
 				LEFT JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
@@ -186,8 +186,8 @@ func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT t.*, e.name as event_name, c.name as category_name, COUNT(tm.id) as member_count 
 			FROM teams t
-			JOIN events e ON t.tournament_id = e.uuid
-			JOIN event_categories c ON t.event_id = c.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
+			JOIN tournament_categories c ON t.event_id = c.uuid
 			LEFT JOIN team_members tm ON t.uuid = tm.team_id
 			WHERE `
 
@@ -241,7 +241,7 @@ func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&members, `
 			SELECT tm.uuid, tm.team_id, tm.participant_id, tm.member_order, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, '' as city
 			FROM team_members tm
-			JOIN event_participants tp ON tm.participant_id = tp.uuid
+			JOIN tournament_participants tp ON tm.participant_id = tp.uuid
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			WHERE tm.team_id = ?
 			ORDER BY tm.member_order
@@ -413,8 +413,8 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 				WHEN ret.code = 'team' THEN 3 
 				ELSE 1 
 			END as team_size
-			FROM event_categories ec
-			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			FROM tournament_categories ec
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
 			WHERE ec.uuid = ?`, categoryID)
 		if err != nil {
 			teamSize = 3 // Fallback
@@ -451,7 +451,7 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(SUM(s.total_score_end), 0) as individual_score,
 					COALESCE(SUM(s.x_count_end), 0) as individual_x,
 					ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as club_rank
-				FROM event_participants ep
+				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
 				LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
@@ -497,9 +497,9 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Select(&catIDs, `
 			SELECT ec.uuid, rgd.code as gender_code
-			FROM event_categories ec
+			FROM tournament_categories ec
 			JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+			WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
 		`, eventID, divisionID, ageGroupID)
 
 		if err != nil || len(catIDs) < 2 {
@@ -580,7 +580,7 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 							ep.category_id,
 							COALESCE(SUM(s.total_score_end), 0) as individual_score,
 							COALESCE(SUM(s.x_count_end), 0) as individual_x
-						FROM event_participants ep
+						FROM tournament_participants ep
 						JOIN archers a ON ep.archer_id = a.uuid
 						LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
 						WHERE ep.category_id IN (?, ?)
@@ -700,7 +700,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -716,7 +716,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		// 1. Check category type (Standard vs Mixed)
 		var catInfo struct {
-			TypeID           string `db:"event_type_uuid"`
+			TypeID           string `db:"tournament_type_uuid"`
 			TypeCode         string `db:"type_code"`
 			DivisionID       string `db:"division_uuid"`
 			AgeGroupID       string `db:"category_uuid"`
@@ -726,7 +726,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err = db.Get(&catInfo, `
 			SELECT 
-				ec.event_type_uuid, 
+				ec.tournament_type_uuid, 
 				ret.code as type_code, 
 				ec.division_uuid, 
 				ec.category_uuid, 
@@ -737,8 +737,8 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 					WHEN ret.code = 'team' THEN 3 
 					ELSE 1 
 				END as team_size
-			FROM event_categories ec
-			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			FROM tournament_categories ec
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
 			JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			WHERE ec.uuid = ?
 		`, req.CategoryID)
@@ -782,14 +782,14 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			var maleParticipants int
 			_ = tx.Get(&maleParticipants, `
 				SELECT COUNT(DISTINCT ep.archer_id)
-				FROM event_participants ep
+				FROM tournament_participants ep
 				WHERE ep.category_id = ?
 			`, req.CategoryID)
 
 			var femaleParticipants int
 			_ = tx.Get(&femaleParticipants, `
 				SELECT COUNT(DISTINCT ep.archer_id)
-				FROM event_participants ep
+				FROM tournament_participants ep
 				WHERE ep.category_id = ?
 			`, req.CategoryID)
 
@@ -800,10 +800,10 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			}
 			err = tx.Select(&catIDs, `
 				SELECT ec.uuid, rgd.code as gender_code
-				FROM event_categories ec
+				FROM tournament_categories ec
 				JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-				JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
-				WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+				JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+				WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
 				  AND ret.code = 'individual'
 			`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID)
 
@@ -863,9 +863,9 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
                                COALESCE(SUM(s.total_score_end), 0) as individual_score, 
                                COALESCE(SUM(s.x_count_end), 0) as individual_x,
 							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep_indiv.category_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.x_count_end) DESC) as rank_in_club
-						FROM event_participants ep_team
+						FROM tournament_participants ep_team
 						JOIN archers a ON ep_team.archer_id = a.uuid
-						JOIN event_participants ep_indiv ON a.uuid = ep_indiv.archer_id
+						JOIN tournament_participants ep_indiv ON a.uuid = ep_indiv.archer_id
 						LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep_indiv.uuid
 						WHERE ep_team.category_id = ? AND ep_indiv.category_id IN (?, ?)
 						GROUP BY ep_team.archer_id, ep_team.uuid, a.club_id, ep_indiv.category_id
@@ -932,9 +932,9 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			var indivCatID string
 			if err2 := tx.Get(&indivCatID, `
 				SELECT ec.uuid
-				FROM event_categories ec
-				JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
-				WHERE ec.event_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+				FROM tournament_categories ec
+				JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+				WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
 				  AND ec.gender_division_uuid = ? AND ret.code = 'individual'
 			`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID, catInfo.GenderDivisionID); err2 == nil && indivCatID != "" {
 				participantCatID = indivCatID
@@ -943,14 +943,14 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			var totalParticipants int
 			_ = tx.Get(&totalParticipants, `
 				SELECT COUNT(DISTINCT ep.archer_id)
-				FROM event_participants ep
+				FROM tournament_participants ep
 				WHERE ep.category_id = ?
 			`, req.CategoryID)
 
 			var clubsWithParticipants int
 			_ = tx.Get(&clubsWithParticipants, `
 				SELECT COUNT(DISTINCT a.club_id)
-				FROM event_participants ep
+				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				WHERE ep.category_id = ? AND a.club_id IS NOT NULL AND a.club_id <> ''
 			`, req.CategoryID)
@@ -960,9 +960,9 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				FROM (
 					SELECT ep_team.uuid as participant_id, cl.uuid as club_id, COALESCE(cl.name, 'Independen') as club_name, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x,
 						ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as club_rank
-					FROM event_participants ep_team
+					FROM tournament_participants ep_team
 					JOIN archers a ON ep_team.archer_id = a.uuid
-					JOIN event_participants ep_indiv ON a.uuid = ep_indiv.archer_id
+					JOIN tournament_participants ep_indiv ON a.uuid = ep_indiv.archer_id
 					LEFT JOIN clubs cl ON a.club_id = cl.uuid
 					LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep_indiv.uuid
 					WHERE ep_team.category_id = ? AND ep_indiv.category_id = ?
@@ -1076,8 +1076,8 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 				WHEN ret.code = 'team' THEN 3 
 				ELSE 1 
 			END as team_size
-			FROM event_categories ec
-			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
+			FROM tournament_categories ec
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
 			WHERE ec.uuid = ?`, req.CategoryID)
 		if err != nil {
 			teamSize = 3 // Fallback
@@ -1174,7 +1174,7 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"team": nil})
 			return
@@ -1204,10 +1204,10 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, 'Recurve Team') as category_name
 			FROM teams t
 			JOIN team_members tm ON t.uuid = tm.team_id
-			JOIN event_participants ep ON tm.participant_id = ep.uuid
+			JOIN tournament_participants ep ON tm.participant_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON t.event_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON t.event_id = ec.uuid
 			WHERE t.tournament_id = ? AND (
 				ep.archer_id = ? 
 				OR ep.archer_id IN (SELECT uuid FROM archers WHERE email = (SELECT email FROM archers WHERE uuid = ? OR id = ?))
@@ -1237,7 +1237,7 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 				tm.member_order,
 				COALESCE(ep.qual_score, tm.total_score, 0) as score
 			FROM team_members tm
-			JOIN event_participants ep ON tm.participant_id = ep.uuid
+			JOIN tournament_participants ep ON tm.participant_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			WHERE tm.team_id = ?

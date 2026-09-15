@@ -147,7 +147,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			org.BannerURL = &masked
 		}
 
-		// Get events organized by this organizer with pagination
+		// Get tournaments organized by this organizer with pagination
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		if page < 1 {
 			page = 1
@@ -159,9 +159,9 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		offset := (page - 1) * limit
 
 		var totalEvents int
-		db.Get(&totalEvents, "SELECT COUNT(*) FROM events WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')", org.UUID)
+		db.Get(&totalEvents, "SELECT COUNT(*) FROM tournaments WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')", org.UUID)
 
-		var events []struct {
+		var tournaments []struct {
 			UUID      string  `db:"uuid" json:"id"`
 			Name      string  `db:"name" json:"name"`
 			Slug      string  `db:"slug" json:"slug"`
@@ -171,18 +171,18 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 			Status    *string `db:"status" json:"status"`
 			LogoURL   *string `db:"logo_url" json:"logo_url"`
 		}
-		db.Select(&events, `
+		db.Select(&tournaments, `
 			SELECT uuid, name, slug, start_date, end_date, venue, status, logo_url
-			FROM events
+			FROM tournaments
 			WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')
 			ORDER BY start_date DESC
 			LIMIT ? OFFSET ?
 		`, org.UUID, limit, offset)
 
-		for i := range events {
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+		for i := range tournaments {
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
 		}
 
@@ -218,7 +218,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"created_at":           org.CreatedAt,
 				"updated_at":           org.UpdatedAt,
 			},
-			"events":       events,
+			"tournaments":       tournaments,
 			"total_events": totalEvents,
 			"clubs":        []interface{}{},
 		}
@@ -574,16 +574,16 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 		// These are archers who have participated in any event organized by this organizer
 		_ = db.Get(&stats.TotalArchers, `
 			SELECT COUNT(DISTINCT ep.archer_id) 
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ?
 		`, userID)
 
-		// 2. Total Verified Revenue for this organizer's events
+		// 2. Total Verified Revenue for this organizer's tournaments
 		_ = db.Get(&stats.TotalRevenue, `
 			SELECT COALESCE(SUM(amount), 0)
 			FROM payment_transactions
-			WHERE event_id IN (SELECT uuid FROM events WHERE organizer_id = ?)
+			WHERE tournament_id IN (SELECT uuid FROM tournaments WHERE organizer_id = ?)
 			  AND status IN ('paid', 'success', 'settlement', 'completed')
 		`, userID)
 
@@ -596,8 +596,8 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				DATE_FORMAT(ep.created_at, '%Y-%m') as month_key,
 				COUNT(ep.uuid) as count
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ? AND ep.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
 			GROUP BY month_key
 		`, userID)
@@ -633,7 +633,7 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// 4. Real Leaderboard from organizer's events (top 5 scores)
+		// 4. Real Leaderboard from organizer's tournaments (top 5 scores)
 		_ = db.Select(&stats.Leaderboard, `
 			SELECT 
 				ep.uuid as id,
@@ -642,10 +642,10 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.avatar_url, '') as avatar_url,
 				COALESCE(SUM(qes.end_score), 0) as score
 			FROM qualification_end_scores qes
-			JOIN event_participants ep ON qes.participant_uuid = ep.uuid
-			JOIN events e ON ep.event_id = e.uuid
+			JOIN tournament_participants ep ON qes.participant_uuid = ep.uuid
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			WHERE e.organizer_id = ?
 			GROUP BY ep.uuid, a.name, ep.name, ec.name, a.avatar_url
 			HAVING score > 0
@@ -653,10 +653,10 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			LIMIT 5
 		`, userID)
 
-		// 5. Active Stats (from ongoing events)
+		// 5. Active Stats (from ongoing tournaments)
 		var ongoingEventID string
 		err := db.Get(&ongoingEventID, `
-			SELECT uuid FROM events 
+			SELECT uuid FROM tournaments 
 			WHERE organizer_id = ? AND status = 'ongoing' 
 			ORDER BY updated_at DESC LIMIT 1
 		`, userID)
@@ -665,23 +665,23 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 			stats.RecentActiveEvent = &ongoingEventID
 
 			// Total targets in this event
-			_ = db.Get(&stats.ActiveTotalTargets, "SELECT COUNT(*) FROM event_targets WHERE event_uuid = ?", ongoingEventID)
+			_ = db.Get(&stats.ActiveTotalTargets, "SELECT COUNT(*) FROM tournament_targets WHERE tournament_uuid = ?", ongoingEventID)
 
 			// Occupied targets (targets with assignments)
 			_ = db.Get(&stats.ActiveTargets, `
 				SELECT COUNT(DISTINCT et.uuid) 
-				FROM event_targets et
+				FROM tournament_targets et
 				JOIN qualification_target_assignments qta ON et.uuid = qta.target_uuid
-				WHERE et.event_uuid = ?
+				WHERE et.tournament_uuid = ?
 			`, ongoingEventID)
 
 			// Completion calculation (Qualification ends)
 			var totalParticipants int
-			_ = db.Get(&totalParticipants, "SELECT COUNT(*) FROM event_participants WHERE event_id = ?", ongoingEventID)
+			_ = db.Get(&totalParticipants, "SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ?", ongoingEventID)
 
 			var totalEndsForEvent int = 12 // Default
 			var qualificationArrows int
-			_ = db.Get(&qualificationArrows, "SELECT qualification_arrows FROM events WHERE uuid = ?", ongoingEventID)
+			_ = db.Get(&qualificationArrows, "SELECT qualification_arrows FROM tournaments WHERE uuid = ?", ongoingEventID)
 			if qualificationArrows > 0 {
 				totalEndsForEvent = (qualificationArrows + 5) / 6
 			}
@@ -690,8 +690,8 @@ func GetOrganizationDashboardStats(db *sqlx.DB) gin.HandlerFunc {
 				var completedEnds int
 				_ = db.Get(&completedEnds, `
 					SELECT COUNT(*) FROM qualification_end_scores qes
-					JOIN event_participants ep ON qes.participant_uuid = ep.uuid
-					WHERE ep.event_id = ?
+					JOIN tournament_participants ep ON qes.participant_uuid = ep.uuid
+					WHERE ep.tournament_id = ?
 				`, ongoingEventID)
 
 				totalExpectedEnds := totalParticipants * totalEndsForEvent

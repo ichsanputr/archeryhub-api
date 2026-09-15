@@ -31,7 +31,7 @@ func buildMobileQRCodeDataURL(qrRaw *string) *string {
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
 // @Success 200 {object} MobileMyRegistrationResponse
-// @Router       /archer/events/{id}/registration [get]
+// @Router       /archer/tournaments/{id}/registration [get]
 func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -44,7 +44,7 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var eventUUID string
-		if err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+		if err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
@@ -65,13 +65,13 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 				pt.pay_code,
 				pt.qr_url,
 				ep.registration_date
-			FROM event_participants ep
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			FROM tournament_participants ep
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN payment_transactions pt ON pt.registration_id = ep.uuid AND pt.status = 'pending'
-			WHERE ep.event_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
+			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
 			ORDER BY ep.registration_date DESC
 		`, eventUUID, archerUUID)
 		if err != nil {
@@ -88,14 +88,14 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetMyEvents returns list of registered events
+// MobileGetMyEvents returns list of registered tournaments
 // @Summary Get My Events
-// @Description Get list of all events the archer is registered in
+// @Description Get list of all tournaments the archer is registered in
 // @Tags         Archer
 // @Produce json
 // @Security ApiKeyAuth
 // @Success 200 {object} MobileMyEventsResponse
-// @Router       /archer/events [get]
+// @Router       /archer/tournaments [get]
 func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -106,8 +106,8 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var events []MobileMyEventItem
-		err := db.Select(&events, `
+		var tournaments []MobileMyEventItem
+		err := db.Select(&tournaments, `
 			SELECT
 				e.uuid as event_uuid, e.name as event_name, e.slug as event_slug,
 				e.location, e.start_date, e.end_date, e.logo_url,
@@ -115,9 +115,9 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
 				ep.payment_status,
 				ep.registration_date
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
@@ -128,20 +128,20 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event"})
 			return
 		}
-		if events == nil {
-			events = []MobileMyEventItem{}
+		if tournaments == nil {
+			tournaments = []MobileMyEventItem{}
 		}
 
-		for i := range events {
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+		for i := range tournaments {
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
 		}
 
 		c.JSON(http.StatusOK, MobileMyEventsResponse{
-			Events: events,
-			Total:  len(events),
+			Events: tournaments,
+			Total:  len(tournaments),
 		})
 	}
 }
@@ -154,7 +154,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
 // @Success 200 {object} map[string]interface{}
-// @Router       /archer/events/{id}/qr [get]
+// @Router       /archer/tournaments/{id}/qr [get]
 func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -167,7 +167,7 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var eventUUID string
-		if err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+		if err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
@@ -180,8 +180,8 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&result, `
 			SELECT ep.qr_raw, ep.payment_status, ep.registration_date
-			FROM event_participants ep
-			WHERE ep.event_id = ? AND ep.archer_id = ?
+			FROM tournament_participants ep
+			WHERE ep.tournament_id = ? AND ep.archer_id = ?
 			ORDER BY ep.qr_raw IS NULL ASC, ep.registration_date DESC
 			LIMIT 1
 		`, eventUUID, archerUUID)
@@ -220,7 +220,7 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			Location  string  `db:"location"`
 			LogoURL   *string `db:"logo_url"`
 		}
-		err := db.Get(&event, "SELECT uuid, name, start_date, end_date, location, logo_url FROM events WHERE uuid = ? OR slug = ?", eventID, eventID)
+		err := db.Get(&event, "SELECT uuid, name, start_date, end_date, location, logo_url FROM tournaments WHERE uuid = ? OR slug = ?", eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -240,13 +240,13 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 				ep.payment_status,
 				ep.registration_date,
 				qta.target_number
-			FROM event_participants ep
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			FROM tournament_participants ep
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON qta.participant_id = ep.uuid
-			WHERE ep.event_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
+			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
 			LIMIT 1
 		`, event.UUID, archerUUID)
 		if err != nil {
@@ -287,9 +287,9 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 				FROM qualification_arrow_scores
 				GROUP BY participant_id
 			) s
-			JOIN event_participants ep2 ON ep2.uuid = s.participant_id
-			JOIN event_participants ep_cur ON ep_cur.uuid = ?
-			WHERE ep2.event_id = ? AND ep2.category_id = ep_cur.category_id AND s.total > ?
+			JOIN tournament_participants ep2 ON ep2.uuid = s.participant_id
+			JOIN tournament_participants ep_cur ON ep_cur.uuid = ?
+			WHERE ep2.tournament_id = ? AND ep2.category_id = ep_cur.category_id AND s.total > ?
 		`, reg.RegistrationID, event.UUID, totalScore)
 
 		// Fetch Elimination
@@ -369,9 +369,9 @@ func MobileArcherGetCertificates(db *sqlx.DB) gin.HandlerFunc {
 				DATE_FORMAT(ep.registration_date, '%d %b %Y') as issue_date,
 				COALESCE(ep.certificate_url, 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf') as pdf_url,
 				CONCAT('CERT-', UPPER(SUBSTRING(ep.uuid, 1, 8))) as certificate_no
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
-			LEFT JOIN event_categories cat ON ep.event_category_id = cat.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
+			LEFT JOIN tournament_categories cat ON ep.event_category_id = cat.uuid
 			WHERE ep.archer_id = ? AND ep.payment_status IN ('paid', 'lunas', 'settlement', 'completed', 'confirmed')
 			ORDER BY ep.registration_date DESC
 		`, userID)

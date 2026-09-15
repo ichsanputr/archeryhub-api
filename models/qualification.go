@@ -5,7 +5,7 @@ import "time"
 // QualificationSession represents a scoring session for an event
 type QualificationSession struct {
 	UUID         string     `json:"id" db:"uuid"`
-	EventUUID    string     `json:"event_id" db:"event_uuid"`
+	EventUUID    string     `json:"event_id" db:"tournament_uuid"`
 	SessionCode  string     `json:"session_code" db:"session_code"`
 	SessionDate  *string    `json:"session_date" db:"session_date"`
 	Name         string     `json:"name" db:"name"`

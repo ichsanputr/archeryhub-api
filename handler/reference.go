@@ -44,7 +44,7 @@ func GetBowTypes(db *sqlx.DB) gin.HandlerFunc {
 func GetEventTypes(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var data []RefData
-		err := db.Select(&data, "SELECT uuid, code, name FROM ref_event_types ORDER BY name")
+		err := db.Select(&data, "SELECT uuid, code, name FROM ref_tournament_types ORDER BY name")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch team types"})
 			return

@@ -42,7 +42,7 @@ func GetMyQuota(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var publishedCount int
-		db.Get(&publishedCount, "SELECT COUNT(*) FROM events WHERE organizer_id = ? AND status = 'published' AND quota_type IS NOT NULL", org.UUID)
+		db.Get(&publishedCount, "SELECT COUNT(*) FROM tournaments WHERE organizer_id = ? AND status = 'published' AND quota_type IS NOT NULL", org.UUID)
 
 		c.JSON(http.StatusOK, gin.H{
 			"quota_free":             org.QuotaFree,

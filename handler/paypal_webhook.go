@@ -144,7 +144,7 @@ func handlePayPalCaptureCompleted(db *sqlx.DB, resource map[string]interface{}, 
 		if payment.Status != "paid" {
 			_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW(), callback_data = ? WHERE uuid = ?", string(rawBytes), payment.UUID)
 			if payment.RegistrationID != nil {
-				_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
+				_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
 				_, _ = tx.Exec("UPDATE event_registrations SET payment_status = 'paid', status = 'confirmed' WHERE id = ?", *payment.RegistrationID)
 			}
 			_ = tx.Commit()
@@ -245,7 +245,7 @@ func CapturePayPalPayment(db *sqlx.DB) gin.HandlerFunc {
 			if payment.Status != "paid" {
 				_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW() WHERE uuid = ?", payment.UUID)
 				if payment.RegistrationID != nil {
-					_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
+					_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
 					_, _ = tx.Exec("UPDATE event_registrations SET payment_status = 'paid', status = 'confirmed' WHERE id = ?", *payment.RegistrationID)
 				}
 			}

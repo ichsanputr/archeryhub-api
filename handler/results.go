@@ -20,7 +20,7 @@ import (
 // @Param slug path string true "Event Slug or UUID"
 // @Param category_id query string true "Category UUID"
 // @Success 200 {object} models.QualificationResultsResponse
-// @Router /mobile/events/{slug}/results/qualification [get]
+// @Router /mobile/tournaments/{slug}/results/qualification [get]
 func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("slug")
@@ -36,14 +36,14 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
 		if categoryID == "" {
-			_ = db.Get(&categoryID, `SELECT uuid FROM event_categories WHERE event_id = ? ORDER BY created_at ASC LIMIT 1`, eventUUID)
+			_ = db.Get(&categoryID, `SELECT uuid FROM tournament_categories WHERE tournament_id = ? ORDER BY created_at ASC LIMIT 1`, eventUUID)
 		}
 
 		if categoryID == "" {
@@ -58,7 +58,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Get(&totalCumulativeEnds, `
 			SELECT COALESCE(SUM(total_ends), 0) 
 			FROM qualification_sessions 
-			WHERE event_uuid = ?
+			WHERE tournament_uuid = ?
 		`, eventUUID)
 		if err != nil || totalCumulativeEnds == 0 {
 			totalCumulativeEnds = 12
@@ -98,7 +98,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 				CAST(COALESCE(score_summary.ends_completed, 0) AS SIGNED) as ends_completed,
 				COALESCE(qta.uuid, '') as assignment_uuid,
 				score_summary.end_scores
-			FROM event_participants ep
+			FROM tournament_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
@@ -210,7 +210,7 @@ func GetPublicQualificationResults(db *sqlx.DB) gin.HandlerFunc {
 // @Param slug path string true "Event Slug or UUID"
 // @Param category_id query string true "Category UUID"
 // @Success 200 {object} models.EliminationResultsResponse
-// @Router /mobile/events/{slug}/results/elimination [get]
+// @Router /mobile/tournaments/{slug}/results/elimination [get]
 func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("slug")
@@ -226,14 +226,14 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
 		if categoryID == "" {
-			_ = db.Get(&categoryID, `SELECT uuid FROM event_categories WHERE event_id = ? ORDER BY created_at ASC LIMIT 1`, eventUUID)
+			_ = db.Get(&categoryID, `SELECT uuid FROM tournament_categories WHERE tournament_id = ? ORDER BY created_at ASC LIMIT 1`, eventUUID)
 		}
 
 		// Get bracket for this category
@@ -262,7 +262,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(eb.arrows_per_end, 3) as arrows_per_end,
 				eb.generated_at
 			FROM elimination_brackets eb
-			WHERE eb.event_uuid = ? AND eb.category_uuid = ?
+			WHERE eb.tournament_uuid = ? AND eb.category_uuid = ?
 			LIMIT 1
 		`, eventUUID, categoryID)
 
@@ -298,8 +298,8 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			FROM elimination_matches em
 			LEFT JOIN elimination_entries ee1 ON em.entry_a_uuid = ee1.uuid
 			LEFT JOIN elimination_entries ee2 ON em.entry_b_uuid = ee2.uuid
-			LEFT JOIN event_participants ep1 ON (ee1.participant_uuid = ep1.uuid OR em.entry_a_uuid = ep1.uuid)
-			LEFT JOIN event_participants ep2 ON (ee2.participant_uuid = ep2.uuid OR em.entry_b_uuid = ep2.uuid)
+			LEFT JOIN tournament_participants ep1 ON (ee1.participant_uuid = ep1.uuid OR em.entry_a_uuid = ep1.uuid)
+			LEFT JOIN tournament_participants ep2 ON (ee2.participant_uuid = ep2.uuid OR em.entry_b_uuid = ep2.uuid)
 			LEFT JOIN archers a1 ON ep1.archer_id = a1.uuid
 			LEFT JOIN archers a2 ON ep2.archer_id = a2.uuid
 			LEFT JOIN teams t1 ON ee1.participant_uuid = t1.uuid AND ee1.participant_type = 'team'
@@ -490,13 +490,13 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} mobile.MobileEventResultFilesResponse
-// @Router /mobile/events/{slug}/results/files [get]
+// @Router /mobile/tournaments/{slug}/results/files [get]
 func GetEventResultFiles(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 
 		var pageSettingsRaw *string
-		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM events WHERE uuid = ? OR slug = ?", id, id)
+		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return

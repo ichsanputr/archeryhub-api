@@ -7,7 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// MobileRecentResults returns recent completed events with top qualification results
+// MobileRecentResults returns recent completed tournaments with top qualification results
 func MobileRecentResults(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		type CategoryResult struct {
@@ -31,7 +31,7 @@ func MobileRecentResults(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Select(&recentEvents, `
 			SELECT uuid, name, slug, end_date
-			FROM events
+			FROM tournaments
 			WHERE end_date < NOW() AND end_date > DATE_SUB(NOW(), INTERVAL 30 DAY)
 			AND status IN ('published', 'active')
 			ORDER BY end_date DESC
@@ -51,9 +51,9 @@ func MobileRecentResults(db *sqlx.DB) gin.HandlerFunc {
 			}
 			_ = db.Select(&categories, `
 				SELECT ec.uuid, COALESCE(ec.category_name_custom, rag.name) as name
-				FROM event_categories ec
+				FROM tournament_categories ec
 				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-				WHERE ec.event_id = ? AND ec.status = 'active'
+				WHERE ec.tournament_id = ? AND ec.status = 'active'
 			`, ev.UUID)
 
 			var catResults []CategoryResult
@@ -67,9 +67,9 @@ func MobileRecentResults(db *sqlx.DB) gin.HandlerFunc {
 				_ = db.Select(&standings, `
 					SELECT a.full_name as name,
 						COALESCE(ep.qual_score, ep.payment_amount, 0) as score
-					FROM event_participants ep
+					FROM tournament_participants ep
 					JOIN archers a ON ep.archer_id = a.uuid
-					WHERE ep.event_id = ? AND ep.category_id = ?
+					WHERE ep.tournament_id = ? AND ep.category_id = ?
 					ORDER BY ep.qual_score DESC
 					LIMIT 5
 				`, ev.UUID, cat.UUID)

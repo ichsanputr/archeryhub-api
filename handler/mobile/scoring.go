@@ -97,11 +97,11 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&board, `
 			SELECT 
 				tbq.uuid, tbq.session_uuid, tbq.category_uuid, tbq.board_number, tbq.code,
-				qs.name as session_name, qs.event_uuid,
+				qs.name as session_name, qs.tournament_uuid,
 				e.name as event_name
 			FROM target_board_qualification tbq
 			JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
-			JOIN events e ON qs.event_uuid = e.uuid
+			JOIN tournaments e ON qs.tournament_uuid = e.uuid
 			WHERE tbq.code = ?
 			LIMIT 1
 		`, code)
@@ -123,11 +123,11 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 					COUNT(qes.uuid) as ends_completed,
 					qs.total_ends
 				FROM qualification_target_assignments qta
-				JOIN event_targets et ON qta.target_uuid = et.uuid
+				JOIN tournament_targets et ON qta.target_uuid = et.uuid
 				JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 				LEFT JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+				LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 				LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 				LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
@@ -173,8 +173,8 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 				e.uuid as event_uuid, e.name as event_name
 			FROM target_board_elimination tbe
 			JOIN elimination_brackets eb ON tbe.bracket_uuid = eb.uuid
-			JOIN events e ON eb.event_uuid = e.uuid
-			LEFT JOIN event_categories ec ON tbe.category_uuid = ec.uuid
+			JOIN tournaments e ON eb.tournament_uuid = e.uuid
+			LEFT JOIN tournament_categories ec ON tbe.category_uuid = ec.uuid
 			WHERE tbe.code = ?
 			LIMIT 1
 		`, code)
@@ -190,7 +190,7 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(aB.full_name, tB.team_name, '') as name_b, aB.avatar_url as avatar_b, COALESCE(cB.name, '') as club_b,
 					COALESCE(em.total_score_b, em.total_points_b, 0) as score_b
 				FROM elimination_matches em
-				JOIN event_targets et ON em.target_uuid = et.uuid
+				JOIN tournament_targets et ON em.target_uuid = et.uuid
 				LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 				LEFT JOIN archers aA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = aA.uuid
 				LEFT JOIN clubs cA ON aA.club_id = cA.uuid
@@ -291,9 +291,9 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 
 		var session SessionInfo
 		err := db.Get(&session, `
-			SELECT qs.uuid, qs.name, qs.event_uuid, e.name as event_name, qs.total_ends, qs.arrows_per_end
+			SELECT qs.uuid, qs.name, qs.tournament_uuid, e.name as event_name, qs.total_ends, qs.arrows_per_end
 			FROM qualification_sessions qs
-			JOIN events e ON qs.event_uuid = e.uuid
+			JOIN tournaments e ON qs.tournament_uuid = e.uuid
 			WHERE qs.uuid = ?
 		`, sessionID)
 		if err != nil {
@@ -337,10 +337,10 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 					LIMIT 1
 				), 0) as last_end_score
 			FROM qualification_target_assignments qta
-			JOIN event_targets et ON qta.target_uuid = et.uuid
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
@@ -444,11 +444,11 @@ func MobileGetAssignmentScoreDetail(db *sqlx.DB) gin.HandlerFunc {
 				qs.arrows_per_end
 			FROM qualification_target_assignments qta
 			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			JOIN events e ON qs.event_uuid = e.uuid
-			JOIN event_targets et ON qta.target_uuid = et.uuid
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			JOIN tournaments e ON qs.tournament_uuid = e.uuid
+			JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			WHERE qta.uuid = ?

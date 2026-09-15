@@ -20,7 +20,7 @@ func GetParticipantPayments(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug to UUID
 		var actualEventID string
-		_ = db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		_ = db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if actualEventID == "" {
 			actualEventID = eventID
 		}
@@ -31,9 +31,9 @@ func GetParticipantPayments(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID *string `db:"archer_id"`
 		}
 		_ = db.Get(&pInfo, `
-			SELECT tp.uuid, tp.archer_id FROM event_participants tp
+			SELECT tp.uuid, tp.archer_id FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE (tp.event_id = ? OR tp.event_id = ?) AND (
+			WHERE (tp.tournament_id = ? OR tp.tournament_id = ?) AND (
 				tp.uuid = ? OR
 				tp.archer_id = ? OR
 				a.username = ? OR
@@ -118,7 +118,7 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug to UUID
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -136,9 +136,9 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err = db.Get(&pInfo, `
 			SELECT tp.uuid, tp.archer_id, tp.payment_amount, tp.payment_status, tp.target_name, tp.back_number, tp.qr_raw
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.event_id = ? AND (
+			WHERE tp.tournament_id = ? AND (
 				tp.uuid = ? OR
 				tp.archer_id = ? OR
 				a.username = ? OR
@@ -206,8 +206,8 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 					for _, catID := range req.RemoveCategoryIDs {
 						if catID != "" {
 							_, _ = tx.Exec(`
-								DELETE FROM event_participants 
-								WHERE event_id = ? AND archer_id = ? AND category_id = ?
+								DELETE FROM tournament_participants 
+								WHERE tournament_id = ? AND archer_id = ? AND category_id = ?
 							`, actualEventID, archerUUID, catID)
 						}
 					}
@@ -219,13 +219,13 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 						if catID != "" {
 							var exists bool
 							_ = tx.Get(&exists, `
-								SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = ? AND archer_id = ? AND category_id = ?)
+								SELECT EXISTS(SELECT 1 FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND category_id = ?)
 							`, actualEventID, archerUUID, catID)
 
 							if !exists {
 								newParticipantUUID := uuid.New().String()
 								_, err = tx.Exec(`
-									INSERT INTO event_participants (
+									INSERT INTO tournament_participants (
 										uuid, event_id, archer_id, category_id, payment_amount, 
 										payment_status, target_name, back_number, qr_raw, 
 										registration_source, registration_date, created_at, updated_at
@@ -245,15 +245,15 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			// Update payment_amount across remaining participant records for this archer in this event
 			if req.Type == "refund" {
 				_, _ = tx.Exec(`
-					UPDATE event_participants 
+					UPDATE tournament_participants 
 					SET payment_amount = GREATEST(0, payment_amount - ?), updated_at = NOW() 
-					WHERE event_id = ? AND archer_id = ?
+					WHERE tournament_id = ? AND archer_id = ?
 				`, req.Amount, actualEventID, archerUUID)
 			} else {
 				_, _ = tx.Exec(`
-					UPDATE event_participants 
+					UPDATE tournament_participants 
 					SET payment_amount = payment_amount + ?, payment_status = 'paid', updated_at = NOW() 
-					WHERE event_id = ? AND archer_id = ?
+					WHERE tournament_id = ? AND archer_id = ?
 				`, req.Amount, actualEventID, archerUUID)
 			}
 		}
@@ -290,12 +290,12 @@ func ApproveParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&pInfo, `
 			SELECT 
-				ep.archer_id, ep.event_id, ep.payment_amount,
+				ep.archer_id, ep.tournament_id, ep.payment_amount,
 				a.full_name as archer_name, a.email as email,
 				e.name as event_name
-			FROM event_participants ep
+			FROM tournament_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN events e ON ep.event_id = e.uuid
+			LEFT JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE ep.uuid = ?
 		`, participantID)
 
@@ -305,7 +305,7 @@ func ApproveParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Update status
-		_, err = db.Exec("UPDATE event_participants SET payment_status = 'paid', updated_at = NOW() WHERE uuid = ?", participantID)
+		_, err = db.Exec("UPDATE tournament_participants SET payment_status = 'paid', updated_at = NOW() WHERE uuid = ?", participantID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate status: " + err.Error()})
 			return
@@ -324,7 +324,7 @@ func ApproveParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		db.Select(&categories, `
 			SELECT ec.name 
 			FROM event_participant_categories epc
-			JOIN event_categories ec ON epc.event_category_id = ec.uuid
+			JOIN tournament_categories ec ON epc.event_category_id = ec.uuid
 			WHERE epc.participant_id = ?
 		`, participantID)
 

@@ -60,9 +60,61 @@ func InitDB() (*sqlx.DB, error) {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`)
 
-	// Ensure is_locked columns exist for scoring lock features
-	_, _ = db.Exec(`ALTER TABLE qualification_sessions ADD COLUMN is_locked TINYINT(1) DEFAULT 0`)
-	_, _ = db.Exec(`ALTER TABLE elimination_brackets ADD COLUMN is_locked TINYINT(1) DEFAULT 0`)
+	// Ensure blog and newsletter tables exist
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS news_subscribers (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			email VARCHAR(255) NOT NULL UNIQUE,
+			is_active TINYINT(1) DEFAULT 1,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX idx_email (email)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS blog_articles (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			uuid VARCHAR(36) NOT NULL UNIQUE,
+			slug VARCHAR(255) NOT NULL UNIQUE,
+			title VARCHAR(500) NOT NULL,
+			excerpt TEXT,
+			content LONGTEXT,
+			category VARCHAR(100) NOT NULL,
+			tags TEXT,
+			image_url VARCHAR(500),
+			author_name VARCHAR(255) DEFAULT 'Archeris Admin',
+			author_role VARCHAR(255) DEFAULT 'Editorial Team & Archery Scoring Specialists',
+			author_avatar VARCHAR(500) DEFAULT 'https://api.dicebear.com/7.x/bottts/svg?seed=ArcherisAdmin',
+			read_time INT DEFAULT 5,
+			views INT DEFAULT 0,
+			status ENUM('draft', 'published') DEFAULT 'published',
+			published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX idx_slug (slug),
+			INDEX idx_category (category),
+			INDEX idx_status_published (status, published_at)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS blog_comments (
+			uuid VARCHAR(36) NOT NULL PRIMARY KEY,
+			article_slug VARCHAR(255) NOT NULL,
+			parent_id VARCHAR(36) NULL,
+			user_id VARCHAR(36) NULL,
+			user_type ENUM('archer', 'organization', 'seller', 'guest') DEFAULT 'guest',
+			guest_name VARCHAR(100) NULL,
+			content TEXT NOT NULL,
+			status ENUM('pending', 'approved', 'spam', 'deleted') DEFAULT 'approved',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX idx_article_slug (article_slug),
+			INDEX idx_parent_id (parent_id),
+			INDEX idx_status (status)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
 
 	return db, nil
 }

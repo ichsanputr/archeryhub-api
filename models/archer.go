@@ -115,7 +115,7 @@ type UpdateArcherRequest struct {
 // EventParticipant represents an archer registered for an event
 type EventParticipant struct {
 	UUID                 string     `json:"id" db:"uuid"`
-	EventID              string     `json:"event_id" db:"event_id"`
+	EventID              string     `json:"event_id" db:"tournament_id"`
 	ArcherID             string     `json:"archer_id" db:"archer_id"`
 	CategoryID           string     `json:"category_id" db:"category_id"`
 	BackNumber           *string    `json:"back_number" db:"back_number"`

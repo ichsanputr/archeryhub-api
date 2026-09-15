@@ -63,7 +63,7 @@ func MobileGetScorekeeperMe(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetScorekeeperEvents returns events for scorekeeper's organizer
+// MobileGetScorekeeperEvents returns tournaments for scorekeeper's organizer
 func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orgID, _ := c.Get("org_id")
@@ -74,14 +74,14 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var events []MobileEvent
-		err := db.Select(&events, `
+		var tournaments []MobileEvent
+		err := db.Select(&tournaments, `
 			SELECT 
 				t.uuid, t.name, t.location, t.start_date, t.end_date, t.logo_url, t.banner_url,
 				o.name as organizer_name,
 				o.avatar_url as organizer_avatar_url,
-				(SELECT COUNT(DISTINCT archer_id) FROM event_participants WHERE event_id = t.uuid) as participant_count
-			FROM events t
+				(SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE tournament_id = t.uuid) as participant_count
+			FROM tournaments t
 			JOIN organizers o ON t.organizer_id = o.uuid
 			WHERE t.organizer_id = ?
 			ORDER BY t.start_date DESC`, orgID)
@@ -91,24 +91,24 @@ func MobileGetScorekeeperEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		for i := range events {
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+		for i := range tournaments {
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
-			if events[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*events[i].BannerURL)
-				events[i].BannerURL = &masked
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
 			}
-			if events[i].OrganizerAvatarURL != nil {
-				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
-				events[i].OrganizerAvatarURL = &masked
+			if tournaments[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].OrganizerAvatarURL)
+				tournaments[i].OrganizerAvatarURL = &masked
 			}
 		}
 
 		c.JSON(http.StatusOK, MobileScorekeeperEventsResponse{
-			Events:     events,
-			TotalCount: len(events),
+			Events:     tournaments,
+			TotalCount: len(tournaments),
 		})
 	}
 }
@@ -364,7 +364,7 @@ func MobileEditArrowScoreAudit(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		orgID, _ := c.Get("org_id")
 		var eventUUID string
-		_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+		_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
 
 		auditDetail := fmt.Sprintf(`{"assignment_id":"%s","end":%d,"arrow":%d,"old":"%s","new":"%s","reason":"%s"}`,
 			req.AssignmentUUID, req.EndNumber, req.ArrowNumber, req.OldScore, req.NewScore, req.Reason)
@@ -431,7 +431,7 @@ func MobileSubmitFinalScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		orgID, _ := c.Get("org_id")
 		var eventUUID string
-		_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+		_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
 
 		if userID != nil && orgID != nil {
 			auditDetail := fmt.Sprintf(`{"assignment_id":"%s","verification_code":"%s","total_score":%d,"ends":%d}`,

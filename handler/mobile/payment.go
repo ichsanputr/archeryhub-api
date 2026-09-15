@@ -56,7 +56,7 @@ func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Security ApiKeyAuth
 // @Param reference path string true "Merchant Reference"
 // @Success 200 {object} map[string]interface{}
-// @Router /mobile/events/payments/{reference}/instructions [get]
+// @Router /mobile/tournaments/payments/{reference}/instructions [get]
 func MobileGetPaymentInstructions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		reference := c.Param("reference")
@@ -88,7 +88,7 @@ func MobileGetPaymentInstructions(db *sqlx.DB) gin.HandlerFunc {
 // @Param limit query int false "Pagination limit"
 // @Param offset query int false "Pagination offset"
 // @Success 200 {object} MobileArcherEventPaymentsResponse
-// @Router /mobile/archer/events/payments [get]
+// @Router /mobile/archer/tournaments/payments [get]
 func MobileArcherGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -106,7 +106,7 @@ func MobileArcherGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 				e.slug as event_slug,
 				e.logo_url as event_logo_url
 			FROM payment_transactions pt
-			JOIN events e ON pt.event_id = e.uuid
+			JOIN tournaments e ON pt.tournament_id = e.uuid
 			WHERE pt.user_id = ? AND pt.registration_id IS NOT NULL
 			ORDER BY pt.created_at DESC
 			LIMIT ? OFFSET ?
@@ -149,7 +149,7 @@ func MobileArcherGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 // @Security ApiKeyAuth
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileArcherEventPaymentsResponse
-// @Router /mobile/archer/events/payments/{slug} [get]
+// @Router /mobile/archer/tournaments/payments/{slug} [get]
 func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -157,7 +157,7 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID first
 		var eventUUID string
-		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", slug, slug)
+		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", slug, slug)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -172,8 +172,8 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 				e.slug as event_slug,
 				e.logo_url as event_logo_url
 			FROM payment_transactions pt
-			JOIN events e ON pt.event_id = e.uuid
-			WHERE pt.user_id = ? AND pt.event_id = ? AND pt.registration_id IS NOT NULL
+			JOIN tournaments e ON pt.tournament_id = e.uuid
+			WHERE pt.user_id = ? AND pt.tournament_id = ? AND pt.registration_id IS NOT NULL
 			ORDER BY pt.created_at DESC
 		`
 

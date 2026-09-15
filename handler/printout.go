@@ -79,7 +79,7 @@ func fetchPrintEvent(db *sqlx.DB, eventID string) (*PrintEventInfo, error) {
 	query := `
 		SELECT e.uuid, e.name, e.slug, e.venue, e.location, e.city, e.start_date, e.end_date, e.logo_url,
 		       COALESCE(o.name, '') AS org_name
-		FROM events e
+		FROM tournaments e
 		LEFT JOIN organizers o ON e.organizer_id = o.uuid
 		WHERE e.uuid = ? OR e.slug = ?
 		LIMIT 1
@@ -176,17 +176,17 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(qs.name, 'Sesi 1') AS session_name,
 				a.birth_date,
 				a.email
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
 			LEFT JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			WHERE ep.event_id = ?
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			WHERE ep.tournament_id = ?
 		`
 
 		var args []interface{}
@@ -393,17 +393,17 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(qs.session_code, '-') AS session_code,
 				COALESCE(et.target_name, ep.target_name, '-') AS target_name,
 				ep.uuid AS participant_uuid
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
 			LEFT JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			WHERE ep.event_id = ?
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			WHERE ep.tournament_id = ?
 		`
 
 		if listType == "by-club" {
@@ -501,12 +501,12 @@ func GetEventStatisticsClasses(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(rbt.name, 'Standar') AS division_name,
 				COALESCE(rgd.name, 'Campuran') AS gender,
 				COUNT(ep.uuid) AS total_count
-			FROM event_participants ep
-			JOIN event_categories ec ON ep.category_id = ec.uuid
+			FROM tournament_participants ep
+			JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			WHERE ep.event_id = ?
+			WHERE ep.tournament_id = ?
 			GROUP BY rag.name, rbt.name, rgd.name
 			ORDER BY division_name ASC, age_group ASC, gender ASC
 		`
@@ -581,10 +581,10 @@ func GetEventStatisticsClubs(db *sqlx.DB) gin.HandlerFunc {
 			SELECT
 				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
 				COUNT(ep.uuid) AS total_count
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			WHERE ep.event_id = ?
+			WHERE ep.tournament_id = ?
 			GROUP BY cl.name
 			ORDER BY total_count DESC, cl.name ASC
 		`
@@ -663,17 +663,17 @@ func GetQualificationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
 				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name,
 				COALESCE(rgd.name, '-') AS gender
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
 			LEFT JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			WHERE ep.event_id = ?
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			WHERE ep.tournament_id = ?
 		`
 
 		var args []interface{}
@@ -785,17 +785,17 @@ func GetQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(SUM(qes.total_score_end), 0) AS total_score,
 				COALESCE(SUM(qes.ten_count_end), 0) AS total_10,
 				COALESCE(SUM(qes.x_count_end), 0) AS total_x
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
-			WHERE ep.event_id = ?
+			WHERE ep.tournament_id = ?
 		`
 
 		var args []interface{}
@@ -916,10 +916,10 @@ func GetMedalStandingsPrintout(db *sqlx.DB) gin.HandlerFunc {
 		var clubRows []ClubMedalRow
 		db.Select(&clubRows, `
 			SELECT COALESCE(cl.name, 'Individu') AS club_name, COUNT(ep.uuid) AS total_count
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			WHERE ep.event_id = ?
+			WHERE ep.tournament_id = ?
 			GROUP BY cl.name ORDER BY total_count DESC LIMIT 25
 		`, ev.UUID)
 
@@ -985,17 +985,17 @@ func GetTargetLabelsPrintout(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(cl.name, 'Individu / Tanpa Klub') AS club_name,
 				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name,
 				COALESCE(qs.session_code, '1') AS session_code
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON ep.uuid = qta.participant_uuid
 			LEFT JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			WHERE ep.event_id = ?
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			WHERE ep.tournament_id = ?
 		`
 
 		var args []interface{}

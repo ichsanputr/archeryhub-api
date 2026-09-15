@@ -205,9 +205,9 @@ type MobileEventDetail struct {
 	LocationDetail     models.EventLocationDetail `db:"-" json:"location_detail"`
 }
 
-// MobileEventsResponse represents the list of events for mobile.
+// MobileEventsResponse represents the list of tournaments for mobile.
 type MobileEventsResponse struct {
-	Events     []MobileEvent `json:"events"`
+	Events     []MobileEvent `json:"tournaments"`
 	TotalCount int           `json:"total_count"`
 }
 
@@ -291,9 +291,9 @@ type MobileScorekeeperMeResponse struct {
 	OrganizationName string  `json:"organization_name"`
 }
 
-// MobileScorekeeperEventsResponse represents events for scorekeeper.
+// MobileScorekeeperEventsResponse represents tournaments for scorekeeper.
 type MobileScorekeeperEventsResponse struct {
-	Events     []MobileEvent `json:"events"`
+	Events     []MobileEvent `json:"tournaments"`
 	TotalCount int           `json:"total_count"`
 }
 
@@ -421,14 +421,14 @@ type MobileMyRegistrationResponse struct {
 	Registrations []MobileRegistrationItem `json:"registrations"`
 }
 
-// MobileMyEventsResponse represents events the archer is participating in.
+// MobileMyEventsResponse represents tournaments the archer is participating in.
 type MobileMyEventsResponse struct {
-	Events []MobileMyEventItem `json:"events"`
+	Events []MobileMyEventItem `json:"tournaments"`
 	Total  int                 `json:"total"`
 }
 
 
-// MobileMyEventItem represents an event row for archer my events.
+// MobileMyEventItem represents an event row for archer my tournaments.
 type MobileMyEventItem struct {
 	EventUUID        string  `db:"event_uuid" json:"event_uuid"`
 	EventName        string  `db:"event_name" json:"event_name"`
@@ -516,17 +516,17 @@ type MobileOrganizationEventItem struct {
 	StartDate          *string `json:"start_date" db:"start_date" example:"2026-05-18T08:00:00Z"`
 	EndDate            *string `json:"end_date" db:"end_date" example:"2026-05-21T17:00:00Z"`
 	Status             string  `json:"status" db:"status" example:"published"`
-	LogoURL            *string `json:"logo_url" db:"logo_url" example:"https://cdn.archeris.net/media/events/logo-jkt-open-2026.png"`
-	BannerURL          *string `json:"banner_url" db:"banner_url" example:"https://cdn.archeris.net/media/events/banner-jkt-open-2026.jpg"`
+	LogoURL            *string `json:"logo_url" db:"logo_url" example:"https://cdn.archeris.net/media/tournaments/logo-jkt-open-2026.png"`
+	BannerURL          *string `json:"banner_url" db:"banner_url" example:"https://cdn.archeris.net/media/tournaments/banner-jkt-open-2026.jpg"`
 	ParticipantCount   int     `json:"participant_count" db:"participant_count" example:"128"`
 	VerifiedCount      int     `json:"verified_count" db:"verified_count" example:"96"`
 	PendingCount       int     `json:"pending_count" db:"pending_count" example:"32"`
 	RegistrationClosed bool    `json:"registration_closed" db:"registration_closed" example:"false"`
 }
 
-// MobileOrganizationEventsResponse represents /mobile/organizer/events.
+// MobileOrganizationEventsResponse represents /mobile/organizer/tournaments.
 type MobileOrganizationEventsResponse struct {
-	Events []MobileOrganizationEventItem `json:"events"`
+	Events []MobileOrganizationEventItem `json:"tournaments"`
 	Total  int                           `json:"total"`
 	Limit  int                           `json:"limit"`
 	Offset int                           `json:"offset"`
@@ -557,7 +557,7 @@ type MobileOrganizationParticipantItem struct {
 	PaymentStatus      string  `json:"payment_status" example:"lunas"`
 }
 
-// MobileOrganizationEventParticipantsResponse represents /mobile/organizer/events/{id}/participants.
+// MobileOrganizationEventParticipantsResponse represents /mobile/organizer/tournaments/{id}/participants.
 type MobileOrganizationEventParticipantsResponse struct {
 	Participants  []MobileOrganizationParticipantItem `json:"participants"`
 	Total         int                                 `json:"total"`

@@ -18,7 +18,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// GetEvents returns a list of events
+// GetEvents returns a list of tournaments
 func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		status := c.Query("status")
@@ -26,7 +26,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 		limit, offset, page := utils.GetPaginationParams(c)
 		organizerID := c.Query("organizer_id")
 
-		// Check if user is archer to filter events and include participant status
+		// Check if user is archer to filter tournaments and include participant status
 		userID, userExists := c.Get("user_id")
 		userRole, roleExists := c.Get("role")
 
@@ -53,7 +53,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get total count
 		var total int
-		countQuery := `SELECT COUNT(*) FROM events t ` + whereClause
+		countQuery := `SELECT COUNT(*) FROM tournaments t ` + whereClause
 		err := db.Get(&total, countQuery, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah event", "details": err.Error()})
@@ -75,17 +75,17 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT te.uuid) as event_count,
 				tp.payment_status,
 				tp.uuid as participant_uuid
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.uuid = tp.event_id AND tp.archer_id = ?
-			LEFT JOIN event_participants tp2 ON t.uuid = tp2.event_id
-			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			LEFT JOIN tournament_participants tp ON t.uuid = tp.tournament_id AND tp.archer_id = ?
+			LEFT JOIN tournament_participants tp2 ON t.uuid = tp2.event_id
+			LEFT JOIN tournament_categories te ON t.uuid = te.tournament_id
 			` + whereClause + `
-			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.country
+			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.phone, u.country
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
@@ -106,53 +106,53 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.country as organizer_country,
 				COUNT(DISTINCT tp.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
-			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			LEFT JOIN tournament_participants tp ON t.uuid = tp.tournament_id
+			LEFT JOIN tournament_categories te ON t.uuid = te.tournament_id
 			` + whereClause + `
-			GROUP BY t.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.country
+			GROUP BY t.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.phone, u.country
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
 			args = append(args, limit, offset)
 		}
 
-		var events []models.EventWithDetails
-		err = db.Select(&events, query, args...)
+		var tournaments []models.EventWithDetails
+		err = db.Select(&tournaments, query, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
 			return
 		}
 
 		// Mask URLs
-		for i := range events {
-			if events[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*events[i].BannerURL)
-				events[i].BannerURL = &masked
+		for i := range tournaments {
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
 			}
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
-			if events[i].TechnicalGuidebookURL != nil {
-				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
-				events[i].TechnicalGuidebookURL = &masked
+			if tournaments[i].TechnicalGuidebookURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].TechnicalGuidebookURL)
+				tournaments[i].TechnicalGuidebookURL = &masked
 			}
-			if events[i].OrganizerAvatarURL != nil {
-				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
-				events[i].OrganizerAvatarURL = &masked
+			if tournaments[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].OrganizerAvatarURL)
+				tournaments[i].OrganizerAvatarURL = &masked
 			}
 		}
 
 		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
-			"data":   events,
-			"events": events,
+			"data":   tournaments,
+			"tournaments": tournaments,
 			"total":  total,
 			"meta":   meta,
 		})
@@ -177,41 +177,41 @@ func GetEventByID(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(category_stats.event_count, 0) as event_count,
 				COALESCE(target_stats.target_count, 0) as target_count,
 				COALESCE(active_target_stats.active_target_count, 0) as active_target_count
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, avatar_url, slug, whatsapp_no as phone, country FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, logo_url as avatar_url, slug, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT archer_id) as participant_count
-				FROM event_participants
-				GROUP BY event_id
-			) participant_stats ON t.uuid = participant_stats.event_id
+				SELECT tournament_id, COUNT(DISTINCT archer_id) as participant_count
+				FROM tournament_participants
+				GROUP BY tournament_id
+			) participant_stats ON t.uuid = participant_stats.tournament_id
 			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT uuid) as event_count
-				FROM event_categories
-				GROUP BY event_id
-			) category_stats ON t.uuid = category_stats.event_id
+				SELECT tournament_id, COUNT(DISTINCT uuid) as event_count
+				FROM tournament_categories
+				GROUP BY tournament_id
+			) category_stats ON t.uuid = category_stats.tournament_id
 			LEFT JOIN (
-				SELECT event_uuid, COUNT(*) as target_count
-				FROM event_targets
-				GROUP BY event_uuid
-			) target_stats ON t.uuid = target_stats.event_uuid
+				SELECT tournament_uuid, COUNT(*) as target_count
+				FROM tournament_targets
+				GROUP BY tournament_uuid
+			) target_stats ON t.uuid = target_stats.tournament_uuid
 			LEFT JOIN (
-				SELECT event_id, COUNT(DISTINCT target_uuid) as active_target_count
+				SELECT tournament_id, COUNT(DISTINCT target_uuid) as active_target_count
 				FROM (
-					SELECT qs.event_uuid as event_id, qta.target_uuid
+					SELECT qs.tournament_uuid as tournament_id, qta.target_uuid
 					FROM qualification_target_assignments qta
 					JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
 					UNION ALL
-					SELECT eb.event_uuid as event_id, em.target_uuid
+					SELECT eb.tournament_uuid as tournament_id, em.target_uuid
 					FROM elimination_matches em
 					JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
 					WHERE em.target_uuid IS NOT NULL
 				) combined
-				GROUP BY event_id
-			) active_target_stats ON t.uuid = active_target_stats.event_id
+				GROUP BY tournament_id
+			) active_target_stats ON t.uuid = active_target_stats.tournament_id
 			WHERE t.uuid = ? OR t.slug = ?
 			LIMIT 1
 		`
@@ -305,7 +305,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		// Generate code if not provided
 		if req.Code == "" {
 			var lastCode string
-			_ = db.Get(&lastCode, "SELECT code FROM events WHERE code LIKE 'EVT-%' ORDER BY code DESC LIMIT 1")
+			_ = db.Get(&lastCode, "SELECT code FROM tournaments WHERE code LIKE 'EVT-%' ORDER BY code DESC LIMIT 1")
 			nextNum := 1
 			if lastCode != "" {
 				// Extract number from EVT-XXXX
@@ -347,7 +347,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		var err error
 		for {
 			var exists int
-			err = db.Get(&exists, `SELECT COUNT(1) FROM events WHERE slug = ?`, finalSlug)
+			err = db.Get(&exists, `SELECT COUNT(1) FROM tournaments WHERE slug = ?`, finalSlug)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memvalidasi keunikan slug", "details": err.Error()})
 				return
@@ -426,7 +426,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			INSERT INTO events (
+			INSERT INTO tournaments (
 				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
 				start_date, end_date, registration_deadline,
 				description, banner_url, logo_url, location_type, num_distances, num_sessions, 
@@ -476,7 +476,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				for _, catUUID := range req.Categories {
 					catEventID := uuid.New().String()
 					_, err = db.Exec(`
-						INSERT INTO event_categories (
+						INSERT INTO tournament_categories (
 							uuid, event_id, division_uuid, category_uuid, 
 							max_participants
 						) VALUES (?, ?, ?, ?, NULL)
@@ -494,7 +494,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				imageID := uuid.New().String()
 				isPrimary := img.IsPrimary || i == 0 // First image is primary by default
 				_, err = db.Exec(`
-					INSERT INTO event_images (uuid, event_id, url, caption, alt_text, display_order, is_primary)
+					INSERT INTO tournament_images (uuid, tournament_id, url, caption, alt_text, display_order, is_primary)
 					VALUES (?, ?, ?, ?, ?, ?, ?)
 				`, imageID, eventUUID, utils.ExtractFilename(img.URL), img.Caption, img.AltText, i, isPrimary)
 				if err != nil {
@@ -527,7 +527,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualID string
-		err := db.Get(&actualID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, id, id)
+		err := db.Get(&actualID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -535,7 +535,7 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		id = actualID
 
 		// Build dynamic update query
-		query := "UPDATE events SET updated_at = NOW()"
+		query := "UPDATE tournaments SET updated_at = NOW()"
 		args := []interface{}{}
 
 		if req.Name != nil {
@@ -659,7 +659,7 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualID string
-		err := db.Get(&actualID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, id, id)
+		err := db.Get(&actualID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -671,7 +671,7 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 			QuotaType   *string `db:"quota_type"`
 			OrganizerID string  `db:"organizer_id"`
 		}
-		if err := db.Get(&eventInfo, "SELECT status, quota_type, organizer_id FROM events WHERE uuid = ?", actualID); err == nil {
+		if err := db.Get(&eventInfo, "SELECT status, quota_type, organizer_id FROM tournaments WHERE uuid = ?", actualID); err == nil {
 			if eventInfo.Status == "published" && eventInfo.QuotaType != nil {
 				if *eventInfo.QuotaType == "standard" {
 					db.Exec("UPDATE organizers SET quota_standard = quota_standard + 1 WHERE uuid = ?", eventInfo.OrganizerID)
@@ -681,7 +681,7 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		result, err := db.Exec("DELETE FROM events WHERE uuid = ?", actualID)
+		result, err := db.Exec("DELETE FROM tournaments WHERE uuid = ?", actualID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data event", "details": err.Error()})
 			return
@@ -703,7 +703,7 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 
 // These functions are now in division_category.go to avoid duplication
 
-// GetEventEvents returns events for a specific event
+// GetEventEvents returns tournaments for a specific event
 func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -714,7 +714,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		// First, resolve slug to UUID if needed
 		var actualEventID string
 		err := db.Get(&actualEventID, `
-			SELECT uuid FROM events WHERE uuid = ? OR slug = ?
+			SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?
 		`, eventID, eventID)
 
 		if err != nil {
@@ -742,7 +742,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt          string  `db:"created_at" json:"created_at"`
 		}
 
-		whereClause := "WHERE te.event_id = ?"
+		whereClause := "WHERE te.tournament_id = ?"
 		args := []interface{}{actualEventID}
 
 		if bowTypeFilter != "" && bowTypeFilter != "all" {
@@ -751,7 +751,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if eventTypeFilter != "" && eventTypeFilter != "all" {
-			whereClause += " AND te.event_type_uuid = ?"
+			whereClause += " AND te.tournament_type_uuid = ?"
 			args = append(args, eventTypeFilter)
 		}
 
@@ -759,7 +759,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		var total int
 		err = db.Get(&total, `
 			SELECT COUNT(*) 
-			FROM event_categories te
+			FROM tournament_categories te
 			JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			`+whereClause, args...)
 
@@ -768,10 +768,10 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var events []EventEvent
+		var tournaments []EventEvent
 		query := `
 			SELECT 
-				te.uuid as id, te.event_id, 
+				te.uuid as id, te.tournament_id, 
 				te.max_participants, te.status, te.created_at, te.category_name_custom,
 				CASE 
 					WHEN et.code = 'mixed_team' THEN 2 
@@ -780,31 +780,31 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 				END as team_size,
 				d.name as division_name, d.uuid as division_id,
 				COALESCE(te.category_name_custom, c.name) as category_name, c.uuid as category_id,
-				COALESCE(et.name, '') as event_type_name, COALESCE(te.event_type_uuid, '') as event_type_id,
+				COALESCE(et.name, '') as event_type_name, COALESCE(te.tournament_type_uuid, '') as event_type_id,
 				COALESCE(gd.name, '') as gender_division_name, COALESCE(te.gender_division_uuid, '') as gender_division_id,
 				COALESCE(p.p_count, 0) as participant_count,
 				COALESCE(t.t_count, 0) as team_count
-			FROM event_categories te
+			FROM tournament_categories te
 			JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			LEFT JOIN (
 				SELECT category_id, COUNT(*) as p_count 
-				FROM event_participants 
+				FROM tournament_participants 
 				GROUP BY category_id
 			) p ON te.uuid = p.category_id
 			LEFT JOIN (
 				SELECT event_id as category_id, COUNT(*) as t_count 
 				FROM teams 
-				GROUP BY event_id
+				GROUP BY tournament_id
 			) t ON te.uuid = t.category_id
 			` + whereClause + `
 			ORDER BY d.name, c.name, et.name, gd.name
 			LIMIT ? OFFSET ?
 		`
 		args = append(args, limit, offset)
-		err = db.Select(&events, query, args...)
+		err = db.Select(&tournaments, query, args...)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil kategori event", "details": err.Error()})
@@ -813,8 +813,8 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
-			"data":   events,
-			"events": events,
+			"data":   tournaments,
+			"tournaments": tournaments,
 			"total":  total,
 			"meta":   meta,
 		})
@@ -834,7 +834,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -887,12 +887,12 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				var indivIDs []string
 				_ = db.Select(&indivIDs, `
 					SELECT i.uuid
-					FROM event_categories t
-					JOIN ref_event_types tt ON t.event_type_uuid = tt.uuid
-					JOIN event_categories i ON i.event_id = t.event_id
+					FROM tournament_categories t
+					JOIN ref_tournament_types tt ON t.tournament_type_uuid = tt.uuid
+					JOIN tournament_categories i ON i.tournament_id = t.tournament_id
 						AND i.division_uuid = t.division_uuid
 						AND i.category_uuid = t.category_uuid
-					JOIN ref_event_types it ON i.event_type_uuid = it.uuid
+					JOIN ref_tournament_types it ON i.tournament_type_uuid = it.uuid
 					WHERE t.uuid = ?
 					  AND tt.code IN ('team', 'mixed_team')
 					  AND it.code = 'individual'
@@ -919,7 +919,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		if groupBy == "archer" {
 			// Grouped by archer logic
-			whereClause := "WHERE tp.event_id = ?"
+			whereClause := "WHERE tp.tournament_id = ?"
 			args := []interface{}{actualEventID}
 
 			if len(resolvedCategoryIDs) == 1 {
@@ -946,7 +946,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 			// Count unique archers
 			var total int
-			countQuery := "SELECT COUNT(DISTINCT archer_id) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
+			countQuery := "SELECT COUNT(DISTINCT archer_id) FROM tournament_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
 			err = db.Get(&total, countQuery, args...)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah atlet", "details": err.Error()})
@@ -995,13 +995,13 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					tp.qr_raw,
 					tp.registration_date,
 					tp.last_reregistration_at
-				FROM event_participants tp
+				FROM tournament_participants tp
 				JOIN archers a ON tp.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
-				LEFT JOIN event_categories te ON tp.category_id = te.uuid
+				LEFT JOIN tournament_categories te ON tp.category_id = te.uuid
 				LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 				LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-				LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+				LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 				LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 				` + whereClause + `
 				ORDER BY a.full_name ASC
@@ -1089,7 +1089,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				paginatedResult = []*GroupedParticipant{}
 			}
 
-			statusWhere := "WHERE tp.event_id = ?"
+			statusWhere := "WHERE tp.tournament_id = ?"
 			statusArgs := []interface{}{actualEventID}
 			if len(resolvedCategoryIDs) == 1 {
 				statusWhere += " AND tp.category_id = ?"
@@ -1103,8 +1103,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			var verifiedCount, pendingCount int
-			verifiedQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status IN ('paid', 'lunas')"
-			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM event_participants tp " + statusWhere + " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')"
+			verifiedQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM tournament_participants tp " + statusWhere + " AND tp.payment_status IN ('paid', 'lunas')"
+			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM tournament_participants tp " + statusWhere + " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')"
 			_ = db.Get(&verifiedCount, verifiedQuery, statusArgs...)
 			_ = db.Get(&pendingCount, pendingQuery, statusArgs...)
 
@@ -1130,7 +1130,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Standard logic (existing)
-		whereClause := "WHERE tp.event_id = ?"
+		whereClause := "WHERE tp.tournament_id = ?"
 		args := []interface{}{actualEventID}
 		countArgs := []interface{}{actualEventID}
 
@@ -1178,7 +1178,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get total count with filters
-		countQuery := "SELECT COUNT(*) FROM event_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid LEFT JOIN event_categories te ON tp.category_id = te.uuid LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid " + whereClause
+		countQuery := "SELECT COUNT(*) FROM tournament_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid LEFT JOIN tournament_categories te ON tp.category_id = te.uuid LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid " + whereClause
 		var total int
 		err = db.Get(&total, countQuery, countArgs...)
 		if err != nil {
@@ -1216,7 +1216,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		query := `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_name, tp.qr_raw,
+				tp.uuid as id, tp.archer_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_status, tp.registration_date, tp.last_reregistration_at,
 				COALESCE(tp.registration_source, 'self_register') as registration_source,
 				a.id as athlete_code,
@@ -1231,13 +1231,13 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name,
 				COALESCE(scores.total_score, 0) as total_score,
 				COALESCE(scores.total_x, 0) as total_x
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN tournament_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			LEFT JOIN (
 				SELECT participant_uuid, SUM(total_score_end) as total_score, SUM(x_count_end) as total_x
@@ -1259,8 +1259,8 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get verified (paid) and pending counts
 		var verifiedCount, pendingCount int
-		db.Get(&verifiedCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND payment_status IN ('paid', 'lunas')", actualEventID)
-		db.Get(&pendingCount, "SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", actualEventID)
+		db.Get(&verifiedCount, "SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND payment_status IN ('paid', 'lunas')", actualEventID)
+		db.Get(&pendingCount, "SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", actualEventID)
 
 		// Mask avatar URLs
 		for i := range participants {
@@ -1294,7 +1294,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			Status      string  `db:"status"`
 			OrganizerID *string `db:"organizer_id"`
 		}
-		err := db.Get(&event, `SELECT uuid, status, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&event, `SELECT uuid, status, organizer_id FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -1363,7 +1363,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var rows []ParticipantRow
 		err = db.Select(&rows, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.event_id, tp.category_id, tp.target_name, tp.qr_raw,
+				tp.uuid as id, tp.archer_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_amount, tp.payment_status,
 				COALESCE(tp.registration_source, 'self_register') as registration_source,
 				tp.registration_date,
@@ -1384,16 +1384,16 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					WHERE entry_a_uuid IN (SELECT uuid FROM elimination_entries WHERE participant_uuid = tp.uuid)
 					   OR entry_b_uuid IN (SELECT uuid FROM elimination_entries WHERE participant_uuid = tp.uuid)
 				) as in_elimination
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN tournament_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
-			WHERE tp.event_id = ? AND a.uuid = (
-				SELECT archer_id FROM event_participants tp_sub
+			WHERE tp.tournament_id = ? AND a.uuid = (
+				SELECT archer_id FROM tournament_participants tp_sub
 				LEFT JOIN archers a_sub ON tp_sub.archer_id = a_sub.uuid
 				WHERE tp_sub.event_id = ? AND (
 					tp_sub.uuid = ? OR 
@@ -1469,7 +1469,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug to UUID
 		var actualEventID string
-		if err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+		if err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
@@ -1544,15 +1544,15 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 				'' as city, a.avatar_url, COALESCE(cl.name, '') as club_name,
 				COALESCE(d.name, '') as division_name, COALESCE(c.name, '') as category_name,
 				COALESCE(et.name, '') as event_type_name, COALESCE(gd.name, '') as gender_division_name
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON (tp.archer_id = a.uuid OR tp.archer_id = a.id)
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN tournament_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
-			WHERE (tp.event_id = ? OR tp.event_id IN (SELECT uuid FROM events WHERE uuid = ? OR slug = ?)) AND (
+			WHERE (tp.tournament_id = ? OR tp.tournament_id IN (SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?)) AND (
 				tp.archer_id = ? 
 				OR tp.archer_id = ?
 				OR tp.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
@@ -1627,7 +1627,7 @@ func GetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var exists bool
-		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ? OR slug = ?)`, eventID, eventID)
+		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM tournaments WHERE uuid = ? OR slug = ?)`, eventID, eventID)
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -1636,8 +1636,8 @@ func GetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 		var schedules []models.EventSchedule
 		err = db.Select(&schedules, `
 			SELECT es.* 
-			FROM event_schedule es
-			JOIN events e ON es.event_id = e.uuid
+			FROM tournament_schedules es
+			JOIN tournaments e ON es.event_id = e.uuid
 			WHERE e.uuid = ? OR e.slug = ?
 			ORDER BY 
 				COALESCE(es.day_order, 0),
@@ -1664,7 +1664,7 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -1689,7 +1689,7 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Delete existing schedules
-		_, err = db.Exec("DELETE FROM event_schedule WHERE event_id = ?", actualEventID)
+		_, err = db.Exec("DELETE FROM tournament_schedules WHERE tournament_id = ?", actualEventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus jadwal lama", "details": err.Error()})
 			return
@@ -1732,7 +1732,7 @@ func UpdateEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			_, err = db.Exec(`
-				INSERT INTO event_schedule (uuid, event_id, title, description, start_time, end_time, day_order, sort_order, location)
+				INSERT INTO tournament_schedules (uuid, tournament_id, title, description, start_time, end_time, day_order, sort_order, location)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`, scheduleID, actualEventID, s.Title, s.Description, formattedStartTime, formattedEndTime, dayOrder, sortOrder, s.Location)
 			if err != nil {
@@ -1761,7 +1761,7 @@ func ListEventCategoryRefs(db *sqlx.DB) gin.HandlerFunc {
 				ecr.age_group_id,
 				ag.name as age_name,
 				ecr.status
-			FROM event_category_refs ecr
+			FROM tournament_category_refs ecr
 			JOIN ref_bow_types bt ON ecr.bow_type_id = bt.uuid
 			JOIN ref_age_groups ag ON ecr.age_group_id = ag.uuid
 			ORDER BY bt.name, ag.name, ecr.name
@@ -1799,7 +1799,7 @@ func CreateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
 
 		id := uuid.New().String()
 		_, err := db.Exec(`
-			INSERT INTO event_category_refs (uuid, name, bow_type_id, age_group_id, status)
+			INSERT INTO tournament_category_refs (uuid, name, bow_type_id, age_group_id, status)
 			VALUES (?, ?, ?, ?, ?)
 		`, id, req.Name, req.BowTypeID, req.AgeGroupID, req.Status)
 
@@ -1830,12 +1830,12 @@ func UpdateEventCategoryRef(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var exists bool
-		if err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM event_category_refs WHERE uuid = ?)`, id); err != nil || !exists {
+		if err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM tournament_category_refs WHERE uuid = ?)`, id); err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
 			return
 		}
 
-		query := "UPDATE event_category_refs SET updated_at = NOW()"
+		query := "UPDATE tournament_category_refs SET updated_at = NOW()"
 		args := []interface{}{}
 
 		if req.Name != nil {
@@ -1936,10 +1936,10 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Set event quota metadata
-		db.Exec("UPDATE events SET quota_type = ?, quota_max_participants = ?, quota_max_categories = ?, quota_max_scorekeepers = ?, quota_max_media_mb = ? WHERE uuid = ?",
+		db.Exec("UPDATE tournaments SET quota_type = ?, quota_max_participants = ?, quota_max_categories = ?, quota_max_scorekeepers = ?, quota_max_media_mb = ? WHERE uuid = ?",
 			quotaType, limits.MaxParticipants, limits.MaxCategories, limits.MaxScorekeepers, limits.MaxMediaMB, eventID)
 
-		_, err := db.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", eventID)
+		_, err := db.Exec("UPDATE tournaments SET status = 'published' WHERE uuid = ?", eventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mempublikasikan event"})
 			return
@@ -2008,7 +2008,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			UUID        string `db:"uuid"`
 			OrganizerID string `db:"organizer_id"`
 		}
-		err := db.Get(&event, `SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&event, `SELECT uuid, organizer_id FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -2049,7 +2049,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Check for existing active registration (not cancelled)
 		var existingCount int
 		_ = db.Get(&existingCount, `
-			SELECT COUNT(*) FROM event_participants 
+			SELECT COUNT(*) FROM tournament_participants 
 			WHERE event_id = ? AND archer_id = ? AND payment_status != 'cancelled'
 		`, actualEventID, archerUUID)
 		if existingCount > 0 {
@@ -2103,7 +2103,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		if paymentStatus == "lunas" || paymentStatus == "paid" {
 			// Check if archer already has a QR for this event
 			var existingQR sql.NullString
-			err = tx.Get(&existingQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
+			err = tx.Get(&existingQR, "SELECT qr_raw FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
 			if err == nil && existingQR.Valid {
 				qrRaw = &existingQR.String
 			} else {
@@ -2118,7 +2118,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			// Check if already registered for THIS category
 			var exists bool
 			err = tx.Get(&exists, `
-				SELECT EXISTS(SELECT 1 FROM event_participants 
+				SELECT EXISTS(SELECT 1 FROM tournament_participants 
 				WHERE event_id = ? AND archer_id = ? AND category_id = ?)
 			`, actualEventID, archerUUID, catID)
 
@@ -2139,8 +2139,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			err = tx.Get(&quotaInfo, `
 				SELECT 
 					COALESCE(ec.quota, 0) as quota,
-					(SELECT COUNT(*) FROM event_participants WHERE category_id = ?) as current_count
-				FROM event_categories ec
+					(SELECT COUNT(*) FROM tournament_participants WHERE category_id = ?) as current_count
+				FROM tournament_categories ec
 				WHERE ec.uuid = ?
 			`, catID, catID)
 
@@ -2158,7 +2158,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			_, err = tx.Exec(`
-				INSERT INTO event_participants (
+				INSERT INTO tournament_participants (
 					uuid, event_id, archer_id, category_id, 
 					registration_date, payment_status, payment_amount, qr_raw,
 					registration_source
@@ -2222,7 +2222,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			UUID        string `db:"uuid"`
 			OrganizerID string `db:"organizer_id"`
 		}
-		if err := db.Get(&event, `SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+		if err := db.Get(&event, `SELECT uuid, organizer_id FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
@@ -2318,7 +2318,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			var qrRaw *string
 			if paymentStatus == "lunas" || paymentStatus == "paid" {
 				var existingQR sql.NullString
-				_ = tx.Get(&existingQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
+				_ = tx.Get(&existingQR, "SELECT qr_raw FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, archerUUID)
 				if existingQR.Valid {
 					qrRaw = &existingQR.String
 				} else {
@@ -2329,7 +2329,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 			for _, catID := range allCategoryIDs {
 				var exists bool
-				if err := tx.Get(&exists, `SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = ? AND archer_id = ? AND category_id = ?)`, actualEventID, archerUUID, catID); err != nil {
+				if err := tx.Get(&exists, `SELECT EXISTS(SELECT 1 FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND category_id = ?)`, actualEventID, archerUUID, catID); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration status"})
 					return
 				}
@@ -2340,7 +2340,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 				participantUUID := uuid.New().String()
 				_, err = tx.Exec(`
-						INSERT INTO event_participants (
+						INSERT INTO tournament_participants (
 						uuid, event_id, archer_id, category_id,
 						registration_date, payment_status, payment_amount, qr_raw,
 						registration_source
@@ -2370,7 +2370,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // UnregisterFromEvent allows an archer to cancel ALL their registrations from an event by event ID.
-// Uses DELETE /events/:id/participants/me
+// Uses DELETE /tournaments/:id/participants/me
 func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -2384,7 +2384,7 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug/UUID
 		var actualEventID string
-		if err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+		if err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
@@ -2405,7 +2405,7 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus string `db:"payment_status"`
 		}
 		var regs []RegInfo
-		if err := db.Select(&regs, `SELECT uuid, payment_status FROM event_participants WHERE (event_id = ? OR event_id IN (SELECT uuid FROM events WHERE uuid = ? OR slug = ?)) AND (archer_id = ? OR archer_id = ? OR archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)))`, actualEventID, actualEventID, actualEventID, archerID, uid, uid, uid, userEmail); err != nil || len(regs) == 0 {
+		if err := db.Select(&regs, `SELECT uuid, payment_status FROM tournament_participants WHERE (tournament_id = ? OR tournament_id IN (SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?)) AND (archer_id = ? OR archer_id = ? OR archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)))`, actualEventID, actualEventID, actualEventID, archerID, uid, uid, uid, userEmail); err != nil || len(regs) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
 			return
 		}
@@ -2419,7 +2419,7 @@ func UnregisterFromEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Delete all registrations for this archer in this event
-		if _, err := db.Exec(`DELETE FROM event_participants WHERE (event_id = ? OR event_id IN (SELECT uuid FROM events WHERE uuid = ? OR slug = ?)) AND (archer_id = ? OR archer_id = ? OR archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)))`, actualEventID, actualEventID, actualEventID, archerID, uid, uid, uid, userEmail); err != nil {
+		if _, err := db.Exec(`DELETE FROM tournament_participants WHERE (tournament_id = ? OR tournament_id IN (SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?)) AND (archer_id = ? OR archer_id = ? OR archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)))`, actualEventID, actualEventID, actualEventID, archerID, uid, uid, uid, userEmail); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membatalkan pendaftaran"})
 			return
 		}
@@ -2440,7 +2440,7 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		// Verify the participant belongs to the user
 		var archerID string
-		err := db.Get(&archerID, "SELECT archer_id FROM event_participants WHERE uuid = ?", participantID)
+		err := db.Get(&archerID, "SELECT archer_id FROM tournament_participants WHERE uuid = ?", participantID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registration not found"})
 			return
@@ -2456,7 +2456,7 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if manual payment is already approved or gateway already paid
 		var payStatus string
-		_ = db.Get(&payStatus, "SELECT COALESCE(payment_status,'unpaid') FROM event_participants WHERE uuid = ? AND archer_id = ?", participantID, archerID)
+		_ = db.Get(&payStatus, "SELECT COALESCE(payment_status,'unpaid') FROM tournament_participants WHERE uuid = ? AND archer_id = ?", participantID, archerID)
 		if payStatus == "paid" || payStatus == "lunas" {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Pembayaran sudah dikonfirmasi. Tidak dapat membatalkan pendaftaran.",
@@ -2467,14 +2467,14 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if already approved - can't cancel approved registrations
 		var status string
-		err = db.Get(&status, "SELECT status FROM event_participants WHERE uuid = ?", participantID)
+		err = db.Get(&status, "SELECT status FROM tournament_participants WHERE uuid = ?", participantID)
 		if err == nil && (status == "registered" || status == "Terdaftar") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot cancel an approved registration. Please contact the organizer."})
 			return
 		}
 
 		// Delete the participant registration
-		_, err = db.Exec("DELETE FROM event_participants WHERE uuid = ?", participantID)
+		_, err = db.Exec("DELETE FROM tournament_participants WHERE uuid = ?", participantID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel registration"})
 			return
@@ -2492,7 +2492,7 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug to UUID
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -2506,9 +2506,9 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		err = db.Get(&pInfo, `
-			SELECT tp.uuid, tp.archer_id, a.full_name FROM event_participants tp
+			SELECT tp.uuid, tp.archer_id, a.full_name FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.event_id = ? AND (tp.uuid = ? OR a.username = ? OR a.id = ?)
+			WHERE tp.tournament_id = ? AND (tp.uuid = ? OR a.username = ? OR a.id = ?)
 			LIMIT 1
 		`, actualEventID, participantID, participantID, participantID)
 
@@ -2525,7 +2525,7 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus string `db:"payment_status"`
 			ReregisteredAt *time.Time `db:"last_reregistration_at"`
 		}
-		err = db.Get(&participantCheck, "SELECT COALESCE(payment_status,'unpaid') as payment_status, last_reregistration_at FROM event_participants WHERE uuid = ?", pInfo.UUID)
+		err = db.Get(&participantCheck, "SELECT COALESCE(payment_status,'unpaid') as payment_status, last_reregistration_at FROM tournament_participants WHERE uuid = ?", pInfo.UUID)
 		if err == nil {
 			if participantCheck.PaymentStatus == "paid" || participantCheck.PaymentStatus == "lunas" {
 				c.JSON(http.StatusForbidden, gin.H{
@@ -2551,7 +2551,7 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			SELECT EXISTS(
 				SELECT 1 FROM elimination_matches em
 				JOIN elimination_entries ee ON (em.entry_a_uuid = ee.uuid OR em.entry_b_uuid = ee.uuid)
-				WHERE ee.participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+				WHERE ee.participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
 			)
 		`, archerID, actualEventID)
 
@@ -2576,30 +2576,30 @@ func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			DELETE FROM qualification_arrow_scores 
 			WHERE end_score_uuid IN (
 				SELECT uuid FROM qualification_end_scores 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
 			)
 		`, archerID, actualEventID)
 
 		// End scores
 		tx.Exec(`
 			DELETE FROM qualification_end_scores 
-			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
 		`, archerID, actualEventID)
 
 		// 2. Delete qualification target assignments
 		tx.Exec(`
 			DELETE FROM qualification_target_assignments 
-			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
 		`, archerID, actualEventID)
 
 		// 3. Cleanup elimination entries if any
 		tx.Exec(`
 			DELETE FROM elimination_entries 
-			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE archer_id = ? AND event_id = ?)
+			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
 		`, archerID, actualEventID)
 
-		// 4. Delete ALL event_participants for this archer in this event (handles multi-category registrations)
-		_, err = tx.Exec("DELETE FROM event_participants WHERE archer_id = ? AND event_id = ?", archerID, actualEventID)
+		// 4. Delete ALL tournament_participants for this archer in this event (handles multi-category registrations)
+		_, err = tx.Exec("DELETE FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?", archerID, actualEventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete participant", "details": err.Error()})
 			return
@@ -2645,7 +2645,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug to UUID
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -2657,9 +2657,9 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID *string `db:"archer_id"`
 		}
 		err = db.Get(&pInfo, `
-			SELECT tp.uuid, tp.archer_id FROM event_participants tp
+			SELECT tp.uuid, tp.archer_id FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.event_id = ? AND (
+			WHERE tp.tournament_id = ? AND (
 				tp.uuid = ? OR 
 				tp.archer_id = ? OR
 				a.username = ? OR 
@@ -2685,7 +2685,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		fmt.Printf("[DEBUG] Updating participant UUID: %s for input: %s\n", actualParticipantID, participantID)
 
 		// Build dynamic update query
-		query := "UPDATE event_participants SET updated_at = NOW()"
+		query := "UPDATE tournament_participants SET updated_at = NOW()"
 		args := []interface{}{}
 
 		if req.CategoryID != nil || len(req.CategoryIDs) > 0 {
@@ -2699,7 +2699,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			if len(req.CategoryIDs) > 0 {
 				// Get current category IDs for this archer in this event
 				var currentIDs []string
-				err = db.Select(&currentIDs, "SELECT category_id FROM event_participants WHERE archer_id = ? AND event_id = ?", *archerID, actualEventID)
+				err = db.Select(&currentIDs, "SELECT category_id FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?", *archerID, actualEventID)
 
 				// Identify to add
 				toAdd := []string{}
@@ -2739,15 +2739,15 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					// Add new registrations
 					// First, look up any existing qr_raw for this archer in this event
 					var existingQrRaw *string
-					tx.Get(&existingQrRaw, `SELECT qr_raw FROM event_participants WHERE archer_id = ? AND event_id = ? AND qr_raw IS NOT NULL LIMIT 1`, *archerID, actualEventID)
+					tx.Get(&existingQrRaw, `SELECT qr_raw FROM tournament_participants WHERE archer_id = ? AND tournament_id = ? AND qr_raw IS NOT NULL LIMIT 1`, *archerID, actualEventID)
 
 					for _, catID := range toAdd {
 						// Verify category
 						var catExists bool
-						tx.Get(&catExists, "SELECT EXISTS(SELECT 1 FROM event_categories WHERE uuid = ? AND event_id = ?)", catID, actualEventID)
+						tx.Get(&catExists, "SELECT EXISTS(SELECT 1 FROM tournament_categories WHERE uuid = ? AND tournament_id = ?)", catID, actualEventID)
 						if catExists {
 							newUUID := uuid.New().String()
-							tx.Exec(`INSERT INTO event_participants (uuid, event_id, archer_id, category_id, registration_date, payment_status, payment_amount, qr_raw, registration_source) 
+							tx.Exec(`INSERT INTO tournament_participants (uuid, tournament_id, archer_id, category_id, registration_date, payment_status, payment_amount, qr_raw, registration_source) 
 							VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, 'admin_created')`,
 								newUUID, actualEventID, *archerID, catID,
 								models.FromPtr(req.PaymentStatus), models.FromPtrFloat(req.PaymentAmount), existingQrRaw)
@@ -2756,7 +2756,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 					// Remove registrations
 					for _, catID := range toRemove {
-						tx.Exec("DELETE FROM event_participants WHERE archer_id = ? AND event_id = ? AND category_id = ?", *archerID, actualEventID, catID)
+						tx.Exec("DELETE FROM tournament_participants WHERE archer_id = ? AND tournament_id = ? AND category_id = ?", *archerID, actualEventID, catID)
 					}
 
 					tx.Commit()
@@ -2765,7 +2765,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				// Old behavior: single category update
 				var categoryExists bool
 				err = db.Get(&categoryExists, `
-					SELECT EXISTS(SELECT 1 FROM event_categories 
+					SELECT EXISTS(SELECT 1 FROM tournament_categories 
 					WHERE uuid = ? AND event_id = ?)
 				`, *req.CategoryID, actualEventID)
 				if err == nil && categoryExists {
@@ -2791,7 +2791,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			if *req.PaymentStatus == "lunas" || *req.PaymentStatus == "paid" {
 				// Generate QR raw string when payment is lunas (paid) for all entries if missing
 				var currentQR sql.NullString
-				err = db.Get(&currentQR, "SELECT qr_raw FROM event_participants WHERE event_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, *pInfo.ArcherID)
+				err = db.Get(&currentQR, "SELECT qr_raw FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND qr_raw IS NOT NULL LIMIT 1", actualEventID, *pInfo.ArcherID)
 				if err != nil || !currentQR.Valid {
 					// Generate random QR string using uuid
 					qrRaw := uuid.New().String()
@@ -2892,7 +2892,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event type code to enforce team size
 		var eventTypeCode string
-		err := db.Get(&eventTypeCode, "SELECT code FROM ref_event_types WHERE uuid = ?", req.EventTypeUUID)
+		err := db.Get(&eventTypeCode, "SELECT code FROM ref_tournament_types WHERE uuid = ?", req.EventTypeUUID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe event tidak valid"})
 			return
@@ -2912,7 +2912,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if event exists
 		var eventExists bool
-		err = db.Get(&eventExists, `SELECT EXISTS(SELECT 1 FROM events WHERE uuid = ?)`, eventID)
+		err = db.Get(&eventExists, `SELECT EXISTS(SELECT 1 FROM tournaments WHERE uuid = ?)`, eventID)
 		if err != nil || !eventExists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -2924,8 +2924,8 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 				// Check if combination already exists
 				var catExists bool
 				err = db.Get(&catExists, `
-					SELECT EXISTS(SELECT 1 FROM event_categories 
-					WHERE event_id = ? AND division_uuid = ? AND category_uuid = ? AND event_type_uuid = ? AND gender_division_uuid = ?)
+					SELECT EXISTS(SELECT 1 FROM tournament_categories 
+					WHERE tournament_id = ? AND division_uuid = ? AND category_uuid = ? AND tournament_type_uuid = ? AND gender_division_uuid = ?)
 				`, eventID, divUUID, catUUID, req.EventTypeUUID, req.GenderDivisionUUID)
 
 				if err != nil || catExists {
@@ -2934,7 +2934,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 
 				catEventID := uuid.New().String()
 				_, err = db.Exec(`
-					INSERT INTO event_categories (
+					INSERT INTO tournament_categories (
 						uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid,
 						max_participants
 					) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -2979,7 +2979,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event type code to enforce team size
 		var eventTypeCode string
-		err := db.Get(&eventTypeCode, "SELECT code FROM ref_event_types WHERE uuid = ?", req.EventTypeUUID)
+		err := db.Get(&eventTypeCode, "SELECT code FROM ref_tournament_types WHERE uuid = ?", req.EventTypeUUID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe event tidak valid"})
 			return
@@ -3015,7 +3015,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
-		err = db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err = db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -3024,8 +3024,8 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		// Check if combination already exists
 		var catExists bool
 		err = db.Get(&catExists, `
-			SELECT EXISTS(SELECT 1 FROM event_categories 
-			WHERE event_id = ? AND division_uuid = ? AND category_uuid = ? AND event_type_uuid = ? AND gender_division_uuid = ?)
+			SELECT EXISTS(SELECT 1 FROM tournament_categories 
+			WHERE tournament_id = ? AND division_uuid = ? AND category_uuid = ? AND tournament_type_uuid = ? AND gender_division_uuid = ?)
 		`, actualEventID, req.DivisionUUID, req.CategoryUUID, req.EventTypeUUID, req.GenderDivisionUUID)
 
 		if err != nil {
@@ -3045,7 +3045,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		catEventID := uuid.New().String()
 		_, err = db.Exec(`
-			INSERT INTO event_categories (
+			INSERT INTO tournament_categories (
 				uuid, event_id, division_uuid, category_uuid, category_name_custom, event_type_uuid, gender_division_uuid,
 				max_participants, status
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -3091,7 +3091,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		// Enforce logic if event type is being updated
 		if req.EventTypeUUID != nil {
 			var eventTypeCode string
-			err := db.Get(&eventTypeCode, "SELECT code FROM ref_event_types WHERE uuid = ?", *req.EventTypeUUID)
+			err := db.Get(&eventTypeCode, "SELECT code FROM ref_tournament_types WHERE uuid = ?", *req.EventTypeUUID)
 			if err == nil {
 				if eventTypeCode == "mixed_team" {
 					if req.GenderDivisionUUID == nil || *req.GenderDivisionUUID == "" {
@@ -3107,7 +3107,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -3116,7 +3116,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		// Check if category exists and belongs to event
 		var exists bool
 		err = db.Get(&exists, `
-			SELECT EXISTS(SELECT 1 FROM event_categories 
+			SELECT EXISTS(SELECT 1 FROM tournament_categories 
 			WHERE uuid = ? AND event_id = ?)
 		`, categoryID, actualEventID)
 
@@ -3126,7 +3126,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Build dynamic update query
-		query := "UPDATE event_categories SET updated_at = NOW()"
+		query := "UPDATE tournament_categories SET updated_at = NOW()"
 		args := []interface{}{}
 
 		if req.DivisionUUID != nil {
@@ -3142,7 +3142,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, req.CategoryNameCustom)
 		}
 		if req.EventTypeUUID != nil {
-			query += ", event_type_uuid = ?"
+			query += ", tournament_type_uuid = ?"
 			args = append(args, *req.EventTypeUUID)
 		}
 		if req.GenderDivisionUUID != nil {
@@ -3183,7 +3183,7 @@ func GetEventCategoryDetails(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -3202,12 +3202,12 @@ func GetEventCategoryDetails(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Get(&info, `
 			SELECT ec.uuid, rbt.name as division_name, rag.name as category_name, 
 			       ec.category_name_custom, rgd.name as gender_division_name, ret.name as event_type_name
-			FROM event_categories ec
+			FROM tournament_categories ec
 			JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			JOIN ref_event_types ret ON ec.event_type_uuid = ret.uuid
-			WHERE ec.uuid = ? AND ec.event_id = ?
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+			WHERE ec.uuid = ? AND ec.tournament_id = ?
 		`, categoryID, actualEventID)
 
 		if err != nil {
@@ -3217,7 +3217,7 @@ func GetEventCategoryDetails(db *sqlx.DB) gin.HandlerFunc {
 
 		// Count participants
 		var participantCount int
-		db.Get(&participantCount, "SELECT COUNT(*) FROM event_participants WHERE category_id = ?", categoryID)
+		db.Get(&participantCount, "SELECT COUNT(*) FROM tournament_participants WHERE category_id = ?", categoryID)
 
 		// Count qualification sessions linked
 		var sessionCount int
@@ -3227,7 +3227,7 @@ func GetEventCategoryDetails(db *sqlx.DB) gin.HandlerFunc {
 		var scoreCount int
 		db.Get(&scoreCount, `
 			SELECT COUNT(*) FROM qualification_end_scores 
-			WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?)
+			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE category_id = ?)
 		`, categoryID)
 
 		// Count elimination brackets
@@ -3258,7 +3258,7 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve slug to UUID if needed
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -3266,7 +3266,7 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// 1. Check if category exists
 		var exists bool
-		err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_categories WHERE uuid = ? AND event_id = ?)", categoryID, actualEventID)
+		err = db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM tournament_categories WHERE uuid = ? AND tournament_id = ?)", categoryID, actualEventID)
 		if err != nil || !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
 			return
@@ -3282,9 +3282,9 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 
 		// A. Cleanup Qualification Scores & Assignments
 		// Arrows must be deleted before their parent ends
-		tx.Exec("DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (SELECT uuid FROM qualification_end_scores WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?))", categoryID)
-		tx.Exec("DELETE FROM qualification_end_scores WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?)", categoryID)
-		tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE category_id = ?)", categoryID)
+		tx.Exec("DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (SELECT uuid FROM qualification_end_scores WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE category_id = ?))", categoryID)
+		tx.Exec("DELETE FROM qualification_end_scores WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE category_id = ?)", categoryID)
+		tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE category_id = ?)", categoryID)
 		tx.Exec("DELETE FROM qualification_session_categories WHERE category_uuid = ?", categoryID)
 
 		// B. Cleanup Elimination Data (Deep Cleanup)
@@ -3329,10 +3329,10 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		tx.Exec("DELETE FROM target_board_elimination WHERE category_uuid = ?", categoryID)
 
 		// E. Cleanup Participants
-		tx.Exec("DELETE FROM event_participants WHERE category_id = ?", categoryID)
+		tx.Exec("DELETE FROM tournament_participants WHERE category_id = ?", categoryID)
 
 		// F. Delete the Category
-		_, err = tx.Exec("DELETE FROM event_categories WHERE uuid = ? AND event_id = ?", categoryID, actualEventID)
+		_, err = tx.Exec("DELETE FROM tournament_categories WHERE uuid = ? AND tournament_id = ?", categoryID, actualEventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete category", "details": err.Error()})
 			return
@@ -3370,7 +3370,7 @@ func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 		var images []EventImage
 		err := db.Select(&images, `
 			SELECT uuid, event_id, url, caption, alt_text, display_order, is_primary, created_at
-			FROM event_images
+			FROM tournament_images
 			WHERE event_id = ?
 			ORDER BY display_order, created_at
 		`, eventID)
@@ -3409,7 +3409,7 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Delete existing images
-		_, err := db.Exec("DELETE FROM event_images WHERE event_id = ?", eventID)
+		_, err := db.Exec("DELETE FROM tournament_images WHERE tournament_id = ?", eventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus gambar lama", "details": err.Error()})
 			return
@@ -3423,7 +3423,7 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 				displayOrder = i
 			}
 			_, err = db.Exec(`
-				INSERT INTO event_images (uuid, event_id, url, caption, alt_text, display_order, is_primary)
+				INSERT INTO tournament_images (uuid, tournament_id, url, caption, alt_text, display_order, is_primary)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`, imageID, eventID, img.URL, img.Caption, img.AltText, displayOrder, img.IsPrimary)
 			if err != nil {
@@ -3449,7 +3449,7 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve eventIDParam to actual event UUID
 		var eventUUID string
-		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", eventIDParam, eventIDParam)
+		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", eventIDParam, eventIDParam)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -3465,9 +3465,9 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 				   GROUP_CONCAT(COALESCE(tm.total_score, 0) ORDER BY tm.member_order SEPARATOR ', ') as member_scores
 			FROM teams t
 			LEFT JOIN team_members tm ON t.uuid = tm.team_id
-			LEFT JOIN event_participants ep ON tm.participant_id = ep.uuid
+			LEFT JOIN tournament_participants ep ON tm.participant_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			WHERE t.event_id = ?
+			WHERE t.tournament_id = ?
 		`
 		args := []interface{}{eventUUID}
 
@@ -3507,7 +3507,7 @@ func GetEventTeams(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetMyEvents returns events managed by the authenticated user
+// GetMyEvents returns tournaments managed by the authenticated user
 func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -3542,7 +3542,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			order = "DESC"
 		}
 
-		// Base query: get events where organizer_id is the current user
+		// Base query: get tournaments where organizer_id is the current user
 		whereClause := "WHERE t.organizer_id = ?"
 		args := []interface{}{userID}
 
@@ -3559,7 +3559,7 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get total count
 		var total int
-		err := db.Get(&total, `SELECT COUNT(*) FROM events t `+whereClause, args...)
+		err := db.Get(&total, `SELECT COUNT(*) FROM tournaments t `+whereClause, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah event", "details": err.Error()})
 			return
@@ -3574,14 +3574,14 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT tp.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
-			LEFT JOIN event_categories te ON t.uuid = te.event_id
+			LEFT JOIN tournament_participants tp ON t.uuid = tp.tournament_id
+			LEFT JOIN tournament_categories te ON t.uuid = te.tournament_id
 			%s
 			GROUP BY t.uuid
 			ORDER BY %s %s
@@ -3589,40 +3589,40 @@ func GetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause, dbSortField, order)
 		args = append(args, limit, offset)
 
-		var events []models.EventWithDetails
-		err = db.Select(&events, query, args...)
+		var tournaments []models.EventWithDetails
+		err = db.Select(&tournaments, query, args...)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
-				"events": []interface{}{},
+				"tournaments": []interface{}{},
 				"total":  0,
 			})
 			return
 		}
 
 		// Mask URLs
-		for i := range events {
-			if events[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*events[i].BannerURL)
-				events[i].BannerURL = &masked
+		for i := range tournaments {
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
 			}
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
-			if events[i].TechnicalGuidebookURL != nil {
-				masked := utils.MaskMediaURL(*events[i].TechnicalGuidebookURL)
-				events[i].TechnicalGuidebookURL = &masked
+			if tournaments[i].TechnicalGuidebookURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].TechnicalGuidebookURL)
+				tournaments[i].TechnicalGuidebookURL = &masked
 			}
-			if events[i].OrganizerAvatarURL != nil {
-				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
-				events[i].OrganizerAvatarURL = &masked
+			if tournaments[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].OrganizerAvatarURL)
+				tournaments[i].OrganizerAvatarURL = &masked
 			}
 		}
 
 		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
-			"data":   events,
-			"events": events,
+			"data":   tournaments,
+			"tournaments": tournaments,
 			"total":  total,
 			"meta":   meta,
 		})
@@ -3659,7 +3659,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&participant, `
 			SELECT 
 				ep.uuid,
-				ep.event_id,
+				ep.tournament_id,
 				ep.archer_id,
 				a.full_name,
 				a.email,
@@ -3668,11 +3668,11 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, ag.name, '') as category_name,
 				e.name as event_name,
 				COALESCE(ep.payment_status, 'pending') as payment_status
-			FROM event_participants ep
+			FROM tournament_participants ep
 			INNER JOIN archers a ON ep.archer_id = a.uuid
-			INNER JOIN events e ON ep.event_id = e.uuid
+			INNER JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types d ON ec.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			WHERE ep.qr_raw = ?
@@ -3698,7 +3698,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Update last_reregistration_at for all registrations of this archer in this event
 		_, err = db.Exec(`
-			UPDATE event_participants 
+			UPDATE tournament_participants 
 			SET last_reregistration_at = NOW()
 			WHERE event_id = ? AND archer_id = ?
 		`, participant.EventID, participant.ArcherID)
@@ -3734,7 +3734,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			UUID string `db:"uuid"`
 			Name string `db:"name"`
 		}
-		err := db.Get(&event, `SELECT uuid, name FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&event, `SELECT uuid, name FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
@@ -3778,20 +3778,20 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				) as categories,
 				COALESCE(SUM(scores.total_score), 0) as total_score,
 				COALESCE(SUM(scores.total_x), 0) as total_x
-			FROM event_participants tp
+			FROM tournament_participants tp
 			JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories te ON tp.category_id = te.uuid
+			LEFT JOIN tournament_categories te ON tp.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_event_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			LEFT JOIN (
 				SELECT participant_uuid, SUM(total_score_end) as total_score, SUM(x_count_end) as total_x
 				FROM qualification_end_scores
 				GROUP BY participant_uuid
 			) scores ON tp.uuid = scores.participant_uuid
-			WHERE tp.event_id = ?
+			WHERE tp.tournament_id = ?
 			GROUP BY a.uuid, a.id, a.full_name, a.email, cl.name
 			ORDER BY a.full_name ASC
 		`
@@ -3927,7 +3927,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event slug to UUID
 		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -3935,7 +3935,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 
 		// Ownership check: only the organizer who owns this event may reset it
 		var ownerCount int
-		db.Get(&ownerCount, `SELECT COUNT(*) FROM events WHERE uuid = ? AND organizer_id = ?`, actualEventID, userID.(string))
+		db.Get(&ownerCount, `SELECT COUNT(*) FROM tournaments WHERE uuid = ? AND organizer_id = ?`, actualEventID, userID.(string))
 		if ownerCount == 0 {
 			// Also allow root admin
 			userTypeCtx, _ := c.Get("user_type")
@@ -3980,7 +3980,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 				DELETE FROM qualification_arrow_scores 
 				WHERE end_score_uuid IN (
 					SELECT uuid FROM qualification_end_scores 
-					WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+					WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 				)
 			`, actualEventID)
 			if err != nil {
@@ -3991,7 +3991,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// 2. Delete end scores
 			_, err = tx.Exec(`
 				DELETE FROM qualification_end_scores 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus skor kualifikasi", "details": err.Error()})
@@ -4001,16 +4001,16 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// 3. Delete target assignments
 			_, err = tx.Exec(`
 				DELETE FROM qualification_target_assignments 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus penugasan target kualifikasi", "details": err.Error()})
 				return
 			}
 
-			// 4. Reset target names and back numbers in event_participants
+			// 4. Reset target names and back numbers in tournament_participants
 			_, err = tx.Exec(`
-				UPDATE event_participants 
+				UPDATE tournament_participants 
 				SET target_name = NULL, back_number = NULL 
 				WHERE event_id = ?
 			`, actualEventID)
@@ -4022,7 +4022,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// 5. Delete qualification session categories
 			_, err = tx.Exec(`
 				DELETE FROM qualification_session_categories 
-				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE tournament_uuid = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus kategori sesi kualifikasi", "details": err.Error()})
@@ -4032,7 +4032,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// 6. Delete target board qualification verification codes
 			_, err = tx.Exec(`
 				DELETE FROM target_board_qualification 
-				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE tournament_uuid = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus kode verifikasi papan target kualifikasi", "details": err.Error()})
@@ -4053,7 +4053,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// 1. Delete elimination matches
 			_, err = tx.Exec(`
 				DELETE FROM elimination_matches 
-				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE event_uuid = ?)
+				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE tournament_uuid = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus match eliminasi", "details": err.Error()})
@@ -4063,7 +4063,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// 2. Delete elimination entries
 			_, err = tx.Exec(`
 				DELETE FROM elimination_entries 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus entri eliminasi", "details": err.Error()})
@@ -4083,26 +4083,26 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 				DELETE FROM qualification_arrow_scores 
 				WHERE end_score_uuid IN (
 					SELECT uuid FROM qualification_end_scores 
-					WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+					WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 				)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM qualification_end_scores 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM qualification_target_assignments 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 
 			// Wipe elimination due to foreign keys
 			tx.Exec(`
 				DELETE FROM elimination_matches 
-				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE event_uuid = ?)
+				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE tournament_uuid = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM elimination_entries 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			tx.Exec(`
 				UPDATE elimination_brackets 
@@ -4111,7 +4111,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			`, actualEventID)
 
 			// Delete all event participants
-			_, err = tx.Exec(`DELETE FROM event_participants WHERE event_id = ?`, actualEventID)
+			_, err = tx.Exec(`DELETE FROM tournament_participants WHERE tournament_id = ?`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data peserta", "details": err.Error()})
 				return
@@ -4123,26 +4123,26 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 				DELETE FROM qualification_arrow_scores 
 				WHERE end_score_uuid IN (
 					SELECT uuid FROM qualification_end_scores 
-					WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+					WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 				)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM qualification_end_scores 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM qualification_target_assignments 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 
 			// Wipe qualification sessions & associated links
 			tx.Exec(`
 				DELETE FROM qualification_session_categories 
-				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE tournament_uuid = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM target_board_qualification 
-				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE event_uuid = ?)
+				WHERE session_uuid IN (SELECT uuid FROM qualification_sessions WHERE tournament_uuid = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM qualification_sessions 
@@ -4152,11 +4152,11 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			// Wipe elimination
 			tx.Exec(`
 				DELETE FROM elimination_matches 
-				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE event_uuid = ?)
+				WHERE bracket_uuid IN (SELECT uuid FROM elimination_brackets WHERE tournament_uuid = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM elimination_entries 
-				WHERE participant_uuid IN (SELECT uuid FROM event_participants WHERE event_id = ?)
+				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE tournament_id = ?)
 			`, actualEventID)
 			tx.Exec(`
 				DELETE FROM elimination_brackets 
@@ -4164,7 +4164,7 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 			`, actualEventID)
 
 			// Wipe participants
-			_, err = tx.Exec(`DELETE FROM event_participants WHERE event_id = ?`, actualEventID)
+			_, err = tx.Exec(`DELETE FROM tournament_participants WHERE tournament_id = ?`, actualEventID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal melakukan factory reset", "details": err.Error()})
 				return
@@ -4322,12 +4322,12 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ag.name, '') as category_name,
 				COALESCE(gd.name, '') as gender_division_name,
 				COALESCE(et.name, '') as event_type_name
-			FROM event_categories ec
+			FROM tournament_categories ec
 			LEFT JOIN ref_bow_types d ON ec.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			LEFT JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
-			LEFT JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
-			WHERE ec.event_id = ?
+			LEFT JOIN ref_tournament_types et ON ec.tournament_type_uuid = et.uuid
+			WHERE ec.tournament_id = ?
 		`, eventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data kategori event", "details": err.Error()})
@@ -4478,7 +4478,7 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 
 			// Check if already registered for this event
 			var existingParticipant string
-			err = db.Get(&existingParticipant, "SELECT uuid FROM event_participants WHERE event_id = ? AND archer_id = ?", eventID, archerID)
+			err = db.Get(&existingParticipant, "SELECT uuid FROM tournament_participants WHERE tournament_id = ? AND archer_id = ?", eventID, archerID)
 			var participantUUID string
 			if err == sql.ErrNoRows {
 				participantUUID = uuid.New().String()
@@ -4490,7 +4490,7 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				amount, _ := strconv.ParseFloat(amountStr, 64)
 
 				_, err = db.Exec(`
-					INSERT INTO event_participants (uuid, event_id, archer_id, payment_status, payment_amount, registration_source, created_at, updated_at)
+					INSERT INTO tournament_participants (uuid, tournament_id, archer_id, payment_status, payment_amount, registration_source, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, 'organizer_added', NOW(), NOW())
 				`, participantUUID, eventID, archerID, paymentStatus, amount)
 

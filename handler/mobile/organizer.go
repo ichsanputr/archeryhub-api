@@ -26,14 +26,14 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 
 		// 1. Stats
 		// Events
-		_ = db.Get(&dashboard.Stats.TotalEvents, "SELECT COUNT(*) FROM events WHERE organizer_id = ?", userID)
-		_ = db.Get(&dashboard.Stats.ActiveEvents, "SELECT COUNT(*) FROM events WHERE organizer_id = ? AND status = 'active'", userID)
+		_ = db.Get(&dashboard.Stats.TotalEvents, "SELECT COUNT(*) FROM tournaments WHERE organizer_id = ?", userID)
+		_ = db.Get(&dashboard.Stats.ActiveEvents, "SELECT COUNT(*) FROM tournaments WHERE organizer_id = ? AND status = 'active'", userID)
 
 		// Participants
 		_ = db.Get(&dashboard.Stats.TotalParticipants, `
 			SELECT COUNT(ep.uuid) 
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ?
 		`, userID)
 
@@ -41,7 +41,7 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&dashboard.Stats.TotalRevenue, `
 			SELECT COALESCE(SUM(t.amount), 0)
 			FROM payment_transactions t
-			JOIN events e ON t.event_id = e.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
 			WHERE e.organizer_id = ? AND t.status = 'paid' AND t.registration_id IS NOT NULL
 		`, userID)
 
@@ -49,30 +49,30 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&dashboard.Stats.MonthlyRevenue, `
 			SELECT COALESCE(SUM(t.amount), 0)
 			FROM payment_transactions t
-			JOIN events e ON t.event_id = e.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
 			WHERE e.organizer_id = ? AND t.status = 'paid' AND t.registration_id IS NOT NULL AND t.paid_at >= ?
 		`, userID, firstOfMonth)
 
 		_ = db.Get(&dashboard.Stats.PendingRevenue, `
 			SELECT COALESCE(SUM(t.amount), 0)
 			FROM payment_transactions t
-			JOIN events e ON t.event_id = e.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
 			WHERE e.organizer_id = ? AND t.status = 'pending' AND t.registration_id IS NOT NULL
 		`, userID)
 
 		_ = db.Get(&dashboard.Stats.CheckedInParticipants, `
 			SELECT COUNT(ep.uuid) 
-			FROM event_participants ep
-			JOIN events e ON ep.event_id = e.uuid
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ? AND ep.last_reregistration_at IS NOT NULL
 		`, userID)
 
 		// 2. Recent Participants
 		_ = db.Select(&dashboard.RecentParticipants, `
 			SELECT a.full_name, e.name as event_name, ep.created_at
-			FROM event_participants ep
+			FROM tournament_participants ep
 			JOIN archers a ON ep.archer_id = a.uuid
-			JOIN events e ON ep.event_id = e.uuid
+			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ?
 			ORDER BY ep.created_at DESC
 			LIMIT 5
@@ -82,8 +82,8 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Select(&dashboard.RecentPayments, `
 			SELECT t.amount, a.full_name, e.name as event_name, t.paid_at, t.status
 			FROM payment_transactions t
-			JOIN events e ON t.event_id = e.uuid
-			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
+			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			WHERE e.organizer_id = ? AND t.registration_id IS NOT NULL
 			ORDER BY t.created_at DESC
@@ -93,7 +93,7 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 		// 4. Upcoming Deadlines
 		_ = db.Select(&dashboard.UpcomingDeadlines, `
 			SELECT name, registration_deadline
-			FROM events
+			FROM tournaments
 			WHERE organizer_id = ? AND registration_deadline > NOW() AND status = 'active'
 			ORDER BY registration_deadline ASC
 			LIMIT 3
@@ -130,10 +130,10 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 				a.full_name as archer_name,
 				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name
 			FROM payment_transactions t
-			JOIN events e ON t.event_id = e.uuid
-			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
+			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
 			WHERE e.organizer_id = ? AND t.registration_id IS NOT NULL
 			ORDER BY t.created_at DESC
@@ -155,7 +155,7 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&total, `
 			SELECT COUNT(*) 
 			FROM payment_transactions t 
-			JOIN events e ON t.event_id = e.uuid 
+			JOIN tournaments e ON t.tournament_id = e.uuid 
 			WHERE e.organizer_id = ? AND t.registration_id IS NOT NULL
 		`, userID)
 
@@ -356,7 +356,7 @@ func MobileDeleteOrganizationBankAccount(db *sqlx.DB) gin.HandlerFunc {
 // @Param id path string true "Event UUID"
 // @Param user_id path string true "Archer UUID or Participant UUID"
 // @Success 200 {object} map[string]interface{}
-// @Router /mobile/organizer/events/{id}/participants/{user_id} [delete]
+// @Router /mobile/organizer/tournaments/{id}/participants/{user_id} [delete]
 func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		organizationUUID, _ := c.Get("user_id")
@@ -365,7 +365,7 @@ func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// 1. Verify Event ownership
 		var eventUUID string
-		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE (uuid = ? OR slug = ?) AND organizer_id = ?", eventID, eventID, organizationUUID)
+		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE (uuid = ? OR slug = ?) AND organizer_id = ?", eventID, eventID, organizationUUID)
 		if err != nil {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses ke event ini"})
 			return
@@ -376,9 +376,9 @@ func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var participantUUIDs []string
 		_ = db.Select(&participantUUIDs, `
 			SELECT tp.uuid 
-			FROM event_participants tp
+			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.event_id = ? AND (tp.uuid = ? OR tp.archer_id = ? OR a.id = ?)
+			WHERE tp.tournament_id = ? AND (tp.uuid = ? OR tp.archer_id = ? OR a.id = ?)
 		`, eventUUID, participantUserID, participantUserID, participantUserID)
 
 		if len(participantUUIDs) == 0 {
@@ -401,7 +401,7 @@ func MobileOrganizationKickParticipant(db *sqlx.DB) gin.HandlerFunc {
 			_, _ = tx.Exec("DELETE FROM qualification_target_assignments WHERE participant_uuid = ?", pUUID)
 			
 			// B. Finally remove the participant record
-			_, err = tx.Exec("DELETE FROM event_participants WHERE uuid = ?", pUUID)
+			_, err = tx.Exec("DELETE FROM tournament_participants WHERE uuid = ?", pUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus peserta: " + pUUID})
 				return
@@ -522,11 +522,11 @@ func MobileGetCheckinSummary(db *sqlx.DB) gin.HandlerFunc {
 		var checkedInParticipants int
 
 		_ = db.Get(&totalParticipants, `
-			SELECT COUNT(*) FROM event_participants WHERE event_id = ?
+			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ?
 		`, eventID)
 
 		_ = db.Get(&checkedInParticipants, `
-			SELECT COUNT(*) FROM event_participants WHERE event_id = ? AND checked_in_at IS NOT NULL
+			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND checked_in_at IS NOT NULL
 		`, eventID)
 
 		c.JSON(http.StatusOK, gin.H{
@@ -546,9 +546,9 @@ func MobileManualCheckin(db *sqlx.DB) gin.HandlerFunc {
 
 		now := time.Now()
 		_, err := db.Exec(`
-			UPDATE event_participants 
+			UPDATE tournament_participants 
 			SET checked_in_at = ?
-			WHERE event_id = ? AND (uuid = ? OR id = ?)
+			WHERE tournament_id = ? AND (uuid = ? OR id = ?)
 		`, now, eventID, participantID, participantID)
 
 		if err != nil {
@@ -573,19 +573,19 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		var paidCount, pendingCount, unpaidCount int
 
 		_ = db.Get(&totalRevenue, `
-			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
+			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE tournament_id = ? AND status = 'paid'
 		`, eventID)
 
 		_ = db.Get(&paidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'paid'
 		`, eventID)
 
 		_ = db.Get(&pendingCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'pending'
 		`, eventID)
 
 		_ = db.Get(&unpaidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'failed')
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND (status = 'unpaid' OR status = 'failed')
 		`, eventID)
 
 		type TxnItem struct {
@@ -600,7 +600,7 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Select(&items, `
 			SELECT id, amount, status, payment_method, created_at
 			FROM payment_transactions
-			WHERE event_id = ?
+			WHERE tournament_id = ?
 			ORDER BY created_at DESC
 			LIMIT 50
 		`, eventID)
@@ -723,7 +723,7 @@ func MobileBroadcastReminderUnpaid(db *sqlx.DB) gin.HandlerFunc {
 
 		var unpaidCount int
 		_ = db.Get(&unpaidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'pending')
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND (status = 'unpaid' OR status = 'pending')
 		`, eventID)
 
 		c.JSON(http.StatusOK, gin.H{
@@ -735,7 +735,7 @@ func MobileBroadcastReminderUnpaid(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGlobalSearch searches athletes, events, and invoices for the organizer
+// MobileGlobalSearch searches athletes, tournaments, and invoices for the organizer
 func MobileGlobalSearch(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("q")
@@ -759,7 +759,7 @@ func MobileGlobalSearch(db *sqlx.DB) gin.HandlerFunc {
 		var athletes []AthleteResult
 		_ = db.Select(&athletes, `
 			SELECT id, name, category, (checked_in_at IS NOT NULL) as checked_in
-			FROM event_participants
+			FROM tournament_participants
 			WHERE name LIKE ? OR id LIKE ?
 			LIMIT 10
 		`, likeQuery, likeQuery)

@@ -28,7 +28,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -36,7 +36,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 
 		type SessionWithCount struct {
 			UUID             string   `db:"uuid" json:"uuid"`
-			EventUUID        string   `db:"event_uuid" json:"event_uuid"`
+			EventUUID        string   `db:"tournament_uuid" json:"event_uuid"`
 			SessionCode      string   `db:"session_code" json:"session_code"`
 			SessionDate      *string  `db:"session_date" json:"session_date"`
 			Name             string   `db:"name" json:"name"`
@@ -56,7 +56,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&sessions, `
 			SELECT 
 				qs.uuid,
-				qs.event_uuid,
+				qs.tournament_uuid,
 				qs.session_code,
 				qs.session_date,
 				qs.name,
@@ -72,8 +72,8 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			FROM qualification_sessions qs
 			LEFT JOIN qualification_target_assignments qta ON qs.uuid = qta.session_uuid
 			LEFT JOIN qualification_session_categories qsc ON qs.uuid = qsc.session_uuid
-			WHERE qs.event_uuid = ?
-			GROUP BY qs.uuid, qs.event_uuid, qs.session_code, qs.session_date, qs.name, qs.start_time, qs.end_time, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at, qs.is_locked
+			WHERE qs.tournament_uuid = ?
+			GROUP BY qs.uuid, qs.tournament_uuid, qs.session_code, qs.session_date, qs.name, qs.start_time, qs.end_time, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at, qs.is_locked
 			ORDER BY qs.session_date ASC, qs.start_time ASC, qs.created_at ASC
 		`, eventUUID)
 		if err != nil {
@@ -104,7 +104,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -169,7 +169,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		newUUID := uuid.New().String()
 		_, err = tx.Exec(`
-			INSERT INTO qualification_sessions (uuid, event_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end)
+			INSERT INTO qualification_sessions (uuid, tournament_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			newUUID, eventUUID, sessionCode, req.SessionDate, req.Name, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd)
 		if err != nil {
@@ -506,7 +506,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			details, _ := json.Marshal(raw)
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_qualification_score", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
@@ -665,10 +665,10 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(score_summary.total_x, 0) as total_x,
 				COALESCE(score_summary.ends_completed, 0) as ends_completed,
 				score_summary.end_scores
-			FROM event_participants ep
+			FROM tournament_participants ep
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 			LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 			JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
@@ -783,7 +783,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{}
 
 		if categoryID != "" {
-			query += " JOIN event_participants ep ON qes.participant_uuid = ep.uuid"
+			query += " JOIN tournament_participants ep ON qes.participant_uuid = ep.uuid"
 			query += " WHERE qes.session_uuid = ? AND ep.category_id = ?"
 			args = append(args, sessionID, categoryID)
 		} else {
@@ -810,7 +810,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 				FROM qualification_end_scores qes
 		`
 		if categoryID != "" {
-			arrowQuery += " JOIN event_participants ep ON qes.participant_uuid = ep.uuid"
+			arrowQuery += " JOIN tournament_participants ep ON qes.participant_uuid = ep.uuid"
 			arrowQuery += " WHERE qes.session_uuid = ? AND ep.category_id = ?"
 		} else {
 			arrowQuery += " WHERE qes.session_uuid = ?"
@@ -904,8 +904,8 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 				a.full_name as archer_name,
 				c.name as club_name
 			FROM qualification_target_assignments qta
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			LEFT JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			LEFT JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE qta.session_uuid = ?
@@ -933,7 +933,7 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // GetMyEventTarget returns the archer's own target assignments for all sessions in an event.
-// Called by archer from dashboard: GET /events/:id/my-target
+// Called by archer from dashboard: GET /tournaments/:id/my-target
 func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
@@ -975,10 +975,10 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				qta.uuid AS assignment_id
 			FROM qualification_target_assignments qta
 			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
-			JOIN events e ON (e.uuid = ep.event_id OR e.slug = ep.event_id)
-			LEFT JOIN event_targets et ON qta.target_uuid = et.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+			JOIN tournaments e ON (e.uuid = ep.tournament_id OR e.slug = ep.tournament_id)
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			WHERE (e.uuid = ? OR e.slug = ?)
@@ -1006,10 +1006,10 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(NULLIF(ep.back_number, ''), 'A') AS target_board,
 					COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
 					ep.uuid AS assignment_id
-				FROM event_participants ep
-				JOIN events e ON (e.uuid = ep.event_id OR e.slug = ep.event_id)
-				LEFT JOIN qualification_sessions qs ON qs.event_uuid = e.uuid
-				LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+				FROM tournament_participants ep
+				JOIN tournaments e ON (e.uuid = ep.tournament_id OR e.slug = ep.tournament_id)
+				LEFT JOIN qualification_sessions qs ON qs.tournament_uuid = e.uuid
+				LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 				LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 				WHERE (e.uuid = ? OR e.slug = ?)
@@ -1066,7 +1066,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get session details
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT event_uuid FROM qualification_sessions WHERE uuid = ?`, sessionID)
+		err := db.Get(&eventUUID, `SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?`, sessionID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi tidak ditemukan"})
 			return
@@ -1079,7 +1079,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var allTargets []Target
 		err = db.Select(&allTargets, `
 			SELECT uuid, target_name
-			FROM event_targets
+			FROM tournament_targets
 			WHERE event_uuid = ?
 			ORDER BY (target_name + 0) ASC, target_name ASC
 		`, eventUUID)
@@ -1095,7 +1095,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT COUNT(*) FROM qualification_end_scores
 			WHERE session_uuid = ?
 			  AND participant_uuid IN (
-			    SELECT uuid FROM event_participants WHERE category_id = ?
+			    SELECT uuid FROM tournament_participants WHERE category_id = ?
 			  )
 		`, sessionID, req.CategoryID)
 
@@ -1110,7 +1110,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 				DELETE FROM qualification_target_assignments
 				WHERE session_uuid = ?
 				  AND participant_uuid IN (
-				    SELECT uuid FROM event_participants WHERE category_id = ?
+				    SELECT uuid FROM tournament_participants WHERE category_id = ?
 				  )
 			`, sessionID, req.CategoryID); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data penempatan sebelumnya", "details": err.Error()})
@@ -1159,7 +1159,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			db.Select(&existing, `
 				SELECT qta.target_uuid
 				FROM qualification_target_assignments qta
-				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 				WHERE qta.session_uuid = ? AND ep.category_id != ?
 			`, sessionID, req.CategoryID)
 		}
@@ -1224,7 +1224,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			// Fetch only participants who are NOT yet assigned in this session
 			err = db.Select(&participants, `
 				SELECT ep.uuid, c.name as club_name
-				FROM event_participants ep
+				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs c ON a.club_id = c.uuid
 				WHERE ep.category_id = ?
@@ -1237,7 +1237,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			// Fetch ALL participants for this category
 			err = db.Select(&participants, `
 				SELECT ep.uuid, c.name as club_name
-				FROM event_participants ep
+				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs c ON a.club_id = c.uuid
 				WHERE ep.category_id = ?
@@ -1256,7 +1256,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			BoardNumber int    `db:"board_number"`
 		}
 		var targetsInfo []TargetBoardInfo
-		err = db.Select(&targetsInfo, `SELECT uuid, board_number FROM event_targets WHERE event_uuid = ?`, eventUUID)
+		err = db.Select(&targetsInfo, `SELECT uuid, board_number FROM tournament_targets WHERE tournament_uuid = ?`, eventUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets info", "details": err.Error()})
 			return
@@ -1419,7 +1419,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT uuid FROM events WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -1469,7 +1469,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			// Validate participation exists
 			var count int
 			err := tx.Get(&count, `
-				SELECT COUNT(*) FROM event_participants 
+				SELECT COUNT(*) FROM tournament_participants 
 				WHERE uuid = ? AND category_id = ?
 			`, assignment.ParticipantID, req.CategoryID)
 			if err != nil || count == 0 {
@@ -1509,7 +1509,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 			// 3. Insert new assignment
 			var boardNumber int
-			tx.Get(&boardNumber, "SELECT board_number FROM event_targets WHERE uuid = ?", assignment.TargetID)
+			tx.Get(&boardNumber, "SELECT board_number FROM tournament_targets WHERE uuid = ?", assignment.TargetID)
 
 			var targetBoardUUID sql.NullString
 			tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
@@ -1555,7 +1555,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			orgID, _ := c.Get("org_id")
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "auto_assign_participants", "Auto-assigned participants in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
@@ -1589,7 +1589,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		db.Get(&scoredCount, `
 			SELECT COUNT(DISTINCT qes.participant_uuid)
 			FROM qualification_end_scores qes
-			JOIN event_participants ep ON qes.participant_uuid = ep.uuid
+			JOIN tournament_participants ep ON qes.participant_uuid = ep.uuid
 			WHERE qes.session_uuid = ? AND ep.category_id = ?
 		`, sessionID, categoryID)
 
@@ -1605,7 +1605,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if scoredCount > 0 {
 			res, err = tx.Exec(`
 				DELETE qta FROM qualification_target_assignments qta
-				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 				WHERE qta.session_uuid = ? AND ep.category_id = ?
 				  AND ep.uuid NOT IN (
 				    SELECT DISTINCT participant_uuid FROM qualification_end_scores WHERE session_uuid = ?
@@ -1614,7 +1614,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			res, err = tx.Exec(`
 				DELETE qta FROM qualification_target_assignments qta
-				JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 				WHERE qta.session_uuid = ? AND ep.category_id = ?`,
 				sessionID, categoryID)
 		}
@@ -1638,7 +1638,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			orgID, _ := c.Get("org_id")
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
+			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
@@ -1696,10 +1696,10 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		// 2. Move Participant B to Target A
 		var boardNumberA int
-		tx.Get(&boardNumberA, "SELECT board_number FROM event_targets WHERE uuid = ?", targetA)
+		tx.Get(&boardNumberA, "SELECT board_number FROM tournament_targets WHERE uuid = ?", targetA)
 
 		var categoryIDB string
-		tx.Get(&categoryIDB, "SELECT ep.category_id FROM event_participants ep WHERE ep.uuid = ?", req.ParticipantB)
+		tx.Get(&categoryIDB, "SELECT ep.category_id FROM tournament_participants ep WHERE ep.uuid = ?", req.ParticipantB)
 
 		var targetBoardUUIDB sql.NullString
 		tx.Get(&targetBoardUUIDB, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
@@ -1714,10 +1714,10 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		// 3. Re-insert Participant A into Target B
 		var boardNumberB int
-		tx.Get(&boardNumberB, "SELECT board_number FROM event_targets WHERE uuid = ?", targetB)
+		tx.Get(&boardNumberB, "SELECT board_number FROM tournament_targets WHERE uuid = ?", targetB)
 
 		var categoryID string
-		tx.Get(&categoryID, "SELECT ep.category_id FROM event_participants ep WHERE ep.uuid = ?", req.ParticipantA)
+		tx.Get(&categoryID, "SELECT ep.category_id FROM tournament_participants ep WHERE ep.uuid = ?", req.ParticipantA)
 
 		var targetBoardUUIDA sql.NullString
 		tx.Get(&targetBoardUUIDA, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
@@ -1745,7 +1745,7 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			orgID, _ := c.Get("org_id")
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
+			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "swap_assignments", "Swapped targets in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
 		}
@@ -1769,8 +1769,8 @@ func GetBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Select(&boardNumbers, `
 			SELECT DISTINCT et.board_number 
 			FROM qualification_target_assignments qta 
-			JOIN event_targets et ON qta.target_uuid = et.uuid 
-			JOIN event_participants ep ON qta.participant_uuid = ep.uuid
+			JOIN tournament_targets et ON qta.target_uuid = et.uuid 
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			WHERE qta.session_uuid = ? AND ep.category_id = ? AND et.board_number > 0
 			ORDER BY et.board_number ASC
 		`, sessionID, categoryID)
@@ -1781,14 +1781,14 @@ func GetBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get or generate the "event part" suffix (3 letters) for this session
 		var eventUUID string
-		db.Get(&eventUUID, "SELECT event_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
+		db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
 
 		var suffix string
 		db.Get(&suffix, `
 			SELECT RIGHT(code, 3) 
 			FROM target_board_qualification tbq
 			JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
-			WHERE qs.event_uuid = ? LIMIT 1
+			WHERE qs.tournament_uuid = ? LIMIT 1
 		`, eventUUID)
 
 		if suffix == "" {

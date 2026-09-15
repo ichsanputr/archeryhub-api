@@ -32,7 +32,7 @@ func main() {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT uuid, name FROM events")
+	rows, err := db.Query("SELECT uuid, name FROM tournaments")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,18 +42,18 @@ func main() {
 		UUID string
 		Name string
 	}
-	var events []Event
+	var tournaments []Event
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(&e.UUID, &e.Name); err != nil {
 			log.Fatal(err)
 		}
-		events = append(events, e)
+		tournaments = append(tournaments, e)
 	}
 
 	rand.Seed(time.Now().UnixNano())
 
-	for _, event := range events {
+	for _, event := range tournaments {
 		fmt.Printf("Seeding gallery for event: %s\n", event.Name)
 		
 		// Add 5-10 random images
@@ -66,7 +66,7 @@ func main() {
 			caption := fmt.Sprintf("Gallery image %d for %s", i+1, event.Name)
 			
 			_, err = db.Exec(`
-				INSERT INTO event_images (uuid, event_id, url, caption, alt_text, display_order, is_primary)
+				INSERT INTO tournament_images (uuid, tournament_id, url, caption, alt_text, display_order, is_primary)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`, imageUUID, event.UUID, imageURL, caption, event.Name, i+1, 0)
 			
@@ -76,5 +76,5 @@ func main() {
 		}
 	}
 
-	fmt.Println("Successfully seeded gallery images for all events.")
+	fmt.Println("Successfully seeded gallery images for all tournaments.")
 }

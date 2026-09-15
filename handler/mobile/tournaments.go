@@ -16,17 +16,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// MobileListEvents handles listing events for mobile
+// MobileListEvents handles listing tournaments for mobile
 // @Summary List Mobile Events
-// @Description Get a list of active or past events optimized for mobile
+// @Description Get a list of active or past tournaments optimized for mobile
 // @Tags         Events
 // @Produce json
 // @Param limit query int false "Pagination limit"
 // @Param offset query int false "Pagination offset"
 // @Param search query string false "Search by name or location"
-// @Param history query bool false "Filter past events"
+// @Param history query bool false "Filter past tournaments"
 // @Success 200 {object} MobileEventsResponse
-// @Router       /events [get]
+// @Router       /tournaments [get]
 func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -35,8 +35,8 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		whereClause := "WHERE t.status != 'draft'"
 		
-		// If path is /events/history or ?history=true is passed
-		if c.Request.URL.Path == "/api/v1/mobile/events/history" || c.Query("history") == "true" {
+		// If path is /tournaments/history or ?history=true is passed
+		if c.Request.URL.Path == "/api/v1/mobile/tournaments/history" || c.Query("history") == "true" {
 			whereClause += " AND t.end_date < NOW()"
 		}
 
@@ -58,16 +58,16 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 				COUNT(DISTINCT tp.archer_id) as participant_count,
 				COALESCE(cat_stats.cat_count, 0) as category_count,
 				t.entry_fee
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, avatar_url FROM organizers
 				UNION ALL
 				SELECT uuid as id, name as full_name, logo_url as avatar_url FROM clubs
 			) u ON t.organizer_id = u.id
-			LEFT JOIN event_participants tp ON t.uuid = tp.event_id
+			LEFT JOIN tournament_participants tp ON t.uuid = tp.tournament_id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as cat_count
-				FROM event_categories
+				FROM tournament_categories
 				GROUP BY event_id
 			) cat_stats ON t.uuid = cat_stats.event_id
 			` + whereClause + `
@@ -77,31 +77,31 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 		`
 		args = append(args, limit, offset)
 
-		var events []MobileEvent
-		err := db.Select(&events, query, args...)
+		var tournaments []MobileEvent
+		err := db.Select(&tournaments, query, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event", "details": err.Error()})
 			return
 		}
 
-		for i := range events {
-			if events[i].LogoURL != nil {
-				masked := utils.MaskMediaURL(*events[i].LogoURL)
-				events[i].LogoURL = &masked
+		for i := range tournaments {
+			if tournaments[i].LogoURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
+				tournaments[i].LogoURL = &masked
 			}
-			if events[i].BannerURL != nil {
-				masked := utils.MaskMediaURL(*events[i].BannerURL)
-				events[i].BannerURL = &masked
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
 			}
-			if events[i].OrganizerAvatarURL != nil {
-				masked := utils.MaskMediaURL(*events[i].OrganizerAvatarURL)
-				events[i].OrganizerAvatarURL = &masked
+			if tournaments[i].OrganizerAvatarURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].OrganizerAvatarURL)
+				tournaments[i].OrganizerAvatarURL = &masked
 			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"events":      events,
-			"total_count": len(events), // Simple count for now, could be improved with separate COUNT query
+			"tournaments":      tournaments,
+			"total_count": len(tournaments), // Simple count for now, could be improved with separate COUNT query
 		})
 	}
 }
@@ -114,7 +114,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 // @Security ApiKeyAuth
 // @Param id path string true "Event Slug or UUID"
 // @Success 200 {object} MobileArcherEventDetailResponse
-// @Router       /archer/events/{id}/detail [get]
+// @Router       /archer/tournaments/{id}/detail [get]
 func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -132,7 +132,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(u.phone, '') as organizer_phone,
 				COALESCE(active_target_stats.participant_count, 0) as participant_count,
 				t.organizer_id
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizers
 				UNION ALL
@@ -140,7 +140,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as participant_count
-				FROM event_participants
+				FROM tournament_participants
 				GROUP BY event_id
 			) active_target_stats ON t.uuid = active_target_stats.event_id
 			WHERE t.uuid = ? OR t.slug = ?
@@ -180,8 +180,8 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		isRegistered := false
 		err = db.Get(&registration, `
 			SELECT uuid, payment_status, target_name, payment_amount
-			FROM event_participants
-			WHERE event_id = ? AND archer_id = ?
+			FROM tournament_participants
+			WHERE tournament_id = ? AND archer_id = ?
 			LIMIT 1
 		`, event.UUID, userID)
 		if err == nil {
@@ -204,7 +204,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventDetail
 // @Failure 404 {object} map[string]interface{}
-// @Router       /events/{slug} [get]
+// @Router       /tournaments/{slug} [get]
 // MobileGetEventDetail returns core event information (slim)
 // @Summary Get Mobile Event Detail (Slim)
 // @Description Get summary details for a specific event without location, FAQ, or other granular info
@@ -213,7 +213,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventDetailSlim
 // @Failure 404 {object} map[string]interface{}
-// @Router       /events/{slug} [get]
+// @Router       /tournaments/{slug} [get]
 func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -229,7 +229,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(u.phone, '') as organizer_phone,
 				COALESCE(active_target_stats.participant_count, 0) as participant_count,
 				t.organizer_id
-			FROM events t
+			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, avatar_url, slug, whatsapp_no as phone FROM organizers
 				UNION ALL
@@ -237,7 +237,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
 				SELECT event_id, COUNT(*) as participant_count
-				FROM event_participants
+				FROM tournament_participants
 				GROUP BY event_id
 			) active_target_stats ON t.uuid = active_target_stats.event_id
 			WHERE t.uuid = ? OR t.slug = ?
@@ -276,12 +276,12 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventFAQResponse
-// @Router       /events/{slug}/faq [get]
+// @Router       /tournaments/{slug}/faq [get]
 func MobileGetEventFAQ(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var faqRaw *string
-		err := db.Get(&faqRaw, "SELECT faq FROM events WHERE uuid = ? OR slug = ?", id, id)
+		err := db.Get(&faqRaw, "SELECT faq FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -303,12 +303,12 @@ func MobileGetEventFAQ(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventFeesResponse
-// @Router       /events/{slug}/registration-fee [get]
+// @Router       /tournaments/{slug}/registration-fee [get]
 func MobileGetEventRegistrationFees(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var pageSettingsRaw *string
-		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM events WHERE uuid = ? OR slug = ?", id, id)
+		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -332,12 +332,12 @@ func MobileGetEventRegistrationFees(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventRewardsResponse
-// @Router       /events/{slug}/rewards [get]
+// @Router       /tournaments/{slug}/rewards [get]
 func MobileGetEventRewards(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var pageSettingsRaw *string
-		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM events WHERE uuid = ? OR slug = ?", id, id)
+		err := db.Get(&pageSettingsRaw, "SELECT page_settings FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -361,7 +361,7 @@ func MobileGetEventRewards(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventLocationResponse
-// @Router       /events/{slug}/location [get]
+// @Router       /tournaments/{slug}/location [get]
 func MobileGetEventLocation(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -380,7 +380,7 @@ func MobileGetEventLocation(db *sqlx.DB) gin.HandlerFunc {
 			SELECT venue, COALESCE(address, '') as address, COALESCE(city, '') as city, 
 			       COALESCE(location, '') as location, COALESCE(gmaps_link, '') as gmaps_link, 
 			       COALESCE(location_type, '') as location_type, page_settings 
-			FROM events 
+			FROM tournaments 
 			WHERE uuid = ? OR slug = ?
 		`, id, id)
 		
@@ -415,12 +415,12 @@ func MobileGetEventLocation(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventParticipantsResponse
-// @Router       /events/{slug}/participants [get]
+// @Router       /tournaments/{slug}/participants [get]
 func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var eventID string
-		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		_ = db.Get(&eventID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if eventID == "" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -442,12 +442,12 @@ func MobileGetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventScheduleResponse
-// @Router       /events/{slug}/schedule [get]
+// @Router       /tournaments/{slug}/schedule [get]
 func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var eventID string
-		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		_ = db.Get(&eventID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if eventID == "" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -469,12 +469,12 @@ func MobileGetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventCategoriesResponse
-// @Router       /events/{slug}/categories [get]
+// @Router       /tournaments/{slug}/categories [get]
 func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var eventID string
-		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		_ = db.Get(&eventID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if eventID == "" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -496,12 +496,12 @@ func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventGalleryResponse
-// @Router       /events/{slug}/gallery [get]
+// @Router       /tournaments/{slug}/gallery [get]
 func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
 		var eventID string
-		_ = db.Get(&eventID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", id, id)
+		_ = db.Get(&eventID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", id, id)
 		if eventID == "" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -527,7 +527,7 @@ func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 // @Security ApiKeyAuth
 // @Param request body MobileRegisterEventRequest true "Registration Details"
 // @Success 200 {object} MobileRegisterEventResponse
-// @Router /mobile/archer/events/register [post]
+// @Router /mobile/archer/tournaments/register [post]
 func MobileRegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileRegisterEventRequest
@@ -569,7 +569,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		OrganizerID string  `db:"organizer_id"`
 		EntryFee    float64 `db:"entry_fee"`
 	}
-	err := db.Get(&event, `SELECT uuid, organizer_id, COALESCE(entry_fee, 0.0) as entry_fee FROM events WHERE uuid = ? OR slug = ?`, req.EventID, req.EventID)
+	err := db.Get(&event, `SELECT uuid, organizer_id, COALESCE(entry_fee, 0.0) as entry_fee FROM tournaments WHERE uuid = ? OR slug = ?`, req.EventID, req.EventID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 		return
@@ -626,7 +626,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 	for i, catID := range allCategoryIDs {
 		// Check duplicate
 		var exists bool
-		_ = tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM event_participants WHERE event_id = ? AND archer_id = ? AND category_id = ? AND payment_status != 'cancelled')", event.UUID, archerUUID, catID)
+		_ = tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND category_id = ? AND payment_status != 'cancelled')", event.UUID, archerUUID, catID)
 		if exists { continue }
 
 		// Check category quota capacity and fee
@@ -639,8 +639,8 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 			SELECT 
 				COALESCE(ec.quota, 0) as quota,
 				COALESCE(ec.fee, 0.0) as fee,
-				(SELECT COUNT(*) FROM event_participants WHERE category_id = ec.uuid AND payment_status != 'cancelled') as current_count
-			FROM event_categories ec WHERE ec.uuid = ? FOR UPDATE
+				(SELECT COUNT(*) FROM tournament_participants WHERE category_id = ec.uuid AND payment_status != 'cancelled') as current_count
+			FROM tournament_categories ec WHERE ec.uuid = ? FOR UPDATE
 		`, catID)
 		if qErr == nil && catInfo.Quota > 0 && catInfo.CurrentCount >= catInfo.Quota {
 			c.JSON(http.StatusConflict, gin.H{"error": "Kuota pendaftaran untuk kategori ini telah penuh"})
@@ -656,7 +656,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		if i == 0 { firstRegID = regUUID }
 
 		_, err = tx.Exec(`
-			INSERT INTO event_participants (
+			INSERT INTO tournament_participants (
 				uuid, event_id, archer_id, category_id, 
 				registration_date, payment_status, payment_amount,
 				registration_source
@@ -754,7 +754,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 			`
 			_, err = db.NamedExec(query, transaction)
 			if err == nil {
-				_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE event_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
+				_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE tournament_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
 				qrURL = transaction.QRURL
 				tripayReference = &mayarTxID
 				checkoutURL = &checkoutURLVal
@@ -796,7 +796,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 // @Produce json
 // @Param slug path string true "Event Slug or UUID"
 // @Success 200 {object} MobileEventPaymentMethodsResponse
-// @Router       /events/{slug}/payment-method [get]
+// @Router       /tournaments/{slug}/payment-method [get]
 func MobileGetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("slug")
@@ -806,7 +806,7 @@ func MobileGetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			UUID        string `db:"uuid"`
 			OrganizerID string `db:"organizer_id"`
 		}
-		err := db.Get(&event, "SELECT uuid, organizer_id FROM events WHERE uuid = ? OR slug = ? LIMIT 1", id, id)
+		err := db.Get(&event, "SELECT uuid, organizer_id FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", id, id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -877,7 +877,7 @@ func MobileCancelRegistration(db *sqlx.DB) gin.HandlerFunc {
 			UUID          string `db:"uuid"`
 			PaymentStatus string `db:"payment_status"`
 		}
-		err := db.Get(&reg, "SELECT uuid, COALESCE(payment_status, 'pending') as payment_status FROM event_participants WHERE uuid = ? AND archer_id = ?", registrationID, userID)
+		err := db.Get(&reg, "SELECT uuid, COALESCE(payment_status, 'pending') as payment_status FROM tournament_participants WHERE uuid = ? AND archer_id = ?", registrationID, userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Pendaftaran tidak ditemukan atau Anda tidak memiliki akses"})
 			return
@@ -888,7 +888,7 @@ func MobileCancelRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 2. Delete the registration (event_participants) and any pending transactions associated with it
+		// 2. Delete the registration (tournament_participants) and any pending transactions associated with it
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database"})
@@ -897,7 +897,7 @@ func MobileCancelRegistration(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		_, _ = tx.Exec("UPDATE payment_transactions SET status = 'failed' WHERE registration_id = ?", registrationID)
-		_, err = tx.Exec("UPDATE event_participants SET payment_status = 'cancelled' WHERE uuid = ?", registrationID)
+		_, err = tx.Exec("UPDATE tournament_participants SET payment_status = 'cancelled' WHERE uuid = ?", registrationID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membatalkan pendaftaran"})
 			return
@@ -922,8 +922,8 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 		var regID string
 		var paymentStatus string
 
-		// Try to find by registration_id (uuid in event_participants)
-		err := db.QueryRow("SELECT uuid, COALESCE(payment_status, 'pending') FROM event_participants WHERE uuid = ? AND archer_id = ?", refOrVaOrReg, userID).Scan(&regID, &paymentStatus)
+		// Try to find by registration_id (uuid in tournament_participants)
+		err := db.QueryRow("SELECT uuid, COALESCE(payment_status, 'pending') FROM tournament_participants WHERE uuid = ? AND archer_id = ?", refOrVaOrReg, userID).Scan(&regID, &paymentStatus)
 		if err != nil {
 			// Try to find by payment transaction reference or tripay_reference or va_number
 			var pt struct {
@@ -945,7 +945,7 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 		if regID == "" {
 			_ = db.QueryRow(`
 				SELECT uuid, COALESCE(payment_status, 'pending') 
-				FROM event_participants 
+				FROM tournament_participants 
 				WHERE archer_id = ? AND payment_status IN ('pending', 'unpaid', '') 
 				ORDER BY registration_date DESC LIMIT 1
 			`, userID).Scan(&regID, &paymentStatus)
@@ -970,7 +970,7 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		_, _ = tx.Exec("UPDATE payment_transactions SET status = 'failed' WHERE registration_id = ?", regID)
-		_, err = tx.Exec("UPDATE event_participants SET payment_status = 'cancelled' WHERE uuid = ?", regID)
+		_, err = tx.Exec("UPDATE tournament_participants SET payment_status = 'cancelled' WHERE uuid = ?", regID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membatalkan pendaftaran"})
 			return

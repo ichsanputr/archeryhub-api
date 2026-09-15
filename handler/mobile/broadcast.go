@@ -46,7 +46,7 @@ func MobileGetEventBroadcasts(db *sqlx.DB) gin.HandlerFunc {
 		var broadcasts []MobileBroadcastItem
 		query := `SELECT uuid, event_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at 
 		          FROM broadcasts 
-		          WHERE event_id = ? AND organizer_id = ? 
+		          WHERE tournament_id = ? AND organizer_id = ? 
 		          ORDER BY created_at DESC`
 		err := db.Select(&broadcasts, query, eventID, organizationUUID)
 		if err != nil {
@@ -79,7 +79,7 @@ func MobileGetBroadcastDetail(db *sqlx.DB) gin.HandlerFunc {
 		var broadcast MobileBroadcastItem
 		query := `SELECT uuid, event_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at 
 		          FROM broadcasts 
-		          WHERE uuid = ? AND event_id = ? AND organizer_id = ? 
+		          WHERE uuid = ? AND tournament_id = ? AND organizer_id = ? 
 		          LIMIT 1`
 		err := db.Get(&broadcast, query, broadcastID, eventID, organizationUUID)
 		if err != nil {
@@ -113,16 +113,16 @@ func MobileCreateBroadcast(db *sqlx.DB) gin.HandlerFunc {
 		// Fetch target archer IDs
 		var archerIDs []string
 		if req.TargetType == "category" && req.TargetID != nil {
-			query := `SELECT DISTINCT archer_id FROM event_participants WHERE event_id = ? AND category_id = ? AND archer_id IS NOT NULL`
+			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND category_id = ? AND archer_id IS NOT NULL`
 			_ = db.Select(&archerIDs, query, eventID, *req.TargetID)
 		} else if req.TargetType == "paid" {
-			query := `SELECT DISTINCT archer_id FROM event_participants WHERE event_id = ? AND (payment_status = 'settlement' OR payment_status = 'paid' OR payment_status = 'Lunas') AND archer_id IS NOT NULL`
+			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status = 'settlement' OR payment_status = 'paid' OR payment_status = 'Lunas') AND archer_id IS NOT NULL`
 			_ = db.Select(&archerIDs, query, eventID)
 		} else if req.TargetType == "unpaid" {
-			query := `SELECT DISTINCT archer_id FROM event_participants WHERE event_id = ? AND (payment_status IS NULL OR payment_status = 'unpaid' OR payment_status = 'Menunggu') AND archer_id IS NOT NULL`
+			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status IS NULL OR payment_status = 'unpaid' OR payment_status = 'Menunggu') AND archer_id IS NOT NULL`
 			_ = db.Select(&archerIDs, query, eventID)
 		} else {
-			query := `SELECT DISTINCT archer_id FROM event_participants WHERE event_id = ? AND archer_id IS NOT NULL`
+			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND archer_id IS NOT NULL`
 			_ = db.Select(&archerIDs, query, eventID)
 		}
 
@@ -130,7 +130,7 @@ func MobileCreateBroadcast(db *sqlx.DB) gin.HandlerFunc {
 		broadcastUUID := uuid.New().String()
 
 		_, err := db.Exec(`
-			INSERT INTO broadcasts (uuid, event_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at)
+			INSERT INTO broadcasts (uuid, tournament_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
 		`, broadcastUUID, eventID, organizationUUID, req.Title, req.Message, req.TargetType, req.TargetID, req.TargetLabel, sentCount)
 		if err != nil {

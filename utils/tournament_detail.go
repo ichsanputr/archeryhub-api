@@ -48,12 +48,12 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 			tp.qual_rank,
 			tp.qual_score,
 			a.avatar_url
-		FROM event_participants tp
+		FROM tournament_participants tp
 		LEFT JOIN archers a ON tp.archer_id = a.uuid
 		LEFT JOIN clubs cl ON a.club_id = cl.uuid
-		LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
+		LEFT JOIN tournament_categories ec ON tp.category_id = ec.uuid
 		LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-		WHERE tp.event_id = ?
+		WHERE tp.tournament_id = ?
 		ORDER BY tp.registration_date DESC
 		LIMIT 20
 	`, event.UUID)
@@ -67,9 +67,9 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 
 	schedules := []models.EventSchedule{}
 	_ = db.Select(&schedules, `
-		SELECT uuid, event_id, title, description, start_time, end_time, day_order, sort_order, location, created_at, updated_at
-		FROM event_schedule
-		WHERE event_id = ?
+		SELECT uuid, tournament_id as event_id, title, description, start_time, end_time, day_order, sort_order, location, created_at, updated_at
+		FROM tournament_schedules
+		WHERE tournament_id = ?
 		ORDER BY COALESCE(day_order, 0), COALESCE(sort_order, 0), start_time
 	`, event.UUID)
 	event.Schedules = schedules
@@ -83,16 +83,16 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 			tp.qual_rank as rank,
 			tp.qual_score as score,
 			COALESCE(scores.total_x, 0) as x_count
-		FROM event_participants tp
+		FROM tournament_participants tp
 		LEFT JOIN archers a ON tp.archer_id = a.uuid
-		LEFT JOIN event_categories ec ON tp.category_id = ec.uuid
+		LEFT JOIN tournament_categories ec ON tp.category_id = ec.uuid
 		LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 		LEFT JOIN (
 			SELECT participant_uuid, SUM(x_count_end) as total_x
 			FROM qualification_end_scores
 			GROUP BY participant_uuid
 		) scores ON tp.uuid = scores.participant_uuid
-		WHERE tp.event_id = ? AND tp.qual_rank IS NOT NULL
+		WHERE tp.tournament_id = ? AND tp.qual_rank IS NOT NULL
 		ORDER BY tp.qual_rank ASC, tp.qual_score DESC
 		LIMIT 20
 	`, event.UUID)
@@ -100,9 +100,9 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 
 	gallery := []models.EventImage{}
 	_ = db.Select(&gallery, `
-		SELECT uuid, event_id, url, caption, alt_text, display_order, is_primary, created_at
-		FROM event_images
-		WHERE event_id = ?
+		SELECT uuid, tournament_id as event_id, url, caption, alt_text, display_order, is_primary, created_at
+		FROM tournament_images
+		WHERE tournament_id = ?
 		ORDER BY display_order, created_at
 	`, event.UUID)
 	for i := range gallery {
@@ -120,14 +120,14 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 			NULLIF(COALESCE(gd.name, ''), '') as gender_division_name,
 			COUNT(tp.uuid) as participant_count,
 			COALESCE(t.entry_fee, 0.00) as fee
-		FROM event_categories ec
-		JOIN events t ON ec.event_id = t.uuid
-		LEFT JOIN event_participants tp ON tp.category_id = ec.uuid
+		FROM tournament_categories ec
+		JOIN tournaments t ON ec.tournament_id = t.uuid
+		LEFT JOIN tournament_participants tp ON tp.category_id = ec.uuid
 		LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 		LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
-		LEFT JOIN ref_event_types et ON ec.event_type_uuid = et.uuid
+		LEFT JOIN ref_tournament_types et ON ec.tournament_type_uuid = et.uuid
 		LEFT JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
-		WHERE ec.event_id = ?
+		WHERE ec.tournament_id = ?
 		GROUP BY ec.uuid, bt.name, ec.category_name_custom, ag.name, et.name, gd.name, t.entry_fee
 		ORDER BY participant_count DESC, ec.created_at ASC
 	`, event.UUID)

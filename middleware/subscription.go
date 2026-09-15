@@ -49,9 +49,9 @@ func RequireActivePlan(db *sqlx.DB) gin.HandlerFunc {
 		hasQuota := org.QuotaStandard > 0 || org.QuotaElite > 0
 
 		if !hasMonthly && !hasQuota {
-			// Also allow if they have any published events (already consumed quota)
+			// Also allow if they have any published tournaments (already consumed quota)
 			var publishedCount int
-			_ = db.Get(&publishedCount, "SELECT COUNT(*) FROM events e JOIN organizers o ON e.organizer_id = o.uuid WHERE o.user_id = ? AND e.status = 'published' AND e.quota_type IS NOT NULL", userID)
+			_ = db.Get(&publishedCount, "SELECT COUNT(*) FROM tournaments e JOIN organizers o ON e.organizer_id = o.uuid WHERE o.user_id = ? AND e.status = 'published' AND e.quota_type IS NOT NULL", userID)
 			if publishedCount == 0 {
 				c.JSON(http.StatusPaymentRequired, gin.H{
 					"error": "Quota required",

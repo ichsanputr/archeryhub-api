@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ func main() {
 	}
 	defer db.Close()
 
-	fmt.Println("ðŸŒ± Seeding 5 new events to VPS...")
+	fmt.Println("ðŸŒ± Seeding 5 new tournaments to VPS...")
 
 	data := SeedData{
 		BowTypes: []string{
@@ -63,7 +63,7 @@ func main() {
 	}
 
 	ts := time.Now().Unix()
-	events := []struct {
+	tournaments := []struct {
 		Name  string
 		Slug  string
 		Venue string
@@ -76,7 +76,7 @@ func main() {
 		{"Brawijaya Traditional Open", fmt.Sprintf("brawijaya-traditional-open-2026-%d", ts), "Universitas Brawijaya", "Malang"},
 	}
 
-	for i, e := range events {
+	for i, e := range tournaments {
 		eventUUID := uuid.New().String()
 		startDate := time.Now().AddDate(0, i+1, 0)
 		endDate := startDate.AddDate(0, 0, 2)
@@ -87,7 +87,7 @@ func main() {
 		bannerURL := fmt.Sprintf("https://picsum.photos/seed/%s/1200/400", uuid.New().String())
 		logoURL := fmt.Sprintf("https://picsum.photos/seed/%s/400/400", uuid.New().String())
 		_, err := db.Exec(`
-			INSERT INTO events (uuid, slug, code, name, venue, city, start_date, end_date, registration_deadline, status, organizer_id, entry_fee, description, banner_url, logo_url)
+			INSERT INTO tournaments (uuid, slug, code, name, venue, city, start_date, end_date, registration_deadline, status, organizer_id, entry_fee, description, banner_url, logo_url)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'a1fdd1c4-632a-44d9-9be4-c96461e4530e', 150000.00, ?, ?, ?)
 		`, eventUUID, e.Slug, eventCode, e.Name, e.Venue, e.City, startDate, endDate, regDeadline, "Dynamic seeded event for mobile app testing.", bannerURL, logoURL)
 		if err != nil {
@@ -100,7 +100,7 @@ func main() {
 		for j := 0; j < 3; j++ {
 			catUUID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, status)
+				INSERT INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, tournament_type_uuid, gender_division_uuid, status)
 				VALUES (?, ?, ?, ?, ?, ?, 'active')
 			`, catUUID, eventUUID, data.BowTypes[rand.Intn(len(data.BowTypes))], data.AgeGroups[rand.Intn(len(data.AgeGroups))], data.EventTypes[rand.Intn(len(data.EventTypes))], data.GenderDivs[rand.Intn(len(data.GenderDivs))])
 			if err == nil {
@@ -112,7 +112,7 @@ func main() {
 		for j := 0; j < 10; j++ {
 			partUUID := uuid.New().String()
 			_, err = db.Exec(`
-				INSERT INTO event_participants (uuid, event_id, archer_id, category_id, payment_status, registration_date, payment_amount)
+				INSERT INTO tournament_participants (uuid, tournament_id, archer_id, category_id, payment_status, registration_date, payment_amount)
 				VALUES (?, ?, ?, ?, 'lunas', ?, 150000.00)
 			`, partUUID, eventUUID, data.Archers[rand.Intn(len(data.Archers))], catUUIDs[rand.Intn(len(catUUIDs))], time.Now())
 		}
@@ -124,7 +124,7 @@ func main() {
 			st := startDate.Add(time.Duration(8+j*3) * time.Hour)
 			et := st.Add(2 * time.Hour)
 			_, err = db.Exec(`
-				INSERT INTO event_schedule (uuid, event_id, title, start_time, end_time, day_order, sort_order)
+				INSERT INTO tournament_schedules (uuid, tournament_id, title, start_time, end_time, day_order, sort_order)
 				VALUES (?, ?, ?, ?, ?, 1, ?)
 			`, schedUUID, eventUUID, title, st, et, j+1)
 		}
@@ -134,7 +134,7 @@ func main() {
 			imgUUID := uuid.New().String()
 			imgURL := fmt.Sprintf("https://picsum.photos/seed/%s/800/600", uuid.New().String())
 			_, err = db.Exec(`
-				INSERT INTO event_images (uuid, event_id, url, caption, display_order, is_primary)
+				INSERT INTO tournament_images (uuid, tournament_id, url, caption, display_order, is_primary)
 				VALUES (?, ?, ?, ?, ?, ?)
 			`, imgUUID, eventUUID, imgURL, fmt.Sprintf("Action Shot %d", j), j, j == 1)
 		}

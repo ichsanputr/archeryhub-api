@@ -160,7 +160,7 @@ func GetCityOptions() gin.HandlerFunc {
 func GetEventTypeOptions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var data []OptionData
-		err := db.Select(&data, "SELECT uuid, name FROM ref_event_types ORDER BY name ASC")
+		err := db.Select(&data, "SELECT uuid, name FROM ref_tournament_types ORDER BY name ASC")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event types"})
 			return

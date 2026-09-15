@@ -7,7 +7,7 @@ import (
 // EventCertificate represents the certificate template configuration for an event
 type EventCertificate struct {
 	UUID          string    `json:"id" db:"uuid"`
-	EventID       string    `json:"event_id" db:"event_id"`
+	EventID       string    `json:"event_id" db:"tournament_id"`
 	HTMLTemplate  *string   `json:"html_template" db:"html_template"`
 	BackgroundURL *string   `json:"background_url" db:"background_url"`
 	SignatureURL  *string   `json:"signature_url" db:"signature_url"`
@@ -18,7 +18,7 @@ type EventCertificate struct {
 // ArcherCertificate represents an issued certificate for a participant
 type ArcherCertificate struct {
 	UUID           string    `json:"id" db:"uuid"`
-	EventID        string    `json:"event_id" db:"event_id"`
+	EventID        string    `json:"event_id" db:"tournament_id"`
 	ArcherID       string    `json:"archer_id" db:"archer_id"`
 	RegistrationID string    `json:"registration_id" db:"registration_id"`
 	CertificateNo  string    `json:"certificate_no" db:"certificate_no"`

@@ -17,7 +17,7 @@ func LogActivity(db interface {
 }, userID, eventID, action, entityType, entityID, description, ipAddress, userAgent string) {
 	logID := uuid.New().String()
 	query := `
-		INSERT INTO activity_logs (id, user_id, event_id, action, entity_type, entity_id, description, ip_address, user_agent)
+		INSERT INTO activity_logs (id, user_id, tournament_id, action, entity_type, entity_id, description, ip_address, user_agent)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	// Use eventID if provided, otherwise it can be empty/NULL
@@ -35,7 +35,7 @@ func LogScorekeeperAction(db interface {
 	Exec(query string, args ...any) (sql.Result, error)
 }, skUUID, orgUUID, eventUUID, action, details, ipAddress, userAgent string) {
 	query := `
-		INSERT INTO scorekeeper_logs (scorekeeper_uuid, organization_uuid, event_uuid, action, details, ip_address, user_agent)
+		INSERT INTO scorekeeper_logs (scorekeeper_uuid, organization_uuid, tournament_uuid, action, details, ip_address, user_agent)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 	var eID interface{} = eventUUID

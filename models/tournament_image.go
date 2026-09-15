@@ -5,7 +5,7 @@ import "time"
 // EventImage represents an image associated with an event
 type EventImage struct {
 	UUID         string    `json:"id" db:"uuid"`
-	EventID      string    `json:"event_id" db:"event_id"`
+	EventID      string    `json:"event_id" db:"tournament_id"`
 	URL          string    `json:"url" db:"url"`
 	Caption      *string   `json:"caption" db:"caption"`
 	AltText      *string   `json:"alt_text" db:"alt_text"`

@@ -4,11 +4,11 @@ import "time"
 
 // EventCategory represents a specific category for an event
 type EventCategory struct {
-	UUID         string    `json:"id" db:"uuid"`
-	EventID      string    `json:"event_id" db:"event_id"`
+	UUID               string    `json:"id" db:"uuid"`
+	EventID            string    `json:"event_id" db:"tournament_id"`
 	DivisionUUID       string    `json:"division_id" db:"division_uuid"`
 	CategoryUUID       string    `json:"category_id" db:"category_uuid"`
-	EventTypeUUID      string    `json:"event_type_id" db:"event_type_uuid"`
+	EventTypeUUID      string    `json:"event_type_id" db:"tournament_type_uuid"`
 	GenderDivisionUUID *string   `json:"gender_division_id" db:"gender_division_uuid"`
 	MaxParticipants    *int      `json:"max_participants" db:"max_participants"`
 	Status             string    `json:"status" db:"status"`

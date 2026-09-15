@@ -62,7 +62,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 
 			if err == nil {
 				subscription.TotalQuota = subscription.QuotaFree + subscription.QuotaStandard + subscription.QuotaElite
-				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM event_participants WHERE event_id IN (SELECT uuid FROM events WHERE organization_id = (SELECT uuid FROM organizers WHERE user_id = ?))", userID)
+				db.Get(&subscription.Usage.Current, "SELECT COUNT(*) FROM tournament_participants WHERE tournament_id IN (SELECT uuid FROM tournaments WHERE organization_id = (SELECT uuid FROM organizers WHERE user_id = ?))", userID)
 				subscription.Usage.Label = "Total Atlet"
 				subscription.Usage.Limit = 5000
 			}
@@ -108,7 +108,7 @@ func GetMySubscription(db *sqlx.DB) gin.HandlerFunc {
 				DATE_FORMAT(created_at, '%d %b %Y') as date,
 				CASE 
 					WHEN subscription_plan_id IS NOT NULL THEN 'Pembayaran Langganan'
-					WHEN event_id IS NOT NULL THEN 'Pembayaran Layanan Event'
+					WHEN tournament_id IS NOT NULL THEN 'Pembayaran Layanan Event'
 					ELSE 'Transaksi Lainnya'
 				END as description,
 				CONCAT('Rp ', FORMAT(amount, 0, 'id_ID')) as amount,
@@ -153,7 +153,7 @@ func ExportInvoicesCSV(db *sqlx.DB) gin.HandlerFunc {
 				DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as date,
 				CASE 
 					WHEN subscription_plan_id IS NOT NULL THEN 'Pembayaran Langganan'
-					WHEN event_id IS NOT NULL THEN 'Pembayaran Layanan Event'
+					WHEN tournament_id IS NOT NULL THEN 'Pembayaran Layanan Event'
 					ELSE 'Transaksi Lainnya'
 				END as description,
 				amount,
@@ -197,88 +197,285 @@ func ExportInvoicesCSV(db *sqlx.DB) gin.HandlerFunc {
 
 // GetSubscriptionComparison returns the comparison matrix for subscriptions
 func GetSubscriptionComparison() gin.HandlerFunc {
-	type FeatureRow struct {
-		FeatureKey  string      `json:"feature_key"`
-		FeatureName string      `json:"feature_name"`
-		Free        interface{} `json:"free"`
-		Standar     interface{} `json:"standar"`
-		Elite       interface{} `json:"elite"`
-	}
-
-	comparisonData := []FeatureRow{
-		{
-			FeatureKey:  "events_categories",
-			FeatureName: "Turnamen & Kategori",
-			Free:        "1 Event",
-			Standar:     "5 Event",
-			Elite:       "unlimited",
-		},
-		{
-			FeatureKey:  "online_reg",
-			FeatureName: "Pendaftaran Peserta Online",
-			Free:        "manual",
-			Standar:     "auto_local",
-			Elite:       "auto_global",
-		},
-		{
-			FeatureKey:  "participants_limit",
-			FeatureName: "Batas Peserta per Event",
-			Free:        "10 / Event",
-			Standar:     "50 / Event",
-			Elite:       "unlimited",
-		},
-		{
-			FeatureKey:  "referees_limit",
-			FeatureName: "Wasit & Pencatat Skor",
-			Free:        "referee_1",
-			Standar:     "referee_5",
-			Elite:       "unlimited",
-		},
-		{
-			FeatureKey:  "scoring_methods",
-			FeatureName: "Sistem Scoring Turnamen",
-			Free:        "scoring_basic",
-			Standar:     "scoring_elimination",
-			Elite:       "scoring_full",
-		},
-		{
-			FeatureKey:  "elimination_finals",
-			FeatureName: "Babak Eliminasi Match Finals",
-			Free:        false,
-			Standar:     false,
-			Elite:       true,
-		},
-		{
-			FeatureKey:  "team_club_mgmt",
-			FeatureName: "Manajemen Tim & Klub",
-			Free:        false,
-			Standar:     "standard_team",
-			Elite:       "mixed_teams",
-		},
-		{
-			FeatureKey:  "news_publishing",
-			FeatureName: "Berita & Pengumuman",
-			Free:        false,
-			Standar:     true,
-			Elite:       true,
-		},
-		{
-			FeatureKey:  "exports_reports",
-			FeatureName: "Laporan & Hasil Turnamen",
-			Free:        "export_basic",
-			Standar:     "export_standard",
-			Elite:       "export_elite",
-		},
-		{
-			FeatureKey:  "media_storage",
-			FeatureName: "Penyimpanan Media",
-			Free:        "250 MB",
-			Standar:     "1 GB",
-			Elite:       "5 GB",
-		},
-	}
-
 	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, comparisonData)
+		pricing := buildUnifiedPricing()
+		c.JSON(http.StatusOK, pricing.ComparisonMatrix)
 	}
 }
+
+type UnifiedPlanItem struct {
+	ID                int      `json:"id"`
+	TierKey           string   `json:"tier_key"`
+	Name              string   `json:"name"`
+	Badge             string   `json:"badge"`
+	Description       string   `json:"description"`
+	Period            string   `json:"period"`
+	PriceIDR          float64  `json:"price_idr"`
+	PromoPriceIDR     float64  `json:"promo_price_idr"`
+	PriceUSD          float64  `json:"price_usd"`
+	PromoPriceUSD     float64  `json:"promo_price_usd"`
+	DiscountPct       int      `json:"discount_pct"`
+	IsPopular         bool     `json:"is_popular"`
+	MaxParticipants   *int     `json:"max_participants"`
+	MaxCategories     *int     `json:"max_categories"`
+	MaxScorekeepers   *int     `json:"max_scorekeepers"`
+	HighlightFeatures []string `json:"highlight_features"`
+	CTAText           string   `json:"cta_text"`
+	CTALink           string   `json:"cta_link"`
+}
+
+type UnifiedComparisonRow struct {
+	Category string      `json:"category"`
+	Feature  string      `json:"feature"`
+	Free     interface{} `json:"free"`
+	Standard interface{} `json:"standard"`
+	Elite    interface{} `json:"elite"`
+}
+
+type UnifiedBundleRule struct {
+	MinQty      int    `json:"min_qty"`
+	DiscountPct int    `json:"discount_pct"`
+	Label       string `json:"label"`
+}
+
+type UnifiedFAQItem struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+type UnifiedPricingResponse struct {
+	Plans            []UnifiedPlanItem      `json:"plans"`
+	ComparisonMatrix []UnifiedComparisonRow `json:"comparison_matrix"`
+	BundleDiscounts  []UnifiedBundleRule    `json:"bundle_discounts"`
+	FAQs             []UnifiedFAQItem       `json:"faqs"`
+}
+
+func buildUnifiedPricing() UnifiedPricingResponse {
+	maxPartFree := 10
+	maxCatFree := 2
+	maxSkFree := 1
+
+	maxPartStd := 200
+	maxCatStd := 10
+	maxSkStd := 3
+
+	plans := []UnifiedPlanItem{
+		{
+			ID:                0,
+			TierKey:           "free",
+			Name:              "Free Starter",
+			Badge:             "Starter",
+			Description:       "Try core tournament scoring features with 1 free tournament quota.",
+			Period:            "/tournament",
+			PriceIDR:          0,
+			PromoPriceIDR:     0,
+			PriceUSD:          0,
+			PromoPriceUSD:     0,
+			DiscountPct:       0,
+			IsPopular:         false,
+			MaxParticipants:   &maxPartFree,
+			MaxCategories:     &maxCatFree,
+			MaxScorekeepers:   &maxSkFree,
+			HighlightFeatures: []string{
+				"1 Free Tournament Quota",
+				"Up to 10 Participants / Tournament",
+				"Up to 2 Competition Categories",
+				"1 Mobile Scorekeeper Account",
+				"Basic Qualification Leaderboard",
+				"Basic Results & Printouts (PDF)",
+			},
+			CTAText: "Get Started Free",
+			CTALink: "/auth/register",
+		},
+		{
+			ID:                7,
+			TierKey:           "standard",
+			Name:              "Standard EO",
+			Badge:             "Most Popular",
+			Description:       "Complete tournament scoring solution for clubs, regional circuits, and open tournaments.",
+			Period:            "/tournament",
+			PriceIDR:          49900,
+			PromoPriceIDR:     24950,
+			PriceUSD:          3.00,
+			PromoPriceUSD:     1.50,
+			DiscountPct:       50,
+			IsPopular:         true,
+			MaxParticipants:   &maxPartStd,
+			MaxCategories:     &maxCatStd,
+			MaxScorekeepers:   &maxSkStd,
+			HighlightFeatures: []string{
+				"Standard Tournament Quota",
+				"Up to 200 Participants / Tournament",
+				"Up to 10 Competition Categories",
+				"3 Scorekeeper Accounts",
+				"Live Qualification & Elimination Scoring",
+				"Standard Digital Certificates (Automated)",
+				"Full 6 Tournament Printouts Download",
+				"Automated Payment Gateway (Mayar QRIS & VA)",
+			},
+			CTAText: "Claim Standard Promo",
+			CTALink: "/package",
+		},
+		{
+			ID:                8,
+			TierKey:           "elite",
+			Name:              "Elite EO",
+			Badge:             "Professional Tier",
+			Description:       "Unlimited capabilities for professional championships, multi-field live streaming, and national tournaments.",
+			Period:            "/tournament",
+			PriceIDR:          79900,
+			PromoPriceIDR:     39950,
+			PriceUSD:          7.00,
+			PromoPriceUSD:     3.50,
+			DiscountPct:       50,
+			IsPopular:         false,
+			MaxParticipants:   nil,
+			MaxCategories:     nil,
+			MaxScorekeepers:   nil,
+			HighlightFeatures: []string{
+				"Unlimited Participants & Categories",
+				"Unlimited Scorekeeper Accounts",
+				"Custom Certificate Design Templates (16:9 & A4)",
+				"Live Embed Bracket & Leaderboard Widgets (OBS / Web)",
+				"Local & Global Payment Gateway (Mayar & PayPal)",
+				"Full Excel Export & Financial Statements",
+				"Priority Technical Tournament Support",
+			},
+			CTAText: "Choose Elite",
+			CTALink: "/package",
+		},
+	}
+
+	comparison := []UnifiedComparisonRow{
+		{
+			Category: "Capacity & Limits",
+			Feature:  "Participant Limit per Tournament",
+			Free:     "10 Participants",
+			Standard: "200 Participants",
+			Elite:    "Unlimited",
+		},
+		{
+			Category: "Capacity & Limits",
+			Feature:  "Competition Categories Limit",
+			Free:     "2 Categories",
+			Standard: "10 Categories",
+			Elite:    "Unlimited",
+		},
+		{
+			Category: "Capacity & Limits",
+			Feature:  "Scorekeeper Accounts",
+			Free:     "1 Scorekeeper",
+			Standard: "3 Scorekeepers",
+			Elite:    "Unlimited",
+		},
+		{
+			Category: "Scoring & Match Operations",
+			Feature:  "Digital Qualification Scoring",
+			Free:     true,
+			Standard: true,
+			Elite:    true,
+		},
+		{
+			Category: "Scoring & Match Operations",
+			Feature:  "Elimination Brackets & Match Play",
+			Free:     false,
+			Standard: true,
+			Elite:    true,
+		},
+		{
+			Category: "Scoring & Match Operations",
+			Feature:  "Live Widget Embed (OBS / Web)",
+			Free:     false,
+			Standard: false,
+			Elite:    true,
+		},
+		{
+			Category: "Outputs & Branding",
+			Feature:  "Digital Certificates for Archers",
+			Free:     false,
+			Standard: "Standard Template",
+			Elite:    "Custom Template (16:9 & A4)",
+		},
+		{
+			Category: "Outputs & Branding",
+			Feature:  "Scoresheets & Bracket Printouts",
+			Free:     "Basic Report",
+			Standard: "Complete (6 Types)",
+			Elite:    "Complete (6 Types)",
+		},
+		{
+			Category: "Outputs & Branding",
+			Feature:  "Data Export & Complete Excel",
+			Free:     "PDF",
+			Standard: "PDF & CSV",
+			Elite:    "PDF, CSV & Excel",
+		},
+		{
+			Category: "Support & Infrastructure",
+			Feature:  "Automated Payment Gateway",
+			Free:     false,
+			Standard: "Mayar (QRIS, VA)",
+			Elite:    "Mayar & PayPal (Global)",
+		},
+		{
+			Category: "Support & Infrastructure",
+			Feature:  "Media Storage",
+			Free:     "250 MB",
+			Standard: "1 GB",
+			Elite:    "5 GB",
+		},
+		{
+			Category: "Support & Infrastructure",
+			Feature:  "Technical Customer Support",
+			Free:     "Standard",
+			Standard: "Fast Support",
+			Elite:    "VIP Priority",
+		},
+	}
+
+	bundleRules := []UnifiedBundleRule{
+		{MinQty: 1, DiscountPct: 0, Label: "Single Package"},
+		{MinQty: 3, DiscountPct: 7, Label: "Save 7%"},
+		{MinQty: 5, DiscountPct: 12, Label: "Save 12%"},
+		{MinQty: 10, DiscountPct: 20, Label: "Save 20%"},
+	}
+
+	faqs := []UnifiedFAQItem{
+		{
+			Question: "How does the Standard EO 3-month free promo work?",
+			Answer:   "During the initial 3-month promotional period, organizers can register and claim Standard EO tournament quota completely free ($0.00 / Rp 0) with no upfront or hidden fees to publish and manage tournaments.",
+		},
+		{
+			Question: "What happens after the 3-month promo period ends?",
+			Answer:   "All existing tournaments and past tournament data remain permanently active. For publishing new future tournaments after the promo ends, Standard EO quota is available at the normal rate ($3.00 / Rp 49.900 per tournament, or Rp 24.950 with 50% discount).",
+		},
+		{
+			Question: "Do purchased tournament quotas have an expiration date?",
+			Answer:   "No. All tournament quotas stored in your organizer account never expire. You can keep them and use them whenever your tournament schedule is set.",
+		},
+		{
+			Question: "When is tournament quota deducted from my account balance?",
+			Answer:   "Tournament quota is only deducted when you publish a tournament (changing status from Draft to Public). While setting up categories, brackets, and rules in Draft mode, no quota is consumed.",
+		},
+		{
+			Question: "Can I purchase custom numbers of tournament slots?",
+			Answer:   "Yes! In your organizer dashboard, you can enter any custom number of tournament slots you require to plan out your organization's yearly calendar with automatic volume bundle discounts.",
+		},
+	}
+
+	return UnifiedPricingResponse{
+		Plans:            plans,
+		ComparisonMatrix: comparison,
+		BundleDiscounts:  bundleRules,
+		FAQs:             faqs,
+	}
+}
+
+// GetUnifiedPricingPlans returns the unified single source of truth for pricing across the entire platform
+func GetUnifiedPricingPlans(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		pricing := buildUnifiedPricing()
+		c.JSON(http.StatusOK, pricing)
+	}
+}
+
