@@ -81,6 +81,13 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 		if registrations == nil {
 			registrations = []MobileRegistrationItem{}
 		}
+		for i := range registrations {
+			if registrations[i].QRRaw == nil || *registrations[i].QRRaw == "" {
+				qrFallback := fmt.Sprintf("AH-%s", registrations[i].UUID)
+				registrations[i].QRRaw = &qrFallback
+			}
+			registrations[i].QRCodeDataURL = buildMobileQRCodeDataURL(registrations[i].QRRaw)
+		}
 		c.JSON(http.StatusOK, MobileMyRegistrationResponse{
 			EventID:       eventUUID,
 			Registrations: registrations,
@@ -109,8 +116,10 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 		var tournaments []MobileMyEventItem
 		err := db.Select(&tournaments, `
 			SELECT
+				ep.uuid as registration_id,
 				e.uuid as event_uuid, e.name as event_name, e.slug as event_slug,
-				e.location, e.start_date, e.end_date, e.logo_url,
+				COALESCE(NULLIF(e.location, ''), NULLIF(e.venue, ''), NULLIF(e.city, ''), 'Lokasi Belum Diatur') as location,
+				e.start_date, e.end_date, e.logo_url, e.banner_url,
 				ep.qr_raw,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
 				ep.payment_status,
@@ -137,6 +146,15 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				masked := utils.MaskMediaURL(*tournaments[i].LogoURL)
 				tournaments[i].LogoURL = &masked
 			}
+			if tournaments[i].BannerURL != nil {
+				masked := utils.MaskMediaURL(*tournaments[i].BannerURL)
+				tournaments[i].BannerURL = &masked
+			}
+			if tournaments[i].QRRaw == nil || *tournaments[i].QRRaw == "" {
+				qrFallback := fmt.Sprintf("AH-%s", tournaments[i].RegistrationID)
+				tournaments[i].QRRaw = &qrFallback
+			}
+			tournaments[i].QRCodeDataURL = buildMobileQRCodeDataURL(tournaments[i].QRRaw)
 		}
 
 		c.JSON(http.StatusOK, MobileMyEventsResponse{
@@ -173,13 +191,14 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var result struct {
+			RegistrationID   string  `db:"registration_id" json:"registration_id"`
 			QRRaw            *string `db:"qr_raw" json:"qr_raw"`
 			PaymentStatus    string  `db:"payment_status" json:"payment_status"`
 			RegistrationDate string  `db:"registration_date" json:"registration_date"`
 		}
 
 		err := db.Get(&result, `
-			SELECT ep.qr_raw, ep.payment_status, ep.registration_date
+			SELECT ep.uuid as registration_id, ep.qr_raw, ep.payment_status, ep.registration_date
 			FROM tournament_participants ep
 			WHERE ep.tournament_id = ? AND ep.archer_id = ?
 			ORDER BY ep.qr_raw IS NULL ASC, ep.registration_date DESC
@@ -190,10 +209,18 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		qrVal := ""
+		if result.QRRaw != nil && *result.QRRaw != "" {
+			qrVal = *result.QRRaw
+		} else {
+			qrVal = fmt.Sprintf("AH-%s", result.RegistrationID)
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"event_id":          eventUUID,
-			"qr_raw":            result.QRRaw,
-			"qr_code_data_url":  buildMobileQRCodeDataURL(result.QRRaw),
+			"registration_id":   result.RegistrationID,
+			"qr_raw":            qrVal,
+			"qr_code_data_url":  buildMobileQRCodeDataURL(&qrVal),
 			"payment_status":    result.PaymentStatus,
 			"registration_date": result.RegistrationDate,
 		})

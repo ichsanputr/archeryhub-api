@@ -430,6 +430,7 @@ type MobileMyEventsResponse struct {
 
 // MobileMyEventItem represents an event row for archer my tournaments.
 type MobileMyEventItem struct {
+	RegistrationID   string  `db:"registration_id" json:"registration_id"`
 	EventUUID        string  `db:"event_uuid" json:"event_uuid"`
 	EventName        string  `db:"event_name" json:"event_name"`
 	EventSlug        string  `db:"event_slug" json:"event_slug"`
@@ -437,6 +438,7 @@ type MobileMyEventItem struct {
 	StartDate        *string `db:"start_date" json:"start_date"`
 	EndDate          *string `db:"end_date" json:"end_date"`
 	LogoURL          *string `db:"logo_url" json:"logo_url"`
+	BannerURL        *string `db:"banner_url" json:"banner_url"`
 	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
 	QRCodeDataURL    *string `json:"qr_code_data_url"`
 	CategoryName     string  `db:"category_name" json:"category_name"`
