@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            width: 1000px; height: 1000px; background-color: #f8fafc;
+            font-family: 'Outfit', sans-serif; overflow: hidden; position: relative;
+            display: flex; flex-direction: column; padding: 60px;
+            background-image: 
+                linear-gradient(#e2e8f0 1px, transparent 1px),
+                linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .app-container {
+            width: 100%; height: 100%;
+            background: white; border-radius: 40px; border: 12px solid #0f172a;
+            position: relative; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .status-bar { height: 44px; padding: 0 30px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 14px; color: #0f172a; }
+        .nav-bar { height: 70px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }
+        .event-card {
+            background: white; border-radius: 20px; border: 1px solid #f1f5f9; padding: 20px; margin: 0 24px 16px; display: flex; gap: 16px; align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
+        .event-img { width: 80px; height: 80px; border-radius: 12px; background: #e2e8f0; object-cover; }
+        .register-btn { background: #fee2e2; color: #ef4444; font-weight: 950; font-size: 12px; padding: 8px 16px; border-radius: 8px; margin-left: auto; }
+        .tag { font-size: 9px; font-weight: 900; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="status-bar"><span>9:41</span><div style="display: flex; gap: 6px;"><div style="width: 18px; height: 10px; border: 1px solid #0f172a; border-radius: 2px;"></div></div></div>
+        <div class="nav-bar">
+            <div style="font-weight: 950; font-size: 20px;">Cari Turnamen</div>
+            <div style="width: 40px; height: 40px; background: #f1f5f9; border-radius: 50%;"></div>
+        </div>
+        
+        <!-- Search bar mockup -->
+        <div style="padding: 24px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: 700; font-size: 14px;">
+                <span>🔍 Cari nama event atau kota...</span>
+            </div>
+        </div>
+
+        <div class="event-card">
+            <img class="event-img" src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&q=80&w=200" />
+            <div>
+                <div class="tag">OPEN REGISTRATION</div>
+                <div style="font-weight: 950; font-size: 16px; color: #0f172a; margin-top: 4px;">Piala Presiden 2026</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: 700;">Jakarta Selatan // 04-08 Mei 2026</div>
+            </div>
+            <div class="register-btn">DAFTAR</div>
+        </div>
+        
+        <div class="event-card" style="border: 2px solid #ef4444; background: #fff1f2;">
+            <img class="event-img" src="https://images.unsplash.com/photo-1444491741275-3747c33cc99b?auto=format&fit=crop&q=80&w=200" />
+            <div>
+                <div class="tag" style="background: #ef4444; color: white;">POPULER</div>
+                <div style="font-weight: 950; font-size: 16px; color: #0f172a; margin-top: 4px;">Piala Gubernur Jabar</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: 700;">Bandung // 12-15 Mei 2026</div>
+            </div>
+            <div class="register-btn" style="background: #ef4444; color: white;">DAFTAR</div>
+        </div>
+
+        <!-- Success Toast Mockup -->
+        <div style="position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 80%; background: #0f172a; color: white; border-radius: 16px; padding: 16px 24px; display: flex; align-items: center; gap: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+            <div style="width: 24px; height: 24px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">✓</div>
+            <div style="font-weight: 700; font-size: 14px;">Pendaftaran berhasil dikirim!</div>
+        </div>
+    </div>
+</body>
+</html>

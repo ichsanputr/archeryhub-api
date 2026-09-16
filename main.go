@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -213,10 +214,11 @@ func main() {
 		})
 	})
 
-	// Static uploads & images (media is handled dynamically via media.GET below)
+	// Static uploads & images (served from ./public, ./uploads, and fallback ../app/public)
 	r.Static("/uploads", "./uploads")
-	r.Static("/images", "../app/public/images")
-	r.StaticFile("/profile-author.png", "../app/public/profile-author.png")
+	r.Static("/images", "./public/images")
+	r.Static("/public", "./public")
+	r.StaticFile("/profile-author.png", "./public/profile-author.png")
 
 	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -1001,7 +1003,23 @@ func main() {
 			discovery.GET("/sitemap", handler.GetSitemapData(db))
 		}
 
-		// Event registration is handled via POST /tournaments/:id/participants
+		// Fallback for static assets in public directory
+		r.NoRoute(func(c *gin.Context) {
+			path := strings.TrimPrefix(c.Request.URL.Path, "/")
+			if path != "" && !strings.Contains(path, "..") {
+				localFile := filepath.Join("./public", path)
+				if stat, err := os.Stat(localFile); err == nil && !stat.IsDir() {
+					c.File(localFile)
+					return
+				}
+				appFile := filepath.Join("../app/public", path)
+				if stat, err := os.Stat(appFile); err == nil && !stat.IsDir() {
+					c.File(appFile)
+					return
+				}
+			}
+			c.JSON(http.StatusNotFound, gin.H{"error": "Endpoint tidak ditemukan"})
+		})
 
 		// Get host and port from environment
 		host := os.Getenv("HOST")

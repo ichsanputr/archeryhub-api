@@ -1,0 +1,492 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archeris — Website Under Development</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2316a34a'%3E%3Cpath d='M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-14a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4zm0-6a2 2 0 1 0 2 2 2 2 0 0 0-2-2z'/%3E%3C/svg%3E">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-page: #F8FAFC;
+            --bg-card: rgba(255, 255, 255, 0.85);
+            --border-card: rgba(226, 232, 240, 0.9);
+            --border-subtle: rgba(241, 245, 249, 1);
+            
+            --primary-emerald: #16A34A;
+            --primary-lime: #65A30D;
+            --emerald-glow: rgba(22, 163, 74, 0.15);
+            
+            --text-heading: #0F172A;
+            --text-body: #475569;
+            --text-muted: #64748B;
+            --text-dim: #94A3B8;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-body);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+            padding: 32px 20px;
+        }
+
+        /* Ambient Lighting Backgrounds */
+        .bg-glow-top {
+            position: absolute;
+            top: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 750px;
+            height: 480px;
+            background: radial-gradient(circle, rgba(220, 252, 231, 0.8) 0%, rgba(240, 253, 244, 0.4) 45%, rgba(248, 250, 252, 0) 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-glow-side {
+            position: absolute;
+            top: 25%;
+            right: -100px;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(224, 242, 254, 0.5) 0%, rgba(248, 250, 252, 0) 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Subtle Grid Pattern */
+        .grid-pattern {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 740px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            margin: auto;
+            text-align: center;
+        }
+
+        /* Header Logo & Brand */
+        .brand-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            text-decoration: none;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #FFFFFF;
+            border: 1px solid rgba(22, 163, 74, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.12);
+        }
+
+        .brand-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--primary-emerald);
+        }
+
+        .brand-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-heading);
+        }
+
+        .brand-title span {
+            color: var(--primary-emerald);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: #F0FDF4;
+            border: 1px solid #BBF7D0;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #15803D;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.05);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22C55E;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .pulse-dot::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background-color: #22C55E;
+            opacity: 0.75;
+            animation: pulse 2s infinite cubic-bezier(0, 0, 0.2, 1);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.9); opacity: 0; }
+            100% { transform: scale(0.95); opacity: 0; }
+        }
+
+        /* Hero Typography */
+        h1 {
+            font-size: clamp(32px, 5vw, 46px);
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -1px;
+            color: var(--text-heading);
+            margin-bottom: 18px;
+        }
+
+        h1 .highlight {
+            background: linear-gradient(135deg, #16A34A 0%, #0D9488 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: clamp(15px, 2.2vw, 17px);
+            line-height: 1.65;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 36px;
+        }
+
+        /* Clean Glass Card */
+        .main-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-card);
+            border-radius: 24px;
+            padding: 32px 28px;
+            box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .card-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-heading);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .phase-pill {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 12px;
+            background: #F1F5F9;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            color: var(--text-muted);
+        }
+
+        /* Progress Bar */
+        .progress-wrapper {
+            margin-bottom: 24px;
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .progress-meta .percent {
+            color: var(--primary-emerald);
+            font-weight: 700;
+        }
+
+        .progress-track {
+            height: 10px;
+            background: #F1F5F9;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 1px solid #E2E8F0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 88%;
+            background: linear-gradient(90deg, #16A34A 0%, #22C55E 50%, #4ADE80 100%);
+            border-radius: 9999px;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+            transition: width 1s ease-in-out;
+        }
+
+        /* Feature Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 14px;
+            padding-top: 20px;
+            border-top: 1px solid #F1F5F9;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13.5px;
+            color: var(--text-body);
+            font-weight: 500;
+        }
+
+        .feature-icon-wrapper {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            background: #ECFDF5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .feature-icon-wrapper svg {
+            width: 14px;
+            height: 14px;
+            fill: #16A34A;
+        }
+
+        /* Actions & Contact */
+        .cta-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 24px;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            color: #FFFFFF;
+            font-weight: 600;
+            font-size: 14px;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+            background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 22px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            color: var(--text-heading);
+            font-weight: 600;
+            font-size: 14px;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+        }
+
+        .btn-secondary:hover {
+            background: #F8FAFC;
+            border-color: #CBD5E1;
+            transform: translateY(-2px);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 48px;
+            font-size: 13px;
+            color: var(--text-dim);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--primary-emerald);
+        }
+
+        @media (max-width: 640px) {
+            .main-card {
+                padding: 24px 18px;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow-top"></div>
+    <div class="bg-glow-side"></div>
+    <div class="grid-pattern"></div>
+
+    <div class="container">
+        <!-- Logo -->
+        <a href="/" class="brand-header">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+                    <circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="2" fill="none" opacity="0.6"/>
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+                </svg>
+            </div>
+            <span class="brand-title">ARCHERIS<span>.NET</span></span>
+        </a>
+
+        <!-- Badge -->
+        <div>
+            <div class="status-badge">
+                <span class="pulse-dot"></span>
+                System Upgrade in Progress
+            </div>
+        </div>
+
+        <!-- Headline -->
+        <h1>The Future of Archery Management is <span class="highlight">Coming Soon</span></h1>
+        <p class="subtitle">
+            An all-in-one modern platform for tournament operations, athlete profiles, and real-time live scoring. We are currently preparing our production launch.
+        </p>
+
+        <!-- Main Card -->
+        <div class="main-card">
+            <div class="card-header">
+                <h3>
+                    <svg style="width: 18px; height: 18px; fill: var(--primary-emerald);" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                    Platform Readiness
+                </h3>
+                <span class="phase-pill">Final QA Phase · Q3 2026</span>
+            </div>
+
+            <div class="progress-wrapper">
+                <div class="progress-meta">
+                    <span>Launch Progress</span>
+                    <span class="percent">88%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper">
+                        <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </div>
+                    Real-Time Live Scoring
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper">
+                        <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </div>
+                    Interactive Elimination Brackets
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper">
+                        <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </div>
+                    Organizer Event Suite
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper">
+                        <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </div>
+                    QR Target Scoresheet Scanner
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact CTA -->
+        <div class="cta-group">
+            <a href="mailto:admin@archeris.net" class="btn-primary">
+                <svg style="width: 17px; height: 17px; fill: currentColor;" viewBox="0 0 24 24">
+                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                </svg>
+                Contact Us (admin@archeris.net)
+            </a>
+            <a href="https://dev.archeris.net" class="btn-secondary">
+                <svg style="width: 16px; height: 16px; fill: currentColor;" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
+                </svg>
+                Dev Environment
+            </a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 <strong>Archeris</strong> · Indonesia Archery Management Ecosystem. All rights reserved.</p>
+    </footer>
+</body>
+</html>
