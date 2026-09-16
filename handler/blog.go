@@ -273,6 +273,13 @@ func transformArticle(dbArticle BlogArticleDB) BlogArticle {
 		avatar = "/media/profile-author.png"
 	}
 
+	imageUrl := dbArticle.ImageURL
+	if imageUrl != "" && !strings.HasPrefix(imageUrl, "http://") && !strings.HasPrefix(imageUrl, "https://") {
+		if !strings.HasPrefix(imageUrl, "/") {
+			imageUrl = "/" + imageUrl
+		}
+	}
+
 	return BlogArticle{
 		ID:           dbArticle.ID,
 		UUID:         dbArticle.UUID,
@@ -281,7 +288,7 @@ func transformArticle(dbArticle BlogArticleDB) BlogArticle {
 		Excerpt:      dbArticle.Excerpt,
 		Content:      dbArticle.Content,
 		Category:     dbArticle.Category,
-		ImageURL:     dbArticle.ImageURL,
+		ImageURL:     imageUrl,
 		AuthorName:   dbArticle.AuthorName,
 		AuthorRole:   dbArticle.AuthorRole,
 		AuthorAvatar: avatar,

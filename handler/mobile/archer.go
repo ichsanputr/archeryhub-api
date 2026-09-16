@@ -290,16 +290,20 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var reg struct {
+		type RegRow struct {
 			RegistrationID   string  `db:"registration_id"`
+			CategoryID       string  `db:"category_id"`
 			CategoryName     string  `db:"category_name"`
 			PaymentStatus    string  `db:"payment_status"`
 			RegistrationDate string  `db:"registration_date"`
 			TargetNumber     *string `db:"target_number"`
 		}
-		err = db.Get(&reg, `
+
+		var regRows []RegRow
+		err = db.Select(&regRows, `
 			SELECT 
 				ep.uuid as registration_id,
+				COALESCE(ep.category_id, '') as category_id,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
 				ep.payment_status,
 				ep.registration_date,
@@ -311,16 +315,24 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN qualification_target_assignments qta ON qta.participant_id = ep.uuid
 			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
-			LIMIT 1
+			ORDER BY ep.registration_date ASC
 		`, event.UUID, archerUUID)
-		if err != nil {
+
+		logo := event.LogoURL
+		if logo != nil {
+			masked := utils.MaskMediaURL(*logo)
+			logo = &masked
+		}
+
+		if err != nil || len(regRows) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"event_id":          event.UUID,
 				"event_name":        event.Name,
 				"start_date":        event.StartDate,
 				"end_date":          event.EndDate,
 				"location":          event.Location,
-				"logo_url":          event.LogoURL,
+				"logo_url":          logo,
+				"categories":        []gin.H{},
 				"registration_id":   "",
 				"category_name":     "Belum Terdaftar",
 				"payment_status":    "Belum Terdaftar",
@@ -334,59 +346,91 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Fetch Qualification Score
-		var totalScore int
-		_ = db.Get(&totalScore, `
-			SELECT COALESCE(SUM(score), 0) 
-			FROM qualification_arrow_scores 
-			WHERE participant_id = ?
-		`, reg.RegistrationID)
-
-		// Fetch Rank
-		var rank int = 1
-		_ = db.Get(&rank, `
-			SELECT COUNT(distinct s.participant_id) + 1
-			FROM (
-				SELECT participant_id, COALESCE(SUM(score), 0) as total
-				FROM qualification_arrow_scores
-				GROUP BY participant_id
-			) s
-			JOIN tournament_participants ep2 ON ep2.uuid = s.participant_id
-			JOIN tournament_participants ep_cur ON ep_cur.uuid = ?
-			WHERE ep2.tournament_id = ? AND ep2.category_id = ep_cur.category_id AND s.total > ?
-		`, reg.RegistrationID, event.UUID, totalScore)
-
-		// Fetch Elimination
-		var elim struct {
-			Stage     *string `db:"stage"`
-			WinStatus *string `db:"win_status"`
-		}
-		_ = db.Get(&elim, `
-			SELECT stage, win_status 
-			FROM elimination_entries 
-			WHERE participant_id = ? 
-			LIMIT 1
-		`, reg.RegistrationID)
-
-		targetNum := "Belum Diatur"
-		if reg.TargetNumber != nil {
-			targetNum = *reg.TargetNumber
+		type CategoryPerformanceItem struct {
+			RegistrationID   string `json:"registration_id"`
+			CategoryID       string `json:"category_id"`
+			CategoryName     string `json:"category_name"`
+			PaymentStatus    string `json:"payment_status"`
+			RegistrationDate string `json:"registration_date"`
+			TargetNumber     string `json:"target_number"`
+			TotalScore       int    `json:"total_score"`
+			Rank             int    `json:"rank"`
+			EliminationStage string `json:"elimination_stage"`
+			EliminationWin   string `json:"elimination_win"`
 		}
 
-		stage := "Belum Masuk"
-		if elim.Stage != nil {
-			stage = *elim.Stage
-		}
-		win := "-"
-		if elim.WinStatus != nil {
-			win = *elim.WinStatus
+		var catList []CategoryPerformanceItem
+
+		for _, reg := range regRows {
+			// Fetch Qualification Score
+			var totalScore int
+			_ = db.Get(&totalScore, `
+				SELECT COALESCE(SUM(score), 0) 
+				FROM qualification_arrow_scores 
+				WHERE participant_id = ?
+			`, reg.RegistrationID)
+
+			// Fetch Rank in category
+			var rank int = 0
+			if totalScore > 0 {
+				_ = db.Get(&rank, `
+					SELECT COUNT(distinct s.participant_id) + 1
+					FROM (
+						SELECT participant_id, COALESCE(SUM(score), 0) as total
+						FROM qualification_arrow_scores
+						GROUP BY participant_id
+					) s
+					JOIN tournament_participants ep2 ON ep2.uuid = s.participant_id
+					WHERE ep2.tournament_id = ? AND ep2.category_id = ? AND s.total > ?
+				`, event.UUID, reg.CategoryID, totalScore)
+			}
+
+			// Fetch Elimination
+			var elim struct {
+				Stage     *string `db:"stage"`
+				WinStatus *string `db:"win_status"`
+			}
+			_ = db.Get(&elim, `
+				SELECT stage, win_status 
+				FROM elimination_entries 
+				WHERE participant_id = ? 
+				LIMIT 1
+			`, reg.RegistrationID)
+
+			targetNum := "Belum Diatur"
+			if reg.TargetNumber != nil && *reg.TargetNumber != "" {
+				targetNum = *reg.TargetNumber
+			}
+
+			stage := "Belum Masuk"
+			if elim.Stage != nil && *elim.Stage != "" {
+				stage = *elim.Stage
+			}
+			win := "-"
+			if elim.WinStatus != nil && *elim.WinStatus != "" {
+				win = *elim.WinStatus
+			}
+
+			catName := reg.CategoryName
+			if catName == "" {
+				catName = "Kategori Umum"
+			}
+
+			catList = append(catList, CategoryPerformanceItem{
+				RegistrationID:   reg.RegistrationID,
+				CategoryID:       reg.CategoryID,
+				CategoryName:     catName,
+				PaymentStatus:    reg.PaymentStatus,
+				RegistrationDate: reg.RegistrationDate,
+				TargetNumber:     targetNum,
+				TotalScore:       totalScore,
+				Rank:             rank,
+				EliminationStage: stage,
+				EliminationWin:   win,
+			})
 		}
 
-		logo := event.LogoURL
-		if logo != nil {
-			masked := utils.MaskMediaURL(*logo)
-			logo = &masked
-		}
+		first := catList[0]
 
 		c.JSON(http.StatusOK, gin.H{
 			"event_id":          event.UUID,
@@ -395,15 +439,16 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			"end_date":          event.EndDate,
 			"location":          event.Location,
 			"logo_url":          logo,
-			"registration_id":   reg.RegistrationID,
-			"category_name":     reg.CategoryName,
-			"payment_status":    reg.PaymentStatus,
-			"registration_date": reg.RegistrationDate,
-			"target_number":     targetNum,
-			"total_score":       totalScore,
-			"rank":              rank,
-			"elimination_stage": stage,
-			"elimination_win":   win,
+			"categories":        catList,
+			"registration_id":   first.RegistrationID,
+			"category_name":     first.CategoryName,
+			"payment_status":    first.PaymentStatus,
+			"registration_date": first.RegistrationDate,
+			"target_number":     first.TargetNumber,
+			"total_score":       first.TotalScore,
+			"rank":              first.Rank,
+			"elimination_stage": first.EliminationStage,
+			"elimination_win":   first.EliminationWin,
 		})
 	}
 }
