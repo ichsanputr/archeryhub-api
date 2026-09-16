@@ -83,7 +83,7 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 		}
 		for i := range registrations {
 			if registrations[i].QRRaw == nil || *registrations[i].QRRaw == "" {
-				qrFallback := fmt.Sprintf("AH-%s", registrations[i].UUID)
+				qrFallback := fmt.Sprintf("AH-%s", registrations[i].ID)
 				registrations[i].QRRaw = &qrFallback
 			}
 			registrations[i].QRCodeDataURL = buildMobileQRCodeDataURL(registrations[i].QRRaw)
