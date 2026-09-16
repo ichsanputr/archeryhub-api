@@ -123,6 +123,11 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				ep.qr_raw,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
 				ep.payment_status,
+				pt.payment_method,
+				COALESCE(pt.pay_code, pt.va_number) as pay_code,
+				pt.va_number,
+				COALESCE(pt.tripay_reference, pt.reference) as tripay_reference,
+				COALESCE(pt.total_amount, pt.amount, ep.payment_amount, 0) as payment_amount,
 				ep.registration_date
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
@@ -130,6 +135,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN payment_transactions pt ON (ep.payment_id = pt.uuid OR pt.registration_id = ep.uuid)
 			WHERE ep.archer_id = ? AND ep.payment_status != 'cancelled'
 			ORDER BY e.start_date DESC
 		`, archerUUID)
@@ -191,19 +197,43 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var result struct {
-			RegistrationID   string  `db:"registration_id" json:"registration_id"`
-			QRRaw            *string `db:"qr_raw" json:"qr_raw"`
-			PaymentStatus    string  `db:"payment_status" json:"payment_status"`
-			RegistrationDate string  `db:"registration_date" json:"registration_date"`
+			RegistrationID   string   `db:"registration_id" json:"registration_id"`
+			QRRaw            *string  `db:"qr_raw" json:"qr_raw"`
+			PaymentStatus    string   `db:"payment_status" json:"payment_status"`
+			PaymentMethod    *string  `db:"payment_method" json:"payment_method"`
+			PayCode          *string  `db:"pay_code" json:"pay_code"`
+			VANumber         *string  `db:"va_number" json:"va_number"`
+			TripayReference  *string  `db:"tripay_reference" json:"tripay_reference"`
+			PaymentAmount    *float64 `db:"payment_amount" json:"payment_amount"`
+			CategoryName     *string  `db:"category_name" json:"category_name"`
+			EventName        *string  `db:"event_name" json:"event_name"`
+			RegistrationDate string   `db:"registration_date" json:"registration_date"`
 		}
 
 		err := db.Get(&result, `
-			SELECT ep.uuid as registration_id, ep.qr_raw, ep.payment_status, ep.registration_date
+			SELECT 
+				ep.uuid as registration_id, 
+				ep.qr_raw, 
+				ep.payment_status,
+				pt.payment_method,
+				COALESCE(pt.pay_code, pt.va_number) as pay_code,
+				pt.va_number,
+				COALESCE(pt.tripay_reference, pt.reference) as tripay_reference,
+				COALESCE(pt.total_amount, pt.amount, ep.payment_amount, 0) as payment_amount,
+				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
+				e.name as event_name,
+				ep.registration_date
 			FROM tournament_participants ep
-			WHERE ep.tournament_id = ? AND ep.archer_id = ?
+			JOIN tournaments e ON ep.tournament_id = e.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			LEFT JOIN payment_transactions pt ON (ep.payment_id = pt.uuid OR pt.registration_id = ep.uuid)
+			WHERE (ep.tournament_id = ? OR e.slug = ?) AND ep.archer_id = ?
 			ORDER BY ep.qr_raw IS NULL ASC, ep.registration_date DESC
 			LIMIT 1
-		`, eventUUID, archerUUID)
+		`, eventUUID, eventUUID, archerUUID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi event tidak ditemukan"})
 			return
@@ -218,10 +248,17 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"event_id":          eventUUID,
+			"event_name":        result.EventName,
 			"registration_id":   result.RegistrationID,
 			"qr_raw":            qrVal,
 			"qr_code_data_url":  buildMobileQRCodeDataURL(&qrVal),
 			"payment_status":    result.PaymentStatus,
+			"payment_method":    result.PaymentMethod,
+			"pay_code":          result.PayCode,
+			"va_number":         result.VANumber,
+			"tripay_reference":  result.TripayReference,
+			"payment_amount":    result.PaymentAmount,
+			"category_name":     result.CategoryName,
 			"registration_date": result.RegistrationDate,
 		})
 	}
