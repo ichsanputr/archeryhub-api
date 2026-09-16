@@ -704,7 +704,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
-		merchantRef := fmt.Sprintf("PAY-REG-%s", uuid.New().String()[:12])
+		merchantRef := fmt.Sprintf("PAY-REG-%s", strings.ToUpper(uuid.New().String()[:8]))
 		transactionID := uuid.New().String()
 
 		if req.PaymentMethod == "paypal" {

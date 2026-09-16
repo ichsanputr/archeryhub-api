@@ -284,11 +284,11 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		var transaction models.PaymentTransaction
 		transactionID := uuid.New().String()
-		merchantRef := fmt.Sprintf("PAY-%s", uuid.New().String()[:12])
+		merchantRef := fmt.Sprintf("PAY-SUB-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 		if req.Method == "manual" {
 			// Handle manual payment - redirect to CreateManualPayment logic
-			merchantRef = fmt.Sprintf("PAY-MANUAL-%s", uuid.New().String()[:12])
+			merchantRef = fmt.Sprintf("PAY-MANUAL-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 			transaction = models.PaymentTransaction{
 				UUID:               transactionID,
@@ -1021,7 +1021,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
-		merchantRef := fmt.Sprintf("PAY-REG-%s", uuid.New().String()[:12])
+		merchantRef := fmt.Sprintf("PAY-REG-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 		var checkoutURL string
 		var externalTxID string
@@ -1235,7 +1235,7 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		transactionID := uuid.New().String()
-		merchantRef := fmt.Sprintf("PAY-MANUAL-%s", uuid.New().String()[:12])
+		merchantRef := fmt.Sprintf("PAY-MANUAL-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 		transaction := models.PaymentTransaction{
 			UUID:               transactionID,
