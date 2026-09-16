@@ -725,6 +725,8 @@ func main() {
 				mobileAuth.GET("/scan", mobilehandler.MobileScanTarget(db))
 				mobileAuth.GET("/sessions/boards", mobilehandler.MobileGetSessionBoards(db))
 				mobileAuth.GET("/assignments/:assignmentId/detail", mobilehandler.MobileGetAssignmentScoreDetail(db))
+				mobileAuth.PUT("/change-password", mobilehandler.MobileChangePassword(db))
+				mobileAuth.POST("/change-password", mobilehandler.MobileChangePassword(db))
 			}
 
 			// 4b. Archer account (requires auth)
@@ -733,6 +735,7 @@ func main() {
 			{
 				mobileArcher.GET("/me", mobilehandler.MobileGetArcherMe(db))
 				mobileArcher.PUT("/me", mobilehandler.MobileUpdateArcherMe(db))
+				mobileArcher.PATCH("/me", mobilehandler.MobileUpdateArcherMe(db))
 				mobileArcher.GET("/certificates", mobilehandler.MobileArcherGetCertificates(db))
 
 				mobileArcher.GET("/payments/:reference", mobilehandler.MobileGetPaymentDetail(db))
@@ -760,6 +763,7 @@ func main() {
 			registerOrgRoutes := func(g *gin.RouterGroup) {
 				g.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
 				g.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
+				g.PATCH("/me", mobilehandler.MobileUpdateOrganizationMe(db))
 				g.GET("/tournaments", mobilehandler.MobileGetOrganizationEvents(db))
 				g.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
 				g.GET("/tournaments/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))

@@ -972,3 +972,61 @@ func normalizeBowType(v string) string {
 	}
 }
 
+type MobileChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+// MobileChangePassword updates password for logged-in user (archer or organizer)
+func MobileChangePassword(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetString("user_id")
+		userType := c.GetString("user_type")
+		if userID == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		var req MobileChangePasswordRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Permintaan tidak valid, password baru minimal 6 karakter"})
+			return
+		}
+
+		table := "archers"
+		if userType == "organizer" {
+			table = "organizers"
+		}
+
+		var currentPassword string
+		err := db.Get(&currentPassword, fmt.Sprintf("SELECT COALESCE(password, '') FROM %s WHERE uuid = ?", table), userID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
+			return
+		}
+
+		// Verify old password
+		isBcryptMatch := bcrypt.CompareHashAndPassword([]byte(currentPassword), []byte(req.OldPassword)) == nil
+		isPlainMatch := currentPassword == req.OldPassword
+		if currentPassword != "" && !isBcryptMatch && !isPlainMatch {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kata sandi lama tidak cocok"})
+			return
+		}
+
+		// Hash new password
+		hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengenkripsi kata sandi"})
+			return
+		}
+
+		_, err = db.Exec(fmt.Sprintf("UPDATE %s SET password = ?, updated_at = NOW() WHERE uuid = ?", table), string(hashedBytes), userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui kata sandi"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Kata sandi berhasil diperbarui"})
+	}
+}
+
