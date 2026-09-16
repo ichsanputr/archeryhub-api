@@ -82,7 +82,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid as id, name as full_name, NULL as email, slug, logo_url as avatar_url, NULL as phone, 'Indonesia' as country FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN tournament_participants tp ON t.uuid = tp.tournament_id AND tp.archer_id = ?
-			LEFT JOIN tournament_participants tp2 ON t.uuid = tp2.event_id
+			LEFT JOIN tournament_participants tp2 ON t.uuid = tp2.tournament_id
 			LEFT JOIN tournament_categories te ON t.uuid = te.tournament_id
 			` + whereClause + `
 			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.phone, u.country
@@ -725,6 +725,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		type EventEvent struct {
 			ID                 string  `db:"id" json:"id"`
 			EventID            string  `db:"event_id" json:"event_id"`
+			TournamentID       *string `db:"tournament_id" json:"tournament_id"`
 			DivisionName       string  `db:"division_name" json:"division_name"`
 			DivisionID         string  `db:"division_id" json:"division_id"`
 			CategoryName       string  `db:"category_name" json:"category_name"`
@@ -771,7 +772,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		var tournaments []EventEvent
 		query := `
 			SELECT 
-				te.uuid as id, te.tournament_id, 
+				te.uuid as id, te.tournament_id as event_id, te.tournament_id,
 				te.max_participants, te.status, te.created_at, te.category_name_custom,
 				CASE 
 					WHEN et.code = 'mixed_team' THEN 2 
@@ -813,10 +814,12 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 
 		meta := utils.CalculatePagination(total, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{
-			"data":   tournaments,
+			"data":        tournaments,
 			"tournaments": tournaments,
-			"total":  total,
-			"meta":   meta,
+			"categories":  tournaments,
+			"events":       tournaments,
+			"total":       total,
+			"meta":        meta,
 		})
 	}
 }
@@ -1197,6 +1200,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			ClubID               *string `db:"club_id" json:"club_id"`
 			ClubName             *string `db:"club_name" json:"club_name"`
 			EventID              string  `db:"event_id" json:"event_id"`
+			TournamentID         *string `db:"tournament_id" json:"tournament_id"`
 			CategoryID           string  `db:"category_id" json:"category_id"`
 			DivisionName         string  `db:"division_name" json:"division_name"`
 			CategoryName         string  `db:"category_name" json:"category_name"`
@@ -1216,7 +1220,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		var participants []Participant
 		query := `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
+				tp.uuid as id, tp.archer_id, tp.tournament_id as event_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_status, tp.registration_date, tp.last_reregistration_at,
 				COALESCE(tp.registration_source, 'self_register') as registration_source,
 				a.id as athlete_code,
@@ -1336,6 +1340,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			ClubID                      *string  `db:"club_id" json:"club_id"`
 			ClubName                    *string  `db:"club_name" json:"club_name"`
 			EventID                     string   `db:"event_id" json:"event_id"`
+			TournamentID                *string  `db:"tournament_id" json:"tournament_id"`
 			CategoryID                  string   `db:"category_id" json:"category_id"`
 			DivisionName                string   `db:"division_name" json:"division_name"`
 			CategoryName                string   `db:"category_name" json:"category_name"`
@@ -1363,7 +1368,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var rows []ParticipantRow
 		err = db.Select(&rows, `
 			SELECT 
-				tp.uuid as id, tp.archer_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
+				tp.uuid as id, tp.archer_id, tp.tournament_id as event_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_amount, tp.payment_status,
 				COALESCE(tp.registration_source, 'self_register') as registration_source,
 				tp.registration_date,
@@ -1395,7 +1400,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			WHERE tp.tournament_id = ? AND a.uuid = (
 				SELECT archer_id FROM tournament_participants tp_sub
 				LEFT JOIN archers a_sub ON tp_sub.archer_id = a_sub.uuid
-				WHERE tp_sub.event_id = ? AND (
+				WHERE tp_sub.tournament_id = ? AND (
 					tp_sub.uuid = ? OR 
 					tp_sub.archer_id = ? OR
 					a_sub.username = ? OR 
@@ -2050,7 +2055,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var existingCount int
 		_ = db.Get(&existingCount, `
 			SELECT COUNT(*) FROM tournament_participants 
-			WHERE event_id = ? AND archer_id = ? AND payment_status != 'cancelled'
+			WHERE tournament_id = ? AND archer_id = ? AND payment_status != 'cancelled'
 		`, actualEventID, archerUUID)
 		if existingCount > 0 {
 			// Get user_type from context
@@ -2119,7 +2124,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			var exists bool
 			err = tx.Get(&exists, `
 				SELECT EXISTS(SELECT 1 FROM tournament_participants 
-				WHERE event_id = ? AND archer_id = ? AND category_id = ?)
+				WHERE tournament_id = ? AND archer_id = ? AND category_id = ?)
 			`, actualEventID, archerUUID, catID)
 
 			if err != nil {
@@ -2138,7 +2143,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 			err = tx.Get(&quotaInfo, `
 				SELECT 
-					COALESCE(ec.quota, 0) as quota,
+					COALESCE(ec.max_participants, 0) as quota,
 					(SELECT COUNT(*) FROM tournament_participants WHERE category_id = ?) as current_count
 				FROM tournament_categories ec
 				WHERE ec.uuid = ?
@@ -2159,7 +2164,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 			_, err = tx.Exec(`
 				INSERT INTO tournament_participants (
-					uuid, event_id, archer_id, category_id, 
+					uuid, tournament_id, archer_id, category_id, 
 					registration_date, payment_status, payment_amount, qr_raw,
 					registration_source
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -2341,7 +2346,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 				participantUUID := uuid.New().String()
 				_, err = tx.Exec(`
 						INSERT INTO tournament_participants (
-						uuid, event_id, archer_id, category_id,
+						uuid, tournament_id, archer_id, category_id,
 						registration_date, payment_status, payment_amount, qr_raw,
 						registration_source
 					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -2766,7 +2771,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				var categoryExists bool
 				err = db.Get(&categoryExists, `
 					SELECT EXISTS(SELECT 1 FROM tournament_categories 
-					WHERE uuid = ? AND event_id = ?)
+					WHERE uuid = ? AND tournament_id = ?)
 				`, *req.CategoryID, actualEventID)
 				if err == nil && categoryExists {
 					query += ", category_id = ?"
@@ -2833,7 +2838,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		query += " WHERE event_id = ? AND archer_id = ?"
+		query += " WHERE tournament_id = ? AND archer_id = ?"
 		args = append(args, actualEventID, *pInfo.ArcherID)
 
 		_, err = db.Exec(query, args...)
@@ -2935,7 +2940,7 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 				catEventID := uuid.New().String()
 				_, err = db.Exec(`
 					INSERT INTO tournament_categories (
-						uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid,
+						uuid, tournament_id, division_uuid, category_uuid, tournament_type_uuid, gender_division_uuid,
 						max_participants
 					) VALUES (?, ?, ?, ?, ?, ?, ?)
 				`, catEventID, eventID, divUUID, catUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants)
@@ -3046,7 +3051,7 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		catEventID := uuid.New().String()
 		_, err = db.Exec(`
 			INSERT INTO tournament_categories (
-				uuid, event_id, division_uuid, category_uuid, category_name_custom, event_type_uuid, gender_division_uuid,
+				uuid, tournament_id, division_uuid, category_uuid, category_name_custom, tournament_type_uuid, gender_division_uuid,
 				max_participants, status
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.CategoryNameCustom, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
@@ -3117,7 +3122,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		var exists bool
 		err = db.Get(&exists, `
 			SELECT EXISTS(SELECT 1 FROM tournament_categories 
-			WHERE uuid = ? AND event_id = ?)
+			WHERE uuid = ? AND tournament_id = ?)
 		`, categoryID, actualEventID)
 
 		if err != nil || !exists {
@@ -3158,7 +3163,7 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.Status)
 		}
 
-		query += " WHERE uuid = ? AND event_id = ?"
+		query += " WHERE uuid = ? AND tournament_id = ?"
 		args = append(args, categoryID, actualEventID)
 
 		_, err = db.Exec(query, args...)
@@ -3644,7 +3649,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		// Find participant by qr_raw
 		type ParticipantInfo struct {
 			UUID          string  `db:"uuid"`
-			EventID       string  `db:"event_id"`
+			EventID       string  `db:"tournament_id"`
 			ArcherID      string  `db:"archer_id"`
 			FullName      string  `db:"full_name"`
 			Email         string  `db:"email"`
@@ -3700,7 +3705,7 @@ func ReregisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		_, err = db.Exec(`
 			UPDATE tournament_participants 
 			SET last_reregistration_at = NOW()
-			WHERE event_id = ? AND archer_id = ?
+			WHERE tournament_id = ? AND archer_id = ?
 		`, participant.EventID, participant.ArcherID)
 
 		if err != nil {

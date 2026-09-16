@@ -30,14 +30,14 @@ func (ff *FlexibleFloat64) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// PaymentTransaction represents a payment transaction with Tripay
+// PaymentTransaction represents a payment transaction
 type PaymentTransaction struct {
 	UUID             string          `json:"id" db:"uuid"`
 	Reference        string          `json:"reference" db:"reference"`
-	TripayReference  *string         `json:"tripay_reference" db:"tripay_reference"`
+	GatewayReference *string         `json:"gateway_reference" db:"gateway_reference"`
 	UserID           string          `json:"user_id" db:"user_id"`
 	SellerID         *string         `json:"seller_id,omitempty" db:"seller_id"`
-	EventID          *string         `json:"event_id" db:"tournament_id"`
+	EventID          *string         `json:"event_id" db:"event_id"`
 	RegistrationID   *string         `json:"registration_id" db:"registration_id"`
 	SubscriptionPlanID *int          `json:"subscription_plan_id" db:"subscription_plan_id"`
 	Amount           float64         `json:"amount" db:"amount"`
@@ -87,13 +87,13 @@ type VerifyManualPaymentRequest struct {
 	RejectionReason *string `json:"rejection_reason"`          // Required if action is "reject"
 }
 
-// PaymentChannelFee represents the fee details for a Tripay channel
+// PaymentChannelFee represents the fee details for a payment channel
 type PaymentChannelFee struct {
 	Flat    int             `json:"flat"`
 	Percent FlexibleFloat64 `json:"percent"`
 }
 
-// PaymentChannel represents a Tripay payment channel
+// PaymentChannel represents a payment channel
 type PaymentChannel struct {
 	Group         string            `json:"group"`
 	Code          string            `json:"code"`

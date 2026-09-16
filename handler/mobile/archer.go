@@ -58,7 +58,7 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ep.payment_amount, 0) as payment_amount,
 				ep.qr_raw,
 				pt.payment_method,
-				pt.tripay_reference,
+				pt.gateway_reference,
 				pt.checkout_url,
 				pt.instructions,
 				pt.va_number,
@@ -126,7 +126,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 				pt.payment_method,
 				COALESCE(pt.pay_code, pt.va_number) as pay_code,
 				pt.va_number,
-				COALESCE(pt.tripay_reference, pt.reference) as tripay_reference,
+				COALESCE(pt.gateway_reference, pt.reference) as gateway_reference,
 				COALESCE(pt.total_amount, pt.amount, ep.payment_amount, 0) as payment_amount,
 				ep.registration_date
 			FROM tournament_participants ep
@@ -203,7 +203,7 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 			PaymentMethod    *string  `db:"payment_method" json:"payment_method"`
 			PayCode          *string  `db:"pay_code" json:"pay_code"`
 			VANumber         *string  `db:"va_number" json:"va_number"`
-			TripayReference  *string  `db:"tripay_reference" json:"tripay_reference"`
+			GatewayReference *string  `db:"gateway_reference" json:"gateway_reference"`
 			PaymentAmount    *float64 `db:"payment_amount" json:"payment_amount"`
 			CategoryName     *string  `db:"category_name" json:"category_name"`
 			EventName        *string  `db:"event_name" json:"event_name"`
@@ -218,7 +218,7 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 				pt.payment_method,
 				COALESCE(pt.pay_code, pt.va_number) as pay_code,
 				pt.va_number,
-				COALESCE(pt.tripay_reference, pt.reference) as tripay_reference,
+				COALESCE(pt.gateway_reference, pt.reference) as gateway_reference,
 				COALESCE(pt.total_amount, pt.amount, ep.payment_amount, 0) as payment_amount,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
 				e.name as event_name,
@@ -256,7 +256,7 @@ func MobileGetEventQRCode(db *sqlx.DB) gin.HandlerFunc {
 			"payment_method":    result.PaymentMethod,
 			"pay_code":          result.PayCode,
 			"va_number":         result.VANumber,
-			"tripay_reference":  result.TripayReference,
+			"gateway_reference": result.GatewayReference,
 			"payment_amount":    result.PaymentAmount,
 			"category_name":     result.CategoryName,
 			"registration_date": result.RegistrationDate,

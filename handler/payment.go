@@ -115,7 +115,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// CreatePayment handles creating a Tripay transaction
+// CreatePayment handles creating a payment transaction (Mayar, PayPal, or Manual)
 func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -149,7 +149,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 			// Check if already has a pending platform fee for this event
 			var existingPending int
-			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status = 'pending' AND expired_at > NOW()", req.EventID)
+			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status = 'pending' AND expired_at > NOW()", req.EventID)
 			if err == nil && existingPending > 0 {
 				c.JSON(http.StatusConflict, gin.H{
 					"error": "Anda memiliki pembayaran biaya platform untuk turnamen ini yang masih tertunda. Silakan selesaikan di riwayat transaksi.",
@@ -339,7 +339,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				transaction = models.PaymentTransaction{
 					UUID:               transactionID,
 					Reference:          merchantRef,
-					TripayReference:    &orderID,
+					GatewayReference:   &orderID,
 					UserID:             userID.(string),
 					EventID:            eventID,
 					RegistrationID:     registrationID,
@@ -378,7 +378,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				transaction = models.PaymentTransaction{
 					UUID:               transactionID,
 					Reference:          merchantRef,
-					TripayReference:    &mayarTxID,
+					GatewayReference:   &mayarTxID,
 					UserID:             userID.(string),
 					EventID:            eventID,
 					RegistrationID:     registrationID,
@@ -401,11 +401,11 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO payment_transactions (
-				uuid, reference, tripay_reference, user_id, tournament_id, registration_id, subscription_plan_id,
+				uuid, reference, gateway_reference, user_id, event_id, registration_id, subscription_plan_id,
 				amount, fee_amount, total_amount, payment_method, va_number, qr_url,
 				checkout_url, pay_code, instructions, months, status, expired_at
 			) VALUES (
-				:uuid, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id, :subscription_plan_id,
+				:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id, :subscription_plan_id,
 				:amount, :fee_amount, :total_amount, :payment_method, :va_number, :qr_url,
 				:checkout_url, :pay_code, :instructions, :months, :status, :expired_at
 			)
@@ -513,8 +513,8 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		if isFailed {
 			// Mark as expired / failed in quota_purchases & payment_transactions
-			db.Exec("UPDATE quota_purchases SET payment_status = 'expired' WHERE tripay_reference = ? OR payment_reference = ? OR uuid = ? OR (? != '' AND (payment_reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
-			db.Exec("UPDATE payment_transactions SET status = 'expired' WHERE tripay_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+			db.Exec("UPDATE quota_purchases SET payment_status = 'expired' WHERE gateway_reference = ? OR payment_reference = ? OR uuid = ? OR (? != '' AND (payment_reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+			db.Exec("UPDATE payment_transactions SET status = 'expired' WHERE gateway_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaction marked as expired/failed"})
 			return
 		}
@@ -532,7 +532,7 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 			Quantity    int    `db:"quantity"`
 			Status      string `db:"payment_status"`
 		}
-		errQ := db.Get(&qPurchase, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE tripay_reference = ? OR payment_reference = ? OR uuid = ? OR (? != '' AND (payment_reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+		errQ := db.Get(&qPurchase, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE gateway_reference = ? OR payment_reference = ? OR uuid = ? OR (? != '' AND (payment_reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 		if errQ == nil {
 			if qPurchase.Status != "paid" {
 				tx, errTx := db.Beginx()
@@ -554,13 +554,13 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 		var transaction struct {
 			UUID               string  `db:"uuid"`
 			UserID             string  `db:"user_id"`
-			EventID            *string `db:"tournament_id"`
+			EventID            *string `db:"event_id"`
 			RegistrationID     *string `db:"registration_id"`
 			SubscriptionPlanID *int    `db:"subscription_plan_id"`
 			Months             int     `db:"months"`
 			Status             string  `db:"status"`
 		}
-		err = db.Get(&transaction, "SELECT uuid, user_id, tournament_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE tripay_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR tripay_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+		err = db.Get(&transaction, "SELECT uuid, user_id, event_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE gateway_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaction not found locally, ignored"})
 			return
@@ -581,11 +581,11 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 		_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', paid_at = ?, callback_data = ? WHERE uuid = ?", now, bodyBytes, transaction.UUID)
 
 		if transaction.RegistrationID != nil && *transaction.RegistrationID != "" {
-			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *transaction.RegistrationID, transaction.UUID)
+			_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *transaction.RegistrationID, transaction.UUID)
 		}
 
 		if transaction.RegistrationID == nil && transaction.EventID != nil && transaction.SubscriptionPlanID == nil {
-			_, _ = tx.Exec("UPDATE tournaments SET status = 'published' WHERE uuid = ?", *transaction.EventID)
+			_, _ = tx.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", *transaction.EventID)
 		}
 
 		if transaction.SubscriptionPlanID != nil {
@@ -636,7 +636,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				CASE 
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
 					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
-					WHEN t.tournament_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
+					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
 					ELSE 'Transaksi Archeris'
 				END as description,
 				p.name as plan_name,
@@ -646,13 +646,13 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, rag.name) as category
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
-			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN tournaments e ON t.tournament_id = e.uuid
-			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN events e ON t.event_id = e.uuid
+			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-			WHERE t.reference = ?
+			WHERE t.reference = ? OR t.gateway_reference = ?
 		`
 		err := db.Get(&transaction, query, reference)
 		if err != nil {
@@ -672,7 +672,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				PayCode          *string   `db:"pay_code"`
 				QRURL            *string   `db:"qr_url"`
 				CheckoutURL      *string   `db:"checkout_url"`
-				TripayReference  *string   `db:"tripay_reference"`
+				GatewayReference *string   `db:"gateway_reference"`
 				Instructions     *string   `db:"instructions"`
 				PurchasedAt      time.Time `db:"purchased_at"`
 				PlanName         string    `db:"plan_name"`
@@ -680,11 +680,11 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			qQuery := `
 				SELECT q.uuid, q.organizer_id, q.plan_id, q.quota_type, q.quantity, q.unit_price, 
 					   q.total_amount, q.currency, q.payment_status, COALESCE(q.payment_method, 'mayar') as payment_method, 
-					   q.payment_reference, q.pay_code, q.qr_url, q.checkout_url, q.tripay_reference, q.instructions, q.purchased_at, 
+					   q.payment_reference, q.pay_code, q.qr_url, q.checkout_url, q.gateway_reference, q.instructions, q.purchased_at, 
 					   COALESCE(p.name, 'Paket Kuota Event') as plan_name
 				FROM quota_purchases q
 				LEFT JOIN subscription_plans p ON q.plan_id = p.id
-				WHERE q.payment_reference = ? OR q.uuid = ? OR q.tripay_reference = ?
+				WHERE q.payment_reference = ? OR q.uuid = ? OR q.gateway_reference = ?
 				LIMIT 1
 			`
 			if errQ := db.Get(&qPurchase, qQuery, reference, reference, reference); errQ == nil {
@@ -787,7 +787,7 @@ func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 			FROM payment_transactions t
 			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			WHERE t.tournament_id = ? AND t.status = 'paid'
+			WHERE t.event_id = ? AND t.status = 'paid'
 			ORDER BY t.paid_at DESC
 		`
 		err = db.Select(&payments, query, actualEventID)
@@ -1071,28 +1071,28 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		transactionID := uuid.New().String()
 
 		transaction := models.PaymentTransaction{
-			UUID:            transactionID,
-			Reference:       merchantRef,
-			TripayReference: &externalTxID,
-			UserID:          userID.(string),
-			EventID:         &reg.EventID,
-			RegistrationID:  &participantID,
-			Amount:          float64(amount),
-			FeeAmount:       0,
-			TotalAmount:     float64(amount),
-			PaymentMethod:   utils.StringPtr(paymentMethodStr),
-			CheckoutURL:     &checkoutURL,
-			Status:          "pending",
-			ExpiredAt:       time.Now().Add(24 * time.Hour),
+			UUID:             transactionID,
+			Reference:        merchantRef,
+			GatewayReference: &externalTxID,
+			UserID:           userID.(string),
+			EventID:          &reg.EventID,
+			RegistrationID:   &participantID,
+			Amount:           float64(amount),
+			FeeAmount:        0,
+			TotalAmount:      float64(amount),
+			PaymentMethod:    utils.StringPtr(paymentMethodStr),
+			CheckoutURL:      &checkoutURL,
+			Status:           "pending",
+			ExpiredAt:        time.Now().Add(24 * time.Hour),
 		}
 
 		query := `
 			INSERT INTO payment_transactions (
-				uuid, reference, tripay_reference, user_id, tournament_id, registration_id,
+				uuid, reference, gateway_reference, user_id, event_id, registration_id,
 				amount, fee_amount, total_amount, payment_method,
 				checkout_url, status, expired_at
 			) VALUES (
-				:uuid, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id,
+				:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id,
 				:amount, :fee_amount, :total_amount, :payment_method,
 				:checkout_url, :status, :expired_at
 			)
@@ -1103,7 +1103,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, reg.UUID)
+		_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, reg.UUID)
 
 		c.JSON(http.StatusOK, transaction)
 	}
@@ -1147,7 +1147,7 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 
 			// Check if already has a pending platform fee for this event
 			var existingPending int
-			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status IN ('pending', 'awaiting_verification') AND expired_at > NOW()", req.EventID)
+			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status IN ('pending', 'awaiting_verification') AND expired_at > NOW()", req.EventID)
 			if err == nil && existingPending > 0 {
 				c.JSON(http.StatusConflict, gin.H{
 					"error": "Anda memiliki pembayaran biaya platform untuk turnamen ini yang masih tertunda",
@@ -1259,10 +1259,10 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			INSERT INTO payment_transactions (
-				uuid, reference, user_id, tournament_id, registration_id, subscription_plan_id,
+				uuid, reference, user_id, event_id, registration_id, subscription_plan_id,
 				amount, fee_amount, total_amount, payment_method, months, status, expired_at
 			) VALUES (
-				:uuid, :reference, :user_id, :tournament_id, :registration_id, :subscription_plan_id,
+				:uuid, :reference, :user_id, :event_id, :registration_id, :subscription_plan_id,
 				:amount, :fee_amount, :total_amount, :payment_method, :months, :status, :expired_at
 			)
 		`

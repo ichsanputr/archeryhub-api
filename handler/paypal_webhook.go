@@ -118,7 +118,7 @@ func handlePayPalCaptureCompleted(db *sqlx.DB, resource map[string]interface{}, 
 			Quantity      int    `db:"quantity"`
 			PaymentStatus string `db:"payment_status"`
 		}
-		err := tx.Get(&q, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE payment_reference = ? OR tripay_reference = ?", customID, customID)
+		err := tx.Get(&q, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE payment_reference = ? OR gateway_reference = ?", customID, customID)
 		if err == nil && q.PaymentStatus != "paid" {
 			_, _ = tx.Exec("UPDATE quota_purchases SET payment_status = 'paid', payment_method = 'paypal', callback_data = ? WHERE uuid = ?", string(rawBytes), q.UUID)
 			if q.QuotaType == "elite" {
@@ -139,13 +139,12 @@ func handlePayPalCaptureCompleted(db *sqlx.DB, resource map[string]interface{}, 
 		RegistrationID *string `db:"registration_id"`
 		Status         string  `db:"status"`
 	}
-	err = tx.Get(&payment, "SELECT uuid, event_id, registration_id, status FROM payment_transactions WHERE reference = ? OR tripay_reference = ?", customID, customID)
+	err = tx.Get(&payment, "SELECT uuid, event_id, registration_id, status FROM payment_transactions WHERE reference = ? OR gateway_reference = ?", customID, customID)
 	if err == nil {
 		if payment.Status != "paid" {
 			_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW(), callback_data = ? WHERE uuid = ?", string(rawBytes), payment.UUID)
 			if payment.RegistrationID != nil {
-				_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
-				_, _ = tx.Exec("UPDATE event_registrations SET payment_status = 'paid', status = 'confirmed' WHERE id = ?", *payment.RegistrationID)
+				_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
 			}
 			_ = tx.Commit()
 			fmt.Printf("[PayPal Webhook] Payment transaction %s marked as paid!\n", customID)
@@ -213,7 +212,7 @@ func CapturePayPalPayment(db *sqlx.DB) gin.HandlerFunc {
 				Quantity      int    `db:"quantity"`
 				PaymentStatus string `db:"payment_status"`
 			}
-			err := tx.Get(&q, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE payment_reference = ? OR tripay_reference = ?", req.Reference, req.OrderID)
+			err := tx.Get(&q, "SELECT uuid, organizer_id, quota_type, quantity, payment_status FROM quota_purchases WHERE payment_reference = ? OR gateway_reference = ?", req.Reference, req.OrderID)
 			if err == nil {
 				if q.PaymentStatus != "paid" {
 					_, _ = tx.Exec("UPDATE quota_purchases SET payment_status = 'paid', payment_method = 'paypal' WHERE uuid = ?", q.UUID)
@@ -240,13 +239,12 @@ func CapturePayPalPayment(db *sqlx.DB) gin.HandlerFunc {
 			RegistrationID *string `db:"registration_id"`
 			Status         string  `db:"status"`
 		}
-		err = tx.Get(&payment, "SELECT uuid, registration_id, status FROM payment_transactions WHERE reference = ? OR tripay_reference = ?", req.Reference, req.OrderID)
+		err = tx.Get(&payment, "SELECT uuid, registration_id, status FROM payment_transactions WHERE reference = ? OR gateway_reference = ?", req.Reference, req.OrderID)
 		if err == nil {
 			if payment.Status != "paid" {
 				_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW() WHERE uuid = ?", payment.UUID)
 				if payment.RegistrationID != nil {
-					_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
-					_, _ = tx.Exec("UPDATE event_registrations SET payment_status = 'paid', status = 'confirmed' WHERE id = ?", *payment.RegistrationID)
+					_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
 				}
 			}
 			_ = tx.Commit()

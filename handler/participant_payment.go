@@ -226,7 +226,7 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 								newParticipantUUID := uuid.New().String()
 								_, err = tx.Exec(`
 									INSERT INTO tournament_participants (
-										uuid, event_id, archer_id, category_id, payment_amount, 
+										uuid, tournament_id, archer_id, category_id, payment_amount, 
 										payment_status, target_name, back_number, qr_raw, 
 										registration_source, registration_date, created_at, updated_at
 									) VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?, 'organizer_added', NOW(), NOW(), NOW())

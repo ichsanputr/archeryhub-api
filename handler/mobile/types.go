@@ -220,7 +220,7 @@ type MobileRegistrationItem struct {
 	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
 	QRCodeDataURL    *string `json:"qr_code_data_url"`
 	PaymentMethod    *string `db:"payment_method" json:"payment_method"`
-	TripayReference  *string `db:"tripay_reference" json:"tripay_reference"`
+	GatewayReference *string `db:"gateway_reference" json:"gateway_reference"`
 	CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
 	Instructions     *string `db:"instructions" json:"instructions"`
 	VANumber         *string `db:"va_number" json:"va_number"`
@@ -253,17 +253,17 @@ type MobileRelatedNewsResponse struct {
 
 // MobilePaymentTransactionResponse represents payment details.
 type MobilePaymentTransactionResponse struct {
-	ID              string  `json:"id"`
-	Reference       string  `json:"reference"`
-	TripayReference *string `json:"tripay_reference"`
-	Amount          float64 `json:"amount"`
-	VANumber        *string `json:"va_number"`
-	PayCode         *string `json:"pay_code"`
-	PaymentMethod   *string `json:"payment_method"`
-	CheckoutURL     *string `json:"checkout_url"`
-	QRURL           *string `json:"qr_url"`
-	Instructions    *string `json:"instructions"`
-	Status          string  `json:"status"`
+	ID               string  `json:"id"`
+	Reference        string  `json:"reference"`
+	GatewayReference *string `json:"gateway_reference"`
+	Amount           float64 `json:"amount"`
+	VANumber         *string `json:"va_number"`
+	PayCode          *string `json:"pay_code"`
+	PaymentMethod    *string `json:"payment_method"`
+	CheckoutURL      *string `json:"checkout_url"`
+	QRURL            *string `json:"qr_url"`
+	Instructions     *string `json:"instructions"`
+	Status           string  `json:"status"`
 }
 
 // MobileChatbotResponse represents chatbot message response.
@@ -446,7 +446,7 @@ type MobileMyEventItem struct {
 	PaymentMethod    *string  `db:"payment_method" json:"payment_method,omitempty"`
 	PayCode          *string  `db:"pay_code" json:"pay_code,omitempty"`
 	VANumber         *string  `db:"va_number" json:"va_number,omitempty"`
-	TripayReference  *string  `db:"tripay_reference" json:"tripay_reference,omitempty"`
+	GatewayReference *string  `db:"gateway_reference" json:"gateway_reference,omitempty"`
 	PaymentAmount    *float64 `db:"payment_amount" json:"payment_amount,omitempty"`
 	RegistrationDate *string  `db:"registration_date" json:"registration_date"`
 }
@@ -461,7 +461,7 @@ type MobileRegisterEventResponse struct {
 	CheckoutURL          *string  `json:"checkout_url"`
 	VANumber             *string  `json:"va_number"`
 	QRURL                *string  `json:"qr_url"`
-	TripayReference      *string  `json:"reference"`
+	GatewayReference     *string  `json:"reference"`
 }
 
 // ErrorResponse represents a standard error response.
@@ -1010,21 +1010,21 @@ type MobileOrganizationUpdateParticipantRequest struct {
 }
 
 type MobileArcherEventPaymentItem struct {
-	UUID            string     `db:"uuid" json:"id"`
-	Reference       string     `db:"reference" json:"reference"`
-	TripayReference *string    `db:"tripay_reference" json:"tripay_reference"`
-	Amount          float64    `db:"amount" json:"amount"`
-	TotalAmount     float64    `db:"total_amount" json:"total_amount"`
-	PaymentMethod   *string    `db:"payment_method" json:"payment_method"`
-	Status          string     `db:"status" json:"status"`
-	VANumber        *string    `db:"va_number" json:"va_number"`
-	CheckoutURL     *string    `db:"checkout_url" json:"checkout_url"`
-	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
-	PaidAt          *time.Time `db:"paid_at" json:"paid_at"`
-	ExpiredAt       time.Time  `db:"expired_at" json:"expired_at"`
-	EventName       string     `db:"event_name" json:"event_name"`
-	EventSlug       string     `db:"event_slug" json:"event_slug"`
-	EventLogoURL    *string    `db:"event_logo_url" json:"event_logo_url"`
+	UUID             string     `db:"uuid" json:"id"`
+	Reference        string     `db:"reference" json:"reference"`
+	GatewayReference *string    `db:"gateway_reference" json:"gateway_reference"`
+	Amount           float64    `db:"amount" json:"amount"`
+	TotalAmount      float64    `db:"total_amount" json:"total_amount"`
+	PaymentMethod    *string    `db:"payment_method" json:"payment_method"`
+	Status           string     `db:"status" json:"status"`
+	VANumber         *string    `db:"va_number" json:"va_number"`
+	CheckoutURL      *string    `db:"checkout_url" json:"checkout_url"`
+	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
+	PaidAt           *time.Time `db:"paid_at" json:"paid_at"`
+	ExpiredAt        time.Time  `db:"expired_at" json:"expired_at"`
+	EventName        string     `db:"event_name" json:"event_name"`
+	EventSlug        string     `db:"event_slug" json:"event_slug"`
+	EventLogoURL     *string    `db:"event_logo_url" json:"event_logo_url"`
 }
 
 type MobileArcherEventPaymentsResponse struct {
@@ -1073,7 +1073,7 @@ type MobileOrganizationBankAccountsResponse struct {
 	BankAccounts []MobileOrganizationBankAccount `json:"bank_accounts"`
 }
 
-type MobileTripayChannel struct {
+type MobilePaymentChannel struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
 	Type string `json:"type"`
@@ -1088,7 +1088,7 @@ type MobileEventPaymentMethodItem struct {
 	AccountName   *string `json:"account_name,omitempty"`
 	AccountNumber *string `json:"account_number,omitempty"`
 	Instructions  *string `json:"instructions,omitempty"`
-	Code          *string `json:"code,omitempty"` // For Tripay
+	Code          *string `json:"code,omitempty"` // Payment channel code
 	IconURL       *string `json:"icon_url,omitempty"`
 }
 

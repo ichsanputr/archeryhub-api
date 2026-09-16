@@ -217,7 +217,6 @@ func main() {
 	// Static uploads & images (served from ./public, ./uploads, and fallback ../app/public)
 	r.Static("/uploads", "./uploads")
 	r.Static("/images", "./public/images")
-	r.Static("/public", "./public")
 	r.StaticFile("/profile-author.png", "./public/profile-author.png")
 
 	// Swagger UI
@@ -317,134 +316,142 @@ func main() {
 			user.GET("/subscription/export", handler.ExportInvoicesCSV(db))
 		}
 
-		// Event routes
-		tournaments := api.Group("/tournaments")
-		tournaments.Use(middleware.OptionalAuthMiddleware())
-		{
-			// External Tournaments (Ianseo scraper)
-			tournaments.GET("/external", handler.GetExternalTournaments(db))
-			tournaments.GET("/external/:slug", handler.GetExternalTournamentDetail(db))
-
-			// Public Event routes
-			tournaments.GET("", middleware.RateLimit(60, 1*time.Minute), handler.GetEvents(db))
-			tournaments.GET("/:id", handler.GetEventByID(db))
-			tournaments.GET("/:id/categories", handler.GetEventEvents(db))
-			tournaments.GET("/:id/participants", handler.GetEventParticipants(db))
-			tournaments.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
-			tournaments.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
-			tournaments.DELETE("/:id/participants/me", middleware.AuthMiddleware(), handler.UnregisterFromEvent(db))
-			tournaments.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateEventParticipant(db))
-			tournaments.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
-			tournaments.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
-			tournaments.POST("/participants/:participantId/payment", middleware.AuthMiddleware(), handler.CreateParticipantPayment(db))
-			tournaments.GET("/:id/teams", handler.GetEventTeams(db))
-			tournaments.GET("/:id/my-team", middleware.AuthMiddleware(), handler.GetMyEventTeam(db))
-			tournaments.GET("/:id/images", handler.GetEventImages(db))
-			tournaments.GET("/:id/schedule", handler.GetEventSchedule(db))
-			tournaments.GET("/:id/schedules", handler.GetEventSchedule(db))
-			tournaments.GET("/:id/target-names", handler.GetTargetNames(db))
-			tournaments.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
-			tournaments.GET("/:id/payments", handler.GetEventPayments(db))
-			tournaments.POST("/participants/reregister", handler.ReregisterParticipant(db))
-			tournaments.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
-			tournaments.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
-			tournaments.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
-			tournaments.GET("/:id/qualification/start-list/printout", handler.GetQualificationStartListPrintout(db))
-			tournaments.GET("/:id/qualification/results/printout", handler.GetQualificationResultsPrintout(db))
-			tournaments.GET("/:id/results/medals/printout", handler.GetMedalStandingsPrintout(db))
-			tournaments.GET("/:id/targets/labels/printout", handler.GetTargetLabelsPrintout(db))
-
-			// Public Results endpoints
-			tournaments.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
-			tournaments.GET("/:id/results/elimination", handler.GetPublicEliminationResults(db))
-
-			// Protected Event routes (require authentication)
-			protected := tournaments.Group("")
-			protected.Use(middleware.AuthMiddleware())
+		// Event routes (supporting both /tournaments and /events prefixes)
+		for _, prefix := range []string{"/tournaments", "/events"} {
+			tournaments := api.Group(prefix)
+			tournaments.Use(middleware.OptionalAuthMiddleware())
 			{
-				protected.GET("/my", handler.GetMyEvents(db))
-				protected.POST("", middleware.RequireActivePlan(db), handler.CreateEvent(db))
-				protected.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateEvent(db))
-				protected.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteEvent(db))
-				protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
-				protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
-				protected.POST("/:id/categories", middleware.RequireActivePlan(db), handler.CreateEventCategory(db))
-				protected.POST("/:id/categories/batch", middleware.RequireActivePlan(db), handler.CreateEventCategories(db))
-				protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
-				protected.PUT("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.UpdateEventCategory(db))
-				protected.DELETE("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.DeleteEventCategory(db))
-				protected.POST("/:id/participants", handler.RegisterParticipant(db))
-				protected.POST("/:id/participants/batch", middleware.RequireActivePlan(db), handler.BatchRegisterParticipants(db))
-				protected.POST("/:id/participants/import-csv", middleware.RequireActivePlan(db), handler.ImportParticipantsCSV(db))
-				
-				// Multi-payment per participant
-				protected.GET("/:id/participants/:participantId/payments", handler.GetParticipantPayments(db))
-				protected.POST("/:id/participants/:participantId/payments", handler.AddParticipantPayment(db))
-				protected.PATCH("/:id/participants/:participantId/approve-payment", handler.ApproveParticipantPayment(db))
-				protected.POST("/:id/participants/:participantId/certificate", handler.UploadParticipantCertificate(db))
-				
-				// Certificate distribution & management
-				protected.POST("/:id/certificates/upload-zip", handler.UploadCertificatesZIP(db))
-				protected.GET("/:id/certificates/upload-batches", handler.GetCertificateUploadBatches(db))
-				protected.GET("/:id/certificates/upload-batches/:batchId/progress", handler.GetBatchProgress(db))
-				protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
-				protected.GET("/:id/certificates", handler.GetEventCertificates(db))
-				protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
-				protected.POST("/:id/certificates/generate-all", handler.GenerateAllCertificates(db))
-				protected.DELETE("/:id/certificates/clear-all", handler.ClearAllCertificates(db))
+				// External Tournaments (Ianseo scraper)
+				tournaments.GET("/external", handler.GetExternalTournaments(db))
+				tournaments.GET("/external/:slug", handler.GetExternalTournamentDetail(db))
 
-				protected.PUT("/:id/images", middleware.RequireActivePlan(db), handler.UpdateEventImages(db))
-				protected.PUT("/:id/schedule", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
-				protected.PUT("/:id/schedules", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
-				protected.POST("/:id/payment-methods", middleware.RequireActivePlan(db), handler.CreateEventPaymentMethod(db))
-				protected.PUT("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.UpdateEventPaymentMethod(db))
-				protected.DELETE("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.DeleteEventPaymentMethod(db))
+				// Public Event routes
+				tournaments.GET("", middleware.RateLimit(60, 1*time.Minute), handler.GetEvents(db))
+				tournaments.GET("/:id", handler.GetEventByID(db))
+				tournaments.GET("/:id/categories", handler.GetEventEvents(db))
+				tournaments.GET("/:id/participants", handler.GetEventParticipants(db))
+				tournaments.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
+				tournaments.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
+				tournaments.DELETE("/:id/participants/me", middleware.AuthMiddleware(), handler.UnregisterFromEvent(db))
+				tournaments.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateEventParticipant(db))
+				tournaments.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
+				tournaments.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
+				tournaments.POST("/participants/:participantId/payment", middleware.AuthMiddleware(), handler.CreateParticipantPayment(db))
+				tournaments.GET("/:id/teams", handler.GetEventTeams(db))
+				tournaments.GET("/:id/my-team", middleware.AuthMiddleware(), handler.GetMyEventTeam(db))
+				tournaments.GET("/:id/images", handler.GetEventImages(db))
+				tournaments.GET("/:id/schedule", handler.GetEventSchedule(db))
+				tournaments.GET("/:id/schedules", handler.GetEventSchedule(db))
+				tournaments.GET("/:id/target-names", handler.GetTargetNames(db))
+				tournaments.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
+				tournaments.GET("/:id/payments", handler.GetEventPayments(db))
+				tournaments.POST("/participants/reregister", handler.ReregisterParticipant(db))
+				tournaments.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
+				tournaments.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
+				tournaments.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
+				tournaments.GET("/:id/qualification/start-list/printout", handler.GetQualificationStartListPrintout(db))
+				tournaments.GET("/:id/qualification/results/printout", handler.GetQualificationResultsPrintout(db))
+				tournaments.GET("/:id/results/medals/printout", handler.GetMedalStandingsPrintout(db))
+				tournaments.GET("/:id/targets/labels/printout", handler.GetTargetLabelsPrintout(db))
 
-				// Qualification target assignments - nested under tournaments/:id/qualification/sessions/:sessionId
-				protected.POST("/:id/qualification/sessions/:sessionId/assignments", middleware.RequireActivePlan(db), handler.CreateBulkTargetAssignments(db))
+				// Event Targets Data Master routes
+				tournaments.GET("/:id/targets", handler.GetEventTargets(db))
+				tournaments.GET("/:id/targets/options", handler.GetTargetOptions(db))
+				tournaments.GET("/:id/targets/:target_id", handler.GetTargetDetails(db))
+				tournaments.GET("/:id/my-target", middleware.AuthMiddleware(), handler.GetMyEventTarget(db))
 
-				// Target management
-				protected.POST("/:id/targets", middleware.RequireActivePlan(db), handler.CreateEventTarget(db))
-				protected.PUT("/:id/targets/batch", middleware.RequireActivePlan(db), handler.BatchUpdateTargets(db))
-				protected.PUT("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.UpdateEventTarget(db))
-				protected.DELETE("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.DeleteEventTarget(db))
+				// Public Results endpoints
+				tournaments.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
+				tournaments.GET("/:id/results/elimination", handler.GetPublicEliminationResults(db))
+
+				// Protected Event routes (require authentication)
+				protected := tournaments.Group("")
+				protected.Use(middleware.AuthMiddleware())
+				{
+					protected.GET("/my", handler.GetMyEvents(db))
+					protected.POST("", middleware.RequireActivePlan(db), handler.CreateEvent(db))
+					protected.PUT("/:id", middleware.RequireActivePlan(db), handler.UpdateEvent(db))
+					protected.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteEvent(db))
+					protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
+					protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
+					protected.POST("/:id/categories", middleware.RequireActivePlan(db), handler.CreateEventCategory(db))
+					protected.POST("/:id/categories/batch", middleware.RequireActivePlan(db), handler.CreateEventCategories(db))
+					protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
+					protected.PUT("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.UpdateEventCategory(db))
+					protected.DELETE("/:id/categories/:categoryId", middleware.RequireActivePlan(db), handler.DeleteEventCategory(db))
+					protected.POST("/:id/participants", handler.RegisterParticipant(db))
+					protected.POST("/:id/participants/batch", middleware.RequireActivePlan(db), handler.BatchRegisterParticipants(db))
+					protected.POST("/:id/participants/import-csv", middleware.RequireActivePlan(db), handler.ImportParticipantsCSV(db))
+					
+					// Multi-payment per participant
+					protected.GET("/:id/participants/:participantId/payments", handler.GetParticipantPayments(db))
+					protected.POST("/:id/participants/:participantId/payments", handler.AddParticipantPayment(db))
+					protected.PATCH("/:id/participants/:participantId/approve-payment", handler.ApproveParticipantPayment(db))
+					protected.POST("/:id/participants/:participantId/certificate", handler.UploadParticipantCertificate(db))
+					
+					// Certificate distribution & management
+					protected.POST("/:id/certificates/upload-zip", handler.UploadCertificatesZIP(db))
+					protected.GET("/:id/certificates/upload-batches", handler.GetCertificateUploadBatches(db))
+					protected.GET("/:id/certificates/upload-batches/:batchId/progress", handler.GetBatchProgress(db))
+					protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
+					protected.GET("/:id/certificates", handler.GetEventCertificates(db))
+					protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
+					protected.POST("/:id/certificates/generate-all", handler.GenerateAllCertificates(db))
+					protected.DELETE("/:id/certificates/clear-all", handler.ClearAllCertificates(db))
+
+					protected.PUT("/:id/images", middleware.RequireActivePlan(db), handler.UpdateEventImages(db))
+					protected.PUT("/:id/schedule", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
+					protected.PUT("/:id/schedules", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
+					protected.POST("/:id/payment-methods", middleware.RequireActivePlan(db), handler.CreateEventPaymentMethod(db))
+					protected.PUT("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.UpdateEventPaymentMethod(db))
+					protected.DELETE("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.DeleteEventPaymentMethod(db))
+
+					// Qualification target assignments - nested under :id/qualification/sessions/:sessionId
+					protected.POST("/:id/qualification/sessions/:sessionId/assignments", middleware.RequireActivePlan(db), handler.CreateBulkTargetAssignments(db))
+
+					// Target management
+					protected.POST("/:id/targets", middleware.RequireActivePlan(db), handler.CreateEventTarget(db))
+					protected.PUT("/:id/targets/batch", middleware.RequireActivePlan(db), handler.BatchUpdateTargets(db))
+					protected.PUT("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.UpdateEventTarget(db))
+					protected.DELETE("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.DeleteEventTarget(db))
+				}
 			}
-		}
 
-		// Qualification routes (event-level sessions)
-		qualification := api.Group("/tournaments/:id/qualification")
-		qualification.Use(middleware.OptionalAuthMiddleware())
-		{
-			qualification.GET("/sessions", handler.GetQualificationSessions(db))
-			qualification.POST("/sessions", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
-			qualification.PATCH("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
-			qualification.POST("/sessions/:sessionId/lock", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ToggleLockQualificationSession(db))
-			qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
-			qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
-		}
+			// Qualification routes (event-level sessions)
+			qualification := api.Group(prefix + "/:id/qualification")
+			qualification.Use(middleware.OptionalAuthMiddleware())
+			{
+				qualification.GET("/sessions", handler.GetQualificationSessions(db))
+				qualification.POST("/sessions", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateQualificationSession(db))
+				qualification.PATCH("/sessions/:sessionId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateQualificationSession(db))
+				qualification.POST("/sessions/:sessionId/lock", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ToggleLockQualificationSession(db))
+				qualification.GET("/leaderboard", handler.GetQualificationLeaderboard(db))
+				qualification.GET("/sessions/:sessionCode/scoresheet", handler.GetQualificationScoresheet(db))
+			}
 
-		// Elimination routes (event-level brackets)
-		elimination := api.Group("/tournaments/:id/elimination")
-		elimination.Use(middleware.OptionalAuthMiddleware())
-		{
-			elimination.GET("/brackets", handler.GetBrackets(db))
-			elimination.GET("/bracket-size", middleware.AuthMiddleware(), handler.GetBracketSizeRecommendation(db))
-			elimination.POST("/brackets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateBracket(db))
-			elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
-			elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateBracket(db))
-			elimination.POST("/brackets/:bracketId/lock", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ToggleLockEliminationBracket(db))
-			elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.GenerateBracket(db))
-			elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
-			elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
-			elimination.GET("/brackets/:bracketId/scoresheet", handler.GetEliminationScoresheet(db))
-			elimination.GET("/brackets/:bracketId/team-members", handler.GetBracketTeamMembers(db))
-			elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateMatchTargets(db))
-			elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.AutoAssignMatchTargets(db))
-			elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/score", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateMatchScore(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/finish", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.FinishMatch(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/end", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.EndMatch(db))
-			elimination.POST("/brackets/:bracketId/matches/:matchId/reset", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ResetMatch(db))
+			// Elimination routes (event-level brackets)
+			elimination := api.Group(prefix + "/:id/elimination")
+			elimination.Use(middleware.OptionalAuthMiddleware())
+			{
+				elimination.GET("/brackets", handler.GetBrackets(db))
+				elimination.GET("/bracket-size", middleware.AuthMiddleware(), handler.GetBracketSizeRecommendation(db))
+				elimination.POST("/brackets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.CreateBracket(db))
+				elimination.GET("/brackets/:bracketId", handler.GetBracket(db))
+				elimination.PUT("/brackets/:bracketId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateBracket(db))
+				elimination.POST("/brackets/:bracketId/lock", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ToggleLockEliminationBracket(db))
+				elimination.POST("/brackets/:bracketId/generate", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.GenerateBracket(db))
+				elimination.GET("/brackets/:bracketId/scores", handler.GetBracketScores(db))
+				elimination.GET("/brackets/:bracketId/board-codes", handler.GetEliminationBoardCodes(db))
+				elimination.GET("/brackets/:bracketId/scoresheet", handler.GetEliminationScoresheet(db))
+				elimination.GET("/brackets/:bracketId/team-members", handler.GetBracketTeamMembers(db))
+				elimination.PUT("/brackets/:bracketId/targets", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateMatchTargets(db))
+				elimination.POST("/brackets/:bracketId/targets/auto-assign", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.AutoAssignMatchTargets(db))
+				elimination.GET("/brackets/:bracketId/matches/:matchId", handler.GetMatch(db))
+				elimination.POST("/brackets/:bracketId/matches/:matchId/score", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateMatchScore(db))
+				elimination.POST("/brackets/:bracketId/matches/:matchId/finish", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.FinishMatch(db))
+				elimination.POST("/brackets/:bracketId/matches/:matchId/end", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.EndMatch(db))
+				elimination.POST("/brackets/:bracketId/matches/:matchId/reset", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.ResetMatch(db))
+			}
 		}
 
 		// Public flat match details
@@ -474,14 +481,6 @@ func main() {
 		{
 			targets.GET("", handler.GetTargets(db)) // ?phase=qualification&session_id=...
 		}
-
-		// Event Targets Data Master routes
-		tournaments.GET("/:id/targets", handler.GetEventTargets(db))
-		tournaments.GET("/:id/targets/options", handler.GetTargetOptions(db))
-		tournaments.GET("/:id/targets/:target_id", handler.GetTargetDetails(db))
-
-		// Archer personal target assignment (requires auth)
-		tournaments.GET("/:id/my-target", middleware.AuthMiddleware(), handler.GetMyEventTarget(db))
 
 		// Event category reference routes
 		api.GET("/event-categories", handler.ListEventCategoryRefs(db))
@@ -604,6 +603,7 @@ func main() {
 			payment.GET("/invoice/:reference", handler.GenerateInvoicePDF(db))
 			payment.POST("/create", middleware.AuthMiddleware(), handler.CreatePayment(db))
 			payment.POST("/mayar/callback", handler.MayarWebhookCallback(db))
+			payment.POST("/mayar/webhook", handler.MayarWebhookCallback(db))
 			payment.POST("/callback", handler.MayarWebhookCallback(db))
 			payment.POST("/paypal/webhook", handler.PayPalWebhookCallback(db))
 			payment.POST("/paypal/capture", handler.CapturePayPalPayment(db))
@@ -615,6 +615,15 @@ func main() {
 			payment.POST("/manual/:reference/upload-proof", middleware.AuthMiddleware(), handler.UploadPaymentProof(db))
 			payment.POST("/manual/:reference/verify", middleware.AuthMiddleware(), handler.VerifyManualPayment(db))
 			payment.GET("/manual/pending", middleware.AuthMiddleware(), handler.GetPendingManualPayments(db))
+		}
+
+		// Webhook route aliases for prefix compatibility (/api/v1/payment and /api/payment)
+		for _, prefix := range []string{"/api/v1/payment", "/api/payment"} {
+			pGroup := r.Group(prefix)
+			pGroup.POST("/mayar/callback", handler.MayarWebhookCallback(db))
+			pGroup.POST("/mayar/webhook", handler.MayarWebhookCallback(db))
+			pGroup.POST("/callback", handler.MayarWebhookCallback(db))
+			pGroup.POST("/paypal/webhook", handler.PayPalWebhookCallback(db))
 		}
 
 		// PayPal Dev Testing Routes

@@ -33,17 +33,17 @@ func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, MobilePaymentTransactionResponse{
-			ID:              transaction.UUID,
-			Reference:       transaction.Reference,
-			TripayReference: transaction.TripayReference,
-			Amount:          transaction.Amount,
-			VANumber:        transaction.VANumber,
-			PayCode:         transaction.PayCode,
-			PaymentMethod:   transaction.PaymentMethod,
-			CheckoutURL:     transaction.CheckoutURL,
-			QRURL:           transaction.QRURL,
-			Instructions:    transaction.Instructions,
-			Status:          transaction.Status,
+			ID:               transaction.UUID,
+			Reference:        transaction.Reference,
+			GatewayReference: transaction.GatewayReference,
+			Amount:           transaction.Amount,
+			VANumber:         transaction.VANumber,
+			PayCode:          transaction.PayCode,
+			PaymentMethod:    transaction.PaymentMethod,
+			CheckoutURL:      transaction.CheckoutURL,
+			QRURL:            transaction.QRURL,
+			Instructions:     transaction.Instructions,
+			Status:           transaction.Status,
 		})
 	}
 }
@@ -99,14 +99,14 @@ func MobileArcherGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		// Or where event_id is present (could be platform fees, but for archer it's registration)
 		query := `
 			SELECT 
-				pt.uuid, pt.reference, pt.tripay_reference, pt.amount, pt.total_amount,
+				pt.uuid, pt.reference, pt.gateway_reference, pt.amount, pt.total_amount,
 				pt.payment_method, pt.status, pt.va_number, pt.checkout_url,
 				pt.created_at, pt.paid_at, pt.expired_at,
 				e.name as event_name,
 				e.slug as event_slug,
 				e.logo_url as event_logo_url
 			FROM payment_transactions pt
-			JOIN tournaments e ON pt.tournament_id = e.uuid
+			JOIN events e ON pt.event_id = e.uuid
 			WHERE pt.user_id = ? AND pt.registration_id IS NOT NULL
 			ORDER BY pt.created_at DESC
 			LIMIT ? OFFSET ?
@@ -157,7 +157,7 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event UUID first
 		var eventUUID string
-		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", slug, slug)
+		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", slug, slug)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -165,15 +165,15 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				pt.uuid, pt.reference, pt.tripay_reference, pt.amount, pt.total_amount,
+				pt.uuid, pt.reference, pt.gateway_reference, pt.amount, pt.total_amount,
 				pt.payment_method, pt.status, pt.va_number, pt.checkout_url,
 				pt.created_at, pt.paid_at, pt.expired_at,
 				e.name as event_name,
 				e.slug as event_slug,
 				e.logo_url as event_logo_url
 			FROM payment_transactions pt
-			JOIN tournaments e ON pt.tournament_id = e.uuid
-			WHERE pt.user_id = ? AND pt.tournament_id = ? AND pt.registration_id IS NOT NULL
+			JOIN events e ON pt.event_id = e.uuid
+			WHERE pt.user_id = ? AND pt.event_id = ? AND pt.registration_id IS NOT NULL
 			ORDER BY pt.created_at DESC
 		`
 

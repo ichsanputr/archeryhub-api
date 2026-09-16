@@ -130,7 +130,7 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 				a.full_name as archer_name,
 				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name
 			FROM payment_transactions t
-			JOIN tournaments e ON t.tournament_id = e.uuid
+			JOIN tournaments e ON t.event_id = e.uuid
 			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
@@ -155,7 +155,7 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&total, `
 			SELECT COUNT(*) 
 			FROM payment_transactions t 
-			JOIN tournaments e ON t.tournament_id = e.uuid 
+			JOIN tournaments e ON t.event_id = e.uuid 
 			WHERE e.organizer_id = ? AND t.registration_id IS NOT NULL
 		`, userID)
 
@@ -573,19 +573,19 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		var paidCount, pendingCount, unpaidCount int
 
 		_ = db.Get(&totalRevenue, `
-			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE tournament_id = ? AND status = 'paid'
+			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
 		`, eventID)
 
 		_ = db.Get(&paidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'paid'
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
 		`, eventID)
 
 		_ = db.Get(&pendingCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'pending'
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
 		`, eventID)
 
 		_ = db.Get(&unpaidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND (status = 'unpaid' OR status = 'failed')
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'failed')
 		`, eventID)
 
 		type TxnItem struct {
@@ -598,9 +598,9 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 
 		var items []TxnItem
 		_ = db.Select(&items, `
-			SELECT id, amount, status, payment_method, created_at
+			SELECT uuid as id, amount, status, payment_method, created_at
 			FROM payment_transactions
-			WHERE tournament_id = ?
+			WHERE event_id = ?
 			ORDER BY created_at DESC
 			LIMIT 50
 		`, eventID)
@@ -617,14 +617,14 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileGetInvoiceDetail returns invoice details, breakdown, and payment timeline
+// MobileGetInvoiceDetail returns invoice and fee breakdown for an athlete payment
 func MobileGetInvoiceDetail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		transactionID := c.Param("transactionId")
 
 		var txn struct {
 			ID            string     `json:"id" db:"id"`
-			EventID       string     `json:"event_id" db:"event_id"`
+			EventID       *string    `json:"event_id" db:"event_id"`
 			Amount        float64    `json:"amount" db:"amount"`
 			Status        string     `json:"status" db:"status"`
 			PaymentMethod *string    `json:"payment_method" db:"payment_method"`
@@ -632,7 +632,7 @@ func MobileGetInvoiceDetail(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt     time.Time  `json:"created_at" db:"created_at"`
 		}
 
-		err := db.Get(&txn, "SELECT id, event_id, amount, status, payment_method, paid_at, created_at FROM payment_transactions WHERE id = ?", transactionID)
+		err := db.Get(&txn, "SELECT uuid as id, event_id, amount, status, payment_method, paid_at, created_at FROM payment_transactions WHERE uuid = ? OR reference = ?", transactionID, transactionID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Invoice tidak ditemukan"})
 			return
@@ -665,8 +665,8 @@ func MobileManualApprovePayment(db *sqlx.DB) gin.HandlerFunc {
 		_, err := db.Exec(`
 			UPDATE payment_transactions
 			SET status = 'paid', paid_at = ?, payment_method = 'Manual Transfer'
-			WHERE id = ?
-		`, now, transactionID)
+			WHERE uuid = ? OR reference = ?
+		`, now, transactionID, transactionID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyetujui pembayaran"})
@@ -700,8 +700,8 @@ func MobileRefundPayment(db *sqlx.DB) gin.HandlerFunc {
 		_, err := db.Exec(`
 			UPDATE payment_transactions
 			SET status = 'refunded'
-			WHERE id = ?
-		`, transactionID)
+			WHERE uuid = ? OR reference = ?
+		`, transactionID, transactionID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses refund"})
@@ -723,7 +723,7 @@ func MobileBroadcastReminderUnpaid(db *sqlx.DB) gin.HandlerFunc {
 
 		var unpaidCount int
 		_ = db.Get(&unpaidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND (status = 'unpaid' OR status = 'pending')
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'pending')
 		`, eventID)
 
 		c.JSON(http.StatusOK, gin.H{

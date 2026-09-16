@@ -210,7 +210,7 @@ UPDATE event_participants SET qr_raw = CONCAT('AH-', uuid) WHERE qr_raw IS NULL;
 -- 11. INSERT PAYMENT TRANSACTIONS for stewie4king
 -- ============================================================
 
-INSERT IGNORE INTO payment_transactions (uuid, reference, tripay_reference, user_id, event_id, registration_id, amount, fee_amount, total_amount, payment_method, payment_channel, status, paid_at, created_at, updated_at)
+INSERT IGNORE INTO payment_transactions (uuid, reference, gateway_reference, user_id, event_id, registration_id, amount, fee_amount, total_amount, payment_method, payment_channel, status, paid_at, created_at, updated_at)
 VALUES
   (UUID(), CONCAT('PAY-POPDA-', UUID()), NULL, '11e0974c-a7f6-4b76-811f-5291137f164e', '7247378c-b3cb-46d7-9ea3-78526733e7a7', 'f748e84a-02d6-4bb5-9a89-059e85bd5c76', 150000.00, 4500.00, 154500.00, 'BCA Virtual Account', 'BCAVA', 'paid', NOW(), DATE_SUB(NOW(), INTERVAL 7 DAY), NOW()),
   (UUID(), CONCAT('PAY-KEJURDA-', UUID()), NULL, '11e0974c-a7f6-4b76-811f-5291137f164e', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', NULL, 200000.00, 6000.00, 206000.00, 'GoPay', 'GOPAY', 'pending', NULL, NOW(), NOW()),

@@ -684,7 +684,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 	var checkoutURL *string
 	var vaNumber *string
 	var qrURL *string
-	var tripayReference *string
+	var gatewayReference *string
 
 	totalAmount := float64(len(registeredCats)) * event.EntryFee
 
@@ -724,37 +724,37 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				expiredAt := time.Now().Add(24 * time.Hour)
 
 				transaction := models.PaymentTransaction{
-					UUID:            transactionID,
-					Reference:       merchantRef,
-					TripayReference: &orderID,
-					UserID:          archerUUID,
-					EventID:         &event.UUID,
-					RegistrationID:  &firstRegID,
-					Amount:          totalAmount,
-					FeeAmount:       0,
-					TotalAmount:     totalAmount,
-					PaymentMethod:   utils.StringPtr("paypal"),
-					CheckoutURL:     &checkoutURLVal,
-					Months:          1,
-					Status:          "pending",
-					ExpiredAt:       expiredAt,
+					UUID:             transactionID,
+					Reference:        merchantRef,
+					GatewayReference: &orderID,
+					UserID:           archerUUID,
+					EventID:          &event.UUID,
+					RegistrationID:   &firstRegID,
+					Amount:           totalAmount,
+					FeeAmount:        0,
+					TotalAmount:      totalAmount,
+					PaymentMethod:    utils.StringPtr("paypal"),
+					CheckoutURL:      &checkoutURLVal,
+					Months:           1,
+					Status:           "pending",
+					ExpiredAt:        expiredAt,
 				}
 
 				query := `
 					INSERT INTO payment_transactions (
-						uuid, reference, tripay_reference, user_id, tournament_id, registration_id,
+						uuid, reference, gateway_reference, user_id, event_id, registration_id,
 						amount, fee_amount, total_amount, payment_method,
 						checkout_url, months, status, expired_at
 					) VALUES (
-						:uuid, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id,
+						:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id,
 						:amount, :fee_amount, :total_amount, :payment_method,
 						:checkout_url, :months, :status, :expired_at
 					)
 				`
 				_, err = db.NamedExec(query, transaction)
 				if err == nil {
-					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE tournament_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
-					tripayReference = &orderID
+					_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE event_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
+					gatewayReference = &orderID
 					checkoutURL = &checkoutURLVal
 					paymentStatus = "pending"
 
@@ -767,7 +767,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 						CheckoutURL:          checkoutURL,
 						VANumber:             vaNumber,
 						QRURL:                qrURL,
-						TripayReference:      tripayReference,
+						GatewayReference:     gatewayReference,
 					})
 					return
 				}
@@ -791,21 +791,21 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 
 			query := `
 				INSERT INTO payment_transactions (
-					uuid, reference, user_id, tournament_id, registration_id,
+					uuid, reference, user_id, event_id, registration_id,
 					amount, fee_amount, total_amount, payment_method,
 					months, status, expired_at
 				) VALUES (
-					:uuid, :reference, :user_id, :tournament_id, :registration_id,
+					:uuid, :reference, :user_id, :event_id, :registration_id,
 					:amount, :fee_amount, :total_amount, :payment_method,
 					:months, :status, :expired_at
 				)
 			`
 			_, err = db.NamedExec(query, transaction)
 			if err == nil {
-				_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'manual' WHERE tournament_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
+				_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'manual' WHERE event_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
 				paymentStatus = "pending"
 				refVal := merchantRef
-				tripayReference = &refVal
+				gatewayReference = &refVal
 
 				c.JSON(http.StatusOK, MobileRegisterEventResponse{
 					Message:              "Pendaftaran berhasil",
@@ -816,7 +816,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 					CheckoutURL:          nil,
 					VANumber:             nil,
 					QRURL:                nil,
-					TripayReference:      tripayReference,
+					GatewayReference:     gatewayReference,
 				})
 				return
 			}
@@ -842,38 +842,38 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				expiredAt := time.Now().Add(24 * time.Hour)
 
 				transaction := models.PaymentTransaction{
-					UUID:            transactionID,
-					Reference:       merchantRef,
-					TripayReference: &mayarTxID,
-					UserID:          archerUUID,
-					EventID:         &event.UUID,
-					RegistrationID:  &firstRegID,
-					Amount:          totalAmount,
-					FeeAmount:       0,
-					TotalAmount:     totalAmount,
-					PaymentMethod:   utils.StringPtr("mayar"),
-					CheckoutURL:     &checkoutURLVal,
-					Months:          1,
-					Status:          "pending",
-					ExpiredAt:       expiredAt,
+					UUID:             transactionID,
+					Reference:        merchantRef,
+					GatewayReference: &mayarTxID,
+					UserID:           archerUUID,
+					EventID:          &event.UUID,
+					RegistrationID:   &firstRegID,
+					Amount:           totalAmount,
+					FeeAmount:        0,
+					TotalAmount:      totalAmount,
+					PaymentMethod:    utils.StringPtr("mayar"),
+					CheckoutURL:      &checkoutURLVal,
+					Months:           1,
+					Status:           "pending",
+					ExpiredAt:        expiredAt,
 				}
 
 				query := `
 					INSERT INTO payment_transactions (
-						uuid, reference, tripay_reference, user_id, tournament_id, registration_id,
+						uuid, reference, gateway_reference, user_id, event_id, registration_id,
 						amount, fee_amount, total_amount, payment_method,
 						checkout_url, months, status, expired_at
 					) VALUES (
-						:uuid, :reference, :tripay_reference, :user_id, :tournament_id, :registration_id,
+						:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id,
 						:amount, :fee_amount, :total_amount, :payment_method,
 						:checkout_url, :months, :status, :expired_at
 					)
 				`
 				_, err = db.NamedExec(query, transaction)
 				if err == nil {
-					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE tournament_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
+					_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE event_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
 					qrURL = transaction.QRURL
-					tripayReference = &mayarTxID
+					gatewayReference = &mayarTxID
 					checkoutURL = &checkoutURLVal
 					paymentStatus = "pending"
 
@@ -886,7 +886,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 						CheckoutURL:          checkoutURL,
 						VANumber:             vaNumber,
 						QRURL:                qrURL,
-						TripayReference:      tripayReference,
+						GatewayReference:     gatewayReference,
 					})
 					return
 				}
@@ -903,7 +903,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		CheckoutURL:          checkoutURL,
 		VANumber:             vaNumber,
 		QRURL:                qrURL,
-		TripayReference:      tripayReference,
+		GatewayReference:     gatewayReference,
 	})
 }
 
@@ -1042,10 +1042,10 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 		var regID string
 		var paymentStatus string
 
-		// Try to find by registration_id (uuid in tournament_participants)
-		err := db.QueryRow("SELECT uuid, COALESCE(payment_status, 'pending') FROM tournament_participants WHERE uuid = ? AND archer_id = ?", refOrVaOrReg, userID).Scan(&regID, &paymentStatus)
+		// Try to find by registration_id (uuid in event_participants)
+		err := db.QueryRow("SELECT uuid, COALESCE(payment_status, 'pending') FROM event_participants WHERE uuid = ? AND archer_id = ?", refOrVaOrReg, userID).Scan(&regID, &paymentStatus)
 		if err != nil {
-			// Try to find by payment transaction reference or tripay_reference or va_number
+			// Try to find by payment transaction reference or gateway_reference or va_number
 			var pt struct {
 				RegistrationID *string `db:"registration_id"`
 				Status         string  `db:"status"`
@@ -1053,7 +1053,7 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 			err2 := db.Get(&pt, `
 				SELECT registration_id, status 
 				FROM payment_transactions 
-				WHERE (uuid = ? OR reference = ? OR tripay_reference = ? OR va_number = ?) 
+				WHERE (uuid = ? OR reference = ? OR gateway_reference = ? OR va_number = ?) 
 				  AND user_id = ?
 			`, refOrVaOrReg, refOrVaOrReg, refOrVaOrReg, refOrVaOrReg, userID)
 			if err2 == nil && pt.RegistrationID != nil {

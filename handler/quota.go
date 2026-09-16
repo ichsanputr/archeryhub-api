@@ -253,7 +253,7 @@ func PurchaseQuota(db *sqlx.DB) gin.HandlerFunc {
 			externalTxID = mayarData.TransactionID
 		}
 
-		insertSQL := `INSERT INTO quota_purchases (uuid, organizer_id, plan_id, quota_type, quantity, unit_price, total_amount, currency, payment_method, payment_reference, checkout_url, tripay_reference, payment_status, purchased_at) 
+		insertSQL := `INSERT INTO quota_purchases (uuid, organizer_id, plan_id, quota_type, quantity, unit_price, total_amount, currency, payment_method, payment_reference, checkout_url, gateway_reference, payment_status, purchased_at) 
 					  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`
 		_, err := db.Exec(insertSQL, purchaseUUID, org.UUID, req.PlanID, plan.QuotaType, req.Quantity, promoPrice, totalAmount, req.Currency, paymentMethod, refID, checkoutUrl, externalTxID)
 		
