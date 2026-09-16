@@ -360,6 +360,7 @@ func MobileArcherGetCertificates(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var certs []CertificateItem
+		apiBase := utils.GetAPIBaseURL()
 		err := db.Select(&certs, `
 			SELECT 
 				ep.uuid as id,
@@ -367,14 +368,14 @@ func MobileArcherGetCertificates(db *sqlx.DB) gin.HandlerFunc {
 				e.name as event_name,
 				COALESCE(cat.name, 'Kategori Umum') as category,
 				DATE_FORMAT(ep.registration_date, '%d %b %Y') as issue_date,
-				COALESCE(ep.certificate_url, 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf') as pdf_url,
+				COALESCE(ep.certificate_url, CONCAT(?, '/api/certificates/', ep.uuid, '/pdf')) as pdf_url,
 				CONCAT('CERT-', UPPER(SUBSTRING(ep.uuid, 1, 8))) as certificate_no
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN tournament_categories cat ON ep.event_category_id = cat.uuid
 			WHERE ep.archer_id = ? AND ep.payment_status IN ('paid', 'lunas', 'settlement', 'completed', 'confirmed')
 			ORDER BY ep.registration_date DESC
-		`, userID)
+		`, apiBase, userID)
 
 		if err != nil || certs == nil {
 			certs = []CertificateItem{}

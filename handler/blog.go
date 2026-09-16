@@ -269,8 +269,8 @@ func parseTags(raw *string) []string {
 
 func transformArticle(dbArticle BlogArticleDB) BlogArticle {
 	avatar := dbArticle.AuthorAvatar
-	if avatar == "" || strings.Contains(avatar, "placeholder") {
-		avatar = "https://api.dicebear.com/7.x/bottts/svg?seed=ArcherisAdmin"
+	if avatar == "" || strings.Contains(avatar, "placeholder") || strings.Contains(avatar, "dicebear") {
+		avatar = "/media/profile-author.png"
 	}
 
 	return BlogArticle{
