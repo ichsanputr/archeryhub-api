@@ -251,6 +251,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		type UserRecord struct {
 			UUID         string `db:"uuid"`
 			Role         string `db:"role"`
+			Status       string `db:"status"`
 			OrgUUID      string `db:"organization_uuid"`
 			TokenVersion int    `db:"token_version"`
 		}
@@ -261,13 +262,13 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		for _, t := range tables {
 			var query string
 			if t == "organizers" {
-				query = "SELECT uuid, 'organizer' as role, uuid as organization_uuid, token_version FROM organizers WHERE email = ?"
+				query = "SELECT uuid, 'organizer' as role, uuid as organization_uuid, token_version, COALESCE(status, 'active') as status FROM organizers WHERE email = ?"
 			} else if t == "archers" {
-				query = "SELECT uuid, 'archer' as role, '' as organization_uuid, token_version FROM archers WHERE email = ?"
+				query = "SELECT uuid, 'archer' as role, '' as organization_uuid, token_version, COALESCE(status, 'active') as status FROM archers WHERE email = ?"
 			} else if t == "clubs" {
-				query = "SELECT uuid, 'club' as role, '' as organization_uuid, token_version FROM clubs WHERE email = ?"
+				query = "SELECT uuid, 'club' as role, '' as organization_uuid, token_version, 'active' as status FROM clubs WHERE email = ?"
 			} else if t == "sellers" {
-				query = "SELECT uuid, 'seller' as role, '' as organization_uuid, token_version FROM sellers WHERE email = ?"
+				query = "SELECT uuid, 'seller' as role, '' as organization_uuid, token_version, COALESCE(status, 'active') as status FROM sellers WHERE email = ?"
 			}
 
 			err = db.Get(&record, query, userInfo.Email)
@@ -295,6 +296,19 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if found {
+			// Check if account is suspended/banned
+			if record.Status == "suspended" || record.Status == "banned" {
+				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" || c.Request.Method == "POST" {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error": "Your account has been suspended. Please contact admin.",
+						"code":  "account_inactive",
+					})
+				} else {
+					c.Redirect(http.StatusTemporaryRedirect, appURL+"/auth/login?error=account_inactive")
+				}
+				return
+			}
+
 			// Register flow with existing email: user came from register page (full_name in state) but email already exists
 			if requestedFullName != "" {
 				if c.ContentType() == "application/json" || c.GetHeader("Accept") == "application/json" || c.Request.Method == "POST" {
@@ -317,7 +331,7 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				avatarToSave = utils.MaskMediaURL(downloadedAvatar)
 			}
 
-			// Login flow: update Google-specific fields and avatar
+			// Login flow: update Google-specific fields and avatar, and ensure account is active & verified
 			table := ""
 			switch userType {
 			case "organizer":
@@ -327,11 +341,20 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			default:
 				table = "archers"
 			}
-			_, err = db.Exec(`
-				UPDATE `+table+` 
-				SET google_id = ?, avatar_url = ?, updated_at = NOW()
-				WHERE uuid = ?
-			`, userInfo.ID, avatarToSave, userID)
+
+			if table == "clubs" {
+				_, err = db.Exec(`
+					UPDATE clubs 
+					SET logo_url = COALESCE(NULLIF(logo_url, ''), ?), updated_at = NOW()
+					WHERE uuid = ?
+				`, avatarToSave, userID)
+			} else {
+				_, err = db.Exec(`
+					UPDATE `+table+` 
+					SET google_id = ?, avatar_url = ?, status = 'active', is_verified = 1, updated_at = NOW()
+					WHERE uuid = ?
+				`, userInfo.ID, avatarToSave, userID)
+			}
 			if err != nil {
 				fmt.Printf("Failed to update user in %s: %v\n", table, err)
 			}
@@ -392,8 +415,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				pageSettingsJSON := fmt.Sprintf(`{"currency": "%s"}`, currency)
 
 				_, insertErr = db.Exec(`
-					INSERT INTO organizers (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, quota_free, quota_standard, quota_elite, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, ?, 20, 0, 0, NOW(), NOW())
+					INSERT INTO organizers (uuid, user_id, slug, email, google_id, name, acronym, whatsapp_no, country, address, avatar_url, status, is_verified, subscription_plan_id, subscription_status, subscription_expires_at, page_settings, quota_free, quota_standard, quota_elite, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, NULL, 'active', NULL, ?, 20, 0, 0, NOW(), NOW())
 				`, userID, userID, username, userInfo.Email, userInfo.ID, displayName, metadata["acronym"], metadata["whatsapp_no"], metadata["country"], metadata["address"], avatarToSave, pageSettingsJSON)
 			case "club":
 				_, insertErr = db.Exec(`
@@ -468,8 +491,8 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				_, insertErr = db.Exec(`
-					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, country, bow_type, club_id, status, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW())
+					INSERT INTO archers (uuid, username, email, google_id, full_name, avatar_url, gender, date_of_birth, country, bow_type, club_id, status, is_verified, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW())
 				`, userID, username, userInfo.Email, userInfo.ID, displayName, avatarToSave, genderVal, dateOfBirth, country, bowTypeVal, clubIDVal)
 			}
 

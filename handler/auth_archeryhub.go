@@ -465,20 +465,26 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			if os.Getenv("ENV") == "development" {
 				log.Printf("[auth] login user not found email=%q", req.Email)
 			}
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah", "code": "invalid_credentials"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Account not found. Please check your email or register a new account.",
+				"code":  "user_not_found",
+			})
 			return
 		}
 
 		// Check if account is active (NULL or empty status treated as inactive)
 		if user.Status != "active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Akun tidak aktif", "code": "account_inactive"})
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Your account is inactive or has been suspended.",
+				"code":  "account_inactive",
+			})
 			return
 		}
 
 		// Account created via Google has no password; tell user to use Google sign-in
 		if user.Password == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Akun ini terdaftar melalui Google. Silakan login dengan Google.",
+				"error": "This account was registered with Google. Please sign in with Google.",
 				"code":  "use_google_signin",
 			})
 			return
@@ -492,7 +498,10 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			if os.Getenv("ENV") == "development" {
 				log.Printf("[auth] login password mismatch email=%q (db_len=%d req_len=%d)", req.Email, len(user.Password), len(req.Password))
 			}
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah", "code": "invalid_credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Incorrect password. Please try again.",
+				"code":  "invalid_password",
+			})
 			return
 		}
 
@@ -503,7 +512,7 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		}
 		token, err := generateJWT(user.UUID, user.Email, user.Role, user.Type, user.FullName, avatar, user.OrgUUID, user.TokenVersion)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token akses"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token", "code": "server_error"})
 			return
 		}
 

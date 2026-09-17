@@ -69,8 +69,8 @@ func UpdatePassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update password hash and increment token_version to invalidate old sessions
-		updateQuery := "UPDATE " + table + " SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?"
+		// Update password hash and increment token_version to invalidate old sessions, ensuring account is active & verified
+		updateQuery := "UPDATE " + table + " SET password = ?, status = 'active', is_verified = 1, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?"
 		_, err = db.Exec(updateQuery, string(hashedBytes), userID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui password"})

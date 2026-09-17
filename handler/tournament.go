@@ -2117,6 +2117,45 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		// Check Tournament Level Participant Quota (Anti-Bypass Protection)
+		var tourQuota struct {
+			QuotaType             *string `db:"quota_type"`
+			QuotaMaxParticipants *int    `db:"quota_max_participants"`
+		}
+		if err := tx.Get(&tourQuota, `SELECT quota_type, quota_max_participants FROM tournaments WHERE uuid = ? FOR UPDATE`, actualEventID); err == nil {
+			var maxTourParticipants *int = tourQuota.QuotaMaxParticipants
+			if maxTourParticipants == nil && tourQuota.QuotaType != nil {
+				switch strings.ToLower(*tourQuota.QuotaType) {
+				case "free":
+					fifty := 50
+					maxTourParticipants = &fifty
+				case "standard":
+					twoHundred := 200
+					maxTourParticipants = &twoHundred
+				case "elite":
+					maxTourParticipants = nil
+				}
+			}
+
+			if maxTourParticipants != nil && *maxTourParticipants > 0 {
+				var currentUniqueAthletes int
+				_ = tx.Get(&currentUniqueAthletes, `SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE tournament_id = ? AND status != 'cancelled'`, actualEventID)
+
+				var archerAlreadyInTour bool
+				_ = tx.Get(&archerAlreadyInTour, `SELECT EXISTS(SELECT 1 FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND status != 'cancelled')`, actualEventID, archerUUID)
+
+				if !archerAlreadyInTour && currentUniqueAthletes >= *maxTourParticipants {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error":                fmt.Sprintf("Batas kapasitas peserta turnamen ini telah mencapai batas paket (%d peserta).", *maxTourParticipants),
+						"code":                 "QUOTA_PARTICIPANT_EXCEEDED",
+						"max_participants":     *maxTourParticipants,
+						"current_participants": currentUniqueAthletes,
+					})
+					return
+				}
+			}
+		}
+
 		var firstParticipantUUID string
 		registeredCategoryIDs := []string{}
 		for i, catID := range allCategoryIDs {
@@ -4348,6 +4387,42 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			composed = strings.Join(strings.Fields(composed), " ")
 			if composed != "" {
 				catMap[composed] = cat.UUID
+			}
+		}
+
+		// Check Tournament Level Participant Quota (Anti-Bypass Protection)
+		var tourQuota struct {
+			UUID                  string  `db:"uuid"`
+			QuotaType             *string `db:"quota_type"`
+			QuotaMaxParticipants *int    `db:"quota_max_participants"`
+		}
+		if err := db.Get(&tourQuota, `SELECT uuid, quota_type, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err == nil {
+			var maxTourParticipants *int = tourQuota.QuotaMaxParticipants
+			if maxTourParticipants == nil && tourQuota.QuotaType != nil {
+				switch strings.ToLower(*tourQuota.QuotaType) {
+				case "free":
+					fifty := 50
+					maxTourParticipants = &fifty
+				case "standard":
+					twoHundred := 200
+					maxTourParticipants = &twoHundred
+				case "elite":
+					maxTourParticipants = nil
+				}
+			}
+
+			if maxTourParticipants != nil && *maxTourParticipants > 0 {
+				var currentUniqueAthletes int
+				_ = db.Get(&currentUniqueAthletes, `SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE tournament_id = ? AND status != 'cancelled'`, tourQuota.UUID)
+
+				remainingQuota := *maxTourParticipants - currentUniqueAthletes
+				if remainingQuota <= 0 {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error": fmt.Sprintf("Batas kapasitas peserta turnamen ini telah mencapai batas paket (%d peserta).", *maxTourParticipants),
+						"code":  "QUOTA_PARTICIPANT_EXCEEDED",
+					})
+					return
+				}
 			}
 		}
 

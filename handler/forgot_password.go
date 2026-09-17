@@ -13,14 +13,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ForgotPassword â€” Step 1: user submits email, we find their account and send OTP
+// ForgotPassword — Step 1: user submits email, we find their account and send OTP
 func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Email string `json:"email" binding:"required,email"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email tidak valid"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email address", "code": "invalid_email"})
 			return
 		}
 
@@ -57,7 +57,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 
 		// Always return 200 to avoid email enumeration
 		if found == nil {
-			c.JSON(http.StatusOK, gin.H{"message": "Jika email terdaftar, kode OTP telah dikirimkan"})
+			c.JSON(http.StatusOK, gin.H{"message": "If this email is registered, a verification code has been sent"})
 			return
 		}
 
@@ -74,18 +74,18 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?)
 		`, resetID, req.Email, found.UUID, found.UserType, otp, expiry)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses permintaan"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request", "code": "server_error"})
 			return
 		}
 
 		// Send OTP email with Archeris design system (navy + neon yellow)
 		go utils.SendOTPEmail(req.Email, found.FullName, otp, 5)
 
-		c.JSON(http.StatusOK, gin.H{"message": "Jika email terdaftar, kode OTP telah dikirimkan"})
+		c.JSON(http.StatusOK, gin.H{"message": "If this email is registered, a verification code has been sent"})
 	}
 }
 
-// VerifyResetOTP â€” Step 2: validate OTP only (returns a short-lived token)
+// VerifyResetOTP — Step 2: validate OTP only (returns a short-lived token)
 func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -93,7 +93,7 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 			OTP   string `json:"otp"   binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Incomplete request data", "code": "invalid_input"})
 			return
 		}
 
@@ -113,15 +113,15 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 		`, req.Email, req.OTP)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP tidak valid"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Verification code is invalid or incorrect. Please check again.", "code": "otp_invalid"})
 			return
 		}
 		if row.IsUsed {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP sudah digunakan"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Verification code has already been used. Please request a new code.", "code": "otp_already_used"})
 			return
 		}
 		if time.Now().After(row.ExpiresAt) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP sudah kedaluwarsa"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Verification code has expired. Please request a new code.", "code": "otp_expired"})
 			return
 		}
 
@@ -132,7 +132,7 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 			"VERIFIED:"+resetToken, tokenExpiry, row.UUID)
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":     "OTP valid",
+			"message":     "OTP verified successfully",
 			"reset_token": resetToken,
 			"user_type":   row.UserType,
 		})
@@ -148,13 +148,13 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			NewPassword string `json:"new_password" binding:"required,min=6"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap atau password terlalu pendek (minimal 6 karakter)"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters", "code": "invalid_password"})
 			return
 		}
 
 		tx, txErr := db.Beginx()
 		if txErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses reset password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password reset", "code": "server_error"})
 			return
 		}
 		defer tx.Rollback()
@@ -175,15 +175,15 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 		`, req.Email, "VERIFIED:"+req.ResetToken)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi reset tidak valid atau sudah kedaluwarsa"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Reset session is invalid or has expired", "code": "session_expired"})
 			return
 		}
 		if row.IsUsed {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token reset sudah digunakan"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Reset token has already been used", "code": "token_used"})
 			return
 		}
 		if time.Now().After(row.ExpiresAt) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi reset sudah kedaluwarsa, silakan mulai ulang"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Reset session has expired. Please start over.", "code": "session_expired"})
 			return
 		}
 
@@ -202,27 +202,27 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			table,
 		), req.NewPassword, row.UserID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan password baru"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password", "code": "server_error"})
 			return
 		}
 
 		// Mark token as used
 		_, err = tx.Exec(`UPDATE password_resets SET is_used = 1 WHERE uuid = ?`, row.UUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize password reset", "code": "server_error"})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize password reset", "code": "server_error"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan masuk dengan password baru."})
+		c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully. Please log in with your new password."})
 	}
 }
 
-// ChangePasswordWithOTP â€” public endpoint to set new password directly using email + OTP
+// ChangePasswordWithOTP — public endpoint to set new password directly using email + OTP
 func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
@@ -232,13 +232,13 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap atau tidak valid"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Incomplete or invalid request data", "code": "invalid_input"})
 			return
 		}
 
 		matched, _ := regexp.MatchString(`^\d{6}$`, req.OTP)
 		if !matched {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Format OTP tidak valid"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Verification code must be 6 digits", "code": "invalid_format"})
 			return
 		}
 
@@ -260,12 +260,17 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 		`, req.Email, req.OTP)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "OTP tidak valid atau sudah kedaluwarsa"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Verification code is invalid or incorrect. Please check again.", "code": "otp_invalid"})
 			return
 		}
 
-		if row.IsUsed || time.Now().After(row.ExpiresAt) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "OTP tidak valid atau sudah kedaluwarsa"})
+		if row.IsUsed {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Verification code has already been used. Please request a new code.", "code": "otp_already_used"})
+			return
+		}
+
+		if time.Now().After(row.ExpiresAt) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Verification code has expired. Please request a new code.", "code": "otp_expired"})
 			return
 		}
 
@@ -279,7 +284,7 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, txErr := db.Beginx()
 		if txErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses reset password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password reset", "code": "server_error"})
 			return
 		}
 
@@ -287,30 +292,30 @@ func ChangePasswordWithOTP(db *sqlx.DB) gin.HandlerFunc {
 		hashedPassword, hashErr := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 		if hashErr != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kata sandi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password", "code": "server_error"})
 			return
 		}
 
 		_, execErr := tx.Exec(fmt.Sprintf("UPDATE %s SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?", table), string(hashedPassword), row.UserID)
 		if execErr != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan password baru"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save new password", "code": "server_error"})
 			return
 		}
 
 		_, execErr = tx.Exec(`UPDATE password_resets SET is_used = 1 WHERE email = ? AND is_used = 0`, req.Email)
 		if execErr != nil {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize password reset", "code": "server_error"})
 			return
 		}
 
 		if commitErr := tx.Commit(); commitErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan proses reset password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize password reset", "code": "server_error"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan masuk dengan password baru."})
+		c.JSON(http.StatusOK, gin.H{"message": "Password reset successfully. Please log in with your new password."})
 	}
 }
 

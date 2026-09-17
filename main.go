@@ -414,6 +414,9 @@ func main() {
 					protected.PUT("/:id/targets/batch", middleware.RequireActivePlan(db), handler.BatchUpdateTargets(db))
 					protected.PUT("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.UpdateEventTarget(db))
 					protected.DELETE("/:id/targets/:target_id", middleware.RequireActivePlan(db), handler.DeleteEventTarget(db))
+
+					// Tournament Media & Storage management
+					protected.GET("/:id/media-storage", handler.GetTournamentMediaUsage(db))
 				}
 			}
 
@@ -868,6 +871,7 @@ func main() {
 				sk.POST("/verify-code", mobilehandler.MobileVerifyScorekeeperCode(db))
 				sk.GET("/recent-scans", mobilehandler.MobileGetScorekeeperRecentScans(db))
 				sk.GET("/history", mobilehandler.MobileGetScorekeeperHistory(db))
+				sk.POST("/scan-ocr", mobilehandler.MobileScorekeeperScanOCR(db))
 			}
 
 			// 7. Options (Public)

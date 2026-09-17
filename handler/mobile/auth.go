@@ -78,23 +78,23 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 	var user mobileLoginUser
 	err := db.Get(&user, query, req.Email)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau kata sandi tidak valid", "code": "invalid_credentials"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Account not found. Please check your email or register a new account.", "code": "user_not_found"})
 		return
 	}
 
 	if user.Status != "active" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akun tidak aktif", "code": "account_inactive"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Your account is inactive or has been suspended.", "code": "account_inactive"})
 		return
 	}
 	if user.Password == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Akun ini menggunakan Google sign-in. Silakan masuk menggunakan Google.", "code": "use_google_signin"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "This account was registered with Google. Please sign in with Google.", "code": "use_google_signin"})
 		return
 	}
 	// Verify password (supports bcrypt hash and fallback plain text for legacy accounts)
 	isBcryptMatch := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) == nil
 	isPlainTextMatch := user.Password == req.Password
 	if !isBcryptMatch && !isPlainTextMatch {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau kata sandi tidak valid", "code": "invalid_credentials"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password. Please try again.", "code": "invalid_password"})
 		return
 	}
 

@@ -43,7 +43,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RegisterEmailRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Data registrasi tidak lengkap atau format tidak valid: " + err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid registration data: " + err.Error(), "code": "invalid_input"})
 			return
 		}
 
@@ -58,12 +58,12 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 				name = strings.TrimSpace(req.OrganizationName)
 			}
 			if name == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Nama organisasi wajib diisi"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Organization name is required", "code": "name_required"})
 				return
 			}
 		} else {
 			if name == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Nama lengkap wajib diisi"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Full name is required", "code": "name_required"})
 				return
 			}
 		}
@@ -95,7 +95,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 		// Hash password securely with bcrypt
 		hashedBytes, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if hErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengenkripsi password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt password", "code": "server_error"})
 			return
 		}
 		hashedPassword := string(hashedBytes)
@@ -105,7 +105,10 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 
 		if found {
 			if existingUser.IsVerified {
-				c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar. Silakan langsung masuk ke akun Anda."})
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "Email is already registered. Please log in directly.",
+					"code":  "email_already_registered",
+				})
 				return
 			}
 			// Unverified existing account -> update credentials & reuse
@@ -185,7 +188,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan akun: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save account: " + err.Error(), "code": "server_error"})
 			return
 		}
 
@@ -203,7 +206,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 		`, verifID, req.Email, otp, userID, req.UserType, expiry)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat kode verifikasi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate verification code", "code": "server_error"})
 			return
 		}
 
@@ -213,7 +216,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "pending_verification",
 			"email":   req.Email,
-			"message": "Kode OTP 6-digit telah dikirimkan ke email Anda",
+			"message": "A 6-digit verification code has been sent to your email",
 		})
 	}
 }
@@ -223,7 +226,7 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req VerifyRegisterOTPRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email dan kode OTP wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email and verification code are required", "code": "invalid_input"})
 			return
 		}
 
@@ -232,7 +235,7 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 
 		matched, _ := regexp.MatchString(`^\d{6}$`, req.OTP)
 		if !matched {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Format kode OTP harus 6 digit angka"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Verification code must be 6 digits", "code": "invalid_format"})
 			return
 		}
 
@@ -254,17 +257,26 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 		`, req.Email, req.OTP)
 
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP tidak valid atau salah"})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Verification code is invalid or incorrect. Please check again.",
+				"code":  "otp_invalid",
+			})
 			return
 		}
 
 		if record.IsUsed {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP sudah pernah digunakan. Silakan minta kode baru."})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Verification code has already been used. Please request a new code.",
+				"code":  "otp_already_used",
+			})
 			return
 		}
 
 		if time.Now().After(record.ExpiresAt) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kode OTP sudah kedaluwarsa. Silakan minta kode baru."})
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Verification code has expired. Please request a new code.",
+				"code":  "otp_expired",
+			})
 			return
 		}
 
@@ -291,7 +303,7 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengaktifkan akun"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to activate account", "code": "server_error"})
 			return
 		}
 
@@ -300,26 +312,31 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 		if record.UserType == "organizer" {
 			orgID = record.UserID
 		}
-		token, err := generateJWT(record.UserID, req.Email, role, record.UserType, userName, "", orgID, 1)
+
+		token, err := generateJWT(record.UserID, req.Email, role, record.UserType, userName, "", orgID, 0)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create login session", "code": "server_error"})
 			return
 		}
 
-		setAuthCookie(c, token, 60*60*24*60) // 60 days
+		// Set auth cookie
+		setAuthCookie(c, token, 60*60*24*60)
 
-		utils.LogActivity(db, record.UserID, "", "user_verified_otp", record.UserType, record.UserID, "User verified via OTP: "+req.Email, c.ClientIP(), c.Request.UserAgent())
+		redirectURL := "/dashboard"
+		if record.UserType == "archer" {
+			redirectURL = "/dashboard/archer/tournaments"
+		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":      "Akun berhasil diverifikasi",
+			"message":      "Verification successful! Welcome to Archeris.",
 			"token":        token,
-			"redirect_url": "/dashboard",
+			"redirect_url": redirectURL,
 			"user": gin.H{
-				"id":         record.UserID,
-				"email":      req.Email,
-				"full_name":  userName,
-				"role":       role,
-				"user_type":  record.UserType,
+				"uuid":        record.UserID,
+				"email":       req.Email,
+				"full_name":   userName,
+				"role":        role,
+				"user_type":   record.UserType,
 				"is_verified": true,
 			},
 		})
@@ -331,7 +348,7 @@ func ResendRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req ResendRegisterOTPRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required", "code": "invalid_input"})
 			return
 		}
 
@@ -345,7 +362,10 @@ func ResendRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 		`, req.Email)
 
 		if count > 0 {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Mohon tunggu 60 detik sebelum meminta kode OTP baru"})
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "Please wait 60 seconds before requesting a new verification code",
+				"code":  "rate_limited",
+			})
 			return
 		}
 
@@ -371,7 +391,10 @@ func ResendRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if !found {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Email pendaftaran tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Registration email not found",
+				"code":  "user_not_found",
+			})
 			return
 		}
 
@@ -389,12 +412,12 @@ func ResendRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 		`, verifID, req.Email, otp, user.UUID, user.UserType, expiry)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat kode OTP baru"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new verification code", "code": "server_error"})
 			return
 		}
 
 		go utils.SendOTPEmail(req.Email, user.Name, otp, 10)
 
-		c.JSON(http.StatusOK, gin.H{"message": "Kode OTP baru telah dikirimkan ke email Anda"})
+		c.JSON(http.StatusOK, gin.H{"message": "A new verification code has been sent to your email"})
 	}
 }

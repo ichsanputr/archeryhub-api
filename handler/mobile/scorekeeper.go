@@ -2,8 +2,13 @@ package mobile
 
 import (
 	"Archeris-api/utils"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -470,3 +475,124 @@ func parseArrowScore(arrow string) (score int, isX int, isTen int) {
 		return v, 0, 0
 	}
 }
+
+// MobileScorekeeperScanOCR handles scoresheet photo upload and proxies to Python OCR microservice
+func MobileScorekeeperScanOCR(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userType, _ := c.Get("user_type")
+		if userType != "scorekeeper" && userType != "organizer" && userType != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya juri scorekeeper yang berwenang memindai lembar skor"})
+			return
+		}
+
+		file, header, err := c.Request.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File foto lembar skor wajib diunggah (file)"})
+			return
+		}
+		defer file.Close()
+
+		assignmentUUID := c.DefaultPostForm("assignment_uuid", "")
+		arrowsPerEndStr := c.DefaultPostForm("arrows_per_end", "6")
+		endsPerSessionStr := c.DefaultPostForm("ends_per_session", "6")
+		sessionsCountStr := c.DefaultPostForm("sessions_count", "1")
+		matchType := c.DefaultPostForm("match_type", "qualification")
+
+		// If assignment UUID provided, lookup default ends & arrows from tournament/session if not explicitly passed
+		if assignmentUUID != "" && (arrowsPerEndStr == "6" && endsPerSessionStr == "6") {
+			var config struct {
+				ArrowsPerEnd  int `db:"arrows_per_end"`
+				TotalEnds     int `db:"total_ends"`
+			}
+			err := db.Get(&config, `
+				SELECT 
+					COALESCE(c.arrows_per_end, 6) as arrows_per_end,
+					COALESCE(c.total_ends, 6) as total_ends
+				FROM qualification_target_assignments ta
+				JOIN qualification_sessions qs ON ta.session_uuid = qs.uuid
+				LEFT JOIN tournament_categories c ON ta.category_uuid = c.uuid
+				WHERE ta.uuid = ?`, assignmentUUID)
+			if err == nil && config.ArrowsPerEnd > 0 && config.TotalEnds > 0 {
+				arrowsPerEndStr = strconv.Itoa(config.ArrowsPerEnd)
+				endsPerSessionStr = strconv.Itoa(config.TotalEnds)
+			}
+		}
+
+		// Prepare multipart request to Python OCR Microservice
+		ocrURL := os.Getenv("SCORECARD_OCR_SERVICE_URL")
+		if ocrURL == "" {
+			ocrURL = "http://localhost:8002/api/v1/scan-scorecard"
+		}
+
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		// Add form fields
+		_ = writer.WriteField("arrows_per_end", arrowsPerEndStr)
+		_ = writer.WriteField("ends_per_session", endsPerSessionStr)
+		_ = writer.WriteField("sessions_count", sessionsCountStr)
+		_ = writer.WriteField("match_type", matchType)
+		if assignmentUUID != "" {
+			_ = writer.WriteField("scoresheet_id", assignmentUUID)
+		}
+
+		// Add file
+		part, err := writer.CreateFormFile("file", header.Filename)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyiapkan payload OCR"})
+			return
+		}
+		if _, err := io.Copy(part, file); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyalin file foto"})
+			return
+		}
+		_ = writer.Close()
+
+		// Call Python OCR Service with timeout
+		client := &http.Client{Timeout: 30 * time.Second}
+		req, err := http.NewRequest("POST", ocrURL, body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat request OCR"})
+			return
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "Layanan OCR tidak dapat dihubungi", "details": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		respBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membaca respons dari OCR"})
+			return
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			c.JSON(resp.StatusCode, gin.H{"error": "Gagal memproses gambar pada mesin OCR", "raw": string(respBytes)})
+			return
+		}
+
+		var ocrResult map[string]interface{}
+		if err := json.Unmarshal(respBytes, &ocrResult); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mem-parsing hasil OCR"})
+			return
+		}
+
+		// Return formatted response
+		c.JSON(http.StatusOK, gin.H{
+			"status":             "success",
+			"assignment_uuid":    assignmentUUID,
+			"tables_detected":    ocrResult["tables_detected"],
+			"total_score":        ocrResult["total_score"],
+			"total_tens_plus_xs": ocrResult["total_tens_plus_xs"],
+			"total_xs":           ocrResult["total_xs"],
+			"confidence_score":   ocrResult["metrics"].(map[string]interface{})["average_confidence"],
+			"ends":               ocrResult["ends"],
+			"sessions":           ocrResult["sessions"],
+		})
+	}
+}
+
