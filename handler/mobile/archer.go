@@ -271,7 +271,7 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 
 		var archerUUID string
-		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
+		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR email = ? LIMIT 1`, fmt.Sprintf("%v", userID), fmt.Sprintf("%v", userID), fmt.Sprintf("%v", userID)); err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Atlet tidak ditemukan"})
 			return
 		}
@@ -306,15 +306,17 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ep.category_id, '') as category_id,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
 				ep.payment_status,
-				ep.registration_date,
-				qta.target_number
+				COALESCE(ep.registration_date, '') as registration_date,
+				MAX(COALESCE(tt.target_name, '')) as target_number
 			FROM tournament_participants ep
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			LEFT JOIN qualification_target_assignments qta ON qta.participant_id = ep.uuid
+			LEFT JOIN qualification_target_assignments qta ON qta.participant_uuid = ep.uuid
+			LEFT JOIN tournament_targets tt ON qta.target_uuid = tt.uuid
 			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
+			GROUP BY ep.uuid, ep.category_id, ec.category_name_custom, rbt.name, rag.name, rgd.name, ep.payment_status, ep.registration_date
 			ORDER BY ep.registration_date ASC
 		`, event.UUID, archerUUID)
 
@@ -346,55 +348,149 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		type SessionBreakdownItem struct {
+			SessionUUID string `json:"session_uuid"`
+			SessionName string `json:"session_name"`
+			Score       int    `json:"score"`
+			MaxScore    int    `json:"max_score"`
+			TenCount    int    `json:"ten_count"`
+			XCount      int    `json:"x_count"`
+		}
+
+		type EndScoreItem struct {
+			EndNumber int `json:"end_number"`
+			Score     int `json:"score"`
+			TenCount  int `json:"ten_count"`
+			XCount    int `json:"x_count"`
+		}
+
 		type CategoryPerformanceItem struct {
-			RegistrationID   string `json:"registration_id"`
-			CategoryID       string `json:"category_id"`
-			CategoryName     string `json:"category_name"`
-			PaymentStatus    string `json:"payment_status"`
-			RegistrationDate string `json:"registration_date"`
-			TargetNumber     string `json:"target_number"`
-			TotalScore       int    `json:"total_score"`
-			Rank             int    `json:"rank"`
-			EliminationStage string `json:"elimination_stage"`
-			EliminationWin   string `json:"elimination_win"`
+			RegistrationID   string                 `json:"registration_id"`
+			CategoryID       string                 `json:"category_id"`
+			CategoryName     string                 `json:"category_name"`
+			PaymentStatus    string                 `json:"payment_status"`
+			RegistrationDate string                 `json:"registration_date"`
+			TargetNumber     string                 `json:"target_number"`
+			TotalScore       int                    `json:"total_score"`
+			TotalTen         int                    `json:"total_ten"`
+			TotalX           int                    `json:"total_x"`
+			ArrowAverage     float64                `json:"arrow_average"`
+			Rank             int                    `json:"rank"`
+			EliminationStage string                 `json:"elimination_stage"`
+			EliminationWin   string                 `json:"elimination_win"`
+			Sessions         []SessionBreakdownItem `json:"sessions"`
+			Ends             []EndScoreItem         `json:"ends"`
 		}
 
 		var catList []CategoryPerformanceItem
 
 		for _, reg := range regRows {
-			// Fetch Qualification Score
-			var totalScore int
-			_ = db.Get(&totalScore, `
-				SELECT COALESCE(SUM(score), 0) 
-				FROM qualification_arrow_scores 
-				WHERE participant_id = ?
+			// Fetch real qualification ends & sessions
+			type dbEndRow struct {
+				SessionUUID   string `db:"session_uuid"`
+				SessionName   string `db:"session_name"`
+				EndNumber     int    `db:"end_number"`
+				TotalScoreEnd int    `db:"total_score_end"`
+				TenCountEnd   int    `db:"ten_count_end"`
+				XCountEnd     int    `db:"x_count_end"`
+			}
+			var dbEnds []dbEndRow
+			_ = db.Select(&dbEnds, `
+				SELECT 
+					qes.session_uuid,
+					COALESCE(qs.name, 'Sesi Kualifikasi') as session_name,
+					qes.end_number,
+					qes.total_score_end,
+					qes.ten_count_end,
+					qes.x_count_end
+				FROM qualification_end_scores qes
+				LEFT JOIN qualification_sessions qs ON qes.session_uuid = qs.uuid
+				WHERE qes.participant_uuid = ?
+				ORDER BY qes.session_uuid ASC, qes.end_number ASC
 			`, reg.RegistrationID)
+
+			totalScore := 0
+			totalTen := 0
+			totalX := 0
+			var endItems []EndScoreItem
+			sessionMap := make(map[string]*SessionBreakdownItem)
+			var sessionOrder []string
+
+			for _, e := range dbEnds {
+				totalScore += e.TotalScoreEnd
+				totalTen += e.TenCountEnd
+				totalX += e.XCountEnd
+
+				endItems = append(endItems, EndScoreItem{
+					EndNumber: len(endItems) + 1,
+					Score:     e.TotalScoreEnd,
+					TenCount:  e.TenCountEnd,
+					XCount:    e.XCountEnd,
+				})
+
+				if sessionMap[e.SessionUUID] == nil {
+					sessionMap[e.SessionUUID] = &SessionBreakdownItem{
+						SessionUUID: e.SessionUUID,
+						SessionName: e.SessionName,
+						MaxScore:    360,
+					}
+					sessionOrder = append(sessionOrder, e.SessionUUID)
+				}
+				sessionMap[e.SessionUUID].Score += e.TotalScoreEnd
+				sessionMap[e.SessionUUID].TenCount += e.TenCountEnd
+				sessionMap[e.SessionUUID].XCount += e.XCountEnd
+			}
+
+			var sessionItems []SessionBreakdownItem
+			for _, sUUID := range sessionOrder {
+				if s, ok := sessionMap[sUUID]; ok {
+					sessionItems = append(sessionItems, *s)
+				}
+			}
+
+			arrowAvg := 0.0
+			if len(dbEnds) > 0 {
+				totalArrows := len(dbEnds) * 6
+				arrowAvg = float64(totalScore) / float64(totalArrows)
+			}
 
 			// Fetch Rank in category
 			var rank int = 0
 			if totalScore > 0 {
 				_ = db.Get(&rank, `
-					SELECT COUNT(distinct s.participant_id) + 1
+					SELECT COUNT(distinct s.participant_uuid) + 1
 					FROM (
-						SELECT participant_id, COALESCE(SUM(score), 0) as total
-						FROM qualification_arrow_scores
-						GROUP BY participant_id
+						SELECT participant_uuid, COALESCE(SUM(total_score_end), 0) as total
+						FROM qualification_end_scores
+						GROUP BY participant_uuid
 					) s
-					JOIN tournament_participants ep2 ON ep2.uuid = s.participant_id
+					JOIN tournament_participants ep2 ON ep2.uuid = s.participant_uuid
 					WHERE ep2.tournament_id = ? AND ep2.category_id = ? AND s.total > ?
 				`, event.UUID, reg.CategoryID, totalScore)
 			}
 
-			// Fetch Elimination
-			var elim struct {
-				Stage     *string `db:"stage"`
-				WinStatus *string `db:"win_status"`
+			// Fetch Elimination journey
+			type elimMatchRow struct {
+				RoundNo         int     `db:"round_no"`
+				MatchNo         int     `db:"match_no"`
+				WinnerEntryUUID *string `db:"winner_entry_uuid"`
+				Status          string  `db:"status"`
+				EntryUUID       string  `db:"entry_uuid"`
+				Seed            int     `db:"seed"`
 			}
-			_ = db.Get(&elim, `
-				SELECT stage, win_status 
-				FROM elimination_entries 
-				WHERE participant_id = ? 
-				LIMIT 1
+			var elimMatches []elimMatchRow
+			_ = db.Select(&elimMatches, `
+				SELECT 
+					em.round_no,
+					em.match_no,
+					em.winner_entry_uuid,
+					em.status,
+					ee.uuid as entry_uuid,
+					ee.seed
+				FROM elimination_entries ee
+				JOIN elimination_matches em ON (em.entry_a_uuid = ee.uuid OR em.entry_b_uuid = ee.uuid)
+				WHERE ee.participant_uuid = ?
+				ORDER BY em.round_no ASC
 			`, reg.RegistrationID)
 
 			targetNum := "Belum Diatur"
@@ -403,12 +499,65 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			stage := "Belum Masuk"
-			if elim.Stage != nil && *elim.Stage != "" {
-				stage = *elim.Stage
-			}
 			win := "-"
-			if elim.WinStatus != nil && *elim.WinStatus != "" {
-				win = *elim.WinStatus
+
+			if len(elimMatches) > 0 {
+				topMatch := elimMatches[0] // Lowest round_no (1 is Final, 2 is SF, etc.)
+				isWinner := topMatch.WinnerEntryUUID != nil && *topMatch.WinnerEntryUUID == topMatch.EntryUUID
+
+				if topMatch.RoundNo == 1 {
+					if isWinner {
+						stage = "Final Emas (Gold Medal)"
+						win = "Juara 1 (Medali Emas)"
+					} else {
+						stage = "Final Emas (Gold Medal)"
+						win = "Juara 2 (Medali Perak)"
+					}
+				} else if topMatch.RoundNo == 2 {
+					if isWinner {
+						stage = "Semifinal"
+						win = "Lolos ke Final"
+					} else {
+						stage = "Semifinal"
+						win = "Perebutan Juara 3"
+					}
+				} else if topMatch.RoundNo == 3 {
+					stage = "Perempat Final"
+					if isWinner {
+						win = "Lolos ke Semifinal"
+					} else {
+						win = "Gugur Perempat Final"
+					}
+				} else if topMatch.RoundNo == 4 {
+					stage = "Babak 1/8 Final"
+					if isWinner {
+						win = "Lolos ke Perempat Final"
+					} else {
+						win = "Gugur 1/8 Final"
+					}
+				} else if topMatch.RoundNo == 5 {
+					stage = "Babak 1/16 Final"
+					if isWinner {
+						win = "Lolos ke 1/8 Final"
+					} else {
+						win = "Gugur 1/16 Final"
+					}
+				} else {
+					stage = fmt.Sprintf("Babak %d", topMatch.RoundNo)
+					if isWinner {
+						win = "Menang"
+					} else {
+						win = "Kalah"
+					}
+				}
+			} else {
+				// Check if entered in elimination brackets but match not yet played
+				var seed int
+				errSeed := db.Get(&seed, `SELECT seed FROM elimination_entries WHERE participant_uuid = ? LIMIT 1`, reg.RegistrationID)
+				if errSeed == nil && seed > 0 {
+					stage = fmt.Sprintf("Lolos Eliminasi (Seed #%d)", seed)
+					win = "Menunggu Pertandingan"
+				}
 			}
 
 			catName := reg.CategoryName
@@ -424,9 +573,14 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 				RegistrationDate: reg.RegistrationDate,
 				TargetNumber:     targetNum,
 				TotalScore:       totalScore,
+				TotalTen:         totalTen,
+				TotalX:           totalX,
+				ArrowAverage:     arrowAvg,
 				Rank:             rank,
 				EliminationStage: stage,
 				EliminationWin:   win,
+				Sessions:         sessionItems,
+				Ends:             endItems,
 			})
 		}
 
@@ -446,9 +600,14 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 			"registration_date": first.RegistrationDate,
 			"target_number":     first.TargetNumber,
 			"total_score":       first.TotalScore,
+			"total_ten":         first.TotalTen,
+			"total_x":           first.TotalX,
+			"arrow_average":     first.ArrowAverage,
 			"rank":              first.Rank,
 			"elimination_stage": first.EliminationStage,
 			"elimination_win":   first.EliminationWin,
+			"sessions":          first.Sessions,
+			"ends":              first.Ends,
 		})
 	}
 }

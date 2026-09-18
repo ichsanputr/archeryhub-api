@@ -898,3 +898,100 @@ func generateRandomToken(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// DevDemoAccount represents a demo login credential for development / staging
+type DevDemoAccount struct {
+	Role      string `json:"role"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+// GetDevDemoAccounts queries real active accounts directly from the database for dev autofill
+func GetDevDemoAccounts(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if os.Getenv("ENV") == "production" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Dev accounts endpoint is disabled in production"})
+			return
+		}
+
+		candidates := []string{"123456", "12345", "password", "admin123", "secret", "archer123", "organizer123"}
+		resolvePassword := func(dbPass string) string {
+			if dbPass == "" {
+				return "123456"
+			}
+			if !strings.HasPrefix(dbPass, "$2a$") && !strings.HasPrefix(dbPass, "$2b$") && !strings.HasPrefix(dbPass, "$2y$") {
+				return dbPass
+			}
+			for _, cand := range candidates {
+				if bcrypt.CompareHashAndPassword([]byte(dbPass), []byte(cand)) == nil {
+					return cand
+				}
+			}
+			return "123456"
+		}
+
+		var accounts []DevDemoAccount
+
+		// 1. Fetch Organizers
+		type OrgRow struct {
+			Email     string         `db:"email"`
+			Password  sql.NullString `db:"password"`
+			Name      string         `db:"name"`
+			Slug      string         `db:"slug"`
+			AvatarURL sql.NullString `db:"avatar_url"`
+		}
+		var orgs []OrgRow
+		_ = db.Select(&orgs, `
+			SELECT email, password, name, slug, avatar_url 
+			FROM organizers 
+			WHERE (status = 'active' OR status IS NULL) AND email != ''
+			ORDER BY last_login_at DESC, created_at DESC 
+			LIMIT 5
+		`)
+		for _, o := range orgs {
+			accounts = append(accounts, DevDemoAccount{
+				Role:      "organizer",
+				Email:     o.Email,
+				Name:      o.Name,
+				Username:  o.Slug,
+				Password:  resolvePassword(o.Password.String),
+				AvatarURL: o.AvatarURL.String,
+			})
+		}
+
+		// 2. Fetch Archers
+		type ArcherRow struct {
+			Email     string         `db:"email"`
+			Password  sql.NullString `db:"password"`
+			FullName  string         `db:"full_name"`
+			Username  sql.NullString `db:"username"`
+			AvatarURL sql.NullString `db:"avatar_url"`
+		}
+		var archers []ArcherRow
+		_ = db.Select(&archers, `
+			SELECT email, password, full_name, username, avatar_url 
+			FROM archers 
+			WHERE (status = 'active' OR status IS NULL) AND email != ''
+			ORDER BY last_login_at DESC, created_at DESC 
+			LIMIT 8
+		`)
+		for _, a := range archers {
+			accounts = append(accounts, DevDemoAccount{
+				Role:      "archer",
+				Email:     a.Email,
+				Name:      a.FullName,
+				Username:  a.Username.String,
+				Password:  resolvePassword(a.Password.String),
+				AvatarURL: a.AvatarURL.String,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"accounts": accounts,
+		})
+	}
+}
+
+

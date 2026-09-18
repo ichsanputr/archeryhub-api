@@ -67,11 +67,54 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 
 	schedules := []models.EventSchedule{}
 	_ = db.Select(&schedules, `
-		SELECT uuid, tournament_id as event_id, title, description, start_time, end_time, day_order, sort_order, location, created_at, updated_at
-		FROM tournament_schedules
+		SELECT 
+			uuid,
+			tournament_id as event_id,
+			title,
+			subtitle,
+			description,
+			item_type,
+			CAST(start_time AS CHAR) AS start_time,
+			CAST(end_time AS CHAR) AS end_time,
+			duration_minutes,
+			day_number,
+			day_number as day_order,
+			CAST(schedule_date AS CHAR) as schedule_date,
+			location,
+			session_code,
+			target_start,
+			target_end,
+			elim_round,
+			sort_order,
+			created_at,
+			updated_at
+		FROM tournament_schedule_items
 		WHERE tournament_id = ?
-		ORDER BY COALESCE(day_order, 0), COALESCE(sort_order, 0), start_time
+		ORDER BY COALESCE(NULLIF(schedule_date, ''), '9999-12-31') ASC, day_number ASC, start_time ASC, sort_order ASC
 	`, event.UUID)
+
+	if len(schedules) == 0 {
+		_ = db.Select(&schedules, `
+			SELECT 
+				uuid,
+				tournament_id as event_id,
+				title,
+				description,
+				'general' as item_type,
+				CAST(start_time AS CHAR) as start_time,
+				CAST(end_time AS CHAR) as end_time,
+				60 as duration_minutes,
+				COALESCE(day_order, 1) as day_order,
+				COALESCE(day_order, 1) as day_number,
+				location,
+				sort_order,
+				created_at,
+				updated_at
+			FROM tournament_schedules
+			WHERE tournament_id = ?
+			ORDER BY COALESCE(day_order, 0), COALESCE(sort_order, 0), start_time
+		`, event.UUID)
+	}
 	event.Schedules = schedules
 
 	results := []models.EventResultPreview{}

@@ -1,0 +1,33 @@
+{
+  "slug": "team-roster-substitutions",
+  "icon": "ph:user-switch-bold",
+  "category": "teams",
+  "readTime": "4 min",
+  "en": {
+    "title": "Managing Team Roster Substitutions",
+    "excerpt": "Official procedures for substituting team members, replacing injured athletes, and updating seeding totals.",
+    "toc": [
+      {
+        "id": "substitution-policy",
+        "level": 2,
+        "text": "World Archery Substitution Policies"
+      },
+      {
+        "id": "substitution-steps",
+        "level": 2,
+        "text": "Executing Roster Substitutions"
+      },
+      {
+        "id": "seeding-updates",
+        "level": 2,
+        "text": "Score Re-Aggregation & Seeding"
+      },
+      {
+        "id": "lockout-deadlines",
+        "level": 2,
+        "text": "Team Manager Meeting Deadlines"
+      }
+    ],
+    "content": "<h2 id=\"substitution-policy\">World Archery Substitution Policies</h2>\n      <p>Club managers and team captains may substitute an athlete originally selected by auto-sync with an eligible reserve archer who participated in qualification, provided the request occurs before the official team manager meeting deadline.</p>\n\n      <h2 id=\"substitution-steps\">Executing Roster Substitutions</h2>\n      <p>To substitute an athlete:</p>\n      <ol>\n        <li>Navigate to <strong>Teams & Beregu</strong> in the tournament dashboard.</li>\n        <li>Click on the specific team card to open the roster modal.</li>\n        <li>Click <strong>Replace</strong> next to the athlete being substituted.</li>\n        <li>Select the replacement archer from the club's eligible roster.</li>\n        <li>Click <strong>Confirm Substitution</strong>.</li>\n      </ol>\n\n      <h2 id=\"seeding-updates\">Score Re-Aggregation & Seeding</h2>\n      <p>When an athlete is substituted, the system recalculates the team's combined qualification score and adjusts bracket seeding positions accordingly.</p>\n\n      <h2 id=\"lockout-deadlines\">Team Manager Meeting Deadlines</h2>\n      <p>Once team brackets are published, team rosters are locked to prevent mid-competition substitutions.</p>"
+  }
+}

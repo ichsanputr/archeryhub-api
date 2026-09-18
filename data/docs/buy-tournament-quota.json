@@ -1,0 +1,33 @@
+{
+  "slug": "buy-tournament-quota",
+  "icon": "ph:shopping-cart-bold",
+  "category": "subscriptions",
+  "readTime": "4 min",
+  "en": {
+    "title": "Purchasing Tournament Quota",
+    "excerpt": "Step-by-step instructions for selecting packages, completing checkout via payment gateways, and instant quota activation.",
+    "toc": [
+      {
+        "id": "purchasing-flow",
+        "level": 2,
+        "text": "Purchasing Workflow"
+      },
+      {
+        "id": "supported-gateways",
+        "level": 2,
+        "text": "Supported Payment Methods"
+      },
+      {
+        "id": "invoice-management",
+        "level": 2,
+        "text": "Invoicing and Tax Receipts"
+      },
+      {
+        "id": "troubleshooting-quota",
+        "level": 2,
+        "text": "Troubleshooting Activation Delays"
+      }
+    ],
+    "content": "<h2 id=\"purchasing-flow\">Purchasing Workflow</h2>\n      <p>To top up your tournament quota:</p>\n      <ol>\n        <li>Log in to your <strong>Organizer Dashboard</strong>.</li>\n        <li>Click <strong>Packages & Quota</strong> in the sidebar menu.</li>\n        <li>Select your preferred tier (Standard or Elite) and the number of tournament slots required.</li>\n        <li>Click <strong>Purchase Package</strong> to open the secure payment checkout.</li>\n      </ol>\n\n      <h2 id=\"supported-gateways\">Supported Payment Methods</h2>\n      <p>Payments are processed in real-time through certified financial payment gateways (Mayar):</p>\n      <ul>\n        <li><strong>QRIS:</strong> Instant QR code scanning compatible with BCA, Mandiri Livin, GoPay, OVO, and Dana.</li>\n        <li><strong>Virtual Accounts:</strong> Dedicated bank transfer accounts for BCA, Bank Mandiri, BNI, and BRI.</li>\n        <li><strong>Credit & Debit Cards:</strong> Visa and Mastercard processing with 3D Secure verification.</li>\n      </ul>\n\n      <h2 id=\"invoice-management\">Invoicing and Tax Receipts</h2>\n      <p>Upon successful payment completion, an official commercial invoice is automatically generated and sent to your registered email address for accounting and bookkeeping records.</p>\n\n      <h2 id=\"troubleshooting-quota\">Troubleshooting Activation Delays</h2>\n      <p>Quotas activate within seconds via automated server webhooks. If your quota counter does not update immediately after transfer, refresh your browser or contact technical support with your transaction reference number.</p>"
+  }
+}

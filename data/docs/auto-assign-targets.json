@@ -1,0 +1,33 @@
+{
+  "slug": "auto-assign-targets",
+  "icon": "ph:magic-wand-bold",
+  "category": "targets",
+  "readTime": "5 min",
+  "en": {
+    "title": "Automated Target Lane Allocation",
+    "excerpt": "How Archeris algorithms distribute athletes across target butts by category, session, and club separation rules.",
+    "toc": [
+      {
+        "id": "algorithm-principles",
+        "level": 2,
+        "text": "Auto-Allocation Logic"
+      },
+      {
+        "id": "executing-auto-assign",
+        "level": 2,
+        "text": "Executing the Auto-Assign Action"
+      },
+      {
+        "id": "club-separation-rules",
+        "level": 2,
+        "text": "Club Separation & Fair Distribution"
+      },
+      {
+        "id": "multi-session-allocation",
+        "level": 2,
+        "text": "Multi-Session Range Allocation"
+      }
+    ],
+    "content": "<h2 id=\"algorithm-principles\">Auto-Allocation Logic</h2>\n      <p>The Archeris Auto-Assign algorithm groups verified participants by Category and Distance, determining the exact number of target butts required and filling positions 1A, 1B, 1C, and 1D systematically.</p>\n\n      <h2 id=\"executing-auto-assign\">Executing the Auto-Assign Action</h2>\n      <p>To run automatic lane assignments:</p>\n      <ol>\n        <li>Navigate to <strong>Tournament Dashboard</strong> > <strong>Target Allocation</strong>.</li>\n        <li>Select the target Qualification Session from the dropdown.</li>\n        <li>Click the <strong>Auto-Assign Targets</strong> button.</li>\n        <li>Confirm the action in the prompt dialog. The interactive range grid populates instantly.</li>\n      </ol>\n\n      <h2 id=\"club-separation-rules\">Club Separation & Fair Distribution</h2>\n      <p>To promote fair competition and prevent coaching conflicts on the shooting line, the algorithm distributes athletes from the same club across adjacent butts rather than grouping them all on a single target face.</p>\n\n      <h2 id=\"multi-session-allocation\">Multi-Session Range Allocation</h2>\n      <p>If your tournament has more participants than physical targets, assign categories to separate morning and afternoon sessions. The auto-allocator processes each session independently.</p>"
+  }
+}

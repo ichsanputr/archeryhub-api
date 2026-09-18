@@ -1,0 +1,33 @@
+{
+  "slug": "upload-certificate-template",
+  "icon": "ph:image-square-bold",
+  "category": "certificates",
+  "readTime": "4 min",
+  "en": {
+    "title": "Uploading Certificate Background Templates",
+    "excerpt": "How to design, upload, and format background templates for automated digital tournament certificates.",
+    "toc": [
+      {
+        "id": "graphic-specifications",
+        "level": 2,
+        "text": "Graphic Design Specifications"
+      },
+      {
+        "id": "uploading-template",
+        "level": 2,
+        "text": "Uploading the Background Image"
+      },
+      {
+        "id": "text-coordinate-mapping",
+        "level": 2,
+        "text": "Text Placement & Dynamic Fields"
+      },
+      {
+        "id": "test-preview",
+        "level": 2,
+        "text": "Generating Test Previews"
+      }
+    ],
+    "content": "<h2 id=\"graphic-specifications\">Graphic Design Specifications</h2>\n      <p>Design your certificate background using tools like Adobe Illustrator, Photoshop, or Canva following these parameters:</p>\n      <ul>\n        <li><strong>Orientation:</strong> Landscape A4 (297 × 210 mm).</li>\n        <li><strong>Resolution:</strong> 300 DPI (minimum 2480 × 1754 pixels).</li>\n        <li><strong>Format:</strong> High-quality PNG or JPG without pre-printed athlete names.</li>\n      </ul>\n\n      <h2 id=\"uploading-template\">Uploading the Background Image</h2>\n      <p>In <strong>Tournament Dashboard</strong> > <strong>Certificates</strong>, drag and drop your artwork into the upload zone and click <strong>Save Template</strong>.</p>\n\n      <h2 id=\"text-coordinate-mapping\">Text Placement & Dynamic Fields</h2>\n      <p>Archeris automatically renders dynamic text overlays on top of your background:</p>\n      <ul>\n        <li>Athlete Full Name (bold font).</li>\n        <li>Club Affiliation & Category Title.</li>\n        <li>Achievement Badge (e.g., <em>Gold Medalist</em>, <em>Top 8 Qualifier</em>, or <em>Official Participant</em>).</li>\n        <li>Unique Certificate UUID and Dynamic QR Code.</li>\n      </ul>\n\n      <h2 id=\"test-preview\">Generating Test Previews</h2>\n      <p>Click <strong>Preview Sample Certificate</strong> to view a rendered PDF test proof before batch generation.</p>"
+  }
+}

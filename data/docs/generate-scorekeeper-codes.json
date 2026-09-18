@@ -1,0 +1,33 @@
+{
+  "slug": "generate-scorekeeper-codes",
+  "icon": "ph:key-bold",
+  "category": "scorekeeper",
+  "readTime": "4 min",
+  "en": {
+    "title": "Generating Scorekeeper Access Codes",
+    "excerpt": "Creating, distributing, and managing 5-character access codes for line scorekeepers without personal user registration.",
+    "toc": [
+      {
+        "id": "code-architecture",
+        "level": 2,
+        "text": "5-Character Code Architecture"
+      },
+      {
+        "id": "generating-codes",
+        "level": 2,
+        "text": "Generating Event Access Codes"
+      },
+      {
+        "id": "distributing-passes",
+        "level": 2,
+        "text": "Printing Scorekeeper Passes"
+      },
+      {
+        "id": "revoking-codes",
+        "level": 2,
+        "text": "Security & Code Revocation"
+      }
+    ],
+    "content": "<h2 id=\"code-architecture\">5-Character Code Architecture</h2>\n      <p>Archeris eliminates the bottleneck of requiring volunteer scorekeepers to create accounts and verify emails on the field. Organizers generate short, randomized 5-character alphanumeric codes (e.g., <code>K8X2M</code>) that grant immediate scoring rights for specific target butts.</p>\n\n      <h2 id=\"generating-codes\">Generating Event Access Codes</h2>\n      <p>To generate scorekeeper codes:</p>\n      <ol>\n        <li>Open your tournament in the <strong>Organizer Dashboard</strong>.</li>\n        <li>Navigate to the <strong>Scorekeepers</strong> tab.</li>\n        <li>Click <strong>+ Generate Scorekeeper Codes</strong>.</li>\n        <li>Select whether to generate one master code for roaming judges or individual codes tied to specific target lanes.</li>\n      </ol>\n\n      <h2 id=\"distributing-passes\">Printing Scorekeeper Passes</h2>\n      <p>Click <strong>Print Scorekeeper Lanyards</strong> to generate a printable sheet of badge inserts containing the event title, assigned target numbers, and large-font access codes.</p>\n\n      <h2 id=\"revoking-codes\">Security & Code Revocation</h2>\n      <p>Organizers can invalidate or regenerate access codes at any time from the dashboard if a tablet is misplaced or a scoring session concludes.</p>"
+  }
+}

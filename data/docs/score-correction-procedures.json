@@ -1,0 +1,33 @@
+{
+  "slug": "score-correction-procedures",
+  "icon": "ph:pencil-simple-line-bold",
+  "category": "scorekeeper",
+  "readTime": "4 min",
+  "en": {
+    "title": "Score Correction and Audit Logs",
+    "excerpt": "Official procedures for correcting recorded arrow scores with judge authorization and reviewing audit trails.",
+    "toc": [
+      {
+        "id": "correction-protocol",
+        "level": 2,
+        "text": "World Archery Correction Protocols"
+      },
+      {
+        "id": "editing-scores",
+        "level": 2,
+        "text": "Editing Previous Ends in the Tablet"
+      },
+      {
+        "id": "judge-authorization",
+        "level": 2,
+        "text": "Judge Authorization Requirement"
+      },
+      {
+        "id": "audit-log-tracking",
+        "level": 2,
+        "text": "Server-Side Audit Trails"
+      }
+    ],
+    "content": "<h2 id=\"correction-protocol\">World Archery Correction Protocols</h2>\n      <p>Once arrows are drawn from the target butt, values cannot be altered without the explicit authorization of an official line judge. If a transcription error occurs, scorekeepers must follow standard correction procedures.</p>\n\n      <h2 id=\"editing-scores\">Editing Previous Ends in the Tablet</h2>\n      <p>To modify an existing score:</p>\n      <ol>\n        <li>On the scoring screen, tap the end summary card (e.g., <em>End 3</em>).</li>\n        <li>Tap the specific arrow box that requires correction.</li>\n        <li>Select the revised arrow value from the keypad.</li>\n        <li>Tap <strong>Submit Correction</strong>.</li>\n      </ol>\n\n      <h2 id=\"judge-authorization\">Judge Authorization Requirement</h2>\n      <p>When an existing end is modified, the interface prompts the scorekeeper to enter the assigned Judge PIN or check the verbal referee authorization box.</p>\n\n      <h2 id=\"audit-log-tracking\">Server-Side Audit Trails</h2>\n      <p>Every score modification creates an immutable audit log entry recording the previous value, new value, timestamp, scorekeeper ID, and device IP address to maintain total competition integrity.</p>"
+  }
+}

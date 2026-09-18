@@ -212,6 +212,7 @@ type BlogArticleDB struct {
 	AuthorRole   string  `db:"author_role"`
 	AuthorAvatar string  `db:"author_avatar"`
 	Tags         *string `db:"tags"`
+	ImagePrompts *string `db:"image_prompts"`
 	ReadTime     int     `db:"read_time"`
 	Views        int     `db:"views"`
 	Status       string  `db:"status"`
@@ -220,7 +221,7 @@ type BlogArticleDB struct {
 	UpdatedAt    string  `db:"updated_at"`
 }
 
-// BlogArticle represents a published blog article with structured tags array
+// BlogArticle represents a published blog article with structured tags and image_prompts array
 type BlogArticle struct {
 	ID           int      `json:"id"`
 	UUID         string   `json:"uuid"`
@@ -234,6 +235,7 @@ type BlogArticle struct {
 	AuthorRole   string   `json:"author_role"`
 	AuthorAvatar string   `json:"author_avatar"`
 	Tags         []string `json:"tags"`
+	ImagePrompts []string `json:"image_prompts"`
 	ReadTime     int      `json:"read_time"`
 	Views        int      `json:"views"`
 	Status       string   `json:"status"`
@@ -242,29 +244,33 @@ type BlogArticle struct {
 	UpdatedAt    string   `json:"updated_at"`
 }
 
-func parseTags(raw *string) []string {
+func parseStringArray(raw *string) []string {
 	if raw == nil || strings.TrimSpace(*raw) == "" {
 		return []string{}
 	}
 	s := strings.TrimSpace(*raw)
 	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
-		var tags []string
-		if err := json.Unmarshal([]byte(s), &tags); err == nil && len(tags) > 0 {
-			return tags
+		var list []string
+		if err := json.Unmarshal([]byte(s), &list); err == nil && len(list) > 0 {
+			return list
 		}
 	}
 	parts := strings.Split(s, ",")
-	var tags []string
+	var list []string
 	for _, p := range parts {
 		cleaned := strings.TrimSpace(p)
 		if cleaned != "" {
-			tags = append(tags, cleaned)
+			list = append(list, cleaned)
 		}
 	}
-	if tags == nil {
-		tags = []string{}
+	if list == nil {
+		list = []string{}
 	}
-	return tags
+	return list
+}
+
+func parseTags(raw *string) []string {
+	return parseStringArray(raw)
 }
 
 func transformArticle(dbArticle BlogArticleDB) BlogArticle {
@@ -293,6 +299,7 @@ func transformArticle(dbArticle BlogArticleDB) BlogArticle {
 		AuthorRole:   dbArticle.AuthorRole,
 		AuthorAvatar: avatar,
 		Tags:         parseTags(dbArticle.Tags),
+		ImagePrompts: parseStringArray(dbArticle.ImagePrompts),
 		ReadTime:     dbArticle.ReadTime,
 		Views:        dbArticle.Views,
 		Status:       dbArticle.Status,
@@ -310,7 +317,7 @@ func ListBlogArticles(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT id, uuid, slug, title, excerpt, content, category, image_url, 
-			       author_name, author_role, author_avatar, tags, read_time, views, status, 
+			       author_name, author_role, author_avatar, tags, image_prompts, read_time, views, status, 
 			       published_at, created_at, updated_at
 			FROM blog_articles
 			WHERE status = 'published'
@@ -363,7 +370,7 @@ func GetBlogArticle(db *sqlx.DB) gin.HandlerFunc {
 		var dbArticle BlogArticleDB
 		query := `
 			SELECT id, uuid, slug, title, excerpt, content, category, image_url, 
-			       author_name, author_role, author_avatar, tags, read_time, views, status, 
+			       author_name, author_role, author_avatar, tags, image_prompts, read_time, views, status, 
 			       published_at, created_at, updated_at
 			FROM blog_articles
 			WHERE slug = ? AND status = 'published'

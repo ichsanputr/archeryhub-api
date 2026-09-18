@@ -1,0 +1,33 @@
+{
+  "slug": "offline-scoring-resilience",
+  "icon": "ph:wifi-slash-bold",
+  "category": "scorekeeper",
+  "readTime": "4 min",
+  "en": {
+    "title": "Offline Scoring and Cache Sync",
+    "excerpt": "How Archeris ensures uninterrupted scoring during field network outages using IndexedDB local storage and background sync.",
+    "toc": [
+      {
+        "id": "pwa-offline-engine",
+        "level": 2,
+        "text": "The Offline-First Architecture"
+      },
+      {
+        "id": "visual-indicators",
+        "level": 2,
+        "text": "Offline Visual Status Indicators"
+      },
+      {
+        "id": "automatic-sync",
+        "level": 2,
+        "text": "Background Queue & Sync Mechanism"
+      },
+      {
+        "id": "field-recommendations",
+        "level": 2,
+        "text": "Recommendations for Outdoor Ranges"
+      }
+    ],
+    "content": "<h2 id=\"pwa-offline-engine\">The Offline-First Architecture</h2>\n      <p>Outdoor archery venues frequently suffer from spotty cellular coverage. Archeris implements a progressive offline architecture using browser IndexedDB storage. All scoring calculations, keypad validations, and end totals execute locally on the device hardware.</p>\n\n      <h2 id=\"visual-indicators\">Offline Visual Status Indicators</h2>\n      <p>When internet connectivity drops, scorekeepers can continue recording scores without interruption:</p>\n      <ul>\n        <li>The status dot changes from <strong>Green (Live)</strong> to <strong>Amber (Offline Mode)</strong>.</li>\n        <li>A counter displays pending unsynced ends (e.g., <em>\"3 ends cached locally\"</em>).</li>\n      </ul>\n\n      <h2 id=\"automatic-sync\">Background Queue & Sync Mechanism</h2>\n      <p>As soon as cellular data or Wi-Fi connectivity is re-established, the browser automatically flushes its queue, syncing all recorded ends to the central database without user intervention.</p>\n\n      <h2 id=\"field-recommendations\">Recommendations for Outdoor Ranges</h2>\n      <p>Open the scorekeeper portal while connected to Wi-Fi or strong cellular data during morning equipment inspections to preload the offline service worker into the device cache.</p>"
+  }
+}

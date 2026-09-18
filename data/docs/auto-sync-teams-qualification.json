@@ -1,0 +1,33 @@
+{
+  "slug": "auto-sync-teams-qualification",
+  "icon": "ph:arrows-clockwise-bold",
+  "category": "teams",
+  "readTime": "4 min",
+  "en": {
+    "title": "Automated Team Roster Synchronization",
+    "excerpt": "How the auto-sync engine aggregates top qualification scores to rank and seed official club teams.",
+    "toc": [
+      {
+        "id": "auto-sync-engine",
+        "level": 2,
+        "text": "The Auto-Sync Algorithm"
+      },
+      {
+        "id": "running-sync",
+        "level": 2,
+        "text": "Executing Team Synchronization"
+      },
+      {
+        "id": "team-score-calculation",
+        "level": 2,
+        "text": "Cumulative Team Score Calculation"
+      },
+      {
+        "id": "mixed-team-pairing",
+        "level": 2,
+        "text": "Automated Mixed Team Pairings"
+      }
+    ],
+    "content": "<h2 id=\"auto-sync-engine\">The Auto-Sync Algorithm</h2>\n      <p>Following qualification finalization, the <strong>Auto-Sync Teams</strong> feature scans all individual score totals and automatically selects the highest-scoring archers from each club to form official competition rosters.</p>\n\n      <h2 id=\"running-sync\">Executing Team Synchronization</h2>\n      <p>To synchronize team rosters:</p>\n      <ol>\n        <li>Go to <strong>Tournament Dashboard</strong> > <strong>Teams & Beregu</strong>.</li>\n        <li>Select the team category (e.g., <em>Recurve Men Team 70m</em>).</li>\n        <li>Click <strong>Sync Teams (Auto-Sync)</strong>.</li>\n        <li>The system generates official team rosters complete with total qualification scores.</li>\n      </ol>\n\n      <h2 id=\"team-score-calculation\">Cumulative Team Score Calculation</h2>\n      <p>Team qualification score is calculated as: <em>Athlete 1 Score + Athlete 2 Score + Athlete 3 Score = Total Team Score</em>. This total determines team seeding on the elimination bracket.</p>\n\n      <h2 id=\"mixed-team-pairing\">Automated Mixed Team Pairings</h2>\n      <p>For Mixed Team events, the algorithm pairs the highest-ranking male archer and the highest-ranking female archer from each respective club.</p>"
+  }
+}

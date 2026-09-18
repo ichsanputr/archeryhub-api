@@ -1,0 +1,33 @@
+{
+  "slug": "automatic-payment-verification",
+  "icon": "ph:check-circle-bold",
+  "category": "participants",
+  "readTime": "4 min",
+  "en": {
+    "title": "Automatic Payment Processing",
+    "excerpt": "How Archeris integrates real-time payment webhooks for instant QRIS and Virtual Account transaction verification.",
+    "toc": [
+      {
+        "id": "payment-architecture",
+        "level": 2,
+        "text": "Payment Gateway Integration"
+      },
+      {
+        "id": "instant-verification",
+        "level": 2,
+        "text": "Real-Time Webhook Processing"
+      },
+      {
+        "id": "payout-disbursements",
+        "level": 2,
+        "text": "Organizer Revenue Disbursements"
+      },
+      {
+        "id": "refund-handling",
+        "level": 2,
+        "text": "Handling Transaction Disputes"
+      }
+    ],
+    "content": "<h2 id=\"payment-architecture\">Payment Gateway Integration</h2>\n      <p>Archeris connects with certified Indonesian payment processors (Mayar) to provide frictionless online checkouts. When an archer selects a tournament category, a unique digital invoice is generated with localized payment options.</p>\n\n      <h2 id=\"instant-verification\">Real-Time Webhook Processing</h2>\n      <p>When an athlete completes a payment via QRIS or Bank Virtual Account, the payment gateway dispatches an encrypted webhook notification to Archeris servers. The system verifies the transaction payload and immediately marks the registration as <strong>Verified (Paid)</strong> within seconds.</p>\n\n      <h2 id=\"payout-disbursements\">Organizer Revenue Disbursements</h2>\n      <p>Collected tournament entry fees accumulate in the Organizer's digital balance. Organizers can request bank payouts to any verified Indonesian bank account (BCA, Mandiri, BNI, BRI) directly from the <strong>Earnings & Balance</strong> tab.</p>\n\n      <h2 id=\"refund-handling\">Handling Transaction Disputes</h2>\n      <p>If an athlete cancels registration before the refund deadline, organizers can process cancellation records directly from the participant detail modal.</p>"
+  }
+}

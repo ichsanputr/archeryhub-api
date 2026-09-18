@@ -327,26 +327,31 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			WHERE match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
 		`, bracket.UUID)
 
-		// Fetch shoot-off arrows for all matches
-		type shootOffArrow struct {
+		// Fetch all arrows for matches
+		type arrowScoreItem struct {
 			MatchUUID string `db:"match_uuid"`
+			EndNo     int    `db:"end_no"`
 			Side      string `db:"side"`
+			ArrowNo   int    `db:"arrow_no"`
 			Score     int    `db:"score"`
 			IsX       bool   `db:"is_x"`
 		}
-		var allSoArrows []shootOffArrow
-		db.Select(&allSoArrows, `
-			SELECT eme.match_uuid, eme.side, emas.score, emas.is_x
+		var allArrows []arrowScoreItem
+		db.Select(&allArrows, `
+			SELECT eme.match_uuid, eme.end_no, eme.side, emas.arrow_no, emas.score, emas.is_x
 			FROM elimination_match_arrow_scores emas
 			JOIN elimination_match_ends eme ON emas.match_end_uuid = eme.uuid
 			WHERE eme.match_uuid IN (SELECT uuid FROM elimination_matches WHERE bracket_uuid = ?)
-			  AND eme.end_no = 99
+			ORDER BY eme.match_uuid, eme.end_no, eme.side, emas.arrow_no ASC
 		`, bracket.UUID)
 
-		soArrowsMap := make(map[string]map[string]string)
-		for _, a := range allSoArrows {
-			if soArrowsMap[a.MatchUUID] == nil {
-				soArrowsMap[a.MatchUUID] = make(map[string]string)
+		arrowsByMatchEndSide := make(map[string]map[int]map[string][]string)
+		for _, a := range allArrows {
+			if arrowsByMatchEndSide[a.MatchUUID] == nil {
+				arrowsByMatchEndSide[a.MatchUUID] = make(map[int]map[string][]string)
+			}
+			if arrowsByMatchEndSide[a.MatchUUID][a.EndNo] == nil {
+				arrowsByMatchEndSide[a.MatchUUID][a.EndNo] = make(map[string][]string)
 			}
 			val := fmt.Sprintf("%d", a.Score)
 			if a.IsX {
@@ -354,7 +359,7 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 			} else if a.Score == 0 {
 				val = "M"
 			}
-			soArrowsMap[a.MatchUUID][a.Side] = val
+			arrowsByMatchEndSide[a.MatchUUID][a.EndNo][a.Side] = append(arrowsByMatchEndSide[a.MatchUUID][a.EndNo][a.Side], val)
 		}
 
 		if err == nil {
@@ -386,25 +391,57 @@ func GetPublicEliminationResults(db *sqlx.DB) gin.HandlerFunc {
 					}
 					scA := mEnds[en]["A"]
 					scB := mEnds[en]["B"]
+					ptsA, ptsB := 0, 0
+					
+					if bracket.Format == "recurve_set" {
+						if scA > scB {
+							ptsA = 2
+							tPA += 2
+						} else if scB > scA {
+							ptsB = 2
+							tPB += 2
+						} else if scA == scB && scA > 0 {
+							ptsA = 1
+							ptsB = 1
+							tPA += 1
+							tPB += 1
+						}
+					}
+
+					var arrA, arrB []string
+					if arrowsByMatchEndSide[matches[i].UUID] != nil && arrowsByMatchEndSide[matches[i].UUID][en] != nil {
+						arrA = arrowsByMatchEndSide[matches[i].UUID][en]["A"]
+						arrB = arrowsByMatchEndSide[matches[i].UUID][en]["B"]
+					}
 					
 					matches[i].Ends = append(matches[i].Ends, models.EliminationMatchEndScore{
-						EndNo:  en,
-						ScoreA: scA,
-						ScoreB: scB,
+						EndNo:   en,
+						ScoreA:  scA,
+						ScoreB:  scB,
+						PointsA: ptsA,
+						PointsB: ptsB,
+						ArrowsA: arrA,
+						ArrowsB: arrB,
 					})
 
 					tSA += scA
 					tSB += scB
+				}
 
-					if bracket.Format == "recurve_set" {
-						if scA > scB {
-							tPA += 2
-						} else if scB > scA {
-							tPB += 2
-						} else if scA == scB && scA > 0 {
-							tPA += 1
-							tPB += 1
+				// Shoot-off arrows map
+				soArrowsMap := make(map[string]map[string]string)
+				for _, a := range allArrows {
+					if a.EndNo == 99 {
+						if soArrowsMap[a.MatchUUID] == nil {
+							soArrowsMap[a.MatchUUID] = make(map[string]string)
 						}
+						val := fmt.Sprintf("%d", a.Score)
+						if a.IsX {
+							val = "X"
+						} else if a.Score == 0 {
+							val = "M"
+						}
+						soArrowsMap[a.MatchUUID][a.Side] = val
 					}
 				}
 

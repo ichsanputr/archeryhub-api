@@ -1,0 +1,33 @@
+{
+  "slug": "shoot-off-scoring",
+  "icon": "ph:crosshair-simple-bold",
+  "category": "scorekeeper",
+  "readTime": "4 min",
+  "en": {
+    "title": "Recording Shoot-Off Ties",
+    "excerpt": "How scorekeepers record single-arrow sudden death shoot-offs and closest-to-center tie-breaker decisions.",
+    "toc": [
+      {
+        "id": "shootoff-trigger",
+        "level": 2,
+        "text": "When Shoot-Offs Occur"
+      },
+      {
+        "id": "single-arrow-input",
+        "level": 2,
+        "text": "Entering Shoot-Off Arrow Values"
+      },
+      {
+        "id": "closest-to-center-toggle",
+        "level": 2,
+        "text": "The Closest to Center (CT) Decision"
+      },
+      {
+        "id": "advancement-confirmation",
+        "level": 2,
+        "text": "Match Winner Lock & Advancement"
+      }
+    ],
+    "content": "<h2 id=\"shootoff-trigger\">When Shoot-Offs Occur</h2>\n      <p>In elimination match play, a shoot-off is triggered when an individual Recurve/Barebow match reaches a 5-5 set score, or when an individual Compound match concludes with identical cumulative point totals after 15 arrows.</p>\n\n      <h2 id=\"single-arrow-input\">Entering Shoot-Off Arrow Values</h2>\n      <p>The Archeris mobile portal automatically transitions into <strong>Shoot-Off Mode</strong>. Each athlete shoots a single arrow within a 40-second time limit. The scorekeeper enters the single arrow value for each competitor.</p>\n\n      <h2 id=\"closest-to-center-toggle\">The Closest to Center (CT) Decision</h2>\n      <p>If both competitors score identical values (e.g., both shoot a 9 or both shoot a 10):</p>\n      <ul>\n        <li>The line judge measures the distance from the arrow shaft to the exact center of the X-ring.</li>\n        <li>The scorekeeper taps the <strong>Closest to Center (CT)</strong> checkbox next to the winning athlete's score.</li>\n      </ul>\n\n      <h2 id=\"advancement-confirmation\">Match Winner Lock & Advancement</h2>\n      <p>Once the shoot-off is submitted, the system declares the match winner, locks the scorecard, and advances the victor into the subsequent bracket round automatically.</p>"
+  }
+}

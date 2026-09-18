@@ -1,0 +1,33 @@
+{
+  "slug": "manual-participant-entry",
+  "icon": "ph:user-plus-bold",
+  "category": "participants",
+  "readTime": "4 min",
+  "en": {
+    "title": "Adding Participants Manually",
+    "excerpt": "How tournament organizers can manually enroll walk-in archers, offline registrants, or invited international delegates.",
+    "toc": [
+      {
+        "id": "when-to-use",
+        "level": 2,
+        "text": "Use Cases for Manual Entry"
+      },
+      {
+        "id": "manual-steps",
+        "level": 2,
+        "text": "Step-by-Step Manual Registration"
+      },
+      {
+        "id": "payment-override",
+        "level": 2,
+        "text": "Payment Status Overrides"
+      },
+      {
+        "id": "bulk-import",
+        "level": 2,
+        "text": "Batch Participant Import"
+      }
+    ],
+    "content": "<h2 id=\"when-to-use\">Use Cases for Manual Entry</h2>\n      <p>Manual participant enrollment is essential for handling on-site walk-in registrations at the venue secretariat, cash payments, or enrolling sponsored international delegates without requiring them to complete online checkout.</p>\n\n      <h2 id=\"manual-steps\">Step-by-Step Manual Registration</h2>\n      <ol>\n        <li>Go to <strong>Tournament Dashboard</strong> > <strong>Participants</strong>.</li>\n        <li>Click <strong>+ Add Manual Participant</strong> in the top header.</li>\n        <li>Enter the athlete information: Full Name, Gender, Date of Birth, Email (optional), and Club Affiliation.</li>\n        <li>Assign the athlete to the target Competition Division.</li>\n      </ol>\n\n      <h2 id=\"payment-override\">Payment Status Overrides</h2>\n      <p>Select the <strong>Mark as Paid (Cash / Offline)</strong> toggle to verify the athlete immediately and assign them an active spot in target butt allocation without generating an online invoice.</p>\n\n      <h2 id=\"bulk-import\">Batch Participant Import</h2>\n      <p>For large school contingents, organizers can use the Excel template import feature to upload hundreds of athletes across multiple divisions in a single file upload.</p>"
+  }
+}

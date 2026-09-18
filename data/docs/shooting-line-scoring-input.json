@@ -1,0 +1,33 @@
+{
+  "slug": "shooting-line-scoring-input",
+  "icon": "ph:calculator-bold",
+  "category": "scorekeeper",
+  "readTime": "5 min",
+  "en": {
+    "title": "Shooting Line Keypad Scoring",
+    "excerpt": "Detailed guide to entering arrow values with target keypads, automatic value ordering, end totals, and athlete confirmation.",
+    "toc": [
+      {
+        "id": "keypad-layout",
+        "level": 2,
+        "text": "Keypad Layout & Arrow Values"
+      },
+      {
+        "id": "entering-arrows",
+        "level": 2,
+        "text": "Recording End-by-End Scores"
+      },
+      {
+        "id": "auto-sorting",
+        "level": 2,
+        "text": "Automatic Descending Value Sorting"
+      },
+      {
+        "id": "confirming-ends",
+        "level": 2,
+        "text": "Athlete Verification & End Submission"
+      }
+    ],
+    "content": "<h2 id=\"keypad-layout\">Keypad Layout & Arrow Values</h2>\n      <p>The Archeris scoring interface features high-contrast, color-coded buttons designed for one-thumb field operation:</p>\n      <ul>\n        <li><strong>Gold Buttons (X & 10):</strong> 10 points. 'X' is recorded separately for tie-breaker calculations.</li>\n        <li><strong>Gold Button (9):</strong> 9 points.</li>\n        <li><strong>Red Buttons (8 & 7):</strong> 8 and 7 points.</li>\n        <li><strong>Blue Buttons (6 & 5):</strong> 6 and 5 points.</li>\n        <li><strong>Black Buttons (4 & 3):</strong> 4 and 3 points.</li>\n        <li><strong>White Buttons (2 & 1):</strong> 2 and 1 points.</li>\n        <li><strong>Green Button (M):</strong> Miss (0 points).</li>\n      </ul>\n\n      <h2 id=\"entering-arrows\">Recording End-by-End Scores</h2>\n      <p>Select the athlete tab (e.g., <em>Archer 1A</em>). Tap the buttons corresponding to each arrow called by the archers at the target face (e.g., <code>X</code>, <code>10</code>, <code>9</code>, <code>9</code>, <code>8</code>, <code>7</code>). Repeat for Archers 1B, 1C, and 1D.</p>\n\n      <h2 id=\"auto-sorting\">Automatic Descending Value Sorting</h2>\n      <p>In accordance with World Archery rules, arrow values within an end are automatically sorted in descending order (highest to lowest) upon input.</p>\n\n      <h2 id=\"confirming-ends\">Athlete Verification & End Submission</h2>\n      <p>Allow the archers at the butt to visually review their end totals and cumulative score on the screen before tapping <strong>Save & Next End</strong>.</p>"
+  }
+}

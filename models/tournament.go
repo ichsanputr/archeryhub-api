@@ -264,17 +264,26 @@ type Session struct {
 
 // EventSchedule represents a schedule item for an event
 type EventSchedule struct {
-	UUID        string     `json:"id" db:"uuid"`
-	EventID     string     `json:"event_id" db:"tournament_id"`
-	Title       string     `json:"title" db:"title"`
-	Description *string    `json:"description" db:"description"`
-	StartTime   time.Time  `json:"start_time" db:"start_time"`
-	EndTime     *time.Time `json:"end_time" db:"end_time"`
-	DayOrder    *int       `json:"day_order" db:"day_order"`
-	SortOrder   *int       `json:"sort_order" db:"sort_order"`
-	Location    *string    `json:"location" db:"location"`
-	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	UUID            string     `json:"id" db:"uuid"`
+	EventID         string     `json:"event_id" db:"event_id"`
+	Title           string     `json:"title" db:"title"`
+	Subtitle        *string    `json:"subtitle,omitempty" db:"subtitle"`
+	Description     *string    `json:"description,omitempty" db:"description"`
+	ItemType        string     `json:"item_type" db:"item_type"`
+	StartTime       string     `json:"start_time" db:"start_time"`
+	EndTime         string     `json:"end_time" db:"end_time"`
+	DurationMinutes int        `json:"duration_minutes" db:"duration_minutes"`
+	DayOrder        *int       `json:"day_order,omitempty" db:"day_order"`
+	DayNumber       int        `json:"day_number" db:"day_number"`
+	ScheduleDate    *string    `json:"schedule_date,omitempty" db:"schedule_date"`
+	Location        *string    `json:"location,omitempty" db:"location"`
+	SessionCode     *string    `json:"session_code,omitempty" db:"session_code"`
+	TargetStart     *int       `json:"target_start,omitempty" db:"target_start"`
+	TargetEnd       *int       `json:"target_end,omitempty" db:"target_end"`
+	ElimRound       *int       `json:"elim_round,omitempty" db:"elim_round"`
+	SortOrder       *int       `json:"sort_order,omitempty" db:"sort_order"`
+	CreatedAt       *time.Time `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt       *time.Time `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 // EventCategoryRef represents a reusable event category (bow type + age group)

@@ -1,0 +1,33 @@
+{
+  "slug": "create-elimination-brackets",
+  "icon": "ph:tree-structure-bold",
+  "category": "elimination",
+  "readTime": "5 min",
+  "en": {
+    "title": "Generating Olympic Round Brackets",
+    "excerpt": "How to generate standard World Archery elimination trees (1/32 through Finals) based on qualification rankings.",
+    "toc": [
+      {
+        "id": "bracket-sizes",
+        "level": 2,
+        "text": "Standard Bracket Dimensions"
+      },
+      {
+        "id": "generating-action",
+        "level": 2,
+        "text": "Generating Brackets in Archeris"
+      },
+      {
+        "id": "match-tree-structure",
+        "level": 2,
+        "text": "Match Progression Architecture"
+      },
+      {
+        "id": "bronze-medal-matches",
+        "level": 2,
+        "text": "Bronze and Gold Medal Matches"
+      }
+    ],
+    "content": "<h2 id=\"bracket-sizes\">Standard Bracket Dimensions</h2>\n      <p>Archeris supports standard single-elimination tournament trees formatted in power-of-two increments:</p>\n      <ul>\n        <li><strong>Top 64 Bracket:</strong> 1/32 Round, 1/16 Round, 1/8 Round, Quarterfinals, Semifinals, Finals.</li>\n        <li><strong>Top 32 Bracket:</strong> 1/16 Round, 1/8 Round, Quarterfinals, Semifinals, Finals.</li>\n        <li><strong>Top 16 Bracket:</strong> 1/8 Round, Quarterfinals, Semifinals, Finals.</li>\n        <li><strong>Top 8 Bracket:</strong> Quarterfinals, Semifinals, Finals.</li>\n      </ul>\n\n      <h2 id=\"generating-action\">Generating Brackets in Archeris</h2>\n      <p>To create a bracket:</p>\n      <ol>\n        <li>Go to <strong>Tournament Dashboard</strong> > <strong>Elimination Brackets</strong>.</li>\n        <li>Click <strong>+ Create Bracket</strong>.</li>\n        <li>Select the category and the qualifying cutoff size (e.g., <em>Top 16</em>).</li>\n        <li>Click <strong>Generate Bracket Tree</strong>. The interactive visual tree renders immediately.</li>\n      </ol>\n\n      <h2 id=\"match-tree-structure\">Match Progression Architecture</h2>\n      <p>Each match node displays competitor names, seeding ranks, club emblems, live set scores, and assigned target butt numbers.</p>\n\n      <h2 id=\"bronze-medal-matches\">Bronze and Gold Medal Matches</h2>\n      <p>The system automatically splits semifinal losers into the <strong>Bronze Medal Match</strong> and semifinal winners into the <strong>Gold Medal Match</strong>.</p>"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "slug": "archer-download-certificates",
+  "icon": "ph:download-simple-bold",
+  "category": "archers",
+  "readTime": "3 min",
+  "en": {
+    "title": "Downloading Verified E-Certificates",
+    "excerpt": "How archers access, download, and share verified digital competition certificates from their personal dashboard.",
+    "toc": [
+      {
+        "id": "accessing-certificates",
+        "level": 2,
+        "text": "Accessing Issued Certificates"
+      },
+      {
+        "id": "downloading-high-res-pdf",
+        "level": 2,
+        "text": "Downloading High-Resolution PDF Files"
+      },
+      {
+        "id": "sharing-achievements",
+        "level": 2,
+        "text": "Sharing Verified Portfolio Links"
+      }
+    ],
+    "content": "<h2 id=\"accessing-certificates\">Accessing Issued Certificates</h2>\n      <p>Once tournament results are finalized by the organizing committee, certificates are issued directly to your account. Open your <strong>Archer Dashboard</strong> and click <strong>My Certificates</strong> in the navigation menu.</p>\n\n      <h2 id=\"downloading-high-res-pdf\">Downloading High-Resolution PDF Files</h2>\n      <p>Click <strong>Download Certificate (PDF)</strong> to save a high-resolution, print-ready document complete with official committee signatures and your verified QR code.</p>\n\n      <h2 id=\"sharing-achievements\">Sharing Verified Portfolio Links</h2>\n      <p>You can copy your permanent certificate URL to share with coaches, sponsors, or school sports coordinators for instant online authenticity verification.</p>"
+  }
+}

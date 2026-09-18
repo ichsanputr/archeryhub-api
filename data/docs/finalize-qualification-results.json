@@ -1,0 +1,33 @@
+{
+  "slug": "finalize-qualification-results",
+  "icon": "ph:lock-key-bold",
+  "category": "qualification",
+  "readTime": "4 min",
+  "en": {
+    "title": "Finalizing Qualification Standings",
+    "excerpt": "How to verify final qualification results, manage protest appeal windows, and lock scores for elimination seeding.",
+    "toc": [
+      {
+        "id": "verification-window",
+        "level": 2,
+        "text": "Protest Window (15-Minute Rule)"
+      },
+      {
+        "id": "finalizing-action",
+        "level": 2,
+        "text": "Locking Qualification Results"
+      },
+      {
+        "id": "audit-inspection",
+        "level": 2,
+        "text": "Reviewing Discrepancies"
+      },
+      {
+        "id": "transition-to-brackets",
+        "level": 2,
+        "text": "Advancing to Elimination Match Play"
+      }
+    ],
+    "content": "<h2 id=\"verification-window\">Protest Window (15-Minute Rule)</h2>\n      <p>Following the conclusion of the final qualification end, organizers must announce an official 15-minute verification window. Athletes and team coaches inspect the official posted standings to verify point calculations.</p>\n\n      <h2 id=\"finalizing-action\">Locking Qualification Results</h2>\n      <p>Once the protest period expires without unresolved disputes:</p>\n      <ol>\n        <li>Open the qualification session in the <strong>Organizer Dashboard</strong>.</li>\n        <li>Click <strong>Finalize Qualification</strong> in the header.</li>\n        <li>Confirm the lock dialog. All qualification scorecards become permanent read-only records.</li>\n      </ol>\n\n      <h2 id=\"audit-inspection\">Reviewing Discrepancies</h2>\n      <p>If an athlete contests a score calculation during the protest window, judges cross-reference the digital record with physical paper scorecards before finalizing.</p>\n\n      <h2 id=\"transition-to-brackets\">Advancing to Elimination Match Play</h2>\n      <p>Finalizing qualification automatically populates the seeding seeds for Individual Elimination and enables automated Team Roster synchronization.</p>"
+  }
+}

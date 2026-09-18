@@ -1631,27 +1631,80 @@ func GetEventSchedule(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
-		var exists bool
-		err := db.Get(&exists, `SELECT EXISTS(SELECT 1 FROM tournaments WHERE uuid = ? OR slug = ?)`, eventID, eventID)
-		if err != nil || !exists {
+		var tournament struct {
+			UUID string `db:"uuid"`
+			Slug string `db:"slug"`
+		}
+		err := db.Get(&tournament, `SELECT uuid, slug FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
+		type ScheduleItemResult struct {
+			UUID            string         `json:"uuid" db:"uuid"`
+			TournamentID    string         `json:"tournament_id" db:"tournament_id"`
+			ItemType        string         `json:"item_type" db:"item_type"`
+			StartTime       string         `json:"start_time" db:"start_time"`
+			EndTime         string         `json:"end_time" db:"end_time"`
+			DurationMinutes int            `json:"duration_minutes" db:"duration_minutes"`
+			DelayMinutes    int            `json:"delay_minutes" db:"delay_minutes"`
+			Title           string         `json:"title" db:"title"`
+			Subtitle        sql.NullString `json:"subtitle" db:"subtitle"`
+			Description     sql.NullString `json:"description" db:"description"`
+			Location        sql.NullString `json:"location" db:"location"`
+			SessionCode     sql.NullString `json:"session_code" db:"session_code"`
+			CategoryUUIDs   sql.NullString `json:"category_uuids" db:"category_uuids"`
+			BracketUUID     sql.NullString `json:"bracket_uuid" db:"bracket_uuid"`
+			ElimRound       sql.NullInt64  `json:"elim_round" db:"elim_round"`
+			TargetStart     sql.NullInt64  `json:"target_start" db:"target_start"`
+			TargetEnd       sql.NullInt64  `json:"target_end" db:"target_end"`
+			SortOrder       int            `json:"sort_order" db:"sort_order"`
+			DayOrder        int            `json:"day_order" db:"day_number"`
+			DayNumber       int            `json:"day_number" db:"day_number"`
+			ScheduleDate    string         `json:"schedule_date" db:"schedule_date"`
+		}
+
+		var items []ScheduleItemResult
+		err = db.Select(&items, `
+			SELECT 
+				uuid, tournament_id, item_type,
+				CAST(start_time AS CHAR) AS start_time,
+				CAST(end_time AS CHAR) AS end_time,
+				duration_minutes, delay_minutes, title, subtitle, description, location,
+				session_code, category_uuids, bracket_uuid, elim_round,
+				target_start, target_end, sort_order, day_number,
+				COALESCE(CAST(schedule_date AS CHAR), '') AS schedule_date
+			FROM tournament_schedule_items
+			WHERE tournament_id = ?
+			ORDER BY day_number ASC, start_time ASC, sort_order ASC
+		`, tournament.UUID)
+
+		if err == nil && len(items) > 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"schedules": items,
+				"count":     len(items),
+			})
+			return
+		}
+
+		// Fallback to legacy tournament_schedules table
 		var schedules []models.EventSchedule
 		err = db.Select(&schedules, `
 			SELECT es.* 
 			FROM tournament_schedules es
-			JOIN tournaments e ON es.event_id = e.uuid
-			WHERE e.uuid = ? OR e.slug = ?
+			WHERE es.tournament_id = ?
 			ORDER BY 
 				COALESCE(es.day_order, 0),
 				COALESCE(es.sort_order, 0),
 				es.start_time
-		`, eventID, eventID)
+		`, tournament.UUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil jadwal event", "details": err.Error()})
+			c.JSON(http.StatusOK, gin.H{
+				"schedules": []models.EventSchedule{},
+				"count":     0,
+			})
 			return
 		}
 

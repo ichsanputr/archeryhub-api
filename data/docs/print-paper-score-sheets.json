@@ -1,0 +1,28 @@
+{
+  "slug": "print-paper-score-sheets",
+  "icon": "ph:file-text-bold",
+  "category": "reports",
+  "readTime": "4 min",
+  "en": {
+    "title": "Printing Physical Scoresheets",
+    "excerpt": "Exporting formatted paper scoresheets for physical target butt backups and athlete signature archives.",
+    "toc": [
+      {
+        "id": "scoresheet-backup-role",
+        "level": 2,
+        "text": "The Role of Physical Scoresheet Backups"
+      },
+      {
+        "id": "generating-scoresheets",
+        "level": 2,
+        "text": "Generating Formatted Scoresheets"
+      },
+      {
+        "id": "dual-record-protocol",
+        "level": 2,
+        "text": "The Dual-Record Signing Protocol"
+      }
+    ],
+    "content": "<h2 id=\"scoresheet-backup-role\">The Role of Physical Scoresheet Backups</h2>\n      <p>While digital scoring is primary, international archery regulations recommend maintaining a physical paper scoresheet at each target butt as a secondary verification record and signature archive.</p>\n\n      <h2 id=\"generating-scoresheets\">Generating Formatted Scoresheets</h2>\n      <p>To print pre-filled scoresheets:</p>\n      <ol>\n        <li>Go to <strong>Tournament Dashboard</strong> > <strong>Reports</strong> > <strong>Scoresheets</strong>.</li>\n        <li>Select the category or print for the entire range.</li>\n        <li>Click <strong>Print Scoresheets</strong>.</li>\n      </ol>\n      <p>Each sheet prints pre-populated with athlete names, target numbers (1A, 1B), category titles, and standard 6-end score grids.</p>\n\n      <h2 id=\"dual-record-protocol\">The Dual-Record Signing Protocol</h2>\n      <p>At the conclusion of the session, athletes and scorekeepers verify that the physical score numbers match the digital tablet tally and sign the bottom of the sheet.</p>"
+  }
+}

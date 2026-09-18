@@ -1,0 +1,33 @@
+{
+  "slug": "add-competition-categories",
+  "icon": "ph:circles-three-bold",
+  "category": "categories",
+  "readTime": "5 min",
+  "en": {
+    "title": "Configuring Competition Divisions",
+    "excerpt": "Detailed guide to defining bow divisions, age brackets, gender classes, and entry fees for archery tournaments.",
+    "toc": [
+      {
+        "id": "division-structure",
+        "level": 2,
+        "text": "Understanding Competition Divisions"
+      },
+      {
+        "id": "bow-types",
+        "level": 2,
+        "text": "Supported Bow Divisions"
+      },
+      {
+        "id": "age-brackets",
+        "level": 2,
+        "text": "Age Categories and Gender Classes"
+      },
+      {
+        "id": "pricing-setup",
+        "level": 2,
+        "text": "Configuring Registration Fees"
+      }
+    ],
+    "content": "<h2 id=\"division-structure\">Understanding Competition Divisions</h2>\n      <p>A competition category represents a specific competitive flight defined by four criteria: Bow Type, Age Class, Gender, and Shooting Distance. Archeris allows organizers to create unlimited distinct divisions per tournament.</p>\n\n      <h2 id=\"bow-types\">Supported Bow Divisions</h2>\n      <p>The platform natively supports all recognized archery disciplines:</p>\n      <ul>\n        <li><strong>Recurve:</strong> Olympic recurve with sights, stabilizers, and clickers.</li>\n        <li><strong>Compound:</strong> Modern mechanical bows with magnifying scopes and release aids.</li>\n        <li><strong>Barebow:</strong> Recurve bows without sights, stabilizers, or draw check devices.</li>\n        <li><strong>Standar Bow / National:</strong> Wooden takedown recurve bows commonly used in developmental tournaments.</li>\n        <li><strong>Traditional:</strong> Horsebows, longbows, and instinctive traditional wooden equipment.</li>\n      </ul>\n\n      <h2 id=\"age-brackets\">Age Categories and Gender Classes</h2>\n      <p>Configure standardized age brackets with automated date-of-birth verification during registration:</p>\n      <ul>\n        <li><strong>Youth Classes:</strong> Under 9 (U-9), Under 12 (U-12), Under 15 (U-15), and Under 18 (U-18).</li>\n        <li><strong>Senior Class:</strong> Open age standard competitive division.</li>\n        <li><strong>Master Class:</strong> 50 years of age and older.</li>\n        <li><strong>Gender Segregation:</strong> Men (Putra), Women (Putri), or Open/Mixed categories.</li>\n      </ul>\n\n      <h2 id=\"pricing-setup\">Configuring Registration Fees</h2>\n      <p>Organizers can configure individual pricing per division, including early bird promotional pricing and standard entry fees.</p>"
+  }
+}

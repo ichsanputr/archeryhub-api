@@ -1,0 +1,33 @@
+{
+  "slug": "archer-tournament-registration",
+  "icon": "ph:user-plus-bold",
+  "category": "archers",
+  "readTime": "5 min",
+  "en": {
+    "title": "Tournament Registration Process",
+    "excerpt": "Guide for athletes on discovering sanctioned tournaments, selecting divisions, and completing instant digital checkout.",
+    "toc": [
+      {
+        "id": "discovering-events",
+        "level": 2,
+        "text": "Finding Tournaments on Archeris"
+      },
+      {
+        "id": "selecting-category",
+        "level": 2,
+        "text": "Choosing the Correct Category"
+      },
+      {
+        "id": "completing-checkout",
+        "level": 2,
+        "text": "Completing Online Payment"
+      },
+      {
+        "id": "digital-tickets",
+        "level": 2,
+        "text": "Accessing Your Digital Event Pass"
+      }
+    ],
+    "content": "<h2 id=\"discovering-events\">Finding Tournaments on Archeris</h2>\n      <p>Browse open tournaments by navigating to <code>archeris.net/tournaments</code>. Use search and filter tools to find events by city, date, or host club.</p>\n\n      <h2 id=\"selecting-category\">Choosing the Correct Category</h2>\n      <p>Click on the tournament card to open the event overview. Select your competitive division (e.g., <em>Recurve Men Senior 70m</em>). Ensure your bow specifications and age qualify for the division rules.</p>\n\n      <h2 id=\"completing-checkout\">Completing Online Payment</h2>\n      <p>Click <strong>Register Now</strong>. Select your preferred payment method (QRIS or Virtual Account) and complete the transfer within the invoice time limit.</p>\n\n      <h2 id=\"digital-tickets\">Accessing Your Digital Event Pass</h2>\n      <p>Once verified, your entry appears under <strong>My Tournaments</strong> in your Archer Dashboard, providing access to your digital event pass and check-in barcode.</p>"
+  }
+}

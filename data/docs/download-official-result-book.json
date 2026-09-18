@@ -1,0 +1,28 @@
+{
+  "slug": "download-official-result-book",
+  "icon": "ph:file-pdf-bold",
+  "category": "reports",
+  "readTime": "4 min",
+  "en": {
+    "title": "Downloading Official Result Books",
+    "excerpt": "How to compile and export comprehensive World Archery compliant PDF Result Books for tournament archives.",
+    "toc": [
+      {
+        "id": "result-book-components",
+        "level": 2,
+        "text": "Result Book Components"
+      },
+      {
+        "id": "generating-result-book",
+        "level": 2,
+        "text": "Generating the Document"
+      },
+      {
+        "id": "federation-reporting",
+        "level": 2,
+        "text": "Official Federation Submission"
+      }
+    ],
+    "content": "<h2 id=\"result-book-components\">Result Book Components</h2>\n      <p>The Official Result Book is the master archive of an archery tournament. Archeris automatically formats all event data into a standardized multi-page PDF document containing:</p>\n      <ul>\n        <li><strong>Title Page & Organizing Committee:</strong> Official event branding and committee leadership list.</li>\n        <li><strong>Participant Roster:</strong> Complete list of archers grouped by club and category.</li>\n        <li><strong>Target Allocation Records:</strong> Initial butt positioning matrix.</li>\n        <li><strong>Qualification Results:</strong> End-by-end scoring tables with 10s, Xs, and total point tallies.</li>\n        <li><strong>Elimination Match Trees:</strong> Complete graphic brackets from 1/32 Round through Finals.</li>\n        <li><strong>Medal Standings:</strong> Gold, Silver, and Bronze medal tallies per club.</li>\n      </ul>\n\n      <h2 id=\"generating-result-book\">Generating the Document</h2>\n      <p>Navigate to <strong>Tournament Dashboard</strong> > <strong>Reports</strong> > click <strong>Download Result Book (PDF)</strong>. The system compiles all tables into a print-ready document.</p>\n\n      <h2 id=\"federation-reporting\">Official Federation Submission</h2>\n      <p>The generated PDF complies with World Archery and national federation reporting guidelines for official ranking submissions and record validations.</p>"
+  }
+}

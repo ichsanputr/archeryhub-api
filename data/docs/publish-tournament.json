@@ -1,0 +1,33 @@
+{
+  "slug": "publish-tournament",
+  "icon": "ph:globe-simple-bold",
+  "category": "tournaments",
+  "readTime": "4 min",
+  "en": {
+    "title": "Publishing Tournament Pages",
+    "excerpt": "How to transition tournaments from draft to published status, manage public visibility, and share registration links.",
+    "toc": [
+      {
+        "id": "pre-publish-checklist",
+        "level": 2,
+        "text": "Pre-Publishing Verification Checklist"
+      },
+      {
+        "id": "publishing-action",
+        "level": 2,
+        "text": "Activating Public Visibility"
+      },
+      {
+        "id": "sharing-urls",
+        "level": 2,
+        "text": "Custom Tournament URLs & Sharing"
+      },
+      {
+        "id": "closing-registration",
+        "level": 2,
+        "text": "Manually Closing Registrations"
+      }
+    ],
+    "content": "<h2 id=\"pre-publish-checklist\">Pre-Publishing Verification Checklist</h2>\n      <p>Before making your tournament accessible to the public, verify the following configuration items:</p>\n      <ul>\n        <li>At least one competition category has been created with entry fees and quota limits.</li>\n        <li>Contact information (WhatsApp and email) is active and verified.</li>\n        <li>Registration start and end dates are set correctly in local time (WIB/UTC+7).</li>\n        <li>Promotional banner image and event description are clearly formatted.</li>\n      </ul>\n\n      <h2 id=\"publishing-action\">Activating Public Visibility</h2>\n      <p>To publish the event:</p>\n      <ol>\n        <li>Open your tournament in the <strong>Organizer Dashboard</strong>.</li>\n        <li>In the top action bar, switch the status toggle from <strong>Draft</strong> to <strong>Published</strong>.</li>\n        <li>Confirm the publication modal. Your event is immediately indexed in public search and appears on <code>archeris.net/tournaments</code>.</li>\n      </ol>\n\n      <h2 id=\"sharing-urls\">Custom Tournament URLs & Sharing</h2>\n      <p>Each published event receives a unique canonical URL (e.g., <code>archeris.net/tournaments/jakarta-open-2026</code>). Copy this link to distribute across WhatsApp groups, club newsletters, and social media platforms.</p>\n\n      <h2 id=\"closing-registration\">Manually Closing Registrations</h2>\n      <p>While registration closes automatically on the set end date, organizers can click <strong>Close Registration</strong> at any time if field capacity is reached ahead of schedule.</p>"
+  }
+}

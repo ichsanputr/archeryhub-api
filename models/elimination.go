@@ -14,9 +14,13 @@ type TargetBoardElimination struct {
 
 // EliminationMatchEndScore represents scores for a specific end in an elimination match
 type EliminationMatchEndScore struct {
-	EndNo  int `json:"end_no"`
-	ScoreA int `json:"score_a"`
-	ScoreB int `json:"score_b"`
+	EndNo   int      `json:"end_no"`
+	ScoreA  int      `json:"score_a"`
+	ScoreB  int      `json:"score_b"`
+	PointsA int      `json:"points_a"`
+	PointsB int      `json:"points_b"`
+	ArrowsA []string `json:"arrows_a,omitempty"`
+	ArrowsB []string `json:"arrows_b,omitempty"`
 }
 
 // EliminationMatch represents a single match in an elimination bracket
