@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"Archeris-api/utils"
 
@@ -58,24 +59,33 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if startDate := c.Query("start_date"); startDate != "" {
-			whereClause += " AND ep.registration_date >= ?"
-			args = append(args, startDate+" 00:00:00")
+			whereClause += " AND (ep.registration_date >= ? OR (ep.registration_date IS NULL AND ep.created_at >= ?))"
+			args = append(args, startDate+" 00:00:00", startDate+" 00:00:00")
 		}
 
 		if endDate := c.Query("end_date"); endDate != "" {
-			whereClause += " AND ep.registration_date <= ?"
-			args = append(args, endDate+" 23:59:59")
+			whereClause += " AND (ep.registration_date <= ? OR (ep.registration_date IS NULL AND ep.created_at <= ?))"
+			args = append(args, endDate+" 23:59:59", endDate+" 23:59:59")
 		}
 
 		// additional optional filters
 		if gender := c.Query("gender"); gender != "" && gender != "all" {
-			whereClause += " AND rgd.name = ?"
-			args = append(args, gender)
+			gLower := strings.ToLower(gender)
+			if gLower == "pria" || gLower == "male" || gLower == "putra" || gLower == "men" {
+				whereClause += " AND (LOWER(rgd.name) LIKE '%men%' OR LOWER(rgd.code) = 'men' OR LOWER(rgd.name) LIKE '%pria%' OR LOWER(rgd.name) LIKE '%putra%')"
+			} else if gLower == "wanita" || gLower == "female" || gLower == "putri" || gLower == "women" {
+				whereClause += " AND (LOWER(rgd.name) LIKE '%women%' OR LOWER(rgd.code) = 'women' OR LOWER(rgd.name) LIKE '%wanita%' OR LOWER(rgd.name) LIKE '%putri%')"
+			} else if gLower == "campuran" || gLower == "mix" || gLower == "mixed" {
+				whereClause += " AND (LOWER(rgd.name) LIKE '%mix%' OR LOWER(rgd.code) = 'mixed' OR LOWER(rgd.name) LIKE '%campuran%')"
+			} else {
+				whereClause += " AND (LOWER(rgd.name) = ? OR LOWER(rgd.code) = ?)"
+				args = append(args, gLower, gLower)
+			}
 		}
 
 		if bowType := c.Query("bow_type"); bowType != "" && bowType != "all" {
-			whereClause += " AND rbt.name = ?"
-			args = append(args, bowType)
+			whereClause += " AND (LOWER(rbt.name) = LOWER(?) OR LOWER(rbt.code) = LOWER(?))"
+			args = append(args, bowType, bowType)
 		}
 
 		if status := c.Query("status"); status != "" && status != "all" {
@@ -103,7 +113,7 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 2. gender split
-		var genderSplit []splitcount
+		genderSplit := make([]splitcount, 0)
 		_ = db.Select(&genderSplit, fmt.Sprintf(`
 			SELECT COALESCE(rgd.name, 'tidak diketahui') as label, COUNT(*) as count
 			FROM tournament_participants ep
@@ -116,7 +126,7 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause), args...)
 
 		// 3. bow type split
-		var bowTypeSplit []splitcount
+		bowTypeSplit := make([]splitcount, 0)
 		_ = db.Select(&bowTypeSplit, fmt.Sprintf(`
 			SELECT COALESCE(rbt.name, 'tidak diketahui') as label, COUNT(*) as count
 			FROM tournament_participants ep
@@ -129,7 +139,7 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause), args...)
 
 		// 4. age group split
-		var ageGroupSplit []splitcount
+		ageGroupSplit := make([]splitcount, 0)
 		_ = db.Select(&ageGroupSplit, fmt.Sprintf(`
 			SELECT COALESCE(rag.name, 'tidak diketahui') as label, COUNT(*) as count
 			FROM tournament_participants ep
@@ -143,7 +153,7 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause), args...)
 
 		// 5. registration source split
-		var sourceSplit []splitcount
+		sourceSplit := make([]splitcount, 0)
 		_ = db.Select(&sourceSplit, fmt.Sprintf(`
 			SELECT COALESCE(ep.registration_source, 'self_register') as label, COUNT(*) as count
 			FROM tournament_participants ep
@@ -173,9 +183,9 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause), args...)
 
 		// 7. registration trend (past 30 days or filtered date range)
-		var trend []trendpoint
+		trend := make([]trendpoint, 0)
 		_ = db.Select(&trend, fmt.Sprintf(`
-			SELECT DATE(ep.registration_date) as label, COUNT(*) as value
+			SELECT DATE(COALESCE(ep.registration_date, ep.created_at)) as label, COUNT(*) as value
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
@@ -199,11 +209,11 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 			PaymentStatus        string  `db:"payment_status" json:"payment_status"`
 			LastReregistrationAt *string `db:"last_reregistration_at" json:"last_reregistration_at"`
 		}
-		var recent []participantitem
+		recent := make([]participantitem, 0)
 		_ = db.Select(&recent, fmt.Sprintf(`
-			SELECT ep.uuid, COALESCE(a.name, 'tidak ada nama') as archer_name, a.avatar_url, e.name as event_name, 
+			SELECT ep.uuid, COALESCE(NULLIF(a.full_name, ''), NULLIF(a.username, ''), 'tidak ada nama') as archer_name, a.avatar_url, e.name as event_name, 
 				   rbt.name as bow_type, rag.name as age_group, rgd.name as gender,
-				   ep.registration_date, ep.payment_status, ep.last_reregistration_at
+				   COALESCE(ep.registration_date, ep.created_at) as registration_date, ep.payment_status, ep.last_reregistration_at
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
@@ -212,8 +222,8 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			WHERE %s
-			ORDER BY ep.registration_date DESC
-			LIMIT 20
+			ORDER BY COALESCE(ep.registration_date, ep.created_at) DESC
+			LIMIT 50
 		`, whereClause), args...)
 
 		// mask media URLs
@@ -225,7 +235,7 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 9. fetch available tournaments for dropdown filter
-		var eventsList []eventoption
+		eventsList := make([]eventoption, 0)
 		_ = db.Select(&eventsList, `
 			SELECT uuid, name, start_date, end_date 
 			FROM tournaments 
@@ -309,7 +319,7 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 2. payment method split (for paid payments)
-		var methodSplit []splitamount
+		methodSplit := make([]splitamount, 0)
 		_ = db.Select(&methodSplit, fmt.Sprintf(`
 			SELECT COALESCE(pt.payment_method, 'manual') as label, COUNT(*) as count, COALESCE(SUM(pt.amount), 0) as amount
 			FROM payment_transactions pt
@@ -319,7 +329,7 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause), args...)
 
 		// 3. revenue trend
-		var trend []trendpoint
+		trend := make([]trendpoint, 0)
 		_ = db.Select(&trend, fmt.Sprintf(`
 			SELECT DATE(pt.paid_at) as label, COALESCE(SUM(pt.amount), 0) as value
 			FROM payment_transactions pt
@@ -342,20 +352,21 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 			UserName      *string `db:"user_name" json:"user_name"`
 			SenderName    *string `db:"sender_name" json:"sender_name"`
 		}
-		var recent []transactionitem
+		recent := make([]transactionitem, 0)
 		_ = db.Select(&recent, fmt.Sprintf(`
 			SELECT pt.uuid, pt.reference, pt.amount, pt.payment_method, pt.status, pt.created_at, pt.paid_at,
-				   pt.sender_name, e.name as event_name, u.full_name as user_name
+				   pt.sender_name, e.name as event_name, 
+				   COALESCE(NULLIF(u.full_name, ''), NULLIF(u.username, ''), NULLIF(pt.sender_name, ''), 'Peserta') as user_name
 			FROM payment_transactions pt
 			JOIN tournaments e ON pt.tournament_id = e.uuid
 			LEFT JOIN archers u ON pt.user_id = u.uuid
 			WHERE %s
 			ORDER BY pt.created_at DESC
-			LIMIT 20
+			LIMIT 50
 		`, whereClause), args...)
 
 		// 5. fetch available tournaments for dropdown filter
-		var eventsList []eventoption
+		eventsList := make([]eventoption, 0)
 		_ = db.Select(&eventsList, `
 			SELECT uuid, name, start_date, end_date 
 			FROM tournaments 
@@ -401,7 +412,7 @@ func GetOrganizationPerformanceReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 1. event status count
-		var statusCount []splitcount
+		statusCount := make([]splitcount, 0)
 		err := db.Select(&statusCount, fmt.Sprintf(`
 			SELECT status as label, COUNT(*) as count
 			FROM tournaments e
@@ -425,7 +436,7 @@ func GetOrganizationPerformanceReport(db *sqlx.DB) gin.HandlerFunc {
 			TotalParticipants int     `db:"total_participants" json:"total_participants"`
 			FillRate          float64 `json:"fill_rate"`
 		}
-		var list []eventperf
+		list := make([]eventperf, 0)
 		_ = db.Select(&list, fmt.Sprintf(`
 			SELECT 
 				e.uuid, e.name, e.status, e.start_date, e.end_date,
@@ -485,13 +496,13 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if startDate := c.Query("start_date"); startDate != "" {
-			whereClause += " AND ep.registration_date >= ?"
-			args = append(args, startDate+" 00:00:00")
+			whereClause += " AND (ep.registration_date >= ? OR (ep.registration_date IS NULL AND ep.created_at >= ?))"
+			args = append(args, startDate+" 00:00:00", startDate+" 00:00:00")
 		}
 
 		if endDate := c.Query("end_date"); endDate != "" {
-			whereClause += " AND ep.registration_date <= ?"
-			args = append(args, endDate+" 23:59:59")
+			whereClause += " AND (ep.registration_date <= ? OR (ep.registration_date IS NULL AND ep.created_at <= ?))"
+			args = append(args, endDate+" 23:59:59", endDate+" 23:59:59")
 		}
 
 		// 1. attendance overview
@@ -522,7 +533,7 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 			Registered int    `db:"registered" json:"registered"`
 			CheckedIn  int    `db:"checked_in" json:"checked_in"`
 		}
-		var categoryList []categoryattendance
+		categoryList := make([]categoryattendance, 0)
 		_ = db.Select(&categoryList, fmt.Sprintf(`
 			SELECT 
 				COALESCE(rbt.name, 'barebow') as bow_type, 
@@ -541,7 +552,7 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 		`, whereClause), args...)
 
 		// 3. check-in timeline trend
-		var checkinTrend []trendpoint
+		checkinTrend := make([]trendpoint, 0)
 		_ = db.Select(&checkinTrend, fmt.Sprintf(`
 			SELECT DATE(ep.last_reregistration_at) as label, COUNT(*) as value
 			FROM tournament_participants ep
@@ -562,9 +573,9 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 			Gender               *string `db:"gender" json:"gender"`
 			LastReregistrationAt string  `db:"last_reregistration_at" json:"last_reregistration_at"`
 		}
-		var recentCheckedIn []checkedinitem
+		recentCheckedIn := make([]checkedinitem, 0)
 		_ = db.Select(&recentCheckedIn, fmt.Sprintf(`
-			SELECT ep.uuid, COALESCE(a.name, 'tidak ada nama') as archer_name, a.avatar_url, e.name as event_name, 
+			SELECT ep.uuid, COALESCE(NULLIF(a.full_name, ''), NULLIF(a.username, ''), 'tidak ada nama') as archer_name, a.avatar_url, e.name as event_name, 
 				   rbt.name as bow_type, rag.name as age_group, rgd.name as gender,
 				   ep.last_reregistration_at
 			FROM tournament_participants ep
@@ -576,7 +587,7 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			WHERE %s AND ep.last_reregistration_at IS NOT NULL
 			ORDER BY ep.last_reregistration_at DESC
-			LIMIT 20
+			LIMIT 50
 		`, whereClause), args...)
 
 		// mask media URLs
@@ -588,7 +599,7 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// 5. fetch available tournaments for dropdown filter
-		var eventsList []eventoption
+		eventsList := make([]eventoption, 0)
 		_ = db.Select(&eventsList, `
 			SELECT uuid, name, start_date, end_date 
 			FROM tournaments 

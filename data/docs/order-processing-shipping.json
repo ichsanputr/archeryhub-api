@@ -1,0 +1,33 @@
+{
+  "slug": "order-processing-shipping",
+  "icon": "ph:truck-bold",
+  "category": "marketplace",
+  "readTime": "4 min",
+  "en": {
+    "title": "Processing Orders and Shipping Fulfillment",
+    "excerpt": "Step-by-step workflow for managing incoming buyer orders, updating fulfillment statuses, and attaching courier tracking waybills.",
+    "toc": [
+      {
+        "id": "order-lifecycle",
+        "level": 2,
+        "text": "Marketplace Order Lifecycle"
+      },
+      {
+        "id": "confirming-orders",
+        "level": 2,
+        "text": "Confirming & Packing Orders"
+      },
+      {
+        "id": "shipping-waybills",
+        "level": 2,
+        "text": "Attaching Courier Tracking Numbers"
+      },
+      {
+        "id": "delivery-confirmation",
+        "level": 2,
+        "text": "Delivery & Escrow Release"
+      }
+    ],
+    "content": "<h2 id=\"order-lifecycle\">Marketplace Order Lifecycle</h2>\n      <p>When a buyer completes payment, orders transition through four stages: <strong>Paid</strong> > <strong>Processing</strong> > <strong>Shipped</strong> > <strong>Delivered / Completed</strong>.</p>\n\n      <h2 id=\"confirming-orders\">Confirming & Packing Orders</h2>\n      <p>Navigate to <strong>Seller Dashboard > Orders</strong>. Review the order items, buyer shipping address, and special notes. Click <strong>Process Order</strong> to notify the buyer that their equipment is being packed.</p>\n\n      <h2 id=\"shipping-waybills\">Attaching Courier Tracking Numbers</h2>\n      <p>Once you hand the parcel to the courier (JNE, SiCepat, Pos Indonesia, etc.):</p>\n      <ol>\n        <li>Click <strong>Ship Order</strong> on the order detail page.</li>\n        <li>Select the courier service and input the official <strong>Airway Bill (AWB) / Nomor Resi</strong>.</li>\n        <li>The buyer instantly receives an in-app tracking update with the tracking number.</li>\n      </ol>\n\n      <h2 id=\"delivery-confirmation\">Delivery & Escrow Release</h2>\n      <p>Once the courier confirms delivery or the buyer clicks <em>Confirm Received</em>, payment funds are released from platform escrow directly into your available seller wallet balance.</p>"
+  }
+}

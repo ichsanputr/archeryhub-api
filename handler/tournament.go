@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1071,6 +1072,65 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				}
 				g.CategoryList = append(g.CategoryList, catItem)
 			}
+
+			sortBy := strings.ToLower(c.DefaultQuery("sort_by", "name"))
+			sortDir := strings.ToLower(c.DefaultQuery("order", c.DefaultQuery("sort_dir", "asc")))
+
+			// Sort orderedKeys
+			sort.SliceStable(orderedKeys, func(i, j int) bool {
+				a := groupedMap[orderedKeys[i]]
+				b := groupedMap[orderedKeys[j]]
+				if a == nil || b == nil {
+					return false
+				}
+				var cmp int
+				switch sortBy {
+				case "club":
+					clubA := ""
+					if a.ClubName != nil {
+						clubA = *a.ClubName
+					}
+					clubB := ""
+					if b.ClubName != nil {
+						clubB = *b.ClubName
+					}
+					cmp = strings.Compare(strings.ToLower(clubA), strings.ToLower(clubB))
+				case "status":
+					statA := ""
+					if a.PaymentStatus != nil {
+						statA = *a.PaymentStatus
+					}
+					statB := ""
+					if b.PaymentStatus != nil {
+						statB = *b.PaymentStatus
+					}
+					cmp = strings.Compare(strings.ToLower(statA), strings.ToLower(statB))
+				case "reregistration":
+					var tA, tB int64
+					if a.LastReregistrationAt != nil {
+						tA = a.LastReregistrationAt.Unix()
+					}
+					if b.LastReregistrationAt != nil {
+						tB = b.LastReregistrationAt.Unix()
+					}
+					if tA < tB {
+						cmp = -1
+					} else if tA > tB {
+						cmp = 1
+					} else {
+						cmp = 0
+					}
+				default: // "name"
+					cmp = strings.Compare(strings.ToLower(a.FullName), strings.ToLower(b.FullName))
+				}
+				if cmp == 0 {
+					cmp = strings.Compare(strings.ToLower(a.FullName), strings.ToLower(b.FullName))
+				}
+				if sortDir == "desc" {
+					return cmp > 0
+				}
+				return cmp < 0
+			})
 
 			// Apply pagination slice
 			total = len(orderedKeys)

@@ -1,0 +1,28 @@
+{
+  "slug": "scorekeeper-score-correction",
+  "icon": "ph:pencil-simple-line-bold",
+  "category": "scorekeeper",
+  "readTime": "4 min",
+  "en": {
+    "title": "Score Correction and Audit Trail Procedures",
+    "excerpt": "How scorekeepers and tournament directors edit incorrectly entered arrow values before and after ends are submitted.",
+    "toc": [
+      {
+        "id": "live-end-editing",
+        "level": 2,
+        "text": "Correcting Arrow Values in Active Ends"
+      },
+      {
+        "id": "submitted-end-correction",
+        "level": 2,
+        "text": "Editing Previously Submitted Ends"
+      },
+      {
+        "id": "audit-logging",
+        "level": 2,
+        "text": "Audit Logging & Referee Confirmation"
+      }
+    ],
+    "content": "<h2 id=\"live-end-editing\">Correcting Arrow Values in Active Ends</h2>\n      <p>While an end is still open on the mobile keypad, tap any incorrect arrow cell (e.g., changing an 8 to a 9) to overwrite the value before tapping <em>Submit End</em>.</p>\n\n      <h2 id=\"submitted-end-correction\">Editing Previously Submitted Ends</h2>\n      <p>If an error is discovered after submitting an end (e.g., during physical paper score sheet reconciliation):</p>\n      <ol>\n        <li>The scorekeeper or judge taps the <strong>End Selector Tab</strong> at the top of the scoring screen.</li>\n        <li>Select the specific End number to unlock its score cells.</li>\n        <li>Adjust the arrow values and tap <strong>Update End Scores</strong>.</li>\n      </ol>\n\n      <h2 id=\"audit-logging\">Audit Logging & Referee Confirmation</h2>\n      <p>All score edits trigger an instant recalculation of total hits, 10s, and Xs. The live public leaderboard updates in real-time, maintaining an uncorrupted audit history for tournament directors.</p>"
+  }
+}

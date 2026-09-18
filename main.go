@@ -574,6 +574,7 @@ func main() {
 			docs.GET("", handler.ListDocs())
 			// Use wildcard so docs can be nested by category, e.g. /docs/archer/archer-profile
 			docs.GET("/*slug", handler.GetDocDetail())
+			docs.DELETE("/*slug", handler.DeleteDoc(db))
 		}
 
 		docsComments := api.Group("/docs-comments")
@@ -681,6 +682,18 @@ func main() {
 				protected.POST("/clubs", handler.RootCreateClub(db))
 				protected.PUT("/clubs/:id", handler.RootUpdateClub(db))
 				protected.DELETE("/clubs/:id", handler.RootDeleteClub(db))
+
+				// Articles management (Blog/Edu content)
+				protected.GET("/articles", handler.RootListArticles(db))
+				protected.GET("/articles/:id", handler.RootGetArticle(db))
+				protected.POST("/articles", handler.RootCreateArticle(db))
+				protected.PUT("/articles/:id", handler.RootUpdateArticle(db))
+				protected.DELETE("/articles/:id", handler.RootDeleteArticle(db))
+				protected.PATCH("/articles/:id/status", handler.RootToggleArticleStatus(db))
+				protected.POST("/articles/upload", handler.RootUploadArticleImage)
+
+				// Business Owner Executive Recap & Analytics
+				protected.GET("/recap", handler.RootGetBusinessRecap(db))
 			}
 		}
 

@@ -1021,7 +1021,7 @@ type MobileArcherEventPaymentItem struct {
 	CheckoutURL      *string    `db:"checkout_url" json:"checkout_url"`
 	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
 	PaidAt           *time.Time `db:"paid_at" json:"paid_at"`
-	ExpiredAt        time.Time  `db:"expired_at" json:"expired_at"`
+	ExpiredAt        *time.Time `db:"expired_at" json:"expired_at"`
 	EventName        string     `db:"event_name" json:"event_name"`
 	EventSlug        string     `db:"event_slug" json:"event_slug"`
 	EventLogoURL     *string    `db:"event_logo_url" json:"event_logo_url"`

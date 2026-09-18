@@ -253,3 +253,40 @@ func GetDocDetail() gin.HandlerFunc {
 		c.JSON(http.StatusOK, res)
 	}
 }
+
+// DeleteDoc deletes a specific documentation article and its related comments
+func DeleteDoc(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		paramSlug := normalizeDocSlugParam(c.Param("slug"))
+		baseSlug := path.Base(paramSlug)
+		if baseSlug == "." || baseSlug == "/" || baseSlug == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid documentation slug"})
+			return
+		}
+
+		if baseSlug == "user-roles" {
+			baseSlug = "account-types"
+		}
+
+		filePath := filepath.Join("data/docs", baseSlug+".json")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Documentation article not found"})
+			return
+		}
+
+		if err := os.Remove(filePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete documentation article", "details": err.Error()})
+			return
+		}
+
+		// Clean up any comments related to this doc slug
+		if db != nil {
+			_, _ = db.Exec("DELETE FROM docs_comments WHERE doc_slug = ? OR doc_slug = ? OR doc_slug LIKE ?", baseSlug, paramSlug, "%/"+baseSlug)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Documentation article deleted successfully",
+			"slug":    baseSlug,
+		})
+	}
+}

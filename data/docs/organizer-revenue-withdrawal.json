@@ -1,0 +1,28 @@
+{
+  "slug": "organizer-revenue-withdrawal",
+  "icon": "ph:coins-bold",
+  "category": "finance",
+  "readTime": "4 min",
+  "en": {
+    "title": "Withdrawing Tournament Revenue to Bank Accounts",
+    "excerpt": "Step-by-step instructions for tournament organizers to withdraw collected participant registration fees from the organizer wallet balance.",
+    "toc": [
+      {
+        "id": "revenue-balance",
+        "level": 2,
+        "text": "Tournament Revenue Balance"
+      },
+      {
+        "id": "disbursement-request",
+        "level": 2,
+        "text": "Submitting a Withdrawal Request"
+      },
+      {
+        "id": "settlement-timeline",
+        "level": 2,
+        "text": "Settlement Timelines & History"
+      }
+    ],
+    "content": "<h2 id=\"revenue-balance\">Tournament Revenue Balance</h2>\n      <p>All registration fees paid via automated digital gateways accumulate in your <strong>Organizer Wallet</strong> in real-time. Net revenue reflects gross entry fees minus standard payment gateway transaction processing fees.</p>\n\n      <h2 id=\"disbursement-request\">Submitting a Withdrawal Request</h2>\n      <p>To request a payout:</p>\n      <ol>\n        <li>Open <strong>Organizer Dashboard > Balance / Wallet</strong>.</li>\n        <li>Click <strong>Request Withdrawal</strong>.</li>\n        <li>Select your registered bank account and input the amount you wish to disburse.</li>\n        <li>Confirm the payout with your account password.</li>\n      </ol>\n\n      <h2 id=\"settlement-timeline\">Settlement Timelines & History</h2>\n      <p>Disbursements are processed within 1-2 business days. You can download official payout receipts and reconciliation statements for your tournament committee audit reports.</p>"
+  }
+}

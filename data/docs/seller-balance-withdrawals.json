@@ -1,0 +1,28 @@
+{
+  "slug": "seller-balance-withdrawals",
+  "icon": "ph:wallet-bold",
+  "category": "marketplace",
+  "readTime": "4 min",
+  "en": {
+    "title": "Managing Seller Balances and Payout Withdrawals",
+    "excerpt": "Understanding available vs pending seller balances, requesting bank payouts, and tracking transaction settlement ledgers.",
+    "toc": [
+      {
+        "id": "balance-types",
+        "level": 2,
+        "text": "Available vs Pending Balance"
+      },
+      {
+        "id": "requesting-withdrawal",
+        "level": 2,
+        "text": "Requesting a Bank Withdrawal"
+      },
+      {
+        "id": "processing-times",
+        "level": 2,
+        "text": "Disbursement Timelines & Fees"
+      }
+    ],
+    "content": "<h2 id=\"balance-types\">Available vs Pending Balance</h2>\n      <p>Under <strong>Seller Dashboard > Finance > Balance</strong>, your funds are divided into:</p>\n      <ul>\n        <li><strong>Pending Balance:</strong> Funds from in-transit orders currently held safely in buyer protection escrow.</li>\n        <li><strong>Available Balance:</strong> Cleared funds from completed orders ready for immediate withdrawal to your bank account.</li>\n      </ul>\n\n      <h2 id=\"requesting-withdrawal\">Requesting a Bank Withdrawal</h2>\n      <p>To withdraw funds, click <strong>Request Withdrawal</strong>, select your verified bank account, and enter the withdrawal amount. The minimum withdrawal threshold is Rp 50,000.</p>\n\n      <h2 id=\"processing-times\">Disbursement Timelines & Fees</h2>\n      <p>Standard bank payouts are processed within 1 business day via automated clearing networks. Detailed disbursement history logs and downloadable transaction statements are available in the finance tab.</p>"
+  }
+}

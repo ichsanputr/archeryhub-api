@@ -95,18 +95,18 @@ func MobileArcherGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-		// Query payments where registration_id is not null (event registrations)
-		// Or where event_id is present (could be platform fees, but for archer it's registration)
+		// Query payments where registration_id is not null (tournament registrations)
+		// Or where tournament_id is present
 		query := `
 			SELECT 
 				pt.uuid, pt.reference, pt.gateway_reference, pt.amount, pt.total_amount,
 				pt.payment_method, pt.status, pt.va_number, pt.checkout_url,
 				pt.created_at, pt.paid_at, pt.expired_at,
-				e.name as event_name,
-				e.slug as event_slug,
-				e.logo_url as event_logo_url
+				t.name as event_name,
+				COALESCE(t.slug, '') as event_slug,
+				t.logo_url as event_logo_url
 			FROM payment_transactions pt
-			JOIN events e ON pt.event_id = e.uuid
+			JOIN tournaments t ON pt.tournament_id = t.uuid
 			WHERE pt.user_id = ? AND pt.registration_id IS NOT NULL
 			ORDER BY pt.created_at DESC
 			LIMIT ? OFFSET ?
@@ -155,11 +155,11 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		slug := c.Param("slug")
 
-		// Resolve event UUID first
-		var eventUUID string
-		err := db.Get(&eventUUID, "SELECT uuid FROM events WHERE uuid = ? OR slug = ?", slug, slug)
+		// Resolve tournament UUID first
+		var tournamentUUID string
+		err := db.Get(&tournamentUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", slug, slug)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Turnamen tidak ditemukan"})
 			return
 		}
 
@@ -168,17 +168,17 @@ func MobileArcherGetEventPaymentsByEvent(db *sqlx.DB) gin.HandlerFunc {
 				pt.uuid, pt.reference, pt.gateway_reference, pt.amount, pt.total_amount,
 				pt.payment_method, pt.status, pt.va_number, pt.checkout_url,
 				pt.created_at, pt.paid_at, pt.expired_at,
-				e.name as event_name,
-				e.slug as event_slug,
-				e.logo_url as event_logo_url
+				t.name as event_name,
+				COALESCE(t.slug, '') as event_slug,
+				t.logo_url as event_logo_url
 			FROM payment_transactions pt
-			JOIN events e ON pt.event_id = e.uuid
-			WHERE pt.user_id = ? AND pt.event_id = ? AND pt.registration_id IS NOT NULL
+			JOIN tournaments t ON pt.tournament_id = t.uuid
+			WHERE pt.user_id = ? AND pt.tournament_id = ? AND pt.registration_id IS NOT NULL
 			ORDER BY pt.created_at DESC
 		`
 
 		var payments []MobileArcherEventPaymentItem
-		err = db.Select(&payments, query, fmt.Sprintf("%v", userID), eventUUID)
+		err = db.Select(&payments, query, fmt.Sprintf("%v", userID), tournamentUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pembayaran", "details": err.Error()})
 			return

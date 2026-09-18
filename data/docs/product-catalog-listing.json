@@ -1,0 +1,33 @@
+{
+  "slug": "product-catalog-listing",
+  "icon": "ph:package-bold",
+  "category": "marketplace",
+  "readTime": "5 min",
+  "en": {
+    "title": "Listing Archery Products and Managing Inventory",
+    "excerpt": "How sellers create product listings, configure specifications like draw weight and arrow spine, manage stock quantities, and upload photo galleries.",
+    "toc": [
+      {
+        "id": "creating-listing",
+        "level": 2,
+        "text": "Creating a New Product Listing"
+      },
+      {
+        "id": "archery-specifications",
+        "level": 2,
+        "text": "Archery-Specific Variations"
+      },
+      {
+        "id": "pricing-inventory",
+        "level": 2,
+        "text": "Pricing & Inventory Tracking"
+      },
+      {
+        "id": "photo-guidelines",
+        "level": 2,
+        "text": "Product Photography Guidelines"
+      }
+    ],
+    "content": "<h2 id=\"creating-listing\">Creating a New Product Listing</h2>\n      <p>To list an item, open <strong>Seller Dashboard > Products > + Add Product</strong> and provide the item title, category (Bows, Arrows, Targets, Accessories, Apparel), and description.</p>\n\n      <h2 id=\"archery-specifications\">Archery-Specific Variations</h2>\n      <p>Archery gear requires precise technical specs. You can create item variations with custom pricing and stock levels:</p>\n      <ul>\n        <li><strong>Bows:</strong> Draw weight (e.g., 28 lbs, 32 lbs, 36 lbs) and dexterity (Right Hand / Left Hand).</li>\n        <li><strong>Arrows:</strong> Spine value (e.g., 400, 500, 600, 700), shaft length, and vane color.</li>\n        <li><strong>Target Faces:</strong> Dimensions (122cm, 80cm 6-ring, 40cm single/triple spot) and pack quantities.</li>\n      </ul>\n\n      <h2 id=\"pricing-inventory\">Pricing & Inventory Tracking</h2>\n      <p>Set base pricing in IDR and track stock units. The system automatically marks items as <em>Out of Stock</em> when inventory reaches zero, preventing accidental backorders.</p>\n\n      <h2 id=\"photo-guidelines\">Product Photography Guidelines</h2>\n      <p>Upload clean, well-lit images (1:1 aspect ratio, minimum 800x800 px) showing the product from multiple angles, including close-ups of risers, limb tips, and packaging.</p>"
+  }
+}
