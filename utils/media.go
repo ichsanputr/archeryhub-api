@@ -127,3 +127,68 @@ func DownloadAndSaveGoogleAvatar(pictureURL string, userID string) (string, erro
 	return filename, nil
 }
 
+// DetectMimeType returns a MIME type string based on file extension
+func DetectMimeType(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	case ".svg":
+		return "image/svg+xml"
+	case ".pdf":
+		return "application/pdf"
+	case ".doc":
+		return "application/msword"
+	case ".docx":
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".xls":
+		return "application/vnd.ms-excel"
+	case ".xlsx":
+		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	case ".mp4":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".webm":
+		return "video/webm"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// DetermineMediaCategory returns the classification category for tournament media files
+func DetermineMediaCategory(caption string, filename string, mimeType string) string {
+	lowerCap := strings.ToLower(caption)
+	lowerName := strings.ToLower(filename)
+	lowerMime := strings.ToLower(mimeType)
+
+	if strings.Contains(lowerCap, "banner") || strings.Contains(lowerName, "banner") {
+		return "banner"
+	}
+	if strings.Contains(lowerCap, "logo") || strings.Contains(lowerName, "logo") {
+		return "logo"
+	}
+	if strings.Contains(lowerCap, "guidebook") || strings.Contains(lowerCap, "juknis") || strings.Contains(lowerName, "guidebook") || strings.Contains(lowerName, "juknis") {
+		return "document"
+	}
+	if strings.Contains(lowerCap, "gallery") || strings.Contains(lowerName, "gallery") {
+		return "gallery"
+	}
+	if strings.HasPrefix(lowerMime, "image/") {
+		return "image"
+	}
+	if strings.HasPrefix(lowerMime, "video/") {
+		return "video"
+	}
+	if strings.Contains(lowerMime, "pdf") || strings.Contains(lowerMime, "document") || strings.Contains(lowerMime, "sheet") || strings.Contains(lowerMime, "excel") || strings.Contains(lowerMime, "word") {
+		return "document"
+	}
+	return "document"
+}
+

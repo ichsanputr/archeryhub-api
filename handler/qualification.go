@@ -22,7 +22,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		if eventID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "eventId is required"})
 			return
 		}
 
@@ -30,7 +30,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
@@ -77,7 +77,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY qs.session_date ASC, qs.start_time ASC, qs.created_at ASC
 		`, eventUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data sesi", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve session data", "details": err.Error()})
 			return
 		}
 
@@ -89,7 +89,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data sesi", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve session data", "details": err.Error()})
 			return
 		}
 
@@ -106,7 +106,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
@@ -162,7 +162,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -173,7 +173,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			newUUID, eventUUID, sessionCode, req.SessionDate, req.Name, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data sesi", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session data", "details": err.Error()})
 			return
 		}
 
@@ -181,18 +181,18 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		for _, catID := range req.CategoryIDs {
 			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, newUUID, catID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan kategori ke sesi", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add category to session", "details": err.Error()})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":      "Sesi berhasil dibuat",
+			"message":      "Session created successfully",
 			"session_uuid": newUUID,
 			"session_code": sessionCode,
 		})
@@ -237,7 +237,7 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -248,31 +248,31 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			WHERE uuid = ?`,
 			req.Name, req.SessionDate, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data sesi", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session data", "details": err.Error()})
 			return
 		}
 
 		// Update categories: Delete old and insert new
 		_, err = tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui kategori", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update categories", "details": err.Error()})
 			return
 		}
 
 		for _, catID := range req.CategoryIDs {
 			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, sessionUUID, catID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan kembali kategori", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to re-add categories", "details": err.Error()})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Sesi berhasil diperbarui"})
+		c.JSON(http.StatusOK, gin.H{"message": "Session updated successfully"})
 	}
 }
 
@@ -281,27 +281,27 @@ func ToggleLockQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
 		if sessionID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
 			return
 		}
 
 		var isLocked bool
 		err := db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ? OR session_code = ?`, sessionID, sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi kualifikasi tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Qualification session not found"})
 			return
 		}
 
 		newLockState := !isLocked
 		_, err = db.Exec(`UPDATE qualification_sessions SET is_locked = ? WHERE uuid = ? OR session_code = ?`, newLockState, sessionID, sessionID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengubah status kunci sesi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session lock status"})
 			return
 		}
 
-		msg := "Sesi kualifikasi berhasil dikunci"
+		msg := "Qualification session locked successfully"
 		if !newLockState {
-			msg = "Sesi kualifikasi berhasil dibuka kembali (unlocked)"
+			msg = "Qualification session unlocked successfully"
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -327,18 +327,18 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 
 		var sessionUUID, participantUUID string
 		if err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
 			return
 		}
 		if err := db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
 			return
 		}
 
 		var isLocked bool
 		_ = db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
 		if isLocked {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Sesi kualifikasi telah dikunci oleh panitia/wasit. Perubahan skor tidak diperbolehkan."})
+			c.JSON(http.StatusForbidden, gin.H{"error": "Qualification session is locked. Score changes are not permitted."})
 			return
 		}
 
@@ -360,13 +360,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			json.Unmarshal(data, &singleReq)
 			ends = []models.SingleEndScore{{EndNumber: singleReq.EndNumber, Arrows: singleReq.Arrows}}
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Format permintaan tidak valid: 'ends' atau 'end_number' wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: 'ends' or 'end_number' is required"})
 			return
 		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -381,7 +381,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			SELECT uuid, end_number FROM qualification_end_scores 
 			WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, participantUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data skor lama"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch existing scores"})
 			return
 		}
 
@@ -435,7 +435,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 				_, err = tx.Exec(`UPDATE qualification_end_scores SET total_score_end = ?, x_count_end = ?, ten_count_end = ? WHERE uuid = ?`,
 					total, xCount, tenCount, currentEndScoreUUID)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui skor babak"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update end score"})
 					return
 				}
 			} else {
@@ -444,7 +444,7 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 				_, err = tx.Exec(`INSERT INTO qualification_end_scores (uuid, session_uuid, participant_uuid, end_number, total_score_end, x_count_end, ten_count_end) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					currentEndScoreUUID, sessionUUID, participantUUID, end.EndNumber, total, xCount, tenCount)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat skor babak baru"})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create end score"})
 					return
 				}
 			}
@@ -466,13 +466,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		if len(allEndScoreUUIDs) > 0 {
 			query, args, err := sqlx.In(`DELETE FROM qualification_arrow_scores WHERE end_score_uuid IN (?)`, allEndScoreUUIDs)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyiapkan pembersihan data anak panah"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare arrow scores deletion"})
 				return
 			}
 			query = tx.Rebind(query)
 			_, err = tx.Exec(query, args...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data anak panah lama"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete existing arrow scores"})
 				return
 			}
 		}
@@ -488,13 +488,13 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 
 			_, err = tx.Exec(bulkQuery, arrowValues...)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan skor anak panah"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save arrow scores"})
 				return
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan skor"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save scores"})
 			return
 		}
 
@@ -506,12 +506,12 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			details, _ := json.Marshal(raw)
 
 			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
+			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ?", sessionUUID, sessionUUID)
 
 			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_qualification_score", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Skor berhasil diperbarui"})
+		c.JSON(http.StatusOK, gin.H{"message": "Scores updated successfully"})
 	}
 }
 
@@ -520,7 +520,7 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assignmentID := c.Param("assignmentId")
 		if assignmentID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "assignmentId is required"})
 			return
 		}
 
@@ -528,12 +528,12 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
 			return
 		}
 		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
 			return
 		}
 
@@ -560,7 +560,7 @@ func GetQualificationAssignmentScores(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY end_number ASC
 		`, sessionUUID, participantUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data skor babak"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores"})
 			return
 		}
 
@@ -612,7 +612,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			categoryID = c.Param("categoryId")
 		}
 		if categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "categoryId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "categoryId is required"})
 			return
 		}
 
@@ -690,7 +690,7 @@ func GetQualificationLeaderboard(db *sqlx.DB) gin.HandlerFunc {
 			categoryID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data klasemen", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch leaderboard data", "details": err.Error()})
 			return
 		}
 
@@ -755,8 +755,13 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 		categoryID := c.Query("category_id")
 
 		if sessionID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
 			return
+		}
+
+		var resolvedSessionUUID string
+		if err := db.Get(&resolvedSessionUUID, `SELECT uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID); err == nil {
+			sessionID = resolvedSessionUUID
 		}
 
 		type ArrowScore struct {
@@ -796,7 +801,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 		var endScores []EndScore
 		err := db.Select(&endScores, query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data skor babak", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch end scores data", "details": err.Error()})
 			return
 		}
 
@@ -820,7 +825,7 @@ func GetSessionScores(db *sqlx.DB) gin.HandlerFunc {
 
 		err = db.Select(&arrows, arrowQuery, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil skor anak panah", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch arrow scores", "details": err.Error()})
 			return
 		}
 
@@ -883,6 +888,11 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		sessionID := c.Param("sessionId")
 		categoryID := c.Query("category_id")
 
+		var resolvedSessionUUID string
+		if err := db.Get(&resolvedSessionUUID, `SELECT uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID); err == nil {
+			sessionID = resolvedSessionUUID
+		}
+
 		fmt.Printf("[DEBUG] GetSessionAssignments - SessionID: %s, CategoryID: %s\n", sessionID, categoryID)
 
 		type Assignment struct {
@@ -892,6 +902,9 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			TargetName      string  `json:"target_name" db:"target_name"`
 			ArcherName      string  `json:"archer_name" db:"archer_name"`
 			ClubName        *string `json:"club_name" db:"club_name"`
+			HasScore        bool    `json:"has_score" db:"has_score"`
+			TotalScore      int     `json:"total_score" db:"total_score"`
+			EndsCompleted   int     `json:"ends_completed" db:"ends_completed"`
 		}
 
 		var assignments []Assignment
@@ -900,14 +913,18 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 				qta.uuid,
 				qta.participant_uuid,
 				qta.target_uuid,
-				et.target_name,
-				a.full_name as archer_name,
-				c.name as club_name
+				COALESCE(et.target_name, '') as target_name,
+				COALESCE(a.full_name, '') as archer_name,
+				c.name as club_name,
+				COALESCE(SUM(qes.total_score_end), 0) as total_score,
+				COUNT(DISTINCT qes.end_number) as ends_completed,
+				CASE WHEN COUNT(qes.uuid) > 0 THEN 1 ELSE 0 END as has_score
 			FROM qualification_target_assignments qta
 			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
 			LEFT JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
 			WHERE qta.session_uuid = ?
 		`
 		args := []interface{}{sessionID}
@@ -917,12 +934,12 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, categoryID)
 		}
 
-		query += " ORDER BY et.target_name ASC"
+		query += " GROUP BY qta.uuid, qta.participant_uuid, qta.target_uuid, et.target_name, a.full_name, c.name ORDER BY (et.target_name + 0) ASC, et.target_name ASC"
 
 		err := db.Select(&assignments, query, args...)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data penempatan", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignment data", "details": err.Error()})
 			return
 		}
 
@@ -1065,12 +1082,17 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Get session details
-		var eventUUID string
-		err := db.Get(&eventUUID, `SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?`, sessionID)
+		var sessionInfo struct {
+			UUID           string `db:"uuid"`
+			TournamentUUID string `db:"tournament_uuid"`
+		}
+		err := db.Get(&sessionInfo, `SELECT uuid, tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Sesi tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
 			return
 		}
+		sessionUUID := sessionInfo.UUID
+		eventUUID := sessionInfo.TournamentUUID
 
 		type Target struct {
 			UUID       string `db:"uuid"`
@@ -1080,12 +1102,12 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&allTargets, `
 			SELECT uuid, target_name
 			FROM tournament_targets
-			WHERE event_uuid = ?
+			WHERE tournament_uuid = ?
 			ORDER BY (target_name + 0) ASC, target_name ASC
 		`, eventUUID)
 
 		if err != nil || len(allTargets) == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Tidak ada target yang tersedia"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "No targets available"})
 			return
 		}
 
@@ -1097,23 +1119,22 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			  AND participant_uuid IN (
 			    SELECT uuid FROM tournament_participants WHERE category_id = ?
 			  )
-		`, sessionID, req.CategoryID)
+		`, sessionUUID, req.CategoryID)
 
-		// If scores already exist and user asked for "all", force "unassigned_only" mode to protect active archers
-		if endsCompleted > 0 && req.AssignMode == "all" {
-			req.AssignMode = "unassigned_only"
+		if endsCompleted > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot auto-assign targets because qualification scoring has already started for this session"})
+			return
 		}
 
-		// 1. If mode is "all" and no scores exist, clear existing assignments for this category in this session
-		if req.AssignMode == "all" && endsCompleted == 0 {
+		if req.AssignMode == "all" {
 			if _, err = db.Exec(`
 				DELETE FROM qualification_target_assignments
 				WHERE session_uuid = ?
 				  AND participant_uuid IN (
 				    SELECT uuid FROM tournament_participants WHERE category_id = ?
 				  )
-			`, sessionID, req.CategoryID); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data penempatan sebelumnya", "details": err.Error()})
+			`, sessionUUID, req.CategoryID); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete previous target assignments", "details": err.Error()})
 				return
 			}
 		}
@@ -1246,7 +1267,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil || len(participants) == 0 {
-			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada peserta untuk ditempatkan", "count": 0})
+			c.JSON(http.StatusOK, gin.H{"message": "No participants to assign", "count": 0})
 			return
 		}
 
@@ -1356,7 +1377,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			_, err := tx.Exec(`
 				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id)
 				VALUES (?, ?, ?, ?, ?)`,
-				assignmentUUID, sessionID, archer.ParticipationUUID, target.UUID, targetBoardUUID)
+				assignmentUUID, sessionUUID, archer.ParticipationUUID, target.UUID, targetBoardUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
 				return
@@ -1369,7 +1390,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Peserta berhasil ditempatkan", "count": assignedCount})
+		c.JSON(http.StatusOK, gin.H{"message": "Participants assigned successfully", "count": assignedCount})
 	}
 }
 
@@ -1382,12 +1403,24 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 		var sessionUUID, participantUUID string
 		err := db.Get(&sessionUUID, `SELECT session_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
 			return
 		}
 		err = db.Get(&participantUUID, `SELECT participant_uuid FROM qualification_target_assignments WHERE uuid = ?`, assignmentID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
+			return
+		}
+
+		// Check if participant has scores recorded in this session
+		var scoredCount int
+		_ = db.Get(&scoredCount, `
+			SELECT COUNT(*) FROM qualification_end_scores 
+			WHERE session_uuid = ? AND participant_uuid = ?
+		`, sessionUUID, participantUUID)
+
+		if scoredCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot remove target assignment because scores have already been recorded for this participant in this session"})
 			return
 		}
 
@@ -1400,11 +1433,11 @@ func DeleteQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan target tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target assignment not found"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Penempatan berhasil dihapus"})
+		c.JSON(http.StatusOK, gin.H{"message": "Assignment removed successfully"})
 	}
 }
 
@@ -1421,7 +1454,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
@@ -1444,9 +1477,9 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var sessionUUID string
 		err = db.Get(&sessionUUID, `
 			SELECT uuid FROM qualification_sessions 
-			WHERE uuid = ? AND event_uuid = ?
+			WHERE (uuid = ? OR session_code = ?) AND tournament_uuid = ?
 			LIMIT 1
-		`, sessionID, eventUUID)
+		`, sessionID, sessionID, eventUUID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Qualification session not found for this event"})
 			return
@@ -1455,7 +1488,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		// Start transaction
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -1476,6 +1509,38 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 				errors = append(errors, map[string]interface{}{
 					"participant_id": assignment.ParticipantID,
 					"error":          "Participant not found in this category",
+				})
+				continue
+			}
+
+			// Check if participant already has scores recorded in this session and is moving
+			var currentTargetUUID string
+			_ = tx.Get(&currentTargetUUID, `SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, assignment.ParticipantID)
+
+			var participantScoreCount int
+			_ = tx.Get(&participantScoreCount, `SELECT COUNT(*) FROM qualification_end_scores WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, assignment.ParticipantID)
+
+			if participantScoreCount > 0 && currentTargetUUID != "" && currentTargetUUID != assignment.TargetID {
+				errors = append(errors, map[string]interface{}{
+					"participant_id": assignment.ParticipantID,
+					"error":          "Cannot move target assignment because scores have already been recorded for this participant in this session",
+				})
+				continue
+			}
+
+			// Check if target is occupied by someone else who has scores
+			var targetScoreCount int
+			_ = tx.Get(&targetScoreCount, `
+				SELECT COUNT(*) FROM qualification_end_scores qes
+				JOIN qualification_target_assignments qta ON qes.participant_uuid = qta.participant_uuid AND qes.session_uuid = qta.session_uuid
+				WHERE qta.session_uuid = ? AND qta.target_uuid = ? AND qta.participant_uuid != ?
+			`, sessionUUID, assignment.TargetID, assignment.ParticipantID)
+
+			if targetScoreCount > 0 {
+				errors = append(errors, map[string]interface{}{
+					"participant_id": assignment.ParticipantID,
+					"target_id":      assignment.TargetID,
+					"error":          "Destination target is occupied by a participant who already has recorded scores",
 				})
 				continue
 			}
@@ -1536,7 +1601,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		// Commit transaction
 		err = tx.Commit()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
@@ -1561,7 +1626,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":       "Penempatan berhasil dibuat",
+			"message":       "Assignments created successfully",
 			"success_count": successCount,
 			"errors":        errors,
 		})
@@ -1572,6 +1637,18 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
+
+		var sessionInfo struct {
+			UUID           string `db:"uuid"`
+			TournamentUUID string `db:"tournament_uuid"`
+		}
+		err := db.Get(&sessionInfo, `SELECT uuid, tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			return
+		}
+		sessionUUID := sessionInfo.UUID
+		eventUUID := sessionInfo.TournamentUUID
 
 		var req struct {
 			CategoryID string `json:"category_id" binding:"required"`
@@ -1591,33 +1668,25 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			FROM qualification_end_scores qes
 			JOIN tournament_participants ep ON qes.participant_uuid = ep.uuid
 			WHERE qes.session_uuid = ? AND ep.category_id = ?
-		`, sessionID, categoryID)
+		`, sessionUUID, categoryID)
+
+		if scoredCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot reset target assignments because qualification scores have already been recorded for this session"})
+			return
+		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
 
-		// ONLY delete assignments for participants who DO NOT have scores yet
-		var res sql.Result
-		if scoredCount > 0 {
-			res, err = tx.Exec(`
-				DELETE qta FROM qualification_target_assignments qta
-				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
-				WHERE qta.session_uuid = ? AND ep.category_id = ?
-				  AND ep.uuid NOT IN (
-				    SELECT DISTINCT participant_uuid FROM qualification_end_scores WHERE session_uuid = ?
-				  )
-			`, sessionID, categoryID, sessionID)
-		} else {
-			res, err = tx.Exec(`
-				DELETE qta FROM qualification_target_assignments qta
-				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
-				WHERE qta.session_uuid = ? AND ep.category_id = ?`,
-				sessionID, categoryID)
-		}
+		res, err := tx.Exec(`
+			DELETE qta FROM qualification_target_assignments qta
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+			WHERE qta.session_uuid = ? AND ep.category_id = ?`,
+			sessionUUID, categoryID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset assignments", "details": err.Error()})
@@ -1627,7 +1696,7 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 		rowsAffected, _ := res.RowsAffected()
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
@@ -1637,14 +1706,11 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
 
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionUUID, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":        "Penempatan berhasil direset",
+			"message":        "Assignments reset successfully",
 			"reset_count":    rowsAffected,
 			"retained_count": scoredCount,
 		})
@@ -1655,6 +1721,18 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
+
+		var sessionInfo struct {
+			UUID           string `db:"uuid"`
+			TournamentUUID string `db:"tournament_uuid"`
+		}
+		err := db.Get(&sessionInfo, `SELECT uuid, tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			return
+		}
+		sessionUUID := sessionInfo.UUID
+		eventUUID := sessionInfo.TournamentUUID
 
 		var req struct {
 			ParticipantA string `json:"participant_a" binding:"required"`
@@ -1668,29 +1746,39 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
 
 		// Get assignments for both to verify they exist and get their current targets
 		var targetA, targetB string
-		err = tx.Get(&targetA, "SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionID, req.ParticipantA)
+		err = tx.Get(&targetA, "SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionUUID, req.ParticipantA)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan untuk peserta A tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment for participant A not found"})
 			return
 		}
 
-		err = tx.Get(&targetB, "SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionID, req.ParticipantB)
+		err = tx.Get(&targetB, "SELECT target_uuid FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionUUID, req.ParticipantB)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Penempatan untuk peserta B tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment for participant B not found"})
+			return
+		}
+
+		// Check if either participant has scores recorded in this session
+		var scoredCountA, scoredCountB int
+		_ = tx.Get(&scoredCountA, `SELECT COUNT(*) FROM qualification_end_scores WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, req.ParticipantA)
+		_ = tx.Get(&scoredCountB, `SELECT COUNT(*) FROM qualification_end_scores WHERE session_uuid = ? AND participant_uuid = ?`, sessionUUID, req.ParticipantB)
+
+		if scoredCountA > 0 || scoredCountB > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot swap target assignments because one or more participants already have scores recorded in this session"})
 			return
 		}
 
 		// 1. Delete Participant A's assignment to free up Target A in the unique index
-		_, err = tx.Exec("DELETE FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionID, req.ParticipantA)
+		_, err = tx.Exec("DELETE FROM qualification_target_assignments WHERE session_uuid = ? AND participant_uuid = ?", sessionUUID, req.ParticipantA)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal melepas peserta A", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unassign participant A", "details": err.Error()})
 			return
 		}
 
@@ -1703,12 +1791,12 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		var targetBoardUUIDB sql.NullString
 		tx.Get(&targetBoardUUIDB, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
-			sessionID, categoryIDB, boardNumberA)
+			sessionUUID, categoryIDB, boardNumberA)
 
 		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ?, target_board_id = ? WHERE session_uuid = ? AND participant_uuid = ?",
-			targetA, targetBoardUUIDB, sessionID, req.ParticipantB)
+			targetA, targetBoardUUIDB, sessionUUID, req.ParticipantB)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindahkan peserta B", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move participant B", "details": err.Error()})
 			return
 		}
 
@@ -1721,20 +1809,20 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 
 		var targetBoardUUIDA sql.NullString
 		tx.Get(&targetBoardUUIDA, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
-			sessionID, categoryID, boardNumberB)
+			sessionUUID, categoryID, boardNumberB)
 
 		assignmentUUID := uuid.New().String()
 		_, err = tx.Exec(`
 			INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-			assignmentUUID, sessionID, req.ParticipantA, targetB, targetBoardUUIDA)
+			assignmentUUID, sessionUUID, req.ParticipantA, targetB, targetBoardUUIDA)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasang kembali peserta A", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reassign participant A", "details": err.Error()})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
@@ -1744,13 +1832,10 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			userID, _ := c.Get("user_id")
 			orgID, _ := c.Get("org_id")
 
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "swap_assignments", "Swapped targets in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
+			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "swap_assignments", "Swapped targets in session: "+sessionUUID, c.ClientIP(), c.Request.UserAgent())
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Target berhasil ditukar"})
+		c.JSON(http.StatusOK, gin.H{"message": "Targets swapped successfully"})
 	}
 }
 
@@ -1760,28 +1845,36 @@ func GetBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		sessionID := c.Param("sessionId")
 		categoryID := c.Query("category_id")
 		if sessionID == "" || categoryID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId dan category_id wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId and category_id are required"})
 			return
 		}
 
+		var sessionInfo struct {
+			UUID           string `db:"uuid"`
+			TournamentUUID string `db:"tournament_uuid"`
+		}
+		err := db.Get(&sessionInfo, `SELECT uuid, tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			return
+		}
+		sessionUUID := sessionInfo.UUID
+		eventUUID := sessionInfo.TournamentUUID
+
 		// Identify all unique board numbers (e.g. 1, 2, 13) currently in use for this category
 		var boardNumbers []int
-		err := db.Select(&boardNumbers, `
+		err = db.Select(&boardNumbers, `
 			SELECT DISTINCT et.board_number 
 			FROM qualification_target_assignments qta 
 			JOIN tournament_targets et ON qta.target_uuid = et.uuid 
 			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
 			WHERE qta.session_uuid = ? AND ep.category_id = ? AND et.board_number > 0
 			ORDER BY et.board_number ASC
-		`, sessionID, categoryID)
+		`, sessionUUID, categoryID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengidentifikasi papan target aktif", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to identify active target boards", "details": err.Error()})
 			return
 		}
-
-		// Get or generate the "event part" suffix (3 letters) for this session
-		var eventUUID string
-		db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionID)
 
 		var suffix string
 		db.Get(&suffix, `
@@ -1829,7 +1922,7 @@ func GetBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		var codes []models.TargetBoardQualification
 		err = db.Select(&codes, "SELECT `uuid`, `session_uuid`, `category_uuid`, `board_number`, `code`, `created_at` FROM `target_board_qualification` WHERE `session_uuid` = ? AND `category_uuid` = ?", sessionID, categoryID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil kode papan", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve board codes", "details": err.Error()})
 			return
 		}
 

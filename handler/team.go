@@ -755,7 +755,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start database transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -809,12 +809,13 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 			if err != nil || len(catIDs) < 2 {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Kategori pasangan putra/putri (Individual) tidak ditemukan atau tidak lengkap",
+					"error": "Matching individual male/female categories not found or incomplete",
 					"details": gin.H{
+						"reason_code":          "missing_individual_categories",
 						"male_participants":   maleParticipants,
 						"female_participants": femaleParticipants,
 						"found_categories":    len(catIDs),
-						"reason":              "Mixed team membutuhkan kategori Individual Putra dan Individual Putri dengan divisi dan kelompok umur yang sama.",
+						"reason":              "Mixed team requires both Individual Men and Individual Women categories under the same division and age class.",
 					},
 				})
 				return
@@ -831,7 +832,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if maleCatID == "" || femaleCatID == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal mengidentifikasi kategori putra/putri"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to identify men/women categories"})
 				return
 			}
 
@@ -862,7 +863,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 						SELECT ep_team.archer_id, ep_team.uuid as participant_id, a.club_id, ep_indiv.category_id, 
                                COALESCE(SUM(s.total_score_end), 0) as individual_score, 
                                COALESCE(SUM(s.x_count_end), 0) as individual_x,
-							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep_indiv.category_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.x_count_end) DESC) as rank_in_club
+							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep_indiv.category_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as rank_in_club
 						FROM tournament_participants ep_team
 						JOIN archers a ON ep_team.archer_id = a.uuid
 						JOIN tournament_participants ep_indiv ON a.uuid = ep_indiv.archer_id
@@ -877,7 +878,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, req.CategoryID, maleCatID, femaleCatID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat mixed team", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate mixed team rankings", "details": err.Error()})
 				return
 			}
 
@@ -897,7 +898,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				teamUUID := uuid.New().String()
 				if _, err = tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					teamUUID, eventUUID, req.CategoryID, "Mixed "+r.ClubName+suffix, i+1, r.TotalScore, r.TotalX); err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan data mixed team", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert mixed team data", "details": err.Error()})
 					return
 				}
 
@@ -905,7 +906,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				for order, pID := range pIDs {
 					if _, err = tx.Exec(`INSERT INTO team_members (uuid, team_id, participant_id, member_order) VALUES (?, ?, ?, ?)`,
 						uuid.New().String(), teamUUID, pID, order+1); err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan anggota mixed team", "details": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert mixed team member", "details": err.Error()})
 						return
 					}
 				}
@@ -975,7 +976,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 			err = tx.Select(&rankings, query, req.CategoryID, participantCatID, teamSize, teamSize)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat tim", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate team rankings", "details": err.Error()})
 				return
 			}
 
@@ -995,7 +996,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				teamUUID := uuid.New().String()
 				if _, err = tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 					teamUUID, eventUUID, req.CategoryID, r.ClubName+suffix, i+1, r.TotalScore, r.TotalX); err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan data tim", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert team data", "details": err.Error()})
 					return
 				}
 
@@ -1003,7 +1004,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				for order, pID := range pIDs {
 					if _, err = tx.Exec(`INSERT INTO team_members (uuid, team_id, participant_id, member_order) VALUES (?, ?, ?, ?)`,
 						uuid.New().String(), teamUUID, pID, order+1); err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memasukkan anggota tim", "details": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert team member", "details": err.Error()})
 						return
 					}
 				}
@@ -1012,22 +1013,28 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if syncCount == 0 {
+			teamSize := catInfo.TeamSize
+			if teamSize <= 0 {
+				teamSize = 3
+			}
 			if isMixed {
-				syncDetails["reason"] = "Belum ada kombinasi klub dengan 1 putra + 1 putri yang keduanya punya skor kualifikasi"
+				syncDetails["reason_code"] = "no_mixed_pairs"
+				syncDetails["reason"] = "No club combinations found with 1 male and 1 female archer who both have qualification scores"
 			} else {
-				syncDetails["reason"] = fmt.Sprintf("Belum ada grup klub dengan minimal %d peserta berskor di kategori ini", catInfo.TeamSize)
+				syncDetails["reason_code"] = "no_eligible_groups"
+				syncDetails["reason"] = fmt.Sprintf("No club groups found with at least %d scored archers in this category", teamSize)
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan hasil sinkronisasi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 
 		utils.LogActivity(db, userID.(string), eventUUID, "teams_synced_directly", "event", eventUUID,
 			fmt.Sprintf("Directly synced %d teams for category %s", syncCount, req.CategoryID), c.ClientIP(), c.Request.UserAgent())
 
-		c.JSON(http.StatusOK, gin.H{"message": "Sinkronisasi selesai", "count": syncCount, "details": syncDetails})
+		c.JSON(http.StatusOK, gin.H{"message": "Teams synchronized successfully", "count": syncCount, "details": syncDetails})
 	}
 }
 

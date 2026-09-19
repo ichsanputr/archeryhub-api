@@ -98,7 +98,7 @@ func GetBrackets(db *sqlx.DB) gin.HandlerFunc {
 		var brackets []BracketInfo
 		err = db.Select(&brackets, query, args...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data bracket", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve brackets", "details": err.Error()})
 			return
 		}
 
@@ -467,7 +467,7 @@ func GetBracketScores(db *sqlx.DB) gin.HandlerFunc {
 		`, bracket.UUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data babak", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve end data", "details": err.Error()})
 			return
 		}
 
@@ -492,7 +492,7 @@ func GetBracketScores(db *sqlx.DB) gin.HandlerFunc {
 		`, bracket.UUID)
 
 		if err != nil {
-			logrus.WithError(err).Error("Gagal mengambil data skor anak panah bracket")
+			logrus.WithError(err).Error("Failed to fetch bracket arrow scores")
 		}
 
 		// Map arrows to ends
@@ -535,7 +535,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		var eventUUID string
 		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 			return
 		}
 
@@ -543,7 +543,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID   string  `json:"category_id" binding:"required"`
 			BracketType  string  `json:"bracket_type" binding:"required"`         // individual, team3, mixed2
 			Format       string  `json:"format" binding:"required"`               // recurve_set, compound_total
-			BracketSize  int     `json:"bracket_size" binding:"required,min=4"`   // chosen by admin; must be power of 2 and â‰¤ max
+			BracketSize  int     `json:"bracket_size" binding:"required,min=4"`   // chosen by admin; must be power of 2 and ≤ max
 			EndsPerMatch int     `json:"ends_per_match" binding:"required,min=1"` // default 5
 			ArrowsPerEnd int     `json:"arrows_per_end" binding:"required,min=1"` // default 3
 			StartTime    *string `json:"start_time"`                              // ISO datetime, optional
@@ -573,7 +573,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			db.Get(&participantCount, `SELECT COUNT(*) FROM teams WHERE event_id = ? AND tournament_id = ?`, req.CategoryID, eventUUID)
 			if participantCount == 0 {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error":             "Belum ada tim untuk kategori ini. Jalankan Sinkronisasi Tim terlebih dahulu.",
+					"error":             "No teams found for this category. Please run Team Synchronization first.",
 					"participant_count": 0,
 				})
 				return
@@ -582,22 +582,22 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		if participantCount < 2 {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":             "Peserta tidak mencukupi untuk membuat bracket eliminasi (minimal 2 peserta).",
+				"error":             "Not enough participants to create an elimination bracket (minimum 2 participants).",
 				"participant_count": participantCount,
 			})
 			return
 		}
 
-		// Validate chosen bracket size: must be power of 2 and â‰¤ calcBracketSize(participantCount)
+		// Validate chosen bracket size: must be power of 2 and ≤ calcBracketSize(participantCount)
 		maxBracketSize := calcBracketSize(participantCount)
 		// Check power of 2
 		if req.BracketSize < 4 || (req.BracketSize&(req.BracketSize-1)) != 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Ukuran bracket harus berupa pangkat dua (4, 8, 16, 32, 64, ..."})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket size must be a power of 2 (4, 8, 16, 32, 64, ...)"})
 			return
 		}
 		if req.BracketSize > maxBracketSize {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":             fmt.Sprintf("Ukuran bracket terlalu besar. Maksimal %d berdasarkan %d peserta.", maxBracketSize, participantCount),
+				"error":             fmt.Sprintf("Bracket size is too large. Maximum is %d based on %d participants.", maxBracketSize, participantCount),
 				"max_bracket_size":  maxBracketSize,
 				"participant_count": participantCount,
 			})
@@ -619,7 +619,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -630,7 +630,7 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		`, bracketUUID, bracketID, eventUUID, req.CategoryID, req.BracketType, req.Format, bracketSize, req.EndsPerMatch, req.ArrowsPerEnd, req.StartTime, req.EndTime)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data bracket", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bracket data", "details": err.Error()})
 			return
 		}
 
@@ -743,12 +743,12 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 		tx.Exec(`UPDATE elimination_brackets SET generated_at = ? WHERE uuid = ?`, now, bracketUUID)
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pembuatan bracket"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save bracket creation"})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"message": "Bracket berhasil dibuat dan di-generate",
+			"message": "Bracket created and generated successfully",
 			"bracket": gin.H{
 				"id":                bracketID,
 				"uuid":              bracketUUID,
@@ -784,11 +784,11 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 		var exists int
 		err := db.Get(&exists, `SELECT 1 FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
-		// bracket_size is intentionally NOT updated â€” it is fixed at creation based on participant count
+		// bracket_size is intentionally NOT updated — it is fixed at creation based on participant count
 		_, err = db.Exec(`
 			UPDATE elimination_brackets 
 			SET category_uuid = ?, bracket_type = ?, format = ?, ends_per_match = ?, arrows_per_end = ?, start_time = ?, end_time = ?
@@ -800,7 +800,7 @@ func UpdateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Bracket berhasil diperbarui"})
+		c.JSON(http.StatusOK, gin.H{"message": "Bracket updated successfully"})
 	}
 }
 
@@ -809,27 +809,27 @@ func ToggleLockEliminationBracket(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
 		if bracketID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "bracketId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bracketId is required"})
 			return
 		}
 
 		var isLocked bool
 		err := db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM elimination_brackets WHERE uuid = ? OR bracket_id = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Braket eliminasi tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Elimination bracket not found"})
 			return
 		}
 
 		newLockState := !isLocked
 		_, err = db.Exec(`UPDATE elimination_brackets SET is_locked = ? WHERE uuid = ? OR bracket_id = ?`, newLockState, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengubah status kunci braket"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bracket lock status"})
 			return
 		}
 
-		msg := "Braket eliminasi berhasil dikunci"
+		msg := "Elimination bracket locked successfully"
 		if !newLockState {
-			msg = "Braket eliminasi berhasil dibuka kembali (unlocked)"
+			msg = "Elimination bracket unlocked successfully"
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -861,14 +861,14 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 			WHERE bracket_id = ? OR uuid = ?
 		`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
 		bracketUUID := bracket.UUID
 
 		if bracket.Status != "draft" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket sudah dibuat atau sedang berjalan"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket has already been generated or is running"})
 			return
 		}
 
@@ -880,7 +880,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 		`, bracketUUID)
 		if activeMatchesCount > 0 {
 			c.JSON(http.StatusConflict, gin.H{
-				"error": "Bracket tidak dapat di-regenerate karena pertandingan eliminasi telah berjalan atau selesai. Silakan reset pertandingan terlebih dahulu.",
+				"error": "Bracket cannot be regenerated because elimination matches have already started or finished. Please reset matches first.",
 				"code":  "matches_already_started",
 			})
 			return
@@ -888,7 +888,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -936,12 +936,12 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil hasil kualifikasi", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch qualification results", "details": err.Error()})
 			return
 		}
 
 		if len(entries) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada peserta yang lolos kualifikasi untuk kategori ini"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No qualified participants found for this category"})
 			return
 		}
 
@@ -1008,7 +1008,7 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 				`, matchUUID, matchID, bracketUUID, roundNo, globalMatchCounter, entryAUUID, entryBUUID, isBye)
 
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data pertandingan", "details": err.Error()})
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create match data", "details": err.Error()})
 					return
 				}
 				globalMatchCounter++
@@ -1068,17 +1068,17 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 		now := time.Now().Format("2006-01-02 15:04:05")
 		_, err = tx.Exec(`UPDATE elimination_brackets SET status = 'generated', generated_at = ? WHERE uuid = ?`, now, bracketUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status bracket"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bracket status"})
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save data"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":       "Bracket berhasil dibuat",
+			"message":       "Bracket created successfully",
 			"entries_count": len(entries),
 			"rounds":        numRounds,
 		})
@@ -1301,13 +1301,13 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Get(&bracket, `SELECT uuid, tournament_uuid as event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -1338,12 +1338,12 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save data"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": fmt.Sprintf("Berhasil memperbarui %d target", updated),
+			"message": fmt.Sprintf("Successfully updated %d targets", updated),
 			"updated": updated,
 		})
 	}
@@ -1357,7 +1357,7 @@ func GetBracketTeamMembers(db *sqlx.DB) gin.HandlerFunc {
 
 		var bracketUUID string
 		if err := db.Get(&bracketUUID, `SELECT uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
@@ -1407,13 +1407,13 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		bracketID := c.Param("bracketId")
 		roundNoStr := c.Query("round")
 		if roundNoStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parameter round wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "round parameter is required"})
 			return
 		}
 
 		roundNo, err := strconv.Atoi(roundNoStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "nomor babak tidak valid"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid round number"})
 			return
 		}
 
@@ -1424,7 +1424,7 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err = db.Get(&bracket, `SELECT uuid, tournament_uuid as event_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
@@ -1442,13 +1442,13 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			bracket.UUID, roundNo)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pertandingan", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch match data", "details": err.Error()})
 			return
 		}
 
 		if len(matches) == 0 {
 			c.JSON(http.StatusOK, gin.H{
-				"message": fmt.Sprintf("Tidak ada pertandingan aktif (non-bye) yang ditemukan pada babak %d", roundNo),
+				"message": fmt.Sprintf("No active (non-bye) matches found in round %d", roundNo),
 				"updated": 0,
 			})
 			return
@@ -1467,19 +1467,19 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			bracket.EventUUID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data target", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch targets data", "details": err.Error()})
 			return
 		}
 
 		if len(targets) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada target (bantalan) yang tersedia untuk event ini. Silakan buat target terlebih dahulu di menu Targets."})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No target butts available for this event. Please create targets in the Targets menu first."})
 			return
 		}
 
 		// Update matches with targets
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -1501,14 +1501,14 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err = tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save data"})
 			return
 		}
 
 		logrus.Infof("AutoAssignMatchTargets: bracket=%s, round=%d, matches_found=%d, targets_found=%d, updated=%d", bracket.UUID, roundNo, len(matches), len(targets), updated)
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": fmt.Sprintf("Berhasil melakukan auto-assign pada %d match dari %d match yang ditemukan di babak %d", updated, len(matches), roundNo),
+			"message": fmt.Sprintf("Successfully auto-assigned %d matches out of %d matches in round %d", updated, len(matches), roundNo),
 			"updated": updated,
 			"total":   len(matches),
 			"targets": len(targets),
@@ -2421,20 +2421,20 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 				}
 			} else {
 				// Tie - for now, we'll require higher score to win
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Pertandingan Seri. Silahkan lakukan Shoot-off atau pilih pemenang secara manual."})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Match is tied. Please proceed to Shoot-off or select a winner manually."})
 				return
 			}
 		}
 
 		if winnerID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak dapat menentukan pemenang"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot determine match winner"})
 			return
 		}
 
 		// Start transaction
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -2443,7 +2443,7 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = ?, status = 'finished', total_score_a = ?, total_score_b = ?, total_points_a = ?, total_points_b = ? WHERE uuid = ?`,
 			winnerID, totalA, totalB, totalA, totalB, matchID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui hasil pertandingan"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update match result"})
 			return
 		}
 
@@ -2540,7 +2540,7 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save data"})
 			return
 		}
 
@@ -2567,7 +2567,7 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message":         "Pertandingan berakhir",
+			"message":         "Match finished",
 			"winner_entry_id": winnerID,
 			"winner_name":     winnerName,
 			"score_a":         totalA,
@@ -2588,17 +2588,17 @@ func StartBracket(db *sqlx.DB) gin.HandlerFunc {
 			WHERE (bracket_id = ? OR uuid = ?) AND status = 'generated'
 		`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai bracket"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start bracket"})
 			return
 		}
 
 		rows, _ := result.RowsAffected()
 		if rows == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket tidak ditemukan atau belum di-generate"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bracket not found or not yet generated"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Bracket dimulai"})
+		c.JSON(http.StatusOK, gin.H{"message": "Bracket started"})
 	}
 }
 
@@ -2644,7 +2644,7 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 
 		tx, err := db.Beginx()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 			return
 		}
 		defer tx.Rollback()
@@ -2652,7 +2652,7 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 		// 1. Reset current match
 		_, err = tx.Exec(`UPDATE elimination_matches SET winner_entry_uuid = NULL, status = 'in_progress' WHERE uuid = ?`, matchID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status pertandingan"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset match status"})
 			return
 		}
 
@@ -2720,7 +2720,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bracketID := c.Param("bracketId")
 		if bracketID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "bracketId wajib diisi"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bracketId is required"})
 			return
 		}
 
@@ -2732,7 +2732,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		}
 		err := db.Get(&bracket, `SELECT uuid, tournament_uuid as event_uuid, category_uuid FROM elimination_brackets WHERE bracket_id = ? OR uuid = ?`, bracketID, bracketID)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket tidak ditemukan"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bracket not found"})
 			return
 		}
 
@@ -2746,7 +2746,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY et.board_number ASC
 		`, bracket.UUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengidentifikasi papan target aktif", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to identify active target boards", "details": err.Error()})
 			return
 		}
 
@@ -2797,7 +2797,7 @@ func GetEliminationBoardCodes(db *sqlx.DB) gin.HandlerFunc {
 		var codes []models.TargetBoardElimination
 		err = db.Select(&codes, "SELECT `uuid`, `bracket_uuid`, `category_uuid`, `board_number`, `code`, `created_at` FROM `target_board_elimination` WHERE `bracket_uuid` = ?", bracket.UUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil kode papan", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve board codes", "details": err.Error()})
 			return
 		}
 
@@ -3026,7 +3026,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			ORDER BY COALESCE(et.board_number, 9999) ASC, em.round_no ASC, em.match_no ASC`, bracket.UUID)
 		if err != nil && err != sql.ErrNoRows {
 			logrus.WithError(err).WithField("bracket_uuid", bracket.UUID).Error("Failed to fetch matches for scoresheet")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data matches"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve match data"})
 			return
 		}
 

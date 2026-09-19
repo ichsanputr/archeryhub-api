@@ -211,7 +211,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Dispatch email
-		go utils.SendOTPEmail(req.Email, name, otp, 10)
+		go utils.SendRegisterOTPEmail(req.Email, name, otp, 10)
 
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "pending_verification",
@@ -416,7 +416,7 @@ func ResendRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		go utils.SendOTPEmail(req.Email, user.Name, otp, 10)
+		go utils.SendRegisterOTPEmail(req.Email, user.Name, otp, 10)
 
 		c.JSON(http.StatusOK, gin.H{"message": "A new verification code has been sent to your email"})
 	}

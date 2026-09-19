@@ -62,6 +62,9 @@ func SendEmail(to, subject, body string) error {
 	smtpUser := os.Getenv("SMTP_USER")
 	smtpPass := os.Getenv("SMTP_PASS")
 	smtpFrom := os.Getenv("SMTP_FROM")
+	if smtpFrom == "" {
+		smtpFrom = "Archeris <admin@archeris.net>"
+	}
 
 	if smtpHost == "" || smtpPort == "" {
 		// Mock for development if not set
@@ -72,13 +75,20 @@ func SendEmail(to, subject, body string) error {
 		return fmt.Errorf("SMTP configuration not found")
 	}
 
-	// Build the email message
+	// Build RFC-5322 compliant email headers for high deliverability & spam filter compliance
+	msgID := fmt.Sprintf("<%d.%s@archeris.net>", time.Now().UnixNano(), GenerateOTP())
 	header := make(map[string]string)
 	header["From"] = smtpFrom
 	header["To"] = to
+	header["Reply-To"] = "Archeris Support <admin@archeris.net>"
 	header["Subject"] = subject
+	header["Date"] = time.Now().Format(time.RFC1123Z)
+	header["Message-ID"] = msgID
 	header["MIME-Version"] = "1.0"
-	header["Content-Type"] = "text/html; charset=\"utf-8\""
+	header["Content-Type"] = "text/html; charset=\"UTF-8\""
+	header["Content-Transfer-Encoding"] = "8bit"
+	header["X-Mailer"] = "Archeris Mailer"
+	header["Auto-Submitted"] = "auto-generated"
 
 	var message strings.Builder
 	for k, v := range header {

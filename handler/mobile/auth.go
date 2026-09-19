@@ -732,8 +732,8 @@ func MobileForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Kirim email OTP dengan design system Archeris (navy + neon yellow)
-		if err := utils.SendOTPEmail(req.Email, userData.FullName, otp, 15); err != nil {
+		// Kirim email OTP reset password dengan design system Archeris
+		if err := utils.SendPasswordResetOTPEmail(req.Email, userData.FullName, otp, 15); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim email OTP", "code": "email_send_failed"})
 			return
 		}

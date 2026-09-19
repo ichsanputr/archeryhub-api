@@ -78,8 +78,8 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Send OTP email with Archeris design system (navy + neon yellow)
-		go utils.SendOTPEmail(req.Email, found.FullName, otp, 5)
+		// Send OTP email with Archeris design system
+		go utils.SendPasswordResetOTPEmail(req.Email, found.FullName, otp, 5)
 
 		c.JSON(http.StatusOK, gin.H{"message": "If this email is registered, a verification code has been sent"})
 	}

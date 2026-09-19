@@ -345,23 +345,24 @@ func GetEventTargets(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		page := c.DefaultQuery("page", "1")
 		limit := c.DefaultQuery("limit", "10")
-		orderBy := c.DefaultQuery("order_by", "created_at")
-		orderDir := c.DefaultQuery("order_dir", "DESC")
+		orderBy := c.DefaultQuery("order_by", "board_number")
+		orderDir := c.DefaultQuery("order_dir", "ASC")
 
 		// Validate order_by to prevent SQL injection
 		allowedSortFields := map[string]bool{
-			"created_at":  true,
-			"target_name": true,
-			"updated_at":  true,
+			"board_number": true,
+			"created_at":   true,
+			"target_name":  true,
+			"updated_at":   true,
 		}
 		if !allowedSortFields[orderBy] {
-			orderBy = "created_at"
+			orderBy = "board_number"
 		}
 
 		// Validate order_dir
 		orderDir = strings.ToUpper(orderDir)
 		if orderDir != "ASC" && orderDir != "DESC" {
-			orderDir = "DESC"
+			orderDir = "ASC"
 		}
 
 		// Verify event exists

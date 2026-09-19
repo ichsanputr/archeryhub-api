@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"os"
 	"strings"
 )
@@ -23,200 +21,272 @@ func formatIDR(amount float64) string {
 func getAppURL() string {
 	url := os.Getenv("APP_URL")
 	if url == "" {
-		return "http://localhost:3003"
+		return "https://dev.archeris.net"
 	}
 	return url
 }
 
-const baseEmailTemplate = `
-<!DOCTYPE html>
-<html>
+// buildCleanCardEmail generates a lightweight, high text-to-HTML ratio email template.
+// Designed specifically to maximize deliverability and achieve near-zero SpamAssassin penalties.
+func buildCleanCardEmail(badgeText, title, contentHTML string) string {
+	badgeHTML := ""
+	if badgeText != "" {
+		badgeHTML = fmt.Sprintf(`<div style="display:inline-block;background-color:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:16px;">%s</div>`, badgeText)
+	}
+
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="id">
 <head>
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
-        .header { background-color: #0a1628; color: #ffd700; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { padding: 20px; background-color: #f9f9f9; }
-        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #777; }
-        .btn { display: inline-block; padding: 10px 20px; background-color: #ffd700; color: #0a1628; text-decoration: none; border-radius: 5px; font-weight: bold; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>%s</title>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2>ArcheryHub</h2>
-        </div>
-        <div class="content">
-            {{.Body}}
-        </div>
-        <div class="footer">
-            <p>&copy; ArcheryHub. All rights reserved.</p>
-        </div>
-    </div>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;line-height:1.6;-webkit-text-size-adjust:none;">
+<table role="presentation" width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f8fafc;padding:30px 15px;">
+<tr>
+<td align="center">
+    <table role="presentation" width="560" border="0" cellspacing="0" cellpadding="0" style="max-width:560px;width:100%%;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+        
+        <!-- Header -->
+        <tr>
+            <td style="background-color:#0f172a;padding:24px 30px;border-bottom:3px solid #d9ff00;">
+                <table role="presentation" width="100%%" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                        <td>
+                            <div style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">
+                                Archeris<span style="color:#d9ff00;">.net</span>
+                            </div>
+                        </td>
+                        <td align="right">
+                            <span style="font-size:11px;color:#94a3b8;font-weight:600;">Platform Panahan</span>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Main Body -->
+        <tr>
+            <td style="padding:32px 30px 24px;">
+                %s
+                <h1 style="margin:0 0 16px;font-size:18px;font-weight:800;color:#0f172a;line-height:1.4;">%s</h1>
+                %s
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color:#f8fafc;padding:20px 30px;border-top:1px solid #e2e8f0;text-align:center;">
+                <p style="margin:0 0 4px;font-size:12px;color:#64748b;">
+                    Email dikirim otomatis oleh <strong>Archeris.net</strong>. Mohon tidak membalas email ini.
+                </p>
+                <p style="margin:0;font-size:11px;color:#94a3b8;">
+                    &copy; 2026 Archeris.net &bull; Platform Panahan Indonesia
+                </p>
+            </td>
+        </tr>
+
+    </table>
+</td>
+</tr>
+</table>
 </body>
-</html>
-`
-
-func renderTemplate(bodyHTML string, data interface{}) (string, error) {
-	tmpl, err := template.New("email").Parse(baseEmailTemplate)
-	if err != nil {
-		return "", err
-	}
-	
-	bodyTmpl, err := template.New("body").Parse(bodyHTML)
-	if err != nil {
-		return "", err
-	}
-	var bodyBuf bytes.Buffer
-	if err := bodyTmpl.Execute(&bodyBuf, data); err != nil {
-		return "", err
-	}
-	
-	var finalBuf bytes.Buffer
-	if err := tmpl.Execute(&finalBuf, map[string]interface{}{"Body": template.HTML(bodyBuf.String())}); err != nil {
-		return "", err
-	}
-	
-	return finalBuf.String(), nil
+</html>`, title, badgeHTML, title, contentHTML)
 }
 
-func SendArcherWelcomeEmail(to, fullName, email, plainPassword string) error {
-	subject := "Selamat Datang di ArcheryHub!"
-	
-	bodyHTML := `
-	<p>Halo {{.FullName}},</p>
-	<p>Selamat datang di ArcheryHub! Akun Anda telah berhasil dibuat.</p>
-	<p>Berikut adalah informasi login Anda:</p>
-	<ul>
-		<li><strong>Email:</strong> {{.Email}}</li>
-		<li><strong>Password:</strong> {{.Password}}</li>
-	</ul>
-	<p>Silakan login dan lengkapi profil Anda.</p>
-	<p><a href="{{.LoginURL}}" class="btn">Login Sekarang</a></p>
-	`
-	
-	data := map[string]interface{}{
-		"FullName": fullName,
-		"Email": email,
-		"Password": plainPassword,
-		"LoginURL": getAppURL() + "/login",
-	}
-	
-	html, err := renderTemplate(bodyHTML, data)
-	if err != nil {
-		return err
-	}
-	
-	return SendEmail(to, subject, html)
+// buildOTPBox generates a clean, high-contrast OTP code display.
+func buildOTPBox(otp string, expiresMinutes int) string {
+	return fmt.Sprintf(`
+		<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;text-align:center;margin:24px 0;">
+			<div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Kode Verifikasi</div>
+			<div style="font-family:'Courier New',Consolas,monospace;font-size:36px;font-weight:900;color:#0f172a;letter-spacing:8px;line-height:1;margin-left:8px;">%s</div>
+		</div>
+		<p style="margin:0 0 16px;font-size:13px;color:#64748b;line-height:1.6;">
+			Kode berlaku selama <strong>%d menit</strong>. Jangan berikan kode ini kepada siapapun demi keamanan akun Anda.
+		</p>
+	`, otp, expiresMinutes)
 }
 
-func SendPaymentApprovedEmail(to, archerName, eventName string, amount float64, categories []string) error {
-	subject := "Pembayaran Berhasil Dikonfirmasi - ArcheryHub"
-	
-	bodyHTML := `
-	<p>Halo {{.ArcherName}},</p>
-	<p>Pembayaran Anda untuk event <strong>{{.EventName}}</strong> sebesar Rp {{.Amount}} telah berhasil dikonfirmasi.</p>
-	<p>Kategori yang didaftarkan:</p>
-	<ul>
-		{{range .Categories}}
-		<li>{{.}}</li>
-		{{end}}
-	</ul>
-	<p>Terima kasih telah berpartisipasi!</p>
-	`
-	
-	data := map[string]interface{}{
-		"ArcherName": archerName,
-		"EventName": eventName,
-		"Amount": formatIDR(amount),
-		"Categories": categories,
+// SendRegisterOTPEmail sends an OTP verification email for new account registrations.
+func SendRegisterOTPEmail(to, fullName, otp string, expiresMinutes int) error {
+	subject := fmt.Sprintf("Kode verifikasi akun Archeris: %s", otp)
+	greeting := "Halo"
+	if strings.TrimSpace(fullName) != "" {
+		greeting = fmt.Sprintf("Halo %s", fullName)
 	}
-	
-	html, err := renderTemplate(bodyHTML, data)
-	if err != nil {
-		return err
-	}
-	
-	return SendEmail(to, subject, html)
-}
 
-func SendPaymentCreatedEmail(to, archerName, eventName, paymentURL string, amount float64) error {
-	subject := "Selesaikan Pembayaran Anda - ArcheryHub"
-	
-	bodyHTML := `
-	<p>Halo {{.ArcherName}},</p>
-	<p>Pendaftaran Anda untuk event <strong>{{.EventName}}</strong> hampir selesai.</p>
-	<p>Silakan selesaikan pembayaran sebesar Rp {{.Amount}} melalui tautan berikut:</p>
-	<p><a href="{{.PaymentURL}}" class="btn">Bayar Sekarang</a></p>
-	<p>Abaikan email ini jika Anda sudah melakukan pembayaran.</p>
-	`
-	
-	data := map[string]interface{}{
-		"ArcherName": archerName,
-		"EventName": eventName,
-		"Amount": formatIDR(amount),
-		"PaymentURL": paymentURL,
-	}
-	
-	html, err := renderTemplate(bodyHTML, data)
-	if err != nil {
-		return err
-	}
-	
-	return SendEmail(to, subject, html)
-}
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			%s, terima kasih telah mendaftar di <strong>Archeris.net</strong>.
+		</p>
+		<p style="margin:0 0 16px;font-size:14px;color:#334155;">
+			Gunakan kode verifikasi berikut untuk mengaktifkan akun Anda:
+		</p>
+		%s
+		<p style="margin:0;font-size:12px;color:#94a3b8;">
+			Jika Anda tidak merasa mendaftar di Archeris, silakan abaikan email ini.
+		</p>
+	`, greeting, buildOTPBox(otp, expiresMinutes))
 
-// SendOTPEmail mengirim email OTP reset password dengan design system Archeris
-// (navy #0F172A + neon yellow #D9FF00, matching DESIGN.md & app_colors.dart).
-// expiresMinutes = berapa menit OTP berlaku (ditampilkan di email).
-func SendOTPEmail(to, fullName, otp string, expiresMinutes int) error {
-	subject := "Kode OTP Reset Password - Archeris"
-
-	html := `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>OTP Archeris</title></head>
-<body style="margin:0;padding:0;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1E293B;">
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="background:#F9FAFB;"><tr><td align="center" style="padding:32px 12px;">
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" style="max-width:560px;width:100%%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(15,23,42,0.08);">
-
-<!-- HERO -->
-<tr><td style="background:linear-gradient(135deg,#0F172A 0%%,#111827 60%%,#052e16 120%%);padding:36px 32px 28px;">
-<div style="font-family:'Lexend',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:-0.5px;">Archeris<span style="color:#D9FF00;">.id</span></div>
-<div style="height:14px;line-height:14px;font-size:14px;">&nbsp;</div>
-<div style="font-family:'Lexend',sans-serif;font-size:20px;font-weight:800;color:#E2E8F0;line-height:1.35;">Atur Ulang Akses Akunmu</div>
-<div style="height:8px;line-height:8px;font-size:8px;">&nbsp;</div>
-<div style="font-size:14px;color:#94A3B8;line-height:1.6;">Kami menjaga akunmu tetap aman dengan verifikasi OTP sekali pakai.</div>
-</td></tr>
-
-<!-- CONTENT -->
-<tr><td style="padding:32px 32px 8px;">
-<div style="display:inline-block;background:#F0FDF4;border:1px solid #D9F99D;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;color:#4D7C0F;letter-spacing:0.8px;text-transform:uppercase;">Reset Password</div>
-<div style="font-family:'Lexend',sans-serif;font-size:24px;font-weight:900;color:#0F172A;line-height:1.25;margin-top:18px;">Hai, %s!</div>
-<div style="font-size:15px;color:#1E293B;line-height:1.7;margin-top:12px;">Kami menerima permintaan untuk mereset password akun kamu. Masukkan kode OTP berikut ke halaman reset password Archeris.</div>
-
-<!-- OTP CARD -->
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="margin-top:24px;margin-bottom:24px;background:linear-gradient(180deg,#F7FEE7 0%%,#ECFCCB 100%%);border:1px solid #D9F99D;border-radius:18px;">
-<tr><td align="center" style="padding:26px 20px;">
-<div style="font-size:11px;font-weight:800;color:#4D7C0F;letter-spacing:2.4px;text-transform:uppercase;margin-bottom:12px;">KODE OTP KAMU</div>
-<div style="font-family:'Lexend','Courier New',monospace;font-size:42px;font-weight:900;color:#0F172A;letter-spacing:10px;line-height:1;">%s</div>
-</td></tr></table>
-
-<div style="font-size:13px;color:#6B7280;line-height:1.7;margin-bottom:24px;"><strong style="color:#0F172A;">Penting:</strong> kode ini berlaku selama <strong style="color:#0F172A;">%d menit</strong> dan hanya bisa dipakai satu kali. Jangan bagikan kode ini kepada siapapun.</div>
-</td></tr>
-
-<!-- DISCLAIMER -->
-<tr><td style="padding:0 32px 28px;">
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="background:#F8FAFC;border-left:3px solid #D9FF00;border-radius:6px;">
-<tr><td style="padding:14px 16px;font-size:12.5px;color:#475569;line-height:1.6;">Tidak merasa meminta reset password? Abaikan email ini dan pastikan password akunmu tetap aman.</td></tr>
-</table></td></tr>
-
-<!-- FOOTER -->
-<tr><td style="padding:20px 32px 28px;border-top:1px solid #E2E8F0;">
-<div style="text-align:center;font-size:12px;color:#94A3B8;line-height:1.7;margin-bottom:8px;">Email ini dikirim otomatis oleh sistem Archeris untuk keamanan akunmu.</div>
-<div style="text-align:center;font-size:11px;font-weight:600;color:#CBD5E1;">&copy; 2026 Archeris &bull; Platform Panahan No. 1 Indonesia</div>
-</td></tr>
-
-</table></td></tr></table></body></html>`
-
-	body := fmt.Sprintf(html, fullName, otp, expiresMinutes)
+	body := buildCleanCardEmail("Verifikasi Akun Baru", "Verifikasi Alamat Email Anda", contentHTML)
 	return SendEmail(to, subject, body)
 }
 
+// SendPasswordResetOTPEmail sends an OTP email specifically for password resets.
+func SendPasswordResetOTPEmail(to, fullName, otp string, expiresMinutes int) error {
+	subject := fmt.Sprintf("Kode reset password Archeris: %s", otp)
+	greeting := "Halo"
+	if strings.TrimSpace(fullName) != "" {
+		greeting = fmt.Sprintf("Halo %s", fullName)
+	}
+
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			%s, kami menerima permintaan untuk mereset kata sandi akun Archeris Anda.
+		</p>
+		<p style="margin:0 0 16px;font-size:14px;color:#334155;">
+			Gunakan kode OTP berikut untuk melanjutkan proses reset kata sandi:
+		</p>
+		%s
+		<p style="margin:0;font-size:12px;color:#94a3b8;">
+			Jika Anda tidak melakukan permintaan ini, abaikan email ini dan kata sandi akun Anda tetap aman.
+		</p>
+	`, greeting, buildOTPBox(otp, expiresMinutes))
+
+	body := buildCleanCardEmail("Reset Password", "Atur Ulang Kata Sandi Akun", contentHTML)
+	return SendEmail(to, subject, body)
+}
+
+// SendEmailChangeOTPEmail sends an OTP email to verify a new email address.
+func SendEmailChangeOTPEmail(to, newEmail, otp string, expiresMinutes int) error {
+	subject := fmt.Sprintf("Kode verifikasi pergantian email Archeris: %s", otp)
+
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			Halo, kami menerima permintaan untuk mengubah alamat email akun Archeris Anda ke <strong>%s</strong>.
+		</p>
+		<p style="margin:0 0 16px;font-size:14px;color:#334155;">
+			Gunakan kode verifikasi berikut untuk mengonfirmasi perubahan alamat email:
+		</p>
+		%s
+		<p style="margin:0;font-size:12px;color:#94a3b8;">
+			Jika Anda tidak merasa mengajukan perubahan ini, silakan abaikan email ini.
+		</p>
+	`, newEmail, buildOTPBox(otp, expiresMinutes))
+
+	body := buildCleanCardEmail("Perubahan Email", "Verifikasi Alamat Email Baru", contentHTML)
+	return SendEmail(to, subject, body)
+}
+
+// SendEventResetOTPEmail sends an authorization OTP code to reset tournament data.
+func SendEventResetOTPEmail(to, organizerName, otp string, expiresMinutes int) error {
+	subject := fmt.Sprintf("Kode konfirmasi reset data turnamen Archeris: %s", otp)
+
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			Halo %s, kami menerima permintaan otorisasi untuk mereset data turnamen pada akun Anda.
+		</p>
+		<p style="margin:0 0 16px;font-size:14px;color:#334155;">
+			Gunakan kode verifikasi berikut untuk mengonfirmasi tindakan:
+		</p>
+		%s
+		<p style="margin:0;font-size:12px;color:#dc2626;font-weight:bold;">
+			Peringatan: Reset data bersifat permanen dan tidak dapat dibatalkan.
+		</p>
+	`, organizerName, buildOTPBox(otp, expiresMinutes))
+
+	body := buildCleanCardEmail("Peringatan Keamanan", "Konfirmasi Reset Data Turnamen", contentHTML)
+	return SendEmail(to, subject, body)
+}
+
+// SendOTPEmail is a backward-compatible wrapper defaulting to generic verification.
+func SendOTPEmail(to, fullName, otp string, expiresMinutes int) error {
+	return SendRegisterOTPEmail(to, fullName, otp, expiresMinutes)
+}
+
+// SendArcherWelcomeEmail sends account credentials to a newly created archer.
+func SendArcherWelcomeEmail(to, fullName, email, plainPassword string) error {
+	subject := "Selamat Datang di Archeris!"
+	loginURL := getAppURL() + "/auth/login"
+
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			Halo <strong>%s</strong>, akun atlet Anda di <strong>Archeris.net</strong> telah berhasil dibuat.
+		</p>
+		<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:20px 0;">
+			<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:8px;">Informasi Akun Login</div>
+			<div style="font-size:13px;color:#334155;margin-bottom:4px;"><strong>Email:</strong> %s</div>
+			<div style="font-size:13px;color:#334155;"><strong>Password:</strong> %s</div>
+		</div>
+		<div style="text-align:center;margin:24px 0;">
+			<a href="%s" style="display:inline-block;background-color:#0f172a;color:#d9ff00;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:800;font-size:13px;">
+				Masuk ke Akun
+			</a>
+		</div>
+		<p style="margin:0;font-size:12px;color:#94a3b8;">
+			Demi keamanan akun Anda, segera ubah password default setelah berhasil masuk.
+		</p>
+	`, fullName, email, plainPassword, loginURL)
+
+	body := buildCleanCardEmail("Selamat Datang", "Akun Archeris Anda Telah Aktif", contentHTML)
+	return SendEmail(to, subject, body)
+}
+
+// SendPaymentApprovedEmail sends a confirmation when payment is confirmed.
+func SendPaymentApprovedEmail(to, archerName, eventName string, amount float64, categories []string) error {
+	subject := fmt.Sprintf("Pembayaran Terkonfirmasi - %s", eventName)
+	overviewURL := getAppURL() + "/dashboard/archer/tournaments"
+
+	categoriesListHTML := ""
+	for _, cat := range categories {
+		categoriesListHTML += fmt.Sprintf(`<li style="margin-bottom:4px;">%s</li>`, cat)
+	}
+
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			Halo <strong>%s</strong>, pembayaran pendaftaran Anda untuk event <strong>%s</strong> telah berhasil diverifikasi oleh panitia.
+		</p>
+		<div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 20px;margin:20px 0;">
+			<div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;margin-bottom:4px;">Status: Lunas</div>
+			<div style="font-size:22px;font-weight:900;color:#0f172a;">Rp %s</div>
+		</div>
+		<div style="font-size:13px;color:#334155;margin-bottom:20px;">
+			<strong>Kategori Terdaftar:</strong>
+			<ul style="margin:8px 0 0;padding-left:20px;">%s</ul>
+		</div>
+		<div style="text-align:center;margin:24px 0;">
+			<a href="%s" style="display:inline-block;background-color:#0f172a;color:#d9ff00;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:800;font-size:13px;">
+				Lihat Jadwal & Status
+			</a>
+		</div>
+	`, archerName, eventName, formatIDR(amount), categoriesListHTML, overviewURL)
+
+	body := buildCleanCardEmail("Pembayaran Lunas", "Pendaftaran Event Terkonfirmasi", contentHTML)
+	return SendEmail(to, subject, body)
+}
+
+// SendPaymentCreatedEmail sends an invoice notice with a payment link.
+func SendPaymentCreatedEmail(to, archerName, eventName, paymentURL string, amount float64) error {
+	subject := fmt.Sprintf("Tagihan Pendaftaran - %s", eventName)
+
+	contentHTML := fmt.Sprintf(`
+		<p style="margin:0 0 12px;font-size:14px;color:#334155;">
+			Halo <strong>%s</strong>, pendaftaran Anda untuk event <strong>%s</strong> telah tercatat.
+		</p>
+		<div style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin:20px 0;">
+			<div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px;">Total Tagihan</div>
+			<div style="font-size:22px;font-weight:900;color:#0f172a;">Rp %s</div>
+		</div>
+		<div style="text-align:center;margin:24px 0;">
+			<a href="%s" style="display:inline-block;background-color:#0f172a;color:#d9ff00;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:800;font-size:13px;">
+				Bayar Sekarang
+			</a>
+		</div>
+		<p style="margin:0;font-size:12px;color:#94a3b8;">
+			Abaikan email ini jika Anda sudah menyelesaikan pembayaran sebelumnya.
+		</p>
+	`, archerName, eventName, formatIDR(amount), paymentURL)
+
+	body := buildCleanCardEmail("Tagihan Pendaftaran", "Selesaikan Pembayaran Pendaftaran", contentHTML)
+	return SendEmail(to, subject, body)
+}

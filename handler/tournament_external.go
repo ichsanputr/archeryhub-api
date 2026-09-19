@@ -406,7 +406,15 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 		if len(teamQualifications) > 0 {
 			parsedData["team_qualifications"] = teamQualifications
 		}
-		if len(brackets) > 0 {
+		// Only use relational brackets if they contain actual match/athlete data; otherwise keep parsedData["brackets"] from data_json
+		hasValidRelationalBrackets := false
+		for _, m := range matchRows {
+			if (m.Athlete1Name != nil && *m.Athlete1Name != "") || (m.Athlete2Name != nil && *m.Athlete2Name != "") || (m.WinnerName != nil && *m.WinnerName != "") {
+				hasValidRelationalBrackets = true
+				break
+			}
+		}
+		if hasValidRelationalBrackets && len(brackets) > 0 {
 			parsedData["brackets"] = brackets
 		}
 		if len(finalStandings) > 0 {

@@ -407,9 +407,9 @@ func main() {
 					protected.GET("/:id/certificates/upload-batches/:batchId/progress", handler.GetBatchProgress(db))
 					protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
 					protected.GET("/:id/certificates", handler.GetEventCertificates(db))
-					protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
 					protected.POST("/:id/certificates/generate-all", handler.GenerateAllCertificates(db))
 					protected.DELETE("/:id/certificates/clear-all", handler.ClearAllCertificates(db))
+					protected.DELETE("/:id/certificates/:certId", handler.DeleteArcherCertificate(db))
 
 					protected.PUT("/:id/images", middleware.RequireActivePlan(db), handler.UpdateEventImages(db))
 					protected.PUT("/:id/schedule", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))

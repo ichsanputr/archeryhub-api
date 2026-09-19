@@ -554,6 +554,20 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Link uploaded media files to tournament
+		if req.BannerURL != nil && *req.BannerURL != "" {
+			cleanName := utils.ExtractFilename(*req.BannerURL)
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", eventUUID, cleanName, "%"+cleanName)
+		}
+		if req.LogoURL != nil && *req.LogoURL != "" {
+			cleanName := utils.ExtractFilename(*req.LogoURL)
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", eventUUID, cleanName, "%"+cleanName)
+		}
+		if req.TechnicalGuidebookURL != nil && *req.TechnicalGuidebookURL != "" {
+			cleanName := utils.ExtractFilename(*req.TechnicalGuidebookURL)
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", eventUUID, cleanName, "%"+cleanName)
+		}
+
 		// Log activity (after successful commit)
 		userID, _ = c.Get("user_id")
 		utils.LogActivity(db, userID.(string), eventUUID, "Event_created", "Event", eventUUID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
@@ -694,6 +708,20 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data event", "details": err.Error()})
 			return
+		}
+
+		// Link uploaded media files to tournament
+		if req.BannerURL != nil && *req.BannerURL != "" {
+			cleanName := utils.ExtractFilename(*req.BannerURL)
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", id, cleanName, "%"+cleanName)
+		}
+		if req.LogoURL != nil && *req.LogoURL != "" {
+			cleanName := utils.ExtractFilename(*req.LogoURL)
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", id, cleanName, "%"+cleanName)
+		}
+		if req.TechnicalGuidebookURL != nil && *req.TechnicalGuidebookURL != "" {
+			cleanName := utils.ExtractFilename(*req.TechnicalGuidebookURL)
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", id, cleanName, "%"+cleanName)
 		}
 
 		// Log activity
@@ -2469,19 +2497,24 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		if len(cleanedIDs) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pilih minimal satu pemanah"})
+			return
+		}
+
 		type archerRow struct {
-			UUID string `db:"uuid"`
-			ID   string `db:"id"`
+			UUID string  `db:"uuid"`
+			ID   *string `db:"id"`
 		}
 		query, args, err := sqlx.In(`SELECT uuid, id FROM archers WHERE uuid IN (?) OR id IN (?)`, cleanedIDs, cleanedIDs)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build archer query"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build archer query", "details": err.Error()})
 			return
 		}
 		query = db.Rebind(query)
 		var archerRows []archerRow
 		if err := db.Select(&archerRows, query, args...); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resolve archers"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resolve archers", "details": err.Error()})
 			return
 		}
 
@@ -3564,6 +3597,13 @@ func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
 		type EventImage struct {
 			UUID         string  `db:"uuid" json:"id"`
 			EventID      string  `db:"event_id" json:"event_id"`
@@ -3576,16 +3616,20 @@ func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var images []EventImage
-		err := db.Select(&images, `
-			SELECT uuid, event_id, url, caption, alt_text, display_order, is_primary, created_at
+		err = db.Select(&images, `
+			SELECT uuid, tournament_id as event_id, url, caption, alt_text, display_order, is_primary, created_at
 			FROM tournament_images
-			WHERE event_id = ?
+			WHERE tournament_id = ?
 			ORDER BY display_order, created_at
-		`, eventID)
+		`, eventUUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil gambar event", "details": err.Error()})
 			return
+		}
+
+		for i := range images {
+			images[i].URL = utils.MaskMediaURL(images[i].URL)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -3600,6 +3644,13 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		userID, _ := c.Get("user_id")
+
+		var eventUUID string
+		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
 
 		var req struct {
 			Images []struct {
@@ -3617,7 +3668,7 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Delete existing images
-		_, err := db.Exec("DELETE FROM tournament_images WHERE tournament_id = ?", eventID)
+		_, err = db.Exec("DELETE FROM tournament_images WHERE tournament_id = ?", eventUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus gambar lama", "details": err.Error()})
 			return
@@ -3630,18 +3681,22 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 			if displayOrder == 0 {
 				displayOrder = i
 			}
+			cleanURL := utils.ExtractFilename(img.URL)
 			_, err = db.Exec(`
 				INSERT INTO tournament_images (uuid, tournament_id, url, caption, alt_text, display_order, is_primary)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
-			`, imageID, eventID, img.URL, img.Caption, img.AltText, displayOrder, img.IsPrimary)
+			`, imageID, eventUUID, cleanURL, img.Caption, img.AltText, displayOrder, img.IsPrimary)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar event", "details": err.Error()})
 				return
 			}
+
+			// Link media record if exists
+			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", eventUUID, cleanURL, "%"+cleanURL)
 		}
 
 		// Log activity
-		utils.LogActivity(db, userID.(string), eventID, "event_images_updated", "event", eventID, fmt.Sprintf("Updated %d event images", len(req.Images)), c.ClientIP(), c.Request.UserAgent())
+		utils.LogActivity(db, userID.(string), eventUUID, "event_images_updated", "event", eventUUID, fmt.Sprintf("Updated %d event images", len(req.Images)), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Gambar event berhasil diperbarui",
@@ -4438,27 +4493,7 @@ func RequestResetCode(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Send email
-		subject := "Kode Verifikasi Reset Event - ArcheryHub"
-		body := fmt.Sprintf(`
-			<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px;">
-				<h2 style="color: #1e293b; margin-bottom: 20px;">Permintaan Reset Data Event</h2>
-				<p style="color: #64748b; font-size: 14px; line-height: 1.5;">
-					Anda menerima email ini karena ada permintaan untuk mereset data event di akun Anda.
-					Gunakan kode verifikasi berikut untuk mengonfirmasi tindakan ini:
-				</p>
-				<div style="background-color: #f1f5f9; padding: 15px; text-align: center; border-radius: 8px; margin: 25px 0;">
-					<span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #dc2626;">%s</span>
-				</div>
-				<p style="color: #ef4444; font-size: 12px; font-weight: bold;">
-					Peringatan: Reset data bersifat permanen dan tidak dapat dibatalkan. Jangan bagikan kode ini kepada siapapun.
-				</p>
-				<p style="color: #94a3b8; font-size: 11px; margin-top: 30px;">
-					Kode verifikasi ini akan kadaluarsa dalam 15 menit. Jika Anda tidak merasa mengajukan tindakan ini, silakan abaikan email ini.
-				</p>
-			</div>
-		`, otpCode)
-
-		err = utils.SendEmail(userEmail, subject, body)
+		err = utils.SendEventResetOTPEmail(userEmail, "Penyelenggara Event", otpCode, 15)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengirim email verifikasi", "details": err.Error()})
 			return

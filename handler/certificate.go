@@ -1099,13 +1099,56 @@ func DeleteArcherCertificate(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			eventUUID = eventID
 		}
-		
-		_, err = db.Exec("DELETE FROM archer_certificates WHERE (uuid = ? OR registration_id = ?) AND (tournament_id = ? OR tournament_id = ?)", certID, certID, eventUUID, eventID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus sertifikat"})
+
+		if certID == "clear-all" {
+			// Clean up physical files in upload directory
+			uploadDir := filepath.Join(".", "uploads", "certificates", eventUUID)
+			_ = os.RemoveAll(uploadDir)
+
+			_, err = db.Exec("DELETE FROM archer_certificates WHERE tournament_id = ? OR tournament_id = ?", eventUUID, eventID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan sertifikat: " + err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Semua sertifikat turnamen berhasil dibersihkan"})
 			return
 		}
-		
+
+		// Find certificate to remove physical file if exists
+		var certItems []struct {
+			UUID   string  `db:"uuid"`
+			PDFURL *string `db:"pdf_url"`
+		}
+		_ = db.Select(&certItems, `
+			SELECT uuid, pdf_url FROM archer_certificates 
+			WHERE (uuid = ? OR registration_id = ? OR archer_id = ? OR certificate_no = ?)
+			  AND (tournament_id = ? OR tournament_id = ?)
+		`, certID, certID, certID, certID, eventUUID, eventID)
+
+		for _, it := range certItems {
+			if it.PDFURL != nil && *it.PDFURL != "" && strings.HasPrefix(*it.PDFURL, "/uploads/") {
+				localPath := filepath.Join(".", *it.PDFURL)
+				_ = os.Remove(localPath)
+			}
+		}
+
+		result, err := db.Exec(`
+			DELETE FROM archer_certificates 
+			WHERE (uuid = ? OR registration_id = ? OR archer_id = ? OR certificate_no = ?) 
+			  AND (tournament_id = ? OR tournament_id = ?)
+		`, certID, certID, certID, certID, eventUUID, eventID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus sertifikat: " + err.Error()})
+			return
+		}
+
+		rowsAff, _ := result.RowsAffected()
+		if rowsAff == 0 {
+			// Try fallback matching without tournament_id
+			_, _ = db.Exec("DELETE FROM archer_certificates WHERE uuid = ? OR registration_id = ?", certID, certID)
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Sertifikat berhasil dihapus"})
 	}
 }
@@ -1190,11 +1233,16 @@ func ClearAllCertificates(db *sqlx.DB) gin.HandlerFunc {
 			eventUUID = eventID
 		}
 
+		// Clean up physical files in upload directory
+		uploadDir := filepath.Join(".", "uploads", "certificates", eventUUID)
+		_ = os.RemoveAll(uploadDir)
+
 		_, err = db.Exec("DELETE FROM archer_certificates WHERE tournament_id = ? OR tournament_id = ?", eventUUID, eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan sertifikat"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan sertifikat: " + err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Semua sertifikat turnamen berhasil dibersihkan"})
 	}
 }
+
