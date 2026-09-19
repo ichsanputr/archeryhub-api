@@ -303,10 +303,18 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Start database transaction
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database", "details": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
 		// Generate code if not provided
 		if req.Code == "" {
 			var lastCode string
-			_ = db.Get(&lastCode, "SELECT code FROM tournaments WHERE code LIKE 'EVT-%' ORDER BY code DESC LIMIT 1")
+			_ = tx.Get(&lastCode, "SELECT code FROM tournaments WHERE code LIKE 'EVT-%' ORDER BY code DESC LIMIT 1 FOR UPDATE")
 			nextNum := 1
 			if lastCode != "" {
 				// Extract number from EVT-XXXX
@@ -345,15 +353,14 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		// Ensure uniqueness with deterministic numeric suffix, not random text.
 		originalSlug := finalSlug
 		suffix := 2
-		var err error
 		for {
-			var exists int
-			err = db.Get(&exists, `SELECT COUNT(1) FROM tournaments WHERE slug = ?`, finalSlug)
+			var existsCount int
+			err = tx.Get(&existsCount, `SELECT COUNT(1) FROM tournaments WHERE slug = ?`, finalSlug)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memvalidasi keunikan slug", "details": err.Error()})
 				return
 			}
-			if exists == 0 {
+			if existsCount == 0 {
 				break
 			}
 			finalSlug = fmt.Sprintf("%s-%d", originalSlug, suffix)
@@ -371,7 +378,8 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if !req.RegistrationDeadline.IsZero() {
 			regDeadline = req.RegistrationDeadline.Time
 		}
-		// Process Quota Type & Limits
+
+		// Process Quota Type & Limits inside transaction
 		quotaType := "free"
 		if req.QuotaType != nil && *req.QuotaType != "" {
 			quotaType = strings.ToLower(*req.QuotaType)
@@ -383,44 +391,77 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		var maxParticipants, maxCategories, maxScorekeepers, maxMediaMB *int
 		if quotaType == "standard" {
 			var qStandard int
-			_ = db.Get(&qStandard, "SELECT quota_standard FROM organizers WHERE uuid = ? OR user_id = ?", userID, userID)
-			if qStandard <= 0 {
+			err = tx.Get(&qStandard, "SELECT quota_standard FROM organizers WHERE (uuid = ? OR user_id = ?) FOR UPDATE", userID, userID)
+			if err != nil || qStandard <= 0 {
 				c.JSON(http.StatusPaymentRequired, gin.H{
 					"error": "Quota Standard tidak mencukupi. Silakan beli kuota terlebih dahulu.",
 					"code":  "quota_insufficient",
 				})
 				return
 			}
-			_, _ = db.Exec("UPDATE organizers SET quota_standard = quota_standard - 1 WHERE (uuid = ? OR user_id = ?) AND quota_standard > 0", userID, userID)
+			res, err := tx.Exec("UPDATE organizers SET quota_standard = quota_standard - 1 WHERE (uuid = ? OR user_id = ?) AND quota_standard > 0", userID, userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kuota", "details": err.Error()})
+				return
+			}
+			if rows, _ := res.RowsAffected(); rows == 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Quota Standard tidak mencukupi. Silakan beli kuota terlebih dahulu.",
+					"code":  "quota_insufficient",
+				})
+				return
+			}
 			mp, mm := 200, 500
 			maxParticipants, maxMediaMB = &mp, &mm
 			// maxCategories & maxScorekeepers are nil (Unlimited)
 		} else if quotaType == "elite" {
 			var qElite int
-			_ = db.Get(&qElite, "SELECT quota_elite FROM organizers WHERE uuid = ? OR user_id = ?", userID, userID)
-			if qElite <= 0 {
+			err = tx.Get(&qElite, "SELECT quota_elite FROM organizers WHERE (uuid = ? OR user_id = ?) FOR UPDATE", userID, userID)
+			if err != nil || qElite <= 0 {
 				c.JSON(http.StatusPaymentRequired, gin.H{
 					"error": "Quota Elite tidak mencukupi. Silakan beli kuota terlebih dahulu.",
 					"code":  "quota_insufficient",
 				})
 				return
 			}
-			_, _ = db.Exec("UPDATE organizers SET quota_elite = quota_elite - 1 WHERE (uuid = ? OR user_id = ?) AND quota_elite > 0", userID, userID)
+			res, err := tx.Exec("UPDATE organizers SET quota_elite = quota_elite - 1 WHERE (uuid = ? OR user_id = ?) AND quota_elite > 0", userID, userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kuota", "details": err.Error()})
+				return
+			}
+			if rows, _ := res.RowsAffected(); rows == 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Quota Elite tidak mencukupi. Silakan beli kuota terlebih dahulu.",
+					"code":  "quota_insufficient",
+				})
+				return
+			}
 			mm := 5120
 			maxMediaMB = &mm
 			// maxParticipants, maxCategories, maxScorekeepers are nil (Unlimited)
 		} else {
 			// Free tier (initial 20 welcome bonus)
 			var qFree int
-			_ = db.Get(&qFree, "SELECT COALESCE(quota_free, 20) FROM organizers WHERE uuid = ? OR user_id = ?", userID, userID)
-			if qFree <= 0 {
+			err = tx.Get(&qFree, "SELECT COALESCE(quota_free, 20) FROM organizers WHERE (uuid = ? OR user_id = ?) FOR UPDATE", userID, userID)
+			if err != nil || qFree <= 0 {
 				c.JSON(http.StatusPaymentRequired, gin.H{
 					"error": "Kuota Free Tier Anda telah habis (0 tersisa). Silakan gunakan paket Standard atau Elite.",
 					"code":  "quota_free_exhausted",
 				})
 				return
 			}
-			_, _ = db.Exec("UPDATE organizers SET quota_free = quota_free - 1 WHERE (uuid = ? OR user_id = ?) AND quota_free > 0", userID, userID)
+			res, err := tx.Exec("UPDATE organizers SET quota_free = quota_free - 1 WHERE (uuid = ? OR user_id = ?) AND quota_free > 0", userID, userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kuota", "details": err.Error()})
+				return
+			}
+			if rows, _ := res.RowsAffected(); rows == 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Kuota Free Tier Anda telah habis (0 tersisa). Silakan gunakan paket Standard atau Elite.",
+					"code":  "quota_free_exhausted",
+				})
+				return
+			}
 			mp, mm := 50, 100
 			maxParticipants, maxMediaMB = &mp, &mm
 			// maxCategories & maxScorekeepers are nil (Unlimited)
@@ -453,8 +494,10 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			locationType = req.Type
 		}
 
-		_, err = db.Exec(query,
-			eventUUID, req.Code, req.Name, req.ShortName, finalSlug, req.Venue, req.GmapLink,
+		gmapsLinkClean := utils.NormalizeGmapsEmbed(req.GmapLink)
+
+		_, err = tx.Exec(query,
+			eventUUID, req.Code, req.Name, req.ShortName, finalSlug, req.Venue, gmapsLinkClean,
 			req.Location, req.City,
 			startDate, endDate, regDeadline,
 			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), locationType, req.NumDistances, req.NumSessions,
@@ -470,20 +513,20 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Save categories if provided (simplified for now, expects list of category UUIDs or similar)
-		// Note: The user requested single step creation, so we might skip this if the frontend doesn't send it yet.
+		// Save categories if provided
 		if len(req.Divisions) > 0 && len(req.Categories) > 0 {
 			for _, divUUID := range req.Divisions {
 				for _, catUUID := range req.Categories {
 					catEventID := uuid.New().String()
-					_, err = db.Exec(`
+					_, err = tx.Exec(`
 						INSERT INTO tournament_categories (
-							uuid, event_id, division_uuid, category_uuid, 
+							uuid, tournament_id, division_uuid, category_uuid, 
 							max_participants
 						) VALUES (?, ?, ?, ?, NULL)
 					`, catEventID, eventUUID, divUUID, catUUID)
 					if err != nil {
-						// fmt.Printf("Error: Failed to save event category: %v\n", err) // Removed fmt import
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan kategori event", "details": err.Error()})
+						return
 					}
 				}
 			}
@@ -494,17 +537,24 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			for i, img := range req.Images {
 				imageID := uuid.New().String()
 				isPrimary := img.IsPrimary || i == 0 // First image is primary by default
-				_, err = db.Exec(`
+				_, err = tx.Exec(`
 					INSERT INTO tournament_images (uuid, tournament_id, url, caption, alt_text, display_order, is_primary)
 					VALUES (?, ?, ?, ?, ?, ?, ?)
 				`, imageID, eventUUID, utils.ExtractFilename(img.URL), img.Caption, img.AltText, i, isPrimary)
 				if err != nil {
-					// fmt.Printf("Error: Failed to save event image: %v\n", err) // Removed fmt import
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar event", "details": err.Error()})
+					return
 				}
 			}
 		}
 
-		// Log activity
+		// Commit transaction
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi event", "details": err.Error()})
+			return
+		}
+
+		// Log activity (after successful commit)
 		userID, _ = c.Get("user_id")
 		utils.LogActivity(db, userID.(string), eventUUID, "Event_created", "Event", eventUUID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
 
@@ -552,8 +602,9 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.Venue)
 		}
 		if req.GmapLink != nil {
+			cleanGmap := utils.NormalizeGmapsEmbed(req.GmapLink)
 			query += ", gmaps_link = ?"
-			args = append(args, *req.GmapLink)
+			args = append(args, cleanGmap)
 		}
 		if req.Address != nil {
 			query += ", address = ?"
