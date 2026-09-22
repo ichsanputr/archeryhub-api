@@ -2,32 +2,38 @@
   "slug": "create-elimination-brackets",
   "icon": "ph:tree-structure-bold",
   "category": "elimination",
-  "readTime": "5 min",
+  "readTime": "6 min",
   "en": {
-    "title": "Generating Olympic Round Brackets",
-    "excerpt": "How to generate standard World Archery elimination trees (1/32 through Finals) based on qualification rankings.",
+    "title": "1. Elimination Brackets & Match Play",
+    "excerpt": "Complete guide to generating World Archery matchplay trees, set system vs cumulative scoring, automatic medal finals, and bye progressions.",
     "toc": [
       {
-        "id": "bracket-sizes",
+        "id": "understanding-brackets",
         "level": 2,
-        "text": "Standard Bracket Dimensions"
+        "text": "1. What Are Elimination Brackets?"
       },
       {
-        "id": "generating-action",
+        "id": "bracket-dashboard",
         "level": 2,
-        "text": "Generating Brackets in Archeris"
+        "text": "2. Bracket Management & Match Overview"
       },
       {
-        "id": "match-tree-structure",
+        "id": "creating-bracket-tree",
         "level": 2,
-        "text": "Match Progression Architecture"
+        "text": "3. Generating Match Trees from Qualification Seeding"
       },
       {
-        "id": "bronze-medal-matches",
+        "id": "scoring-modes",
         "level": 2,
-        "text": "Bronze and Gold Medal Matches"
+        "text": "4. Set System (Recurve) vs Cumulative Score (Compound)"
+      },
+      {
+        "id": "finals-and-podium",
+        "level": 2,
+        "text": "5. Semifinals, Bronze & Gold Medal Matches"
       }
     ],
-    "content": "<h2 id=\"bracket-sizes\">Standard Bracket Dimensions</h2>\n      <p>Archeris supports standard single-elimination tournament trees formatted in power-of-two increments:</p>\n      <ul>\n        <li><strong>Top 64 Bracket:</strong> 1/32 Round, 1/16 Round, 1/8 Round, Quarterfinals, Semifinals, Finals.</li>\n        <li><strong>Top 32 Bracket:</strong> 1/16 Round, 1/8 Round, Quarterfinals, Semifinals, Finals.</li>\n        <li><strong>Top 16 Bracket:</strong> 1/8 Round, Quarterfinals, Semifinals, Finals.</li>\n        <li><strong>Top 8 Bracket:</strong> Quarterfinals, Semifinals, Finals.</li>\n      </ul>\n\n      <h2 id=\"generating-action\">Generating Brackets in Archeris</h2>\n      <p>To create a bracket:</p>\n      <ol>\n        <li>Go to <strong>Tournament Dashboard</strong> > <strong>Elimination Brackets</strong>.</li>\n        <li>Click <strong>+ Create Bracket</strong>.</li>\n        <li>Select the category and the qualifying cutoff size (e.g., <em>Top 16</em>).</li>\n        <li>Click <strong>Generate Bracket Tree</strong>. The interactive visual tree renders immediately.</li>\n      </ol>\n\n      <h2 id=\"match-tree-structure\">Match Progression Architecture</h2>\n      <p>Each match node displays competitor names, seeding ranks, club emblems, live set scores, and assigned target butt numbers.</p>\n\n      <h2 id=\"bronze-medal-matches\">Bronze and Gold Medal Matches</h2>\n      <p>The system automatically splits semifinal losers into the <strong>Bronze Medal Match</strong> and semifinal winners into the <strong>Gold Medal Match</strong>.</p>"
-  }
+    "content": "<h2 id=\"understanding-brackets\">1. What Are Elimination Brackets?</h2>\n<p>Elimination brackets represent the head-to-head matchplay phase of an archery tournament. Two athletes go head-to-head on the shooting line, with winners advancing to the next round until the Gold and Bronze medal matches decide the champions on the podium.</p>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/elimination-brackets-overview.png\" alt=\"Elimination Brackets Management Dashboard\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 1:</strong> The Elimination Dashboard showing created category brackets (e.g., Compound Men 50m, Recurve Men 70m Mixed Team), scoring rules (Set System vs Total Score), and match progress.\n  </figcaption>\n</figure>\n\n<h2 id=\"bracket-dashboard\">2. Bracket Management &amp; Match Overview</h2>\n<p>To view your tournament's elimination brackets:</p>\n<ol>\n  <li>Open your tournament in the <strong>Organizer Dashboard</strong>.</li>\n  <li>Click <strong>Elimination</strong> in the left sidebar (<code>/dashboard/organizer/tournaments/[id]/elimination</code>).</li>\n  <li>Each bracket card displays the division title, scoring rule, slot capacity (e.g., Top 4, Top 8, Top 16, Top 32, Top 64), and a quick link to manage live matches.</li>\n</ol>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/elimination-bracket-tree.png\" alt=\"Interactive Elimination Bracket Match Tree\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 2:</strong> The interactive visual match tree showing athlete head-to-heads, live end scores, automatic winner advancements, and medal finals.\n  </figcaption>\n</figure>\n\n<h2 id=\"creating-bracket-tree\">3. Generating Match Trees from Qualification Seeding</h2>\n<p>To generate a new elimination tree:</p>\n<ol>\n  <li>Click the yellow <strong>+ Create Elimination Bracket</strong> button in the top header.</li>\n  <li>Select the target <strong>Competition Category</strong> (e.g., <em>Recurve Men 70m Individual</em>).</li>\n  <li>Choose the <strong>Cutoff Size</strong> based on your tournament schedule (e.g., Top 8 for Quarters, Top 16 for 1/8 Round, or Top 32).</li>\n  <li>Click <strong>Generate Bracket Tree</strong>. Archeris automatically populates match positions following international World Archery seeding pairing tables (#1 vs #16, #8 vs #9, etc.).</li>\n</ol>\n\n<h2 id=\"scoring-modes\">4. Set System (Recurve) vs Cumulative Score (Compound)</h2>\n<p>Archeris supports both official World Archery scoring modes:</p>\n<ul>\n  <li><strong>Set System (Recurve &amp; Barebow):</strong> Matches consist of up to 5 sets (3 arrows per set). The archer with the higher set total earns <strong>2 set points</strong> (1 point each for a tie). First archer to reach <strong>6 set points</strong> wins the match.</li>\n  <li><strong>Cumulative / Total Score (Compound):</strong> Archers shoot 5 ends of 3 arrows (15 arrows total). The archer with the highest cumulative combined score wins.</li>\n  <li><strong>One-Arrow Shoot-Off (Tie Break):</strong> If archers remain tied after full sets or cumulative arrows, a single shoot-off arrow is recorded, with the closest arrow to center X winning.</li>\n</ul>\n\n<h2 id=\"finals-and-podium\">5. Semifinals, Bronze &amp; Gold Medal Matches</h2>\n<p>When matches reach the final four contenders:</p>\n<ul>\n  <li><strong>Semifinal Winners:</strong> Automatically advance to the <strong>Gold Medal Final</strong> (1st vs 2nd place).</li>\n  <li><strong>Semifinal Losers:</strong> Automatically advance to the <strong>Bronze Medal Match</strong> (3rd vs 4th place).</li>\n  <li><strong>Live Results:</strong> Once the final arrow is submitted, official results immediately sync to public tournament brackets, athlete profiles, and printable Result Books!</li>\n</ul>"
+  },
+  "order": 1
 }

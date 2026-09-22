@@ -2,32 +2,38 @@
   "slug": "shooting-line-scoring-input",
   "icon": "ph:calculator-bold",
   "category": "scorekeeper",
-  "readTime": "5 min",
+  "readTime": "4 min",
   "en": {
-    "title": "Shooting Line Keypad Scoring",
-    "excerpt": "Detailed guide to entering arrow values with target keypads, automatic value ordering, end totals, and athlete confirmation.",
+    "title": "3. Inputting Arrow Scores",
+    "excerpt": "A practical step-by-step guide for target scorekeepers to enter arrow values per end, understand color buttons, and submit scores to the live leaderboard.",
     "toc": [
       {
-        "id": "keypad-layout",
+        "id": "keypad-color-layout",
         "level": 2,
-        "text": "Keypad Layout & Arrow Values"
+        "text": "1. Keypad Color Buttons & Values"
       },
       {
-        "id": "entering-arrows",
+        "id": "recording-end-scores",
         "level": 2,
-        "text": "Recording End-by-End Scores"
+        "text": "2. How to Record Scores Each End"
       },
       {
-        "id": "auto-sorting",
+        "id": "fixing-misclicked-arrows",
         "level": 2,
-        "text": "Automatic Descending Value Sorting"
+        "text": "3. Correcting Misclicked Arrow Values"
       },
       {
-        "id": "confirming-ends",
+        "id": "athlete-verification-submit",
         "level": 2,
-        "text": "Athlete Verification & End Submission"
+        "text": "4. Athlete Verification & Saving the End"
+      },
+      {
+        "id": "shooting-line-field-tips",
+        "level": 2,
+        "text": "5. Essential Shooting Line Tips"
       }
     ],
-    "content": "<h2 id=\"keypad-layout\">Keypad Layout & Arrow Values</h2>\n      <p>The Archeris scoring interface features high-contrast, color-coded buttons designed for one-thumb field operation:</p>\n      <ul>\n        <li><strong>Gold Buttons (X & 10):</strong> 10 points. 'X' is recorded separately for tie-breaker calculations.</li>\n        <li><strong>Gold Button (9):</strong> 9 points.</li>\n        <li><strong>Red Buttons (8 & 7):</strong> 8 and 7 points.</li>\n        <li><strong>Blue Buttons (6 & 5):</strong> 6 and 5 points.</li>\n        <li><strong>Black Buttons (4 & 3):</strong> 4 and 3 points.</li>\n        <li><strong>White Buttons (2 & 1):</strong> 2 and 1 points.</li>\n        <li><strong>Green Button (M):</strong> Miss (0 points).</li>\n      </ul>\n\n      <h2 id=\"entering-arrows\">Recording End-by-End Scores</h2>\n      <p>Select the athlete tab (e.g., <em>Archer 1A</em>). Tap the buttons corresponding to each arrow called by the archers at the target face (e.g., <code>X</code>, <code>10</code>, <code>9</code>, <code>9</code>, <code>8</code>, <code>7</code>). Repeat for Archers 1B, 1C, and 1D.</p>\n\n      <h2 id=\"auto-sorting\">Automatic Descending Value Sorting</h2>\n      <p>In accordance with World Archery rules, arrow values within an end are automatically sorted in descending order (highest to lowest) upon input.</p>\n\n      <h2 id=\"confirming-ends\">Athlete Verification & End Submission</h2>\n      <p>Allow the archers at the butt to visually review their end totals and cumulative score on the screen before tapping <strong>Save & Next End</strong>.</p>"
-  }
+    "content": "<div class=\"p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-900 text-sm mb-6 flex items-start gap-3\">\n  <span class=\"text-xl\">🎯</span>\n  <div>\n    <strong>Scorekeeper Note:</strong> Stand at the target butt and enter the arrow scores called out by each athlete. The system automatically sorts arrow values in descending order (highest to lowest) and syncs the running totals directly to the public live leaderboard.\n  </div>\n</div>\n\n<img src=\"/docs/input-nilai-per-end.png\" alt=\"Archeris Mobile Scoring Keypad Interface\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"keypad-color-layout\">1. Keypad Color Buttons &amp; Values</h2>\n<p>The Archeris keypad matches official World Archery target face ring colors for quick and mistake-free input:</p>\n<ul>\n  <li><strong>Gold Buttons (X &amp; 10):</strong> 10 points. <code>X</code> (inner center ring) is tracked separately for tie-breaker calculations.</li>\n  <li><strong>Gold Button (9):</strong> 9 points.</li>\n  <li><strong>Red Buttons (8 &amp; 7):</strong> 8 and 7 points.</li>\n  <li><strong>Blue Buttons (6 &amp; 5):</strong> 6 and 5 points.</li>\n  <li><strong>Black Buttons (4 &amp; 3):</strong> 4 and 3 points.</li>\n  <li><strong>White Buttons (2 &amp; 1):</strong> 2 and 1 points.</li>\n  <li><strong>Green Button (M):</strong> <em>Miss</em> (0 points if an arrow misses the scoring face).</li>\n</ul>\n\n<h2 id=\"recording-end-scores\">2. How to Record Scores Each End</h2>\n<p>Follow these quick steps after each shooting end:</p>\n<ol>\n  <li>Tap the tab for the archer calling their arrows (for example, <strong>Archer 1A</strong>).</li>\n  <li>Tap the keypad buttons corresponding to the arrows in the target (e.g., <code>X</code>, <code>10</code>, <code>9</code>, <code>8</code>, <code>8</code>, <code>7</code>). The arrow boxes fill in automatically.</li>\n  <li>Switch to the next archer tabs (<strong>1B</strong>, <strong>1C</strong>, and <strong>1D</strong>) and enter their arrows until all archers at the target butt are complete.</li>\n</ol>\n\n<h2 id=\"fixing-misclicked-arrows\">3. Correcting Misclicked Arrow Values</h2>\n<p>If you accidentally tap the wrong button before saving:</p>\n<ul>\n  <li>Simply <strong>tap on the specific arrow box</strong> that contains the wrong score, then tap the correct number on the keypad to replace it.</li>\n  <li>Tap the <strong>Backspace (⌫)</strong> button to erase the last arrow value entered.</li>\n</ul>\n\n<h2 id=\"athlete-verification-submit\">4. Athlete Verification &amp; Saving the End</h2>\n<p>Before leaving the target butt:</p>\n<ol>\n  <li>Show the phone or tablet screen to all archers at the target so they can double-check their end score and cumulative total.</li>\n  <li>Once everyone agrees, tap the <strong>Save &amp; Next End</strong> button at the bottom of the screen.</li>\n  <li>The scores immediately sync with the main tournament server and the public leaderboard updates in real time!</li>\n</ol>\n\n<h2 id=\"shooting-line-field-tips\">5. Essential Shooting Line Tips</h2>\n<div class=\"p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-sm space-y-2\">\n  <p><strong>⚠️ Line Cutters (Doubtful Arrows):</strong> If an arrow touches a dividing ring line and archers disagree on the value, do not guess or touch the arrows. Call a <strong>Line Judge / Referee</strong> to make the official ruling before pulling arrows.</p>\n  <p><strong>📱 Full-Screen App Mode:</strong> You can tap <em>Add to Home Screen</em> on your smartphone browser to run the scorekeeper interface in immersive full-screen without URL address bars.</p>\n</div>"
+  },
+  "order": 3
 }

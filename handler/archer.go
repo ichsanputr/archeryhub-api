@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // GetArchers returns a list of archers with optional filtering
@@ -33,9 +34,9 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if search != "" {
-			whereClause += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.club_id LIKE ?)"
+			whereClause += " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.username LIKE ? OR a.id LIKE ? OR c.name LIKE ?)"
 			searchTerm := "%" + search + "%"
-			whereParams = append(whereParams, searchTerm, searchTerm, searchTerm)
+			whereParams = append(whereParams, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
 		}
 
 		if bowType != "" && bowType != "all" {
@@ -45,7 +46,7 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get total count
 		var total int
-		countQuery := `SELECT COUNT(*) FROM archers a ` + whereClause
+		countQuery := `SELECT COUNT(*) FROM archers a LEFT JOIN clubs c ON a.club_id = c.uuid ` + whereClause
 		err := db.Get(&total, countQuery, whereParams...)
 		if err != nil {
 			logrus.WithError(err).Error("Gagal menghitung jumlah pemanah")
@@ -202,7 +203,7 @@ func GetArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN tournament_categories te ON ep.category_id = te.uuid
 			LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 			LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
-			LEFT JOIN ref_tournament_types et ON te.event_type_uuid = et.uuid
+			LEFT JOIN ref_tournament_types et ON te.tournament_type_uuid = et.uuid
 			LEFT JOIN ref_gender_divisions gd ON te.gender_division_uuid = gd.uuid
 			WHERE a.uuid = ? OR a.username = ? OR (a.id != '' AND a.id = ?)
 			ORDER BY e.start_date DESC, e.name ASC
@@ -492,11 +493,19 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			finalUsername = finalUsername[:archerUsernameLen]
 		}
 
-		// Set verification status: Unverified if no password
-		isVerified := false
-		if req.Password != nil && *req.Password != "" {
-			isVerified = true
+		// Password handling: default to Archeris123! if empty, and ensure bcrypt hash
+		plainPassword := "Archeris123!"
+		if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+			plainPassword = strings.TrimSpace(*req.Password)
 		}
+		var passwordToStore *string
+		hashedBytes, hErr := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+		if hErr == nil {
+			hashStr := string(hashedBytes)
+			passwordToStore = &hashStr
+		}
+
+		isVerified := true
 
 		query := `
 			INSERT INTO archers (
@@ -507,7 +516,7 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 		`
 
 		_, err := db.Exec(query,
-			archerID, athleteID, finalUsername, req.Email, req.Password, req.FullName, req.Nickname,
+			archerID, athleteID, finalUsername, req.Email, passwordToStore, req.FullName, req.Nickname,
 			req.DateOfBirth, gender, req.BowType, clubID,
 			req.Phone, req.Address, req.AvatarURL, isVerified, now, now,
 		)
@@ -748,48 +757,193 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// deleteArchersByUUIDs cleans up all child and parent references before deleting archers
+func deleteArchersByUUIDs(tx *sqlx.Tx, archerUUIDs []string) error {
+	if len(archerUUIDs) == 0 {
+		return nil
+	}
+
+	query, args, err := sqlx.In(`SELECT uuid FROM tournament_participants WHERE archer_id IN (?)`, archerUUIDs)
+	if err == nil {
+		var participantUUIDs []string
+		_ = tx.Select(&participantUUIDs, tx.Rebind(query), args...)
+		if len(participantUUIDs) > 0 {
+			// Delete child records of participants
+			q1, a1, _ := sqlx.In(`DELETE FROM qualification_end_scores WHERE participant_uuid IN (?)`, participantUUIDs)
+			if q1 != "" {
+				tx.Exec(tx.Rebind(q1), a1...)
+			}
+
+			q2, a2, _ := sqlx.In(`DELETE FROM qualification_target_assignments WHERE participant_uuid IN (?)`, participantUUIDs)
+			if q2 != "" {
+				tx.Exec(tx.Rebind(q2), a2...)
+			}
+
+			q3, a3, _ := sqlx.In(`DELETE FROM elimination_entries WHERE participant_uuid IN (?)`, participantUUIDs)
+			if q3 != "" {
+				tx.Exec(tx.Rebind(q3), a3...)
+			}
+
+			q4, a4, _ := sqlx.In(`DELETE FROM team_members WHERE participant_id IN (?)`, participantUUIDs)
+			if q4 != "" {
+				tx.Exec(tx.Rebind(q4), a4...)
+			}
+
+			q5, a5, _ := sqlx.In(`DELETE FROM participant_payments WHERE participant_id IN (?)`, participantUUIDs)
+			if q5 != "" {
+				tx.Exec(tx.Rebind(q5), a5...)
+			}
+
+			// Clean up payment_transactions linked to participants
+			qPayReg, aPayReg, _ := sqlx.In(`DELETE FROM payment_transactions WHERE registration_id IN (?)`, participantUUIDs)
+			if qPayReg != "" {
+				tx.Exec(tx.Rebind(qPayReg), aPayReg...)
+			}
+		}
+	}
+
+	// Delete tournament participants
+	qPart, aPart, err := sqlx.In(`DELETE FROM tournament_participants WHERE archer_id IN (?)`, archerUUIDs)
+	if err == nil && qPart != "" {
+		tx.Exec(tx.Rebind(qPart), aPart...)
+	}
+
+	// Delete payment transactions linked to user_id
+	qPay, aPay, err := sqlx.In(`DELETE FROM payment_transactions WHERE user_id IN (?)`, archerUUIDs)
+	if err == nil && qPay != "" {
+		tx.Exec(tx.Rebind(qPay), aPay...)
+	}
+
+	// Delete certificates
+	qCert, aCert, err := sqlx.In(`DELETE FROM archer_certificates WHERE archer_id IN (?)`, archerUUIDs)
+	if err == nil && qCert != "" {
+		tx.Exec(tx.Rebind(qCert), aCert...)
+	}
+
+	// Delete notifications
+	qNotif, aNotif, err := sqlx.In(`DELETE FROM notifications WHERE user_id IN (?)`, archerUUIDs)
+	if err == nil && qNotif != "" {
+		tx.Exec(tx.Rebind(qNotif), aNotif...)
+	}
+
+	// Delete activity logs (FK constraint)
+	qAct, aAct, err := sqlx.In(`DELETE FROM activity_logs WHERE user_id IN (?)`, archerUUIDs)
+	if err == nil && qAct != "" {
+		tx.Exec(tx.Rebind(qAct), aAct...)
+	}
+
+	// Delete archers
+	qArch, aArch, err := sqlx.In(`DELETE FROM archers WHERE uuid IN (?)`, archerUUIDs)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(tx.Rebind(qArch), aArch...)
+	return err
+}
+
 // DeleteArcher deletes an archer
 func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		// Verification: only owner or admin/root can delete archer profile
+		// Verification: authenticated user (admin/root/organizer/archer/owner)
 		userID, _ := c.Get("user_id")
 		userRole, _ := c.Get("role")
 		userIDStr := fmt.Sprintf("%v", userID)
-		if userRole != "admin" && userRole != "root" && userIDStr != id {
+		if userRole != "admin" && userRole != "root" && userRole != "organizer" && userRole != "archer" && userIDStr != id {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki izin untuk menghapus akun ini"})
 			return
 		}
 
-		// Check if archer has any event participations
-		var participationCount int
-		db.Get(&participationCount, "SELECT COUNT(*) FROM tournament_participants WHERE archer_id = ?", id)
-
-		if participationCount > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Pemanah tidak bisa dihapus karena sudah memiliki riwayat turnamen"})
-			return
-		}
-
-		result, err := db.Exec("DELETE FROM archers WHERE uuid = ?", id)
+		var targetUUID string
+		err := db.Get(&targetUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR username = ?", id, id, id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data pemanah", "details": err.Error()})
-			return
-		}
-
-		rowsAffected, _ := result.RowsAffected()
-		if rowsAffected == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Pemanah tidak ditemukan"})
 			return
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi", "details": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		if err := deleteArchersByUUIDs(tx, []string{targetUUID}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data pemanah", "details": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan", "details": err.Error()})
+			return
+		}
+
 		// Log activity
-		userID, _ = c.Get("user_id")
 		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "archer_deleted", "archer", id, "Deleted archer", c.ClientIP(), c.Request.UserAgent())
+			utils.LogActivity(db, userIDStr, "", "archer_deleted", "archer", targetUUID, "Deleted archer", c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Pemanah berhasil dihapus"})
+	}
+}
+
+// BulkDeleteArchers deletes multiple archers
+func BulkDeleteArchers(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, _ := c.Get("role")
+		if userRole != "admin" && userRole != "root" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya administrator / root yang dapat menghapus massal"})
+			return
+		}
+
+		var req struct {
+			UUIDs []string `json:"uuids" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || len(req.UUIDs) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Daftar ID pemanah tidak valid atau kosong"})
+			return
+		}
+
+		// Resolve actual UUIDs
+		query, args, err := sqlx.In(`SELECT uuid FROM archers WHERE uuid IN (?) OR id IN (?) OR username IN (?)`, req.UUIDs, req.UUIDs, req.UUIDs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses data", "details": err.Error()})
+			return
+		}
+		var resolvedUUIDs []string
+		if err := db.Select(&resolvedUUIDs, db.Rebind(query), args...); err != nil || len(resolvedUUIDs) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Tidak ada pemanah yang cocok untuk dihapus"})
+			return
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi", "details": err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		if err := deleteArchersByUUIDs(tx, resolvedUUIDs); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data pemanah", "details": err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan", "details": err.Error()})
+			return
+		}
+
+		userID, _ := c.Get("user_id")
+		userIDStr := fmt.Sprintf("%v", userID)
+		if userID != nil {
+			utils.LogActivity(db, userIDStr, "", "archers_bulk_deleted", "archer", "", fmt.Sprintf("Bulk deleted %d archers", len(resolvedUUIDs)), c.ClientIP(), c.Request.UserAgent())
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("%d pemanah berhasil dihapus", len(resolvedUUIDs)),
+			"count":   len(resolvedUUIDs),
+		})
 	}
 }
 

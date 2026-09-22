@@ -57,7 +57,7 @@
       "website error",
       "ga bisa submit"
     ],
-    "answer": "Jika ada kendala teknis, kirim detail masalah (halaman, waktu kejadian, dan screenshot) lewat halaman Kontak atau email support@archeris.net agar tim bisa bantu lebih cepat."
+    "answer": "Jika ada kendala teknis, kirim detail masalah (halaman, waktu kejadian, dan screenshot) lewat halaman Kontak atau email admin@archeris.net agar tim bisa bantu lebih cepat."
   },
   {
     "name": "event_schedule",
@@ -190,7 +190,7 @@
       "email support",
       "butuh bantuan cepat"
     ],
-    "answer": "Anda bisa hubungi tim Archeris lewat halaman Kontak atau email support@archeris.net. Sertakan nama event/akun and kendala agar penanganan lebih cepat."
+    "answer": "Anda bisa hubungi tim Archeris lewat halaman Kontak atau email admin@archeris.net. Sertakan nama event/akun and kendala agar penanganan lebih cepat."
   }
 ]
 

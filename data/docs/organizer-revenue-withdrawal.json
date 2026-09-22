@@ -4,25 +4,36 @@
   "category": "finance",
   "readTime": "4 min",
   "en": {
-    "title": "Withdrawing Tournament Revenue to Bank Accounts",
-    "excerpt": "Step-by-step instructions for tournament organizers to withdraw collected participant registration fees from the organizer wallet balance.",
+    "title": "Withdrawing Tournament Revenue",
+    "excerpt": "A clear, friendly walkthrough on how tournament organizers can securely manage accumulated registration revenue and request payouts directly to their bank account.",
     "toc": [
       {
-        "id": "revenue-balance",
+        "id": "wallet-overview",
         "level": 2,
-        "text": "Tournament Revenue Balance"
+        "text": "Organizer Wallet & Revenue Balance"
       },
       {
-        "id": "disbursement-request",
+        "id": "security-verification",
         "level": 2,
-        "text": "Submitting a Withdrawal Request"
+        "text": "Financial Security & Access Control"
+      },
+      {
+        "id": "withdrawal-flow",
+        "level": 2,
+        "text": "How to Request a Payout"
       },
       {
         "id": "settlement-timeline",
         "level": 2,
-        "text": "Settlement Timelines & History"
+        "text": "Settlement Timelines & Bank Processing"
+      },
+      {
+        "id": "reconciliation-records",
+        "level": 2,
+        "text": "Transaction Ledger & Financial Audits"
       }
     ],
-    "content": "<h2 id=\"revenue-balance\">Tournament Revenue Balance</h2>\n      <p>All registration fees paid via automated digital gateways accumulate in your <strong>Organizer Wallet</strong> in real-time. Net revenue reflects gross entry fees minus standard payment gateway transaction processing fees.</p>\n\n      <h2 id=\"disbursement-request\">Submitting a Withdrawal Request</h2>\n      <p>To request a payout:</p>\n      <ol>\n        <li>Open <strong>Organizer Dashboard > Balance / Wallet</strong>.</li>\n        <li>Click <strong>Request Withdrawal</strong>.</li>\n        <li>Select your registered bank account and input the amount you wish to disburse.</li>\n        <li>Confirm the payout with your account password.</li>\n      </ol>\n\n      <h2 id=\"settlement-timeline\">Settlement Timelines & History</h2>\n      <p>Disbursements are processed within 1-2 business days. You can download official payout receipts and reconciliation statements for your tournament committee audit reports.</p>"
-  }
+    "content": "<p class=\"lead\">When archers register and pay their entry fees online through Archeris, funds are securely collected and aggregated in your organization's digital wallet. This guide explains how to check your available balance, verify your security credentials, and request bank payouts smoothly.</p>\n\n<h2 id=\"wallet-overview\">Organizer Wallet & Revenue Balance</h2>\n<p>Your Organizer Wallet provides a transparent, real-time summary of all tournament revenue:</p>\n<ul>\n  <li><strong>Available Balance:</strong> The total settled net revenue available for immediate withdrawal to your bank account.</li>\n  <li><strong>Pending Clearance:</strong> Funds from recent digital transactions currently clearing settlement gateways.</li>\n  <li><strong>Total Withdrawn:</strong> Cumulative lifetime payouts successfully transferred to your organization's bank accounts.</li>\n</ul>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/wallet-balance-overview.png\" alt=\"Organizer wallet balance overview and transaction ledger\" class=\"rounded-xl border border-slate-200 dark:border-slate-800 shadow-md w-full\" />\n  <figcaption class=\"mt-2 text-center text-sm text-slate-500 dark:text-slate-400\">Figure 1: The Organizer Wallet dashboard showing total revenue cards, withdrawal history tabs, and mutation ledger entries.</figcaption>\n</figure>\n\n<h2 id=\"security-verification\">Financial Security & Access Control</h2>\n<p>To ensure strict financial confidentiality and safeguard your club's earnings:</p>\n<ul>\n  <li><strong>Password Lock:</strong> Accessing the <strong>Balance / Wallet</strong> page (<code>/dashboard/organizer/balance</code>) requires entering your account password to unlock sensitive balance amounts and bank details.</li>\n  <li><strong>Role Authorization:</strong> Only designated organization administrators with financial permissions can unlock balance pages and initiate withdrawals.</li>\n</ul>\n\n<h2 id=\"withdrawal-flow\">How to Request a Payout</h2>\n<p>Follow these simple steps to disburse tournament earnings to your registered bank account:</p>\n<ol>\n  <li>Navigate to <strong>Balance / Keuangan</strong> in your Organizer Dashboard.</li>\n  <li>Enter your account password on the security overlay to unlock your balance view.</li>\n  <li>Click the <strong>Tarik Saldo / Request Withdrawal</strong> button to open the payout modal.</li>\n  <li>Choose your destination bank account from your pre-registered organization bank accounts.</li>\n  <li>Enter the amount you wish to withdraw (minimum withdrawal amount is Rp 50,000).</li>\n  <li>Review the destination account details carefully and click <strong>Submit Withdrawal</strong> to confirm.</li>\n</ol>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/wallet-withdrawal-modal.png\" alt=\"Organizer revenue withdrawal request modal\" class=\"rounded-xl border border-slate-200 dark:border-slate-800 shadow-md w-full\" />\n  <figcaption class=\"mt-2 text-center text-sm text-slate-500 dark:text-slate-400\">Figure 2: The Withdrawal Request modal where you specify the payout amount and select your verified bank account.</figcaption>\n</figure>\n\n<h2 id=\"settlement-timeline\">Settlement Timelines & Bank Processing</h2>\n<p>Once submitted, withdrawal requests undergo fast-track automated disbursement:</p>\n<ul>\n  <li><strong>Processing Time:</strong> Payouts are generally processed and credited to your bank account within <strong>1 to 2 business days</strong> (excluding weekends and public bank holidays).</li>\n  <li><strong>Supported Banks:</strong> Instant and clearing bank networks across Indonesia, including BCA, Bank Mandiri, BNI, BRI, Bank Syariah Indonesia (BSI), CIMB Niaga, and Permata Bank.</li>\n  <li><strong>Status Tracking:</strong> The status in your withdrawal table will update in real time from <em>Pending</em> to <em>Completed</em> once the interbank transfer finishes.</li>\n</ul>\n\n<h2 id=\"reconciliation-records\">Transaction Ledger & Financial Audits</h2>\n<p>Maintain spotless financial transparency for your committee and stakeholders:</p>\n<ul>\n  <li><strong>Mutation Ledger:</strong> Every entry fee payment, platform fee, and withdrawal is recorded in an immutable ledger with timestamps and reference IDs.</li>\n  <li><strong>Downloadable Payout Receipts:</strong> Click on any completed payout row to download an official PDF disbursement voucher for club treasurer records and audit compliance.</li>\n</ul>"
+  },
+  "order": 4
 }

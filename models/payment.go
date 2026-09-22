@@ -37,7 +37,7 @@ type PaymentTransaction struct {
 	GatewayReference *string         `json:"gateway_reference" db:"gateway_reference"`
 	UserID           string          `json:"user_id" db:"user_id"`
 	SellerID         *string         `json:"seller_id,omitempty" db:"seller_id"`
-	EventID          *string         `json:"event_id" db:"event_id"`
+	EventID          *string         `json:"event_id" db:"tournament_id"`
 	RegistrationID   *string         `json:"registration_id" db:"registration_id"`
 	SubscriptionPlanID *int          `json:"subscription_plan_id" db:"subscription_plan_id"`
 	Amount           float64         `json:"amount" db:"amount"`
@@ -58,21 +58,32 @@ type PaymentTransaction struct {
 	Months           int             `json:"months" db:"months"`
 	Status           string          `json:"status" db:"status"` // pending, paid, expired, failed, refunded, awaiting_verification, rejected
 	PaidAt           *time.Time      `json:"paid_at" db:"paid_at"`
-	ExpiredAt        time.Time       `json:"expired_at" db:"expired_at"`
-	CallbackData     *json.RawMessage `json:"callback_data" db:"callback_data" swaggertype:"object"`
+	ExpiredAt        *time.Time      `json:"expired_at" db:"expired_at"`
+	CallbackData     *string         `json:"callback_data" db:"callback_data" swaggertype:"string"`
 	SenderName       *string         `json:"sender_name" db:"sender_name"` // Sender bank account name (Atas Nama)
+	PayerName        *string         `json:"payer_name,omitempty" db:"-"`
+	PayerEmail       *string         `json:"payer_email,omitempty" db:"-"`
+	RegisteredByName *string         `json:"registered_by_name,omitempty" db:"-"`
+	RegisteredByEmail *string        `json:"registered_by_email,omitempty" db:"-"`
+	DelegationCount  int             `json:"delegation_count,omitempty" db:"-"`
 	CreatedAt        time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at" db:"updated_at"`
 }
 
 // CreatePaymentRequest represents the request to create a payment
 type CreatePaymentRequest struct {
-	Method         string  `json:"method" binding:"required"` // Payment channel code (e.g., BRIVA, QRIS, manual)
-	EventID        string  `json:"event_id"`
-	RegistrationID *string `json:"registration_id"`
-	PlanID         *int    `json:"plan_id"`
-	Type           string  `json:"type"` // e.g., "registration" (default), "platform_fee", or "subscription"
-	Months         int     `json:"months"` // Number of months for subscription
+	Method          string   `json:"method"` // Payment channel code (e.g., BRIVA, QRIS, manual)
+	PaymentMethod   string   `json:"payment_method"`
+	Gateway         string   `json:"gateway"`
+	GatewayProvider string   `json:"gateway_provider"`
+	Amount          float64  `json:"amount"`
+	EventID         string   `json:"event_id"`
+	RegistrationID  *string  `json:"registration_id"`
+	RegistrationIDs []string `json:"registration_ids"`
+	ParticipantIDs  []string `json:"participant_ids"`
+	PlanID          *int     `json:"plan_id"`
+	Type            string   `json:"type"`   // e.g., "registration" (default), "platform_fee", or "subscription"
+	Months          int      `json:"months"` // Number of months for subscription
 }
 
 // UploadPaymentProofRequest represents the request to upload payment proof

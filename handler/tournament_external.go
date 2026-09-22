@@ -17,7 +17,7 @@ func GetExternalTournaments(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				id, uuid, slug, source_platform, external_id,
-				name, short_name, venue, location, city, country,
+				name, short_name, venue, location, city, country, country_code, description,
 				start_date, end_date, banner_url, logo_url, status,
 				categories_count, participants_count
 			FROM tournament_externals
@@ -53,7 +53,7 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				id, uuid, slug, source_platform, external_id, source_url,
-				name, short_name, venue, location, city, country,
+				name, short_name, venue, location, city, country, country_code, description,
 				start_date, end_date, banner_url, logo_url, status,
 				categories_count, participants_count, data_json,
 				created_at, updated_at

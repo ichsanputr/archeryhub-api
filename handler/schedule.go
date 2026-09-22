@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -43,11 +44,121 @@ type ScheduleItemDB struct {
 	UpdatedAt       string         `db:"updated_at" json:"updated_at"`
 }
 
+type ScheduleItemResponse struct {
+	UUID            string   `json:"uuid"`
+	ScheduleUUID    string   `json:"schedule_uuid"`
+	TournamentID    string   `json:"tournament_id"`
+	ItemType        string   `json:"item_type"` // 'general', 'qualification', 'elimination', 'finals'
+	StartTime       string   `json:"start_time"`
+	EndTime         string   `json:"end_time"`
+	DurationMinutes int      `json:"duration_minutes"`
+	DelayMinutes    int      `json:"delay_minutes"`
+	Title           string   `json:"title"`
+	Subtitle        string   `json:"subtitle"`
+	Description     string   `json:"description"`
+	Location        string   `json:"location"`
+	SessionCode     string   `json:"session_code"`
+	CategoryUUIDs   []string `json:"category_uuids"`
+	BracketUUID     string   `json:"bracket_uuid"`
+	ElimRound       *int64   `json:"elim_round"`
+	TargetStart     *int64   `json:"target_start"`
+	TargetEnd       *int64   `json:"target_end"`
+	SortOrder       int      `json:"sort_order"`
+	DayNumber       int      `json:"day_number"`
+	ScheduleDate    string   `json:"schedule_date"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
+}
+
+func (it ScheduleItemDB) ToResponse() ScheduleItemResponse {
+	var catUUIDs []string
+	if it.CategoryUUIDs.Valid && it.CategoryUUIDs.String != "" {
+		_ = json.Unmarshal([]byte(it.CategoryUUIDs.String), &catUUIDs)
+		if len(catUUIDs) == 0 && !strings.HasPrefix(it.CategoryUUIDs.String, "[") {
+			catUUIDs = strings.Split(it.CategoryUUIDs.String, ",")
+		}
+	}
+	if catUUIDs == nil {
+		catUUIDs = []string{}
+	}
+
+	var elimRound *int64
+	if it.ElimRound.Valid {
+		v := it.ElimRound.Int64
+		elimRound = &v
+	}
+	var targetStart *int64
+	if it.TargetStart.Valid {
+		v := it.TargetStart.Int64
+		targetStart = &v
+	}
+	var targetEnd *int64
+	if it.TargetEnd.Valid {
+		v := it.TargetEnd.Int64
+		targetEnd = &v
+	}
+
+	scheduleUUID := ""
+	if it.ScheduleUUID.Valid {
+		scheduleUUID = it.ScheduleUUID.String
+	}
+	subtitle := ""
+	if it.Subtitle.Valid {
+		subtitle = it.Subtitle.String
+	}
+	description := ""
+	if it.Description.Valid {
+		description = it.Description.String
+	}
+	location := ""
+	if it.Location.Valid {
+		location = it.Location.String
+	}
+	sessionCode := ""
+	if it.SessionCode.Valid {
+		sessionCode = it.SessionCode.String
+	}
+	bracketUUID := ""
+	if it.BracketUUID.Valid {
+		bracketUUID = it.BracketUUID.String
+	}
+	scheduleDate := ""
+	if it.ScheduleDate.Valid {
+		scheduleDate = it.ScheduleDate.String
+	}
+
+	return ScheduleItemResponse{
+		UUID:            it.UUID,
+		ScheduleUUID:    scheduleUUID,
+		TournamentID:    it.TournamentID,
+		ItemType:        it.ItemType,
+		StartTime:       it.StartTime,
+		EndTime:         it.EndTime,
+		DurationMinutes: it.DurationMinutes,
+		DelayMinutes:    it.DelayMinutes,
+		Title:           it.Title,
+		Subtitle:        subtitle,
+		Description:     description,
+		Location:        location,
+		SessionCode:     sessionCode,
+		CategoryUUIDs:   catUUIDs,
+		BracketUUID:     bracketUUID,
+		ElimRound:       elimRound,
+		TargetStart:     targetStart,
+		TargetEnd:       targetEnd,
+		SortOrder:       it.SortOrder,
+		DayNumber:       it.DayNumber,
+		ScheduleDate:    scheduleDate,
+		CreatedAt:       it.CreatedAt,
+		UpdatedAt:       it.UpdatedAt,
+	}
+}
+
 type ScheduleDayGroup struct {
-	DayNumber    int              `json:"day_number"`
-	ScheduleDate string           `json:"schedule_date"`
-	DayLabel     string           `json:"day_label"`
-	Items        []ScheduleItemDB `json:"items"`
+	DayNumber    int                    `json:"day_number"`
+	ScheduleDate string                 `json:"schedule_date"`
+	DayLabel     string                 `json:"day_label"`
+	Items        []ScheduleItemResponse `json:"items"`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -140,36 +251,63 @@ func GetTournamentScheduleTimeline(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Group items by DayNumber and chronological date
-		dayMap := make(map[int][]ScheduleItemDB)
-		var dayKeys []int
-		for _, it := range items {
-			if _, ok := dayMap[it.DayNumber]; !ok {
-				dayMap[it.DayNumber] = []ScheduleItemDB{}
-				dayKeys = append(dayKeys, it.DayNumber)
-			}
-			dayMap[it.DayNumber] = append(dayMap[it.DayNumber], it)
-		}
+		// Group items chronologically by date
+		var groupOrder []string
+		groupMap := make(map[string][]ScheduleItemResponse)
 
-		var days []ScheduleDayGroup
-		for _, d := range dayKeys {
-			dayItems := dayMap[d]
-			dateLabel := fmt.Sprintf("Hari %d", d)
-			dateVal := ""
-			if len(dayItems) > 0 && dayItems[0].ScheduleDate.Valid && dayItems[0].ScheduleDate.String != "" {
-				dateVal = dayItems[0].ScheduleDate.String
-				t, parseErr := time.Parse("2006-01-02", dateVal)
-				if parseErr == nil {
-					dateLabel = t.Format("Monday, 02 Jan 2006")
+		for _, it := range items {
+			dateKey := ""
+			if it.ScheduleDate.Valid && it.ScheduleDate.String != "" {
+				dateKey = it.ScheduleDate.String
+				if len(dateKey) > 10 {
+					dateKey = dateKey[:10]
 				}
 			} else if ev.StartDate.Valid {
-				t := ev.StartDate.Time.AddDate(0, 0, d-1)
-				dateVal = t.Format("2006-01-02")
+				dateKey = ev.StartDate.Time.AddDate(0, 0, it.DayNumber-1).Format("2006-01-02")
+			}
+			if dateKey == "" {
+				dateKey = fmt.Sprintf("no-date-%d", it.DayNumber)
+			}
+
+			if _, exists := groupMap[dateKey]; !exists {
+				groupOrder = append(groupOrder, dateKey)
+			}
+			groupMap[dateKey] = append(groupMap[dateKey], it.ToResponse())
+		}
+
+		// Sort groupOrder chronologically
+		sort.SliceStable(groupOrder, func(i, j int) bool {
+			return groupOrder[i] < groupOrder[j]
+		})
+
+		var days []ScheduleDayGroup
+		for idx, key := range groupOrder {
+			dayNum := idx + 1
+			dayItems := groupMap[key]
+
+			dateLabel := fmt.Sprintf("Hari %d", dayNum)
+			dateVal := ""
+			t, pErr := time.Parse("2006-01-02", key)
+			if pErr == nil {
+				dateVal = key
 				dateLabel = t.Format("Monday, 02 Jan 2006")
+			} else if len(dayItems) > 0 && dayItems[0].ScheduleDate != "" {
+				dateVal = dayItems[0].ScheduleDate
+				if t2, pErr2 := time.Parse("2006-01-02", dateVal); pErr2 == nil {
+					dateLabel = t2.Format("Monday, 02 Jan 2006")
+				}
+			}
+
+			// Sync day_number in items response
+			for i := range dayItems {
+				dayItems[i].DayNumber = dayNum
+				if dateVal != "" {
+					dayItems[i].ScheduleDate = dateVal
+				}
 			}
 
 			days = append(days, ScheduleDayGroup{
-				DayNumber:    d,
+				DayNumber:    dayNum,
 				ScheduleDate: dateVal,
 				DayLabel:     dateLabel,
 				Items:        dayItems,
@@ -192,7 +330,7 @@ type SaveScheduleItemRequest struct {
 	UUID            string   `json:"uuid"`
 	DayNumber       int      `json:"day_number"`
 	ScheduleDate    string   `json:"schedule_date"`
-	ItemType        string   `json:"item_type" binding:"required"` // general, qualification, elimination, finals
+	ItemType        string   `json:"item_type" binding:"required"` // general, qualification, elimination, finals, break
 	StartTime       string   `json:"start_time" binding:"required"`
 	EndTime         string   `json:"end_time" binding:"required"`
 	DurationMinutes int      `json:"duration_minutes"`
@@ -248,13 +386,6 @@ func SaveTournamentScheduleItem(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Type-specific smart validation
-		if req.ItemType == "qualification" {
-			if req.TargetStart == nil || req.TargetEnd == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Target awal dan target akhir wajib diisi untuk sesi Kualifikasi"})
-				return
-			}
-		}
-
 		if req.ItemType == "elimination" || req.ItemType == "finals" {
 			if req.ElimRound == nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Babak eliminasi wajib dipilih untuk sesi Eliminasi / Final"})
@@ -311,6 +442,34 @@ func SaveTournamentScheduleItem(db *sqlx.DB) gin.HandlerFunc {
 			itemUUID = uuid.New().String()
 		}
 
+		// Check for exact duplicate (same tournament, same date/day, same start/end time, same title)
+		var duplicateCount int
+		dateCheckVal := req.ScheduleDate
+		if len(dateCheckVal) > 10 {
+			dateCheckVal = dateCheckVal[:10]
+		}
+		checkQuery := `
+			SELECT COUNT(*) 
+			FROM tournament_schedule_items 
+			WHERE tournament_id = ? 
+			  AND (
+				(? != '' AND (schedule_date = ? OR schedule_date LIKE CONCAT(?, '%'))) OR
+				(? = '' AND day_number = ?)
+			  )
+			  AND TIME_FORMAT(start_time, '%H:%i') = TIME_FORMAT(?, '%H:%i')
+			  AND TIME_FORMAT(end_time, '%H:%i') = TIME_FORMAT(?, '%H:%i')
+			  AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+			  AND uuid != ?
+		`
+		_ = db.Get(&duplicateCount, checkQuery, ev.UUID, dateCheckVal, dateCheckVal, dateCheckVal, dateCheckVal, dayNum, st, et, req.Title, itemUUID)
+		if duplicateCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Jadwal dengan judul dan rentang waktu tersebut sudah terdaftar pada hari ini.",
+				"code":  "duplicate_schedule",
+			})
+			return
+		}
+
 		catJSON := "[]"
 		if len(req.CategoryUUIDs) > 0 {
 			b, _ := json.Marshal(req.CategoryUUIDs)
@@ -353,7 +512,12 @@ func SaveTournamentScheduleItem(db *sqlx.DB) gin.HandlerFunc {
 
 		var schedDate interface{} = nil
 		if req.ScheduleDate != "" {
-			schedDate = req.ScheduleDate
+			sDate := strings.TrimSpace(req.ScheduleDate)
+			if len(sDate) >= 10 {
+				schedDate = sDate[:10]
+			} else {
+				schedDate = sDate
+			}
 		} else if ev.StartDate.Valid {
 			schedDate = ev.StartDate.Time.AddDate(0, 0, dayNum-1).Format("2006-01-02")
 		}
@@ -370,10 +534,47 @@ func SaveTournamentScheduleItem(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Reindex day numbers to ensure 100% chronological consistency
+		reindexTournamentScheduleDays(db, ev.UUID)
+
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Item jadwal berhasil disimpan",
 			"uuid":    itemUUID,
 		})
+	}
+}
+
+// Helper to reindex day_number chronologically for all items of a tournament
+func reindexTournamentScheduleDays(db *sqlx.DB, tournamentUUID string) {
+	type DateRow struct {
+		ScheduleDate string `db:"schedule_date"`
+	}
+	var dates []DateRow
+	err := db.Select(&dates, `
+		SELECT DISTINCT COALESCE(CAST(schedule_date AS CHAR), '') AS schedule_date
+		FROM tournament_schedule_items
+		WHERE tournament_id = ?
+		ORDER BY COALESCE(NULLIF(schedule_date, ''), '9999-12-31') ASC
+	`, tournamentUUID)
+	if err != nil {
+		return
+	}
+
+	for idx, d := range dates {
+		dayNum := idx + 1
+		if d.ScheduleDate != "" {
+			_, _ = db.Exec(`
+				UPDATE tournament_schedule_items
+				SET day_number = ?
+				WHERE tournament_id = ? AND schedule_date = ?
+			`, dayNum, tournamentUUID, d.ScheduleDate)
+		} else {
+			_, _ = db.Exec(`
+				UPDATE tournament_schedule_items
+				SET day_number = ?
+				WHERE tournament_id = ? AND (schedule_date IS NULL OR schedule_date = '')
+			`, dayNum, tournamentUUID)
+		}
 	}
 }
 
@@ -400,6 +601,9 @@ func DeleteTournamentScheduleItem(db *sqlx.DB) gin.HandlerFunc {
 
 		// Also cleanup from legacy tournament_schedules if present
 		_, _ = db.Exec(`DELETE FROM tournament_schedules WHERE uuid = ? AND tournament_id = ?`, itemID, ev.UUID)
+
+		// Reindex day numbers to ensure 100% chronological consistency
+		reindexTournamentScheduleDays(db, ev.UUID)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Item jadwal berhasil dihapus"})
 	}

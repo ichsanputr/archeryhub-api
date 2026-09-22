@@ -16,6 +16,8 @@ type TournamentExternal struct {
 	Location          *string   `json:"location" db:"location"`
 	City              *string   `json:"city" db:"city"`
 	Country           *string   `json:"country" db:"country"`
+	CountryCode       *string   `json:"country_code" db:"country_code"`
+	Description       *string   `json:"description" db:"description"`
 	StartDate         *string   `json:"start_date" db:"start_date"`
 	EndDate           *string   `json:"end_date" db:"end_date"`
 	BannerURL         *string   `json:"banner_url" db:"banner_url"`
@@ -41,6 +43,8 @@ type TournamentExternalListItem struct {
 	Location          *string `json:"location" db:"location"`
 	City              *string `json:"city" db:"city"`
 	Country           *string `json:"country" db:"country"`
+	CountryCode       *string `json:"country_code" db:"country_code"`
+	Description       *string `json:"description" db:"description"`
 	StartDate         *string `json:"start_date" db:"start_date"`
 	EndDate           *string `json:"end_date" db:"end_date"`
 	BannerURL         *string `json:"banner_url" db:"banner_url"`

@@ -737,7 +737,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 					CheckoutURL:      &checkoutURLVal,
 					Months:           1,
 					Status:           "pending",
-					ExpiredAt:        expiredAt,
+					ExpiredAt:        utils.TimePtr(expiredAt),
 				}
 
 				query := `
@@ -786,7 +786,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				PaymentMethod:  utils.StringPtr("manual"),
 				Months:         1,
 				Status:         "pending",
-				ExpiredAt:      expiredAt,
+				ExpiredAt:      utils.TimePtr(expiredAt),
 			}
 
 			query := `
@@ -855,7 +855,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 					CheckoutURL:      &checkoutURLVal,
 					Months:           1,
 					Status:           "pending",
-					ExpiredAt:        expiredAt,
+					ExpiredAt:        utils.TimePtr(expiredAt),
 				}
 
 				query := `

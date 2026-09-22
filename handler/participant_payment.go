@@ -54,7 +54,7 @@ func GetParticipantPayments(db *sqlx.DB) gin.HandlerFunc {
 		query, args, err := sqlx.In(`
 			SELECT uuid, reference, amount, total_amount, payment_method, status, created_at, instructions as note 
 			FROM payment_transactions 
-			WHERE registration_id IN (?) OR (event_id = ? AND user_id = ?)
+			WHERE registration_id IN (?) OR (tournament_id = ? AND user_id = ?)
 			ORDER BY created_at DESC
 		`, regIDs, actualEventID, pInfo.ArcherID)
 
@@ -185,7 +185,7 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		// 1. Insert Payment Transaction Record
 		_, err = tx.Exec(`
 			INSERT INTO payment_transactions (
-				uuid, reference, user_id, event_id, registration_id, 
+				uuid, reference, user_id, tournament_id, registration_id, 
 				amount, total_amount, payment_method, status, instructions, 
 				created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, NOW(), NOW())
@@ -315,7 +315,7 @@ func ApproveParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		db.Exec(`
 			UPDATE payment_transactions 
 			SET status = 'paid', updated_at = NOW(), paid_at = COALESCE(paid_at, NOW()) 
-			WHERE (registration_id = ? OR (event_id = ? AND user_id = ?)) 
+			WHERE (registration_id = ? OR (tournament_id = ? AND user_id = ?)) 
 			  AND status IN ('pending', 'awaiting_verification', 'unpaid')
 		`, participantID, pInfo.EventID, pInfo.ArcherID)
 

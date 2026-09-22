@@ -2,8 +2,10 @@ package handler
 
 import (
 	"Archeris-api/models"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,14 +19,15 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 
 		type EnrichedTransaction struct {
 			models.PaymentTransaction
-			Description string  `json:"description" db:"description"`
-			PlanName    *string `json:"plan_name" db:"plan_name"`
-			EventName   *string `json:"event_name" db:"event_name"`
-			AthleteName *string `json:"athlete_name" db:"athlete_name"`
-			Division    *string `json:"division" db:"division"`
-			Category    *string `json:"category" db:"category"`
-			UserEmail   string  `db:"user_email"`
-			UserName    string  `db:"user_name"`
+			Description  string  `json:"description" db:"description"`
+			PlanName     *string `json:"plan_name" db:"plan_name"`
+			EventName    *string `json:"event_name" db:"event_name"`
+			PageSettings *string `json:"page_settings" db:"page_settings"`
+			AthleteName  *string `json:"athlete_name" db:"athlete_name"`
+			Division     *string `json:"division" db:"division"`
+			Category     *string `json:"category" db:"category"`
+			UserEmail    string  `db:"user_email"`
+			UserName     string  `db:"user_name"`
 		}
 
 		var t EnrichedTransaction
@@ -39,6 +42,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
+				e.page_settings as page_settings,
 				a.full_name as athlete_name,
 				rbt.name as division,
 				COALESCE(ec.category_name_custom, rag.name) as category,
@@ -48,7 +52,7 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
 			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN tournaments e ON t.tournament_id = e.uuid
+			LEFT JOIN tournaments e ON COALESCE(t.tournament_id, ep.tournament_id) = e.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
@@ -56,8 +60,6 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid, email, full_name, username FROM archers
 				UNION ALL
 				SELECT uuid, email, name as full_name, slug as username FROM organizers
-				UNION ALL
-				SELECT uuid, email, store_name as full_name, slug as username FROM sellers
 			) u ON t.user_id = u.uuid
 			WHERE t.reference = ?
 		`
@@ -186,29 +188,83 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		pdf.CellFormat(25, 10, "HARGA", "B", 0, "R", true, 0, "")
 		pdf.CellFormat(25, 10, "TOTAL ", "B", 1, "R", true, 0, "")
 
-		pdf.SetX(20)
-		pdf.SetTextColor(15, 23, 42)
-		pdf.SetFont("Arial", "B", 10)
-		
-		currencyPrefix := "Rp "
-		amountFormat := "%.0f"
+		type InvoiceParticipant struct {
+			AthleteName  string  `db:"athlete_name"`
+			CategoryName string  `db:"category_name"`
+			Amount       float64 `db:"payment_amount"`
+		}
+		var participants []InvoiceParticipant
+		_ = db.Select(&participants, `
+			SELECT 
+				COALESCE(a.full_name, 'Peserta') as athlete_name,
+				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), tc.category_name_custom, tc.name, '') as category_name,
+				tp.payment_amount
+			FROM tournament_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+			WHERE (tp.payment_id = ? AND tp.payment_id != '') OR (tp.uuid = ? AND tp.uuid != '')
+			ORDER BY tp.created_at ASC
+		`, t.UUID, t.RegistrationID)
 
-		desc := t.Description
-		qty := "1 Item"
-		unitPrice := t.Amount
-		if t.SubscriptionPlanID != nil {
-			qty = fmt.Sprintf("%d Bln", t.Months)
-			unitPrice = t.Amount / float64(t.Months)
+		currency := "IDR"
+		if t.PaymentMethod != nil && strings.ToLower(*t.PaymentMethod) == "paypal" {
+			currency = "USD"
+		}
+		if t.PageSettings != nil && *t.PageSettings != "" {
+			var ps struct {
+				Currency string `json:"currency"`
+			}
+			if err := json.Unmarshal([]byte(*t.PageSettings), &ps); err == nil && ps.Currency != "" {
+				currency = strings.ToUpper(ps.Currency)
+			}
 		}
 
-		pdf.CellFormat(100, 15, " "+desc, "", 0, "L", false, 0, "")
-		pdf.CellFormat(20, 15, qty, "", 0, "C", false, 0, "")
-		pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, unitPrice), "", 0, "R", false, 0, "")
-		pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, t.Amount), "", 1, "R", false, 0, "")
+		currencyPrefix := "Rp "
+		amountFormat := "%.0f"
+		if currency == "USD" {
+			currencyPrefix = "$ "
+			amountFormat = "%.2f"
+		}
+
+		if len(participants) > 1 {
+			for _, p := range participants {
+				pdf.SetX(20)
+				pdf.SetTextColor(15, 23, 42)
+				pdf.SetFont("Arial", "B", 9)
+				pDesc := fmt.Sprintf("%s (%s)", p.AthleteName, p.CategoryName)
+				if len(pDesc) > 48 {
+					pDesc = pDesc[:45] + "..."
+				}
+				pdf.CellFormat(100, 10, " "+pDesc, "B", 0, "L", false, 0, "")
+				pdf.CellFormat(20, 10, "1", "B", 0, "C", false, 0, "")
+				pdf.CellFormat(25, 10, fmt.Sprintf(amountFormat, p.Amount), "B", 0, "R", false, 0, "")
+				pdf.CellFormat(25, 10, fmt.Sprintf(amountFormat, p.Amount), "B", 1, "R", false, 0, "")
+			}
+		} else {
+			desc := t.Description
+			qty := "1 Item"
+			unitPrice := t.Amount
+			if t.SubscriptionPlanID != nil {
+				qty = fmt.Sprintf("%d Bln", t.Months)
+				unitPrice = t.Amount / float64(t.Months)
+			}
+
+			pdf.CellFormat(100, 15, " "+desc, "", 0, "L", false, 0, "")
+			pdf.CellFormat(20, 15, qty, "", 0, "C", false, 0, "")
+			pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, unitPrice), "", 0, "R", false, 0, "")
+			pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, t.Amount), "", 1, "R", false, 0, "")
+		}
 
 		// --- Summary Section ---
-		pdf.SetY(180)
-		pdf.Line(20, 175, 190, 175)
+		summaryY := pdf.GetY() + 10
+		if summaryY < 180 {
+			summaryY = 180
+		}
+		pdf.SetY(summaryY)
+		pdf.Line(20, summaryY-5, 190, summaryY-5)
 		
 		pdf.SetX(120)
 		pdf.SetFont("Arial", "", 10)

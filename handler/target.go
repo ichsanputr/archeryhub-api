@@ -116,7 +116,7 @@ func GetTargets(db *sqlx.DB) gin.HandlerFunc {
 				db.Select(&eventTargets, `
 					SELECT target_name
 					FROM tournament_targets
-					WHERE tournament_uuid = ? AND status = 'active'
+					WHERE tournament_uuid = ?
 					ORDER BY board_number ASC, target_name ASC
 				`, eventUUID)
 			}

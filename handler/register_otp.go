@@ -118,6 +118,13 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 			userID = uuid.New().String()
 		}
 
+		tx, txErr := db.Beginx()
+		if txErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start database transaction", "code": "server_error"})
+			return
+		}
+		defer tx.Rollback()
+
 		if req.UserType == "organizer" {
 			cleanUsername := utils.CleanUsername(name)
 			if cleanUsername == "" {
@@ -125,7 +132,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if isUpdate {
-				_, err = db.Exec(`
+				_, err = tx.Exec(`
 					UPDATE organizers
 					SET password = ?, name = ?, whatsapp_no = ?, status = 'inactive', is_verified = false, updated_at = NOW()
 					WHERE uuid = ?
@@ -135,12 +142,12 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 					INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, is_verified, quota_free, quota_standard, quota_elite, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', 'inactive', false, 20, 0, 0, NOW(), NOW())
 				`
-				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, hashedPassword, name, "", phone, "")
+				_, err = tx.Exec(insertQuery, userID, userID, cleanUsername, req.Email, hashedPassword, name, "", phone, "")
 			}
 		} else {
 			// Archer
 			var maxID sql.NullInt64
-			_ = db.Get(&maxID, "SELECT MAX(CAST(SUBSTRING(id, 5) AS UNSIGNED)) FROM archers WHERE id REGEXP '^ARC-[0-9]+$'")
+			_ = tx.Get(&maxID, "SELECT MAX(CAST(SUBSTRING(id, 5) AS UNSIGNED)) FROM archers WHERE id REGEXP '^ARC-[0-9]+$'")
 			nextIDNum := 1
 			if maxID.Valid && maxID.Int64 > 0 {
 				nextIDNum = int(maxID.Int64) + 1
@@ -162,10 +169,14 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 				if clubSlug == "" {
 					clubSlug = "club-" + newClubUUID[:8]
 				}
-				_, _ = db.Exec(`
+				_, err = tx.Exec(`
 					INSERT INTO clubs (uuid, slug, name, created_at, updated_at)
 					VALUES (?, ?, ?, NOW(), NOW())
 				`, newClubUUID, clubSlug, req.NewClubName)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create club: " + err.Error(), "code": "server_error"})
+					return
+				}
 				clubID = newClubUUID
 			}
 			if clubID != "" {
@@ -173,7 +184,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if isUpdate {
-				_, err = db.Exec(`
+				_, err = tx.Exec(`
 					UPDATE archers
 					SET password = ?, full_name = ?, phone = ?, club_id = ?, status = 'inactive', is_verified = false, updated_at = NOW()
 					WHERE uuid = ?
@@ -183,7 +194,7 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, bow_type, club_id, created_at, updated_at)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive', false, NULL, NULL, NULL, ?, NOW(), NOW())
 				`
-				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, name, phone, clubIDVal)
+				_, err = tx.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, name, phone, clubIDVal)
 			}
 		}
 
@@ -193,20 +204,25 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Invalidate old OTPs
-		_, _ = db.Exec(`UPDATE email_verifications SET is_used = 1 WHERE email = ? AND is_used = 0`, req.Email)
+		_, _ = tx.Exec(`UPDATE email_verifications SET is_used = 1 WHERE email = ? AND is_used = 0`, req.Email)
 
 		// Generate OTP
 		otp := utils.GenerateOTP()
 		verifID := uuid.New().String()
 		expiry := time.Now().Add(10 * time.Minute)
 
-		_, err = db.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO email_verifications (uuid, email, otp_code, user_id, user_type, is_used, expires_at, created_at)
 			VALUES (?, ?, ?, ?, ?, 0, ?, NOW())
 		`, verifID, req.Email, otp, userID, req.UserType, expiry)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate verification code", "code": "server_error"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize registration", "code": "server_error"})
 			return
 		}
 
@@ -239,21 +255,21 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		type VerifRow struct {
+		type VerificationRecord struct {
 			UUID      string    `db:"uuid"`
 			UserID    string    `db:"user_id"`
 			UserType  string    `db:"user_type"`
-			ExpiresAt time.Time `db:"expires_at"`
+			OTPCode   string    `db:"otp_code"`
 			IsUsed    bool      `db:"is_used"`
+			ExpiresAt time.Time `db:"expires_at"`
 		}
-		var record VerifRow
 
+		var record VerificationRecord
 		err := db.Get(&record, `
-			SELECT uuid, user_id, user_type, expires_at, is_used
-			FROM email_verifications
-			WHERE email = ? AND otp_code = ?
-			ORDER BY created_at DESC
-			LIMIT 1
+			SELECT uuid, user_id, user_type, otp_code, is_used, expires_at 
+			FROM email_verifications 
+			WHERE email = ? AND otp_code = ? 
+			ORDER BY created_at DESC LIMIT 1
 		`, req.Email, req.OTP)
 
 		if err != nil {
@@ -280,30 +296,49 @@ func VerifyRegisterOTP(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start database transaction", "code": "server_error"})
+			return
+		}
+		defer tx.Rollback()
+
 		// Mark OTP as used
-		_, _ = db.Exec(`UPDATE email_verifications SET is_used = 1 WHERE uuid = ?`, record.UUID)
+		_, err = tx.Exec(`UPDATE email_verifications SET is_used = 1 WHERE uuid = ?`, record.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update verification status", "code": "server_error"})
+			return
+		}
 
 		// Activate user
 		role := record.UserType
 		userName := ""
 		if record.UserType == "organizer" {
-			_, err = db.Exec(`UPDATE organizers SET is_verified = true, status = 'active', updated_at = NOW() WHERE uuid = ?`, record.UserID)
+			_, err = tx.Exec(`UPDATE organizers SET is_verified = true, status = 'active', updated_at = NOW() WHERE uuid = ?`, record.UserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to activate organizer account", "code": "server_error"})
+				return
+			}
 			var org struct {
 				Name string `db:"name"`
 			}
-			_ = db.Get(&org, `SELECT name FROM organizers WHERE uuid = ?`, record.UserID)
+			_ = tx.Get(&org, `SELECT name FROM organizers WHERE uuid = ?`, record.UserID)
 			userName = org.Name
 		} else {
-			_, err = db.Exec(`UPDATE archers SET is_verified = true, status = 'active', updated_at = NOW() WHERE uuid = ?`, record.UserID)
+			_, err = tx.Exec(`UPDATE archers SET is_verified = true, status = 'active', updated_at = NOW() WHERE uuid = ?`, record.UserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to activate archer account", "code": "server_error"})
+				return
+			}
 			var arch struct {
 				FullName string `db:"full_name"`
 			}
-			_ = db.Get(&arch, `SELECT full_name FROM archers WHERE uuid = ?`, record.UserID)
+			_ = tx.Get(&arch, `SELECT full_name FROM archers WHERE uuid = ?`, record.UserID)
 			userName = arch.FullName
 		}
 
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to activate account", "code": "server_error"})
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit account activation", "code": "server_error"})
 			return
 		}
 

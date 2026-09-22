@@ -23,7 +23,21 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 	}
 
 	event.Currency = "IDR"
-	if event.OrganizerID != nil && *event.OrganizerID != "" {
+	// Check tournament's own page_settings first
+	if event.Event.PageSettings != nil && *event.Event.PageSettings != "" {
+		var ps struct {
+			Currency string `json:"currency"`
+		}
+		if errJson := json.Unmarshal([]byte(*event.Event.PageSettings), &ps); errJson == nil && ps.Currency != "" {
+			event.Currency = ps.Currency
+		}
+	} else if psMap, ok := event.PageSettings.(map[string]interface{}); ok {
+		if curr, ok := psMap["currency"].(string); ok && curr != "" {
+			event.Currency = curr
+		}
+	}
+	// Fallback to organizer page_settings if tournament currency is still default or empty
+	if event.Currency == "IDR" && event.OrganizerID != nil && *event.OrganizerID != "" {
 		var pageSettingsStr *string
 		err := db.Get(&pageSettingsStr, "SELECT page_settings FROM organizers WHERE uuid = ?", *event.OrganizerID)
 		if err == nil && pageSettingsStr != nil && *pageSettingsStr != "" {

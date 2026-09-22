@@ -1,0 +1,34 @@
+{
+  "slug": "account-security-auth",
+  "icon": "ph:shield-check-bold",
+  "category": "accounts",
+  "readTime": "4 min",
+  "en": {
+    "title": "Account Security & Password Recovery",
+    "excerpt": "Guide to securing your Archeris account, email OTP verifications, password resets, and session management.",
+    "toc": [
+      {
+        "id": "email-verification",
+        "level": 2,
+        "text": "Email Verification & OTP Codes"
+      },
+      {
+        "id": "password-update",
+        "level": 2,
+        "text": "Updating Your Password"
+      },
+      {
+        "id": "forgot-password",
+        "level": 2,
+        "text": "Password Recovery & Reset Workflow"
+      },
+      {
+        "id": "session-security",
+        "level": 2,
+        "text": "Session Security & Best Practices"
+      }
+    ],
+    "content": "<h2 id=\"email-verification\">Email Verification & OTP Codes</h2>\n      <p>To prevent unauthorized account creation and protect your tournament registrations, Archeris utilizes email verification using time-sensitive One-Time Passwords (OTP):</p>\n      <ul>\n        <li>Upon registration or sensitive security updates, a 6-digit numeric OTP code is dispatched to your registered email address.</li>\n        <li>OTP codes expire automatically after <strong>5 minutes</strong> for enhanced security.</li>\n        <li>If you do not see the email in your primary inbox within 60 seconds, check your Spam/Junk folder and click <em>Resend Code</em> if necessary.</li>\n      </ul>\n\n      <h2 id=\"password-update\">Updating Your Password</h2>\n      <p>You can change your password at any time from your account settings:</p>\n      <ol>\n        <li>Go to <strong>Settings &gt; Security &gt; Change Password</strong>.</li>\n        <li>Enter your <strong>Current Password</strong> to authenticate your identity.</li>\n        <li>Enter your <strong>New Password</strong> (minimum 8 characters, recommended combination of letters, numbers, and symbols).</li>\n        <li>Click <strong>Update Password</strong>. Your active session will be refreshed immediately.</li>\n      </ol>\n\n      <h2 id=\"forgot-password\">Password Recovery & Reset Workflow</h2>\n      <p>If you cannot recall your account password:</p>\n      <ol>\n        <li>Navigate to the login page and click <strong>Forgot Password?</strong>.</li>\n        <li>Enter your registered email address and submit the request.</li>\n        <li>Check your inbox for a secure password reset link containing a cryptographic verification token.</li>\n        <li>Click the link, enter your new desired password, and confirm. You can now log in with your updated credentials.</li>\n      </ol>\n\n      <h2 id=\"session-security\">Session Security & Best Practices</h2>\n      <p>To keep your tournament data and organizer billing balances secure:</p>\n      <ul>\n        <li><strong>Never Share Credentials:</strong> Committee members and tournament field staff should never share personal master passwords. Use dedicated temporary Scorekeeper codes for field staff instead.</li>\n        <li><strong>Shared Devices:</strong> If logging in from a public scoring desk or communal archery club tablet, always click <strong>Logout</strong> from the profile dropdown when finishing your session.</li>\n        <li><strong>Secure HTTPS:</strong> Ensure you are always accessing Archeris over encrypted SSL/TLS connections (<code>https://archeris.net</code>).</li>\n      </ul>"
+  },
+  "order": 4
+}

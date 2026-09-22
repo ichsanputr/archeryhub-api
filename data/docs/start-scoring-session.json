@@ -4,7 +4,7 @@
   "category": "qualification",
   "readTime": "4 min",
   "en": {
-    "title": "Starting Scoring Sessions",
+    "title": "2. Starting the Scoring Session",
     "excerpt": "Unlocking scorekeeper field access, monitoring live end progress, and controlling session status.",
     "toc": [
       {
@@ -29,5 +29,6 @@
       }
     ],
     "content": "<h2 id=\"session-lifecycle\">Session Status Lifecycle</h2>\n      <p>Qualification sessions progress through three distinct operational states:</p>\n      <ul>\n        <li><strong>Scheduled:</strong> Targets allocated, but scorekeeper input locked.</li>\n        <li><strong>In Progress:</strong> Scorekeepers actively entering arrow values at the shooting line.</li>\n        <li><strong>Completed:</strong> Scoring concluded, results verified, and leaderboard finalized.</li>\n      </ul>\n\n      <h2 id=\"launching-session\">Unlocking Live Scoring</h2>\n      <p>When line judges signal the start of official scoring, open the qualification session overview and click <strong>Start Session</strong>. Scorekeeper tablets immediately unlock the End 1 input keypad.</p>\n\n      <h2 id=\"monitoring-matrix\">Live Field Progress Matrix</h2>\n      <p>The organizer dashboard features a real-time field matrix showing every target butt from Target 1 to Target N. Green indicators highlight targets that have submitted their current end, while amber indicators identify targets still recording scores.</p>\n\n      <h2 id=\"pausing-sessions\">Weather Delays & Emergency Pauses</h2>\n      <p>In the event of sudden rain or lightning delays, clicking <strong>Pause Session</strong> prevents accidental score submissions while archers seek shelter.</p>"
-  }
+  },
+  "order": 2
 }

@@ -143,9 +143,12 @@ func handlePayPalCaptureCompleted(db *sqlx.DB, resource map[string]interface{}, 
 	if err == nil {
 		if payment.Status != "paid" {
 			_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW(), callback_data = ? WHERE uuid = ?", string(rawBytes), payment.UUID)
-			if payment.RegistrationID != nil {
-				_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
+			if payment.RegistrationID != nil && *payment.RegistrationID != "" {
+				_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *payment.RegistrationID, payment.UUID)
+			} else {
+				_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
 			}
+			_, _ = tx.Exec("UPDATE orders SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
 			_ = tx.Commit()
 			fmt.Printf("[PayPal Webhook] Payment transaction %s marked as paid!\n", customID)
 		}
@@ -243,9 +246,12 @@ func CapturePayPalPayment(db *sqlx.DB) gin.HandlerFunc {
 		if err == nil {
 			if payment.Status != "paid" {
 				_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW() WHERE uuid = ?", payment.UUID)
-				if payment.RegistrationID != nil {
-					_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ?", *payment.RegistrationID)
+				if payment.RegistrationID != nil && *payment.RegistrationID != "" {
+					_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *payment.RegistrationID, payment.UUID)
+				} else {
+					_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
 				}
+				_, _ = tx.Exec("UPDATE orders SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
 			}
 			_ = tx.Commit()
 			c.JSON(http.StatusOK, gin.H{

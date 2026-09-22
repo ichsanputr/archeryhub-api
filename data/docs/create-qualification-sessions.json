@@ -2,32 +2,38 @@
   "slug": "create-qualification-sessions",
   "icon": "ph:clock-bold",
   "category": "qualification",
-  "readTime": "5 min",
+  "readTime": "6 min",
   "en": {
-    "title": "Configuring Qualification Sessions",
-    "excerpt": "How to structure qualification sessions, ends per session, arrows per end, and multi-distance formats.",
+    "title": "1. Setting Up Qualification Sessions",
+    "excerpt": "Complete guide to structuring qualification rounds, setting ends and arrows per end, assigning categories to waves, and managing target lane assignments.",
     "toc": [
       {
-        "id": "session-concepts",
+        "id": "understanding-qualification",
         "level": 2,
-        "text": "Session Architecture"
+        "text": "1. What Are Qualification Sessions?"
       },
       {
-        "id": "configuration-fields",
+        "id": "session-cards-overview",
         "level": 2,
-        "text": "Session Configuration Parameters"
+        "text": "2. Qualification Dashboard & Session Waves"
       },
       {
-        "id": "standard-round-presets",
+        "id": "creating-new-session",
         "level": 2,
-        "text": "Standard World Archery Presets"
+        "text": "3. Configuring Scoring Formats (Ends & Arrows)"
       },
       {
-        "id": "session-assignment",
+        "id": "assigning-categories-to-waves",
         "level": 2,
-        "text": "Linking Categories to Sessions"
+        "text": "4. Assigning Categories to Shooting Waves"
+      },
+      {
+        "id": "target-assignments-and-lanes",
+        "level": 2,
+        "text": "5. Target Lane Assignments & Auto-Placement"
       }
     ],
-    "content": "<h2 id=\"session-concepts\">Session Architecture</h2>\n      <p>Qualification rounds rank archers before seeding them into elimination match trees. A tournament can contain multiple qualification sessions (e.g., Session 1 for Youth Divisions, Session 2 for Senior Recurve/Compound).</p>\n\n      <h2 id=\"configuration-fields\">Session Configuration Parameters</h2>\n      <p>In <strong>Tournament Dashboard</strong> > <strong>Qualification</strong> > click <strong>+ Add Session</strong>:</p>\n      <ul>\n        <li><strong>Session Title:</strong> Descriptive name (e.g., <em>Qualification Round 1 - 70m Morning</em>).</li>\n        <li><strong>Total Ends:</strong> Number of ends in the session (typically 6 ends for 36 arrows, or 12 ends for 72 arrows).</li>\n        <li><strong>Arrows per End:</strong> Number of arrows shot per end (standard is 6 arrows outdoor, 3 arrows indoor).</li>\n        <li><strong>Warm-up Ends:</strong> Practice ends scheduled before official scoring commences (typically 2 ends).</li>\n      </ul>\n\n      <h2 id=\"standard-round-presets\">Standard World Archery Presets</h2>\n      <p>Common tournament session formats:</p>\n      <ul>\n        <li><strong>WA 720 Round:</strong> 72 arrows total (Two 36-arrow sessions of 6 ends × 6 arrows at 70m/50m).</li>\n        <li><strong>Indoor 600 Round:</strong> 60 arrows total (Two 30-arrow sessions of 10 ends × 3 arrows at 18m).</li>\n        <li><strong>National Development Round:</strong> 36 arrows total (One session of 6 ends × 6 arrows at 30m).</li>\n      </ul>\n\n      <h2 id=\"session-assignment\">Linking Categories to Sessions</h2>\n      <p>Assign specific categories to each session to ensure that target allocations and scorekeeper interfaces display only the athletes scheduled to shoot in that time slot.</p>"
-  }
+    "content": "<h2 id=\"understanding-qualification\">1. What Are Qualification Sessions?</h2>\n<p>During the qualification stage, all archers shoot a designated number of arrows (e.g., 36 or 72 arrows) to earn ranking scores. Tournaments often split shooting into multiple sessions (such as <em>Morning Wave</em> for Youth divisions and <em>Afternoon Wave</em> for Senior Recurve and Compound) to share targets efficiently across large fields.</p>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/qualification-sessions-overview.png\" alt=\"Qualification Sessions Management Dashboard\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 1:</strong> The Qualification Sessions dashboard displaying created waves (e.g., Morning Session 1 and Afternoon Session 2), session locking status, schedule times, and total arrow counts.\n  </figcaption>\n</figure>\n\n<h2 id=\"session-cards-overview\">2. Qualification Dashboard &amp; Session Waves</h2>\n<p>To view your tournament's qualification sessions:</p>\n<ol>\n  <li>Navigate to your tournament in the <strong>Organizer Dashboard</strong>.</li>\n  <li>Click <strong>Qualification</strong> in the left navigation sidebar (<code>/dashboard/organizer/tournaments/[id]/qualification</code>).</li>\n  <li>Each session card displays:\n    <ul>\n      <li><strong>Session Code &amp; Lock Status:</strong> Indicates whether the session is open for changes or locked for live scoring.</li>\n      <li><strong>Date &amp; Time Window:</strong> When the shooting wave takes place.</li>\n      <li><strong>Format Summary:</strong> Number of ends, arrows per end, and total arrows (e.g., 6 Ends × 6 Arrows = 36 Arrows).</li>\n      <li><strong>Registered Archers:</strong> Total number of athletes assigned to shoot in this wave.</li>\n    </ul>\n  </li>\n</ol>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/qualification-session-modal.png\" alt=\"Create and Configure Session Rules Modal\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 2:</strong> The Session Setup popup where organizers enter the Session Title, configure the Number of Ends &amp; Arrows per End, and select assigned tournament categories.\n  </figcaption>\n</figure>\n\n<h2 id=\"creating-new-session\">3. Configuring Scoring Formats (Ends &amp; Arrows)</h2>\n<p>To create a new qualification session:</p>\n<ol>\n  <li>Click the yellow <strong>+ Add Session</strong> button in the top header.</li>\n  <li>In the <strong>Session Info</strong> section, enter a descriptive title (e.g., <em>Qualification Wave 1 - Morning</em>).</li>\n  <li>Under <strong>End &amp; Arrow Format</strong>, adjust the scoring rules:\n    <ul>\n      <li><strong>Number of Ends:</strong> Usually 6 ends (for 36-arrow half rounds) or 10–12 ends.</li>\n      <li><strong>Arrows per End:</strong> Standard is 6 arrows for outdoor distances or 3 arrows for indoor / youth formats.</li>\n      <li><strong>Total Arrows Counter:</strong> The system automatically calculates total session arrows in real time.</li>\n    </ul>\n  </li>\n</ol>\n\n<h2 id=\"assigning-categories-to-waves\">4. Assigning Categories to Shooting Waves</h2>\n<p>Under <strong>Tournament Category</strong> on the same setup popup, select the competition divisions that will shoot together during this session:</p>\n<ul>\n  <li>Check the boxes for all eligible categories (e.g., <em>Recurve Men 70m</em> and <em>Recurve Women 70m</em>).</li>\n  <li>Archeris will calculate total assigned athletes to ensure you have enough physical target bosses available.</li>\n  <li>Click <strong>Save</strong> to create your session.</li>\n</ul>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/qualification-target-allocation.png\" alt=\"Target Lane Allocation and Archer Placement Screen\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 3:</strong> The Target Assignment interface showing target butt allocations (Target 1A/1B, Target 2A/2B), archer placement cards, and scoresheet print actions.\n  </figcaption>\n</figure>\n\n<h2 id=\"target-assignments-and-lanes\">5. Target Lane Assignments &amp; Auto-Placement</h2>\n<p>Click on any session card or press <strong>Manage &rarr;</strong> to open the Target Assignment workspace:</p>\n<ul>\n  <li><strong>Target Boss Layout:</strong> Athletes are placed on target faces (e.g., Target 1A, 1B, 2A, 2B) according to their category and distance.</li>\n  <li><strong>Auto Placement:</strong> Click the <strong>Auto Placement</strong> button to automatically distribute archers evenly across targets by club affiliation (avoiding archers from the same club on the same target).</li>\n  <li><strong>Manual Drag &amp; Drop:</strong> Rearrange individual archers between target lanes anytime before the session is locked.</li>\n  <li><strong>Print Scoresheets:</strong> Click the <strong>Print Scoresheet</strong> button in the top header to export ready-to-print official scorecards and target allocation sheets with QR codes for physical scoring backup!</li>\n</ul>"
+  },
+  "order": 1
 }

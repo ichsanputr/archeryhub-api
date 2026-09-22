@@ -109,6 +109,15 @@ func newOrisPdf(orientation string) *gofpdf.Fpdf {
 	return pdf
 }
 
+func setPdfHeaders(c *gin.Context, filename string) {
+	c.Header("Content-Type", "application/pdf")
+	disposition := "attachment"
+	if c.Query("inline") == "1" || c.Query("preview") == "1" || c.Query("view") == "1" || gin.Mode() != gin.ReleaseMode {
+		disposition = "inline"
+	}
+	c.Header("Content-Disposition", fmt.Sprintf("%s; filename=\"%s\"", disposition, filename))
+}
+
 func fetchPrintEvent(db *sqlx.DB, eventID string) (*PrintEventInfo, error) {
 	var ev PrintEventInfo
 	query := `
@@ -337,6 +346,15 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		sessionCode := c.Param("sessionCode")
+		if sessionCode == "" {
+			sessionCode = c.Param("session")
+		}
+		if sessionCode == "" {
+			sessionCode = c.Query("session")
+		}
+		if sessionCode == "" {
+			sessionCode = c.Query("session_code")
+		}
 
 		categoryID := c.Query("category_id")
 		targetFromStr := c.Query("target_from")
@@ -628,8 +646,7 @@ func GetQualificationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=Scoresheet-%s.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("Scoresheet-%s.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output scoresheet PDF"})
@@ -767,8 +784,7 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 				pdf.CellFormat(80, 3.5, strings.ToUpper(p.AthleteName), "", 1, "L", false, 0, "")
 			}
 
-			c.Header("Content-Type", "application/pdf")
-			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-entries-by-event-C32A.pdf", ev.Slug))
+			setPdfHeaders(c, fmt.Sprintf("%s-entries-by-event-C32A.pdf", ev.Slug))
 			_ = pdf.Output(c.Writer)
 			return
 		}
@@ -837,8 +853,7 @@ func GetEventParticipantList(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(40, 3.5, p.CategoryName, "", 1, "L", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-entries-by-name-C32B.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-entries-by-name-C32B.pdf", ev.Slug))
 		_ = pdf.Output(c.Writer)
 	}
 }
@@ -917,8 +932,7 @@ func GetEventStatisticsClasses(db *sqlx.DB) gin.HandlerFunc {
 		pdf.CellFormat(165, 6.5, " TOTAL COMPETITORS ", "1", 0, "R", true, 0, "")
 		pdf.CellFormat(25, 6.5, fmt.Sprintf("%d", grandTotal), "1", 1, "R", true, 0, "")
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-statistics-classes-divisions-C03.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-statistics-classes-divisions-C03.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output statistics PDF"})
@@ -995,8 +1009,7 @@ func GetEventStatisticsClubs(db *sqlx.DB) gin.HandlerFunc {
 		pdf.CellFormat(160, 6.5, fmt.Sprintf(" TOTAL (%d CLUBS) ", len(stats)), "1", 0, "R", true, 0, "")
 		pdf.CellFormat(30, 6.5, fmt.Sprintf("%d", grandTotal), "1", 1, "R", true, 0, "")
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-statistics-clubs-contingents-C04.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-statistics-clubs-contingents-C04.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output statistics clubs PDF"})
@@ -1175,8 +1188,7 @@ func GetQualificationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(190, 8, "Belum ada data alokasi bantalan kualifikasi.", "", 1, "C", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-qualification-start-list-C32C.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-qualification-start-list-C32C.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output start list PDF"})
@@ -1274,58 +1286,63 @@ func GetQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(15, 3.5, "50m-2", "", 0, "R", false, 0, "")
 			pdf.CellFormat(10, 3.5, "10+X", "", 0, "R", false, 0, "")
 			pdf.CellFormat(10, 3.5, "X", "", 0, "R", false, 0, "")
-			pdf.CellFormat(15, 3.5, "Score", "", 0, "R", false, 0, "")
-			pdf.CellFormat(12, 3.5, "", "", 1, "L", false, 0, "")
-			pdf.SetY(y + 5.5)
 		}
 
-		currentCat := ""
+		currentCategory := ""
 		rank := 0
 		for _, r := range results {
-			if r.CategoryName != currentCat {
-				currentCat = r.CategoryName
+			if r.CategoryName != currentCategory {
+				currentCategory = r.CategoryName
 				rank = 0
 				pdf.AddPage()
-				printOrisPdfHeaderDetailed(pdf, ev, "C73A", "RESULTS", currentCat, "Qualification Round")
-				renderResultsHeader(41.0)
-			}
-
-			if pdf.GetY() > 265 {
-				pdf.AddPage()
-				printOrisPdfHeaderDetailed(pdf, ev, "C73A", "RESULTS", currentCat, "Qualification Round")
+				printOrisPdfHeaderDetailed(pdf, ev, "C73A", "RESULTS", currentCategory, "Qualification Round")
 				renderResultsHeader(41.0)
 			}
 
 			rank++
-			if rank == 9 {
-				pdf.SetY(pdf.GetY() + 2.0)
+			if pdf.GetY() > 265 {
+				pdf.AddPage()
+				printOrisPdfHeaderDetailed(pdf, ev, "C73A", "RESULTS", currentCategory, "Qualification Round")
+				renderResultsHeader(41.0)
 			}
 
-			noc := generateNocCode(r.ClubName)
+			athleteDisplay := strings.ToUpper(r.AthleteName)
+			if r.AthleteCode.Valid && r.AthleteCode.String != "" {
+				athleteDisplay = fmt.Sprintf("%s  (%s)", strings.ToUpper(r.AthleteName), r.AthleteCode.String)
+			}
+
 			targetNo := strings.TrimLeft(strings.TrimSpace(r.TargetName), "0")
-
-			s1Str := ""
-			if r.ScoreS1 > 0 {
-				s1Str = fmt.Sprintf("%d", r.ScoreS1)
+			if targetNo == "-" {
+				targetNo = ""
 			}
-			s2Str := ""
-			if r.ScoreS2 > 0 {
-				s2Str = fmt.Sprintf("%d", r.ScoreS2)
+			noc := generateNocCode(r.ClubName)
+
+			rankStr := fmt.Sprintf("%d", rank)
+			scoreStr := fmt.Sprintf("%d", r.TotalScore)
+			xCountStr := fmt.Sprintf("%d", r.TotalX)
+			tenCountStr := fmt.Sprintf("%d", r.Total10)
+			d1Str := fmt.Sprintf("%d", r.ScoreS1)
+			d2Str := fmt.Sprintf("%d", r.ScoreS2)
+			if d1Str == "0" && d2Str == "0" {
+				d1Str = "-"
+				d2Str = "-"
 			}
 
 			pdf.SetFont("Arial", "", 8)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetXY(10, pdf.GetY())
-			pdf.CellFormat(13, 3.5, fmt.Sprintf("%d", rank), "", 0, "R", false, 0, "")
-			pdf.CellFormat(15, 3.5, targetNo, "", 0, "R", false, 0, "")
-			pdf.CellFormat(70, 3.5, strings.ToUpper(r.AthleteName), "", 0, "L", false, 0, "")
-			pdf.CellFormat(15, 3.5, noc, "", 0, "L", false, 0, "")
-			pdf.CellFormat(15, 3.5, s1Str, "", 0, "R", false, 0, "")
-			pdf.CellFormat(15, 3.5, s2Str, "", 0, "R", false, 0, "")
-			pdf.CellFormat(10, 3.5, fmt.Sprintf("%d", r.Total10), "", 0, "R", false, 0, "")
-			pdf.CellFormat(10, 3.5, fmt.Sprintf("%d", r.TotalX), "", 0, "R", false, 0, "")
-			pdf.CellFormat(15, 3.5, fmt.Sprintf("%d", r.TotalScore), "", 0, "R", false, 0, "")
-			pdf.CellFormat(12, 3.5, "", "", 1, "L", false, 0, "")
+
+			pdf.CellFormat(10, 3.5, rankStr+" ", "", 0, "R", false, 0, "")
+			pdf.CellFormat(12, 3.5, targetNo+"  ", "", 0, "R", false, 0, "")
+			pdf.CellFormat(15, 3.5, "", "", 0, "R", false, 0, "")
+			pdf.CellFormat(60, 3.5, athleteDisplay, "", 0, "L", false, 0, "")
+			pdf.CellFormat(10, 3.5, noc, "", 0, "L", false, 0, "")
+			pdf.CellFormat(35, 3.5, r.ClubName, "", 0, "L", false, 0, "")
+			pdf.CellFormat(12, 3.5, d1Str, "", 0, "R", false, 0, "")
+			pdf.CellFormat(12, 3.5, d2Str, "", 0, "R", false, 0, "")
+			pdf.CellFormat(12, 3.5, scoreStr, "", 0, "R", false, 0, "")
+			pdf.CellFormat(6, 3.5, tenCountStr, "", 0, "R", false, 0, "")
+			pdf.CellFormat(6, 3.5, xCountStr, "", 1, "R", false, 0, "")
 		}
 
 		if len(results) == 0 {
@@ -1337,8 +1354,7 @@ func GetQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(190, 8, "Belum ada skor kualifikasi.", "", 1, "C", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-qualification-individual-results-C73A.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-qualification-individual-results-C73A.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output results PDF"})
@@ -1576,8 +1592,7 @@ func GetTeamQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(190, 8, "Belum ada tim yang memenuhi syarat kualifikasi beregu.", "", 1, "C", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-qualification-team-results-C73C.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-qualification-team-results-C73C.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output team qualification results PDF"})
@@ -1801,8 +1816,7 @@ func GetMedallistsPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(190, 8, "Belum ada data peraih medali.", "", 1, "C", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-medallists-by-event-C93.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-medallists-by-event-C93.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output medallists PDF"})
@@ -2082,8 +2096,7 @@ func GetMedalStandingsPrintout(db *sqlx.DB) gin.HandlerFunc {
 		pdf.CellFormat(10, 7, fmt.Sprintf("%d", totAllB), "1", 0, "R", false, 0, "")
 		pdf.CellFormat(10, 7, fmt.Sprintf("%d", totAllT), "1", 1, "R", false, 0, "")
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-medal-standings-C95.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-medal-standings-C95.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output medal standings PDF"})
@@ -2344,8 +2357,7 @@ func GetFinalRankingsPrintout(db *sqlx.DB) gin.HandlerFunc {
 		if isTeam {
 			filename = fmt.Sprintf("%s-team-final-ranking-C76B.pdf", ev.Slug)
 		}
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+		setPdfHeaders(c, filename)
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output final rankings PDF"})
@@ -2511,8 +2523,7 @@ func GetTargetLabelsPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(cardW-4, 3, "Equip. Insp: [  ]   |   Signature: _____________", "", 1, "L", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-target-labels.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-target-labels.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output target labels PDF"})
@@ -2591,6 +2602,12 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 		bracketID := c.Query("bracket_id")
+		if bracketID == "" {
+			bracketID = c.Param("bracketId")
+		}
+		if bracketID == "" {
+			bracketID = c.Param("bracket_id")
+		}
 		matchID := c.Query("match_id")
 		categoryID := c.Query("category_id")
 		isMixedParam := c.Query("is_mixed") == "1" || c.Query("type") == "mixed" || c.Query("type") == "mix_team"
@@ -3088,8 +3105,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(190, 3, "The signatures certify the correctness of the match result in accordance with World Archery Rules.", "", 1, "C", false, 0, "")
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=TeamEliminationScoresheet-%s.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("TeamEliminationScoresheet-%s.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output team elimination scoresheet PDF"})
@@ -3119,6 +3135,43 @@ type EliminationScheduleRow struct {
 	SeedB        sql.NullInt64  `db:"seed_b"`
 	NameB        sql.NullString `db:"name_b"`
 	ClubB        sql.NullString `db:"club_b"`
+}
+
+func getIanseoPhaseName(bracketSize, roundNo, matchNo int) string {
+	if matchNo == bracketSize && bracketSize > 2 {
+		return "Bronze"
+	}
+	if matchNo == bracketSize-1 && bracketSize > 2 {
+		return "Gold"
+	}
+	totalRounds := 0
+	n := bracketSize
+	for n > 1 {
+		n /= 2
+		totalRounds++
+	}
+	roundsFromFinal := totalRounds - roundNo
+	switch roundsFromFinal {
+	case 0:
+		return "Gold"
+	case 1:
+		return "Semi"
+	case 2:
+		return "1/4"
+	case 3:
+		return "1/8"
+	case 4:
+		return "1/16"
+	case 5:
+		return "1/32"
+	case 6:
+		return "1/64"
+	default:
+		if roundsFromFinal > 0 {
+			return fmt.Sprintf("1/%d", 1<<roundsFromFinal)
+		}
+		return "Final"
+	}
 }
 
 func GetEliminationSchedulePrintout(db *sqlx.DB) gin.HandlerFunc {
@@ -3214,99 +3267,202 @@ func GetEliminationSchedulePrintout(db *sqlx.DB) gin.HandlerFunc {
 
 		pdf := setupOrisPdf("C58")
 		pdf.AddPage()
-		printOrisPdfHeader(pdf, ev, "C58", "MATCH PLAY SCHEDULE")
+		printOrisPdfHeader(pdf, ev, "C58", "DETAILED COMPETITION SCHEDULE")
 
-		// Table Header (IanSeo ORIS C58)
-		renderScheduleTableHeader := func() {
-			pdf.SetFillColor(241, 245, 249)
-			pdf.SetTextColor(15, 23, 42)
-			pdf.SetDrawColor(203, 213, 225)
-			pdf.SetFont("Arial", "B", 8)
+		const cellH = 8.0
 
-			pdf.CellFormat(10, 7, "Match", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(18, 7, "Time", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(16, 7, "Target", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(40, 7, "Category / Event", "1", 0, "L", true, 0, "")
-			pdf.CellFormat(24, 7, "Phase", "1", 0, "L", true, 0, "")
-			pdf.CellFormat(41, 7, "Athlete A", "1", 0, "L", true, 0, "")
-			pdf.CellFormat(41, 7, "Athlete B", "1", 1, "L", true, 0, "")
+		// Table Header (Exact IanSeo ORIS C58)
+		renderTableHeader := func() {
+			pdf.SetY(45)
+			pdf.SetFont("Arial", "B", 7.5)
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetDrawColor(0, 0, 0)
+
+			// 1. Date/Session (25)
+			pdf.SetXY(10, 45)
+			pdf.CellFormat(25, cellH, "Date/Session", "1", 0, "L", false, 0, "")
+
+			// 2. Match (7)
+			pdf.CellFormat(7, cellH, "Match", "1", 0, "C", false, 0, "")
+
+			// 3. Start Time (9, 2 lines)
+			pdf.CellFormat(9, cellH/2, "Start", "TLR", 0, "C", false, 0, "")
+			pdf.SetXY(pdf.GetX()-9, 45+cellH/2)
+			pdf.CellFormat(9, cellH/2, "Time", "BLR", 0, "C", false, 0, "")
+			pdf.SetXY(pdf.GetX(), 45)
+
+			// 4. Event (30)
+			pdf.CellFormat(30, cellH, "Event", "1", 0, "L", false, 0, "")
+
+			// 5. Round (9)
+			pdf.CellFormat(9, cellH, "Round", "1", 0, "L", false, 0, "")
+
+			// 6. R.R. Rank 1 (10, 2 lines)
+			pdf.CellFormat(10, cellH/2, "R.R.", "TLR", 0, "C", false, 0, "")
+			pdf.SetXY(pdf.GetX()-10, 45+cellH/2)
+			pdf.CellFormat(10, cellH/2, "Rank", "BLR", 0, "C", false, 0, "")
+			pdf.SetXY(pdf.GetX(), 45)
+
+			// 7. Participant 1 (45)
+			pdf.CellFormat(45, cellH, "Participant 1", "1", 0, "L", false, 0, "")
+
+			// 8. R.R. Rank 2 (10, 2 lines)
+			pdf.CellFormat(10, cellH/2, "R.R.", "TLR", 0, "C", false, 0, "")
+			pdf.SetXY(pdf.GetX()-10, 45+cellH/2)
+			pdf.CellFormat(10, cellH/2, "Rank", "BLR", 0, "C", false, 0, "")
+			pdf.SetXY(pdf.GetX(), 45)
+
+			// 9. Participant 2 (45)
+			pdf.CellFormat(45, cellH, "Participant 2", "1", 1, "L", false, 0, "")
+
+			pdf.SetY(53)
 		}
 
-		renderScheduleTableHeader()
+		renderTableHeader()
 
-		currentDateGroup := ""
-		for i, m := range matches {
-			dateStr := "Jadwal Pertandingan"
-			timeStr := "-"
+		// Group matches by Date/Session (like IanSeo)
+		type SessionGroup struct {
+			DateKey     string
+			DateDisplay string
+			Matches     []EliminationScheduleRow
+		}
+
+		var groups []SessionGroup
+		var currentGrp *SessionGroup
+
+		for _, m := range matches {
+			dateKey := "TBD"
+			dateDisp := "Schedule"
 			if m.ScheduledAt.Valid {
-				dateStr = m.ScheduledAt.Time.Format("Monday, 02 January 2006")
-				timeStr = m.ScheduledAt.Time.Format("15:04")
+				dateKey = m.ScheduledAt.Time.Format("2006-01-02")
+				dateDisp = m.ScheduledAt.Time.Format("Mon 2 Jan")
 			}
-
-			if dateStr != currentDateGroup {
-				currentDateGroup = dateStr
-				pdf.SetY(pdf.GetY() + 3)
-				if pdf.GetY() > 265 {
-					pdf.AddPage()
-					printPdfHeader(pdf, ev, "JADWAL PERTANDINGAN ELIMINASI")
-					renderScheduleTableHeader()
-				}
-				pdf.SetFillColor(15, 23, 42)
-				pdf.SetTextColor(255, 255, 255)
-				pdf.SetFont("Arial", "B", 8.5)
-				pdf.CellFormat(190, 6.5, fmt.Sprintf(" %s", dateStr), "", 1, "L", true, 0, "")
-				renderScheduleTableHeader()
+			if currentGrp == nil || currentGrp.DateKey != dateKey {
+				groups = append(groups, SessionGroup{
+					DateKey:     dateKey,
+					DateDisplay: dateDisp,
+					Matches:     []EliminationScheduleRow{},
+				})
+				currentGrp = &groups[len(groups)-1]
 			}
-
-			if pdf.GetY() > 270 {
-				pdf.AddPage()
-				printPdfHeader(pdf, ev, "JADWAL PERTANDINGAN ELIMINASI")
-				renderScheduleTableHeader()
-			}
-
-			fill := i%2 == 1
-			if fill {
-				pdf.SetFillColor(248, 250, 252)
-			}
-			pdf.SetTextColor(15, 23, 42)
-			pdf.SetFont("Arial", "", 7.5)
-
-			roundLabel := getPrintElimRoundLabel(m.BracketSize, m.RoundNo, m.MatchNo)
-
-			p1 := "BYE / TBD"
-			if m.NameA.Valid && m.NameA.String != "" {
-				seedStr := ""
-				if m.SeedA.Valid && m.SeedA.Int64 > 0 {
-					seedStr = fmt.Sprintf("[%d] ", m.SeedA.Int64)
-				}
-				p1 = fmt.Sprintf("%s%s (%s)", seedStr, m.NameA.String, m.ClubA.String)
-			}
-
-			p2 := "BYE / TBD"
-			if m.NameB.Valid && m.NameB.String != "" {
-				seedStr := ""
-				if m.SeedB.Valid && m.SeedB.Int64 > 0 {
-					seedStr = fmt.Sprintf("[%d] ", m.SeedB.Int64)
-				}
-				p2 = fmt.Sprintf("%s%s (%s)", seedStr, m.NameB.String, m.ClubB.String)
-			}
-
-			targetTxt := "-"
-			if m.TargetName.Valid && m.TargetName.String != "" {
-				targetTxt = m.TargetName.String
-			}
-
-			pdf.CellFormat(8, 6.5, fmt.Sprintf("%d", i+1), "1", 0, "C", fill, 0, "")
-			pdf.CellFormat(20, 6.5, timeStr, "1", 0, "C", fill, 0, "")
-			pdf.CellFormat(16, 6.5, targetTxt, "1", 0, "C", fill, 0, "")
-			pdf.CellFormat(38, 6.5, m.CategoryName, "1", 0, "L", fill, 0, "")
-			pdf.CellFormat(26, 6.5, roundLabel, "1", 0, "L", fill, 0, "")
-			pdf.CellFormat(41, 6.5, p1, "1", 0, "L", fill, 0, "")
-			pdf.CellFormat(41, 6.5, p2, "1", 1, "L", fill, 0, "")
+			currentGrp.Matches = append(currentGrp.Matches, m)
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=EliminationSchedule-%s.pdf", ev.Slug))
+		sessionNumber := 1
+		for _, grp := range groups {
+			matchCount := len(grp.Matches)
+			for i, m := range grp.Matches {
+				// Page break check (need room for at least 1 match)
+				if pdf.GetY()+cellH > 270 {
+					// close Date/Session cell border
+					pdf.Line(10, pdf.GetY(), 35, pdf.GetY())
+					pdf.AddPage()
+					printOrisPdfHeader(pdf, ev, "C58", "DETAILED COMPETITION SCHEDULE")
+					renderTableHeader()
+				}
+
+				rowY := pdf.GetY()
+				pdf.SetFont("Arial", "", 7)
+				pdf.SetTextColor(0, 0, 0)
+				pdf.SetDrawColor(0, 0, 0)
+
+				// 1. Date/Session Column (25mm)
+				if i == 0 || rowY == 53 {
+					contText := ""
+					if i > 0 {
+						contText = " (Cont.)"
+					}
+					pdf.SetFont("Arial", "B", 7)
+					pdf.SetXY(10, rowY+0.5)
+					pdf.CellFormat(25, 3.2, grp.DateDisplay+contText, "", 1, "L", false, 0, "")
+					pdf.SetXY(10, rowY+3.7)
+					pdf.CellFormat(25, 3.2, fmt.Sprintf("Session %d", sessionNumber), "", 1, "L", false, 0, "")
+					pdf.Rect(10, rowY, 25, cellH, "D")
+				} else {
+					pdf.Line(10, rowY, 10, rowY+cellH)
+					pdf.Line(35, rowY, 35, rowY+cellH)
+				}
+
+				// If last match of the session, close bottom border
+				if i == matchCount-1 {
+					pdf.Line(10, rowY+cellH, 35, rowY+cellH)
+				}
+
+				// 2. Match No (7mm)
+				pdf.SetFont("Arial", "", 7.5)
+				pdf.SetXY(35, rowY)
+				matchNoStr := fmt.Sprintf("%d", m.MatchNo)
+				if m.BoardNumber.Valid && m.BoardNumber.Int64 > 0 {
+					matchNoStr = fmt.Sprintf("%d", m.BoardNumber.Int64)
+				}
+				pdf.CellFormat(7, cellH, matchNoStr, "1", 0, "C", false, 0, "")
+
+				// 3. Start Time (9mm)
+				timeStr := "-"
+				if m.ScheduledAt.Valid {
+					timeStr = m.ScheduledAt.Time.Format("15:04")
+				}
+				pdf.CellFormat(9, cellH, timeStr, "1", 0, "C", false, 0, "")
+
+				// 4. Event (30mm)
+				eventName := m.CategoryName
+				if len(eventName) > 22 {
+					eventName = eventName[:20] + ".."
+				}
+				pdf.CellFormat(30, cellH, eventName, "1", 0, "L", false, 0, "")
+
+				// 5. Round (9mm)
+				phaseCode := getIanseoPhaseName(m.BracketSize, m.RoundNo, m.MatchNo)
+				pdf.CellFormat(9, cellH, phaseCode, "1", 0, "L", false, 0, "")
+
+				// 6. R.R. Rank 1 (10mm)
+				seedA := ""
+				if m.SeedA.Valid && m.SeedA.Int64 > 0 {
+					seedA = fmt.Sprintf("%d", m.SeedA.Int64)
+				}
+				pdf.CellFormat(10, cellH, seedA, "1", 0, "R", false, 0, "")
+
+				// 7. Participant 1: Name (37mm) + NOC (8mm)
+				nameA := "Bye / TBD"
+				if m.NameA.Valid && m.NameA.String != "" {
+					nameA = m.NameA.String
+				}
+				if len(nameA) > 23 {
+					nameA = nameA[:21] + ".."
+				}
+				clubCodeA := ""
+				if m.ClubA.Valid && m.ClubA.String != "" {
+					clubCodeA = generateNocCode(m.ClubA.String)
+				}
+				pdf.CellFormat(37, cellH, nameA, "1", 0, "L", false, 0, "")
+				pdf.CellFormat(8, cellH, clubCodeA, "1", 0, "L", false, 0, "")
+
+				// 8. R.R. Rank 2 (10mm)
+				seedB := ""
+				if m.SeedB.Valid && m.SeedB.Int64 > 0 {
+					seedB = fmt.Sprintf("%d", m.SeedB.Int64)
+				}
+				pdf.CellFormat(10, cellH, seedB, "1", 0, "R", false, 0, "")
+
+				// 9. Participant 2: Name (37mm) + NOC (8mm)
+				nameB := "Bye / TBD"
+				if m.NameB.Valid && m.NameB.String != "" {
+					nameB = m.NameB.String
+				}
+				if len(nameB) > 23 {
+					nameB = nameB[:21] + ".."
+				}
+				clubCodeB := ""
+				if m.ClubB.Valid && m.ClubB.String != "" {
+					clubCodeB = generateNocCode(m.ClubB.String)
+				}
+				pdf.CellFormat(37, cellH, nameB, "1", 0, "L", false, 0, "")
+				pdf.CellFormat(8, cellH, clubCodeB, "1", 1, "L", false, 0, "")
+			}
+			sessionNumber++
+		}
+
+		setPdfHeaders(c, fmt.Sprintf("EliminationSchedule-%s.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output elimination schedule PDF"})
@@ -3528,8 +3684,7 @@ func GetEntriesByClubPrintout(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-entries-by-club-C30.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-entries-by-club-C30.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output entries by club PDF"})
@@ -3645,7 +3800,7 @@ func GetEliminationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
 		for i, m := range matches {
 			if pdf.GetY() > 265 {
 				pdf.AddPage()
-				printOrisPdfHeader(pdf, ev, "C51A", "START LIST ELIMINASI PER BANTALAN (MATCH TARGET ALLOCATIONS)")
+				printOrisPdfHeader(pdf, ev, "C51A", "START LIST BY TARGET (MATCH TARGET ALLOCATIONS)")
 				renderHeader()
 			}
 
@@ -3672,23 +3827,24 @@ func GetEliminationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
 				p2 = fmt.Sprintf("%s%s", seedStr, m.NameB.String)
 			}
 
-			targetTxt := "-"
-			if m.TargetName.Valid && m.TargetName.String != "" {
-				targetTxt = m.TargetName.String
-			}
-
-			roundLabel := getPrintElimRoundLabel(m.BracketSize, m.RoundNo, m.MatchNo)
+			phaseName := getIanseoPhaseName(m.BracketSize, m.RoundNo, m.MatchNo)
 
 			fill := i%2 == 1
 			if fill {
-				pdf.SetFillColor(248, 250, 252)
+				pdf.SetFillColor(250, 250, 250)
 			}
 			pdf.SetFont("Arial", "", 8)
-			pdf.SetTextColor(15, 23, 42)
-			pdf.CellFormat(16, 6.5, targetTxt, "1", 0, "C", fill, 0, "")
+			pdf.SetTextColor(0, 0, 0)
+
+			targetStr := "-"
+			if m.TargetName.Valid && m.TargetName.String != "" {
+				targetStr = m.TargetName.String
+			}
+
+			pdf.CellFormat(16, 6.5, targetStr, "1", 0, "C", fill, 0, "")
 			pdf.CellFormat(20, 6.5, timeStr, "1", 0, "C", fill, 0, "")
 			pdf.CellFormat(40, 6.5, m.CategoryName, "1", 0, "L", fill, 0, "")
-			pdf.CellFormat(28, 6.5, roundLabel, "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(28, 6.5, phaseName, "1", 0, "L", fill, 0, "")
 			pdf.CellFormat(43, 6.5, p1, "1", 0, "L", fill, 0, "")
 			pdf.CellFormat(43, 6.5, p2, "1", 1, "L", fill, 0, "")
 		}
@@ -3697,8 +3853,7 @@ func GetEliminationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
 			printOrisSignatures(pdf, pdf.GetY())
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=EliminationStartList-%s.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("EliminationStartList-%s.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output elimination start list PDF"})
@@ -3711,38 +3866,43 @@ func GetEliminationStartListPrintout(db *sqlx.DB) gin.HandlerFunc {
 // ─────────────────────────────────────────────────────────────────────────────
 
 type BracketVectorMatch struct {
-	UUID        string         `db:"uuid"`
-	BracketUUID string         `db:"bracket_uuid"`
-	RoundNo     int            `db:"round_no"`
+	MatchUUID   string         `db:"match_uuid"`
 	MatchNo     int            `db:"match_no"`
-	SeedA       sql.NullInt64  `db:"seed_a"`
-	NameA       sql.NullString `db:"name_a"`
-	ClubA       sql.NullString `db:"club_a"`
-	ScoreA      int            `db:"total_score_a"`
+	RoundNo     int            `db:"round_no"`
+	RoundName   string         `db:"round_name"`
+	TargetNo    sql.NullInt64  `db:"target_number"`
+	TargetName  sql.NullString `db:"target_name"`
+	Status      string         `db:"status"`
 	PointsA     int            `db:"total_points_a"`
-	SeedB       sql.NullInt64  `db:"seed_b"`
-	NameB       sql.NullString `db:"name_b"`
-	ClubB       sql.NullString `db:"club_b"`
-	ScoreB      int            `db:"total_score_b"`
 	PointsB     int            `db:"total_points_b"`
+	ScoreA      int            `db:"total_score_a"`
+	ScoreB      int            `db:"total_score_b"`
 	WinnerUUID  sql.NullString `db:"winner_entry_uuid"`
 	EntryAUUID  sql.NullString `db:"entry_a_uuid"`
 	EntryBUUID  sql.NullString `db:"entry_b_uuid"`
-	Status      string         `db:"status"`
+	SeedA       sql.NullInt64  `db:"seed_a"`
+	SeedB       sql.NullInt64  `db:"seed_b"`
+	NameA       sql.NullString `db:"name_a"`
+	ClubA       sql.NullString `db:"club_a"`
+	NameB       sql.NullString `db:"name_b"`
+	ClubB       sql.NullString `db:"club_b"`
 }
 
 type BracketCategoryInfo struct {
-	UUID         string `db:"uuid"`
-	BracketType  string `db:"bracket_type"`
-	BracketSize  int    `db:"bracket_size"`
-	Format       string `db:"format"`
+	BracketUUID  string `db:"bracket_uuid"`
+	CategoryUUID string `db:"category_uuid"`
 	CategoryName string `db:"category_name"`
+	BracketType  string `db:"bracket_type"` // individual, team3, team2
+	BracketSize  int    `db:"bracket_size"`
 }
 
 func GetEliminationBracketVectorPDF(db *sqlx.DB) gin.HandlerFunc {
+	return GetEliminationBracketsPrintout(db)
+}
+
+func GetEliminationBracketsPrintout(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		bracketID := c.Query("bracket_id")
 		categoryID := c.Query("category_id")
 
 		ev, err := fetchPrintEvent(db, eventID)
@@ -3751,44 +3911,33 @@ func GetEliminationBracketVectorPDF(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// 1. Fetch brackets to print
 		bQuery := `
-			SELECT
-				eb.uuid,
-				COALESCE(eb.bracket_type, 'individual') AS bracket_type,
-				COALESCE(eb.bracket_size, 8) AS bracket_size,
-				COALESCE(eb.format, 'recurve_set') AS format,
-				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '-') AS category_name
+			SELECT 
+				eb.uuid AS bracket_uuid,
+				eb.category_uuid,
+				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, 'Category') AS category_name,
+				eb.bracket_type,
+				eb.bracket_size
 			FROM elimination_brackets eb
-			LEFT JOIN tournament_categories ec ON eb.category_uuid = ec.uuid
-			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			JOIN tournament_categories ec ON eb.category_uuid = ec.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			WHERE eb.tournament_uuid = ?
 		`
 		var bArgs []interface{}
 		bArgs = append(bArgs, ev.UUID)
-
-		if bracketID != "" {
-			bQuery += " AND (eb.uuid = ? OR eb.bracket_id = ?)"
-			bArgs = append(bArgs, bracketID, bracketID)
-		}
 		if categoryID != "" {
 			bQuery += " AND (eb.category_uuid = ? OR ec.uuid = ?)"
 			bArgs = append(bArgs, categoryID, categoryID)
 		}
-
 		bQuery += " ORDER BY category_name ASC"
 
 		var brackets []BracketCategoryInfo
 		_ = db.Select(&brackets, bQuery, bArgs...)
-
 		if len(brackets) == 0 {
-			// Fallback: Create placeholder bracket info
 			brackets = append(brackets, BracketCategoryInfo{
-				UUID:         "",
-				BracketType:  "individual",
-				BracketSize:  8,
-				Format:       "recurve_set",
 				CategoryName: "Bagan Eliminasi",
 			})
 		}
@@ -3839,10 +3988,10 @@ func GetEliminationBracketVectorPDF(db *sqlx.DB) gin.HandlerFunc {
 
 			// Fetch Matches for this bracket
 			var matches []BracketVectorMatch
-			if b.UUID != "" {
+			if b.BracketUUID != "" {
 				_ = db.Select(&matches, `
 					SELECT
-						em.uuid, em.bracket_uuid, em.round_no, em.match_no,
+						em.uuid AS match_uuid, em.bracket_uuid, em.round_no, em.match_no,
 						COALESCE(eeA.seed, 0) AS seed_a,
 						CASE
 							WHEN eeA.participant_type = 'team' THEN tA.team_name
@@ -3881,7 +4030,7 @@ func GetEliminationBracketVectorPDF(db *sqlx.DB) gin.HandlerFunc {
 					LEFT JOIN clubs cB_team ON tB.event_id = cB_team.uuid
 					WHERE em.bracket_uuid = ?
 					ORDER BY em.round_no ASC, em.match_no ASC
-				`, b.UUID)
+				`, b.BracketUUID)
 			}
 
 			// Map matches by round & match_no
@@ -3933,7 +4082,7 @@ func GetEliminationBracketVectorPDF(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			// 3. Draw Vector Bracket Tree Lines
-			isSetSystem := b.Format == "recurve_set" || strings.Contains(strings.ToLower(b.Format), "set")
+			isSetSystem := strings.Contains(strings.ToLower(b.BracketType), "recurve") || strings.Contains(strings.ToLower(b.CategoryName), "recurve")
 			yTreeTop := yTop + 8.0
 			treeH := 140.0
 
@@ -4212,8 +4361,7 @@ func GetEliminationBracketVectorPDF(db *sqlx.DB) gin.HandlerFunc {
 			renderMedalRow(yMedalsBox+55, "4TH", "4th Place", fourthPlace, fourthClub)
 		}
 
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-elimination-brackets-C75.pdf", ev.Slug))
+		setPdfHeaders(c, fmt.Sprintf("%s-elimination-brackets-C75.pdf", ev.Slug))
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output elimination brackets PDF"})
@@ -4419,8 +4567,7 @@ func GetEventSchedulePrintout(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		filename := fmt.Sprintf("%s-schedule-%s.pdf", ev.Slug, docCode)
-		c.Header("Content-Type", "application/pdf")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+		setPdfHeaders(c, filename)
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to output schedule PDF"})

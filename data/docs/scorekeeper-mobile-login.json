@@ -4,7 +4,7 @@
   "category": "scorekeeper",
   "readTime": "4 min",
   "en": {
-    "title": "Mobile Scorekeeper Portal Login",
+    "title": "2. Scorekeeper Mobile Login",
     "excerpt": "Walkthrough of scorekeeper authentication on mobile devices, lane selection, and device connection checks.",
     "toc": [
       {
@@ -29,5 +29,6 @@
       }
     ],
     "content": "<h2 id=\"portal-access\">Accessing the Mobile Portal</h2>\n      <p>Scorekeepers open any standard mobile web browser (Chrome, Safari, Firefox, Edge) on a smartphone or tablet and navigate to <code>archeris.net/scorekeeper/login</code>.</p>\n\n      <h2 id=\"authentication-step\">Entering the 5-Character Code</h2>\n      <p>Type the assigned 5-character code into the large-format input box. The system automatically converts letters to uppercase and validates the code against the active tournament registry.</p>\n\n      <h2 id=\"target-selection\">Selecting Assigned Target Butts</h2>\n      <p>Upon successful code validation, the screen displays the assigned target butt (e.g., <em>Target Butt 12</em>) along with athlete names in positions 12A, 12B, 12C, and 12D. Confirm the names match the archers present at the target.</p>\n\n      <h2 id=\"network-check\">Connection Indicator & PWA Installation</h2>\n      <p>The top status bar displays a green connection dot indicating live server synchronization. Scorekeepers can tap <strong>Add to Home Screen</strong> to run Archeris as a full-screen standalone application without browser URL bars.</p>"
-  }
+  },
+  "order": 2
 }

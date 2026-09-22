@@ -299,3 +299,7 @@ func InterfaceToStringPtr(i interface{}) *string {
 	return &s
 }
 
+func TimePtr(t time.Time) *time.Time {
+	return &t
+}
+

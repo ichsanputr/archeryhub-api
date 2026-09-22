@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/http"
 	"sort"
@@ -335,11 +336,24 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var isLocked bool
-		_ = db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
-		if isLocked {
+		var sessionConfig struct {
+			IsLocked     bool `db:"is_locked"`
+			TotalEnds    int  `db:"total_ends"`
+			ArrowsPerEnd int  `db:"arrows_per_end"`
+		}
+		_ = db.Get(&sessionConfig, `SELECT COALESCE(is_locked, 0) as is_locked, COALESCE(total_ends, 0) as total_ends, COALESCE(arrows_per_end, 0) as arrows_per_end FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
+		if sessionConfig.IsLocked {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Qualification session is locked. Score changes are not permitted."})
 			return
+		}
+
+		maxArrows := sessionConfig.ArrowsPerEnd
+		if maxArrows <= 0 {
+			maxArrows = 6 // Default World Archery outdoor qualification
+		}
+		maxEnds := sessionConfig.TotalEnds
+		if maxEnds <= 0 {
+			maxEnds = 12 // Default World Archery session ends
 		}
 
 		var raw map[string]interface{}
@@ -362,6 +376,37 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: 'ends' or 'end_number' is required"})
 			return
+		}
+
+		// Validate all ends against session limits and WA arrow standards
+		for _, end := range ends {
+			if end.EndNumber < 1 || end.EndNumber > maxEnds {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": fmt.Sprintf("Nomor seri (%d) tidak valid. Batas seri untuk sesi ini adalah 1 - %d.", end.EndNumber, maxEnds),
+				})
+				return
+			}
+			if len(end.Arrows) > maxArrows {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": fmt.Sprintf("Jumlah anak panah pada seri %d (%d panah) melebihi batas maksimal (%d panah per seri).", end.EndNumber, len(end.Arrows), maxArrows),
+				})
+				return
+			}
+			for _, a := range end.Arrows {
+				trimmed := strings.ToUpper(strings.TrimSpace(a))
+				if trimmed == "" {
+					continue
+				}
+				if trimmed != "X" && trimmed != "10" && trimmed != "M" {
+					v, err := strconv.Atoi(trimmed)
+					if err != nil || v < 1 || v > 9 {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": fmt.Sprintf("Nilai anak panah '%s' pada seri %d tidak valid. Format nilai yang diperbolehkan: X, 10, 9..1, atau M.", a, end.EndNumber),
+						})
+						return
+					}
+				}
+			}
 		}
 
 		tx, err := db.Beginx()
@@ -986,8 +1031,8 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(qs.session_code, 'S1') AS session_order,
 				DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
 				DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
-				COALESCE(NULLIF(et.target_name, ''), NULLIF(ep.target_name, ''), CONCAT('Target ', COALESCE(NULLIF(qta.target_board_id, ''), '01'))) AS target_name,
-				COALESCE(qta.target_board_id, ep.back_number, 'A') AS target_board,
+				COALESCE(NULLIF(et.target_name, ''), NULLIF(ep.target_name, ''), '') AS target_name,
+				COALESCE(REGEXP_SUBSTR(et.target_name, '[A-Za-z]+$'), NULLIF(ep.back_number, ''), '') AS target_board,
 				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
 				qta.uuid AS assignment_id
 			FROM qualification_target_assignments qta
@@ -1005,13 +1050,12 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 					OR ep.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
 					OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
 					OR ep.uuid = ?
-					OR ep.archer_id IN (SELECT uuid FROM users WHERE id = ? OR uuid = ? OR email = ?)
 			  )
 			ORDER BY qs.start_time ASC
 		`
-		err := db.Select(&targets, query, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userIDStr, userEmail)
+		err := db.Select(&targets, query, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr)
 		if err != nil || len(targets) == 0 {
-			// Fallback: check if participant has direct target_name assigned or qualification sessions
+			// Fallback: check if participant has direct target_name assigned
 			fallbackQuery := `
 				SELECT
 					COALESCE(qs.uuid, ep.uuid) AS session_id,
@@ -1019,8 +1063,8 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(qs.session_code, 'S1') AS session_order,
 					DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
 					DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
-					COALESCE(NULLIF(ep.target_name, ''), 'Target 01') AS target_name,
-					COALESCE(NULLIF(ep.back_number, ''), 'A') AS target_board,
+					ep.target_name AS target_name,
+					COALESCE(NULLIF(ep.back_number, ''), '') AS target_board,
 					COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
 					ep.uuid AS assignment_id
 				FROM tournament_participants ep
@@ -1030,17 +1074,17 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 				WHERE (e.uuid = ? OR e.slug = ?)
+				  AND ep.target_name IS NOT NULL AND ep.target_name != ''
 				  AND (
 						ep.archer_id = ? 
 						OR ep.archer_id = ?
 						OR ep.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
 						OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
 						OR ep.uuid = ?
-						OR ep.archer_id IN (SELECT uuid FROM users WHERE id = ? OR uuid = ? OR email = ?)
 				  )
 				LIMIT 1
 			`
-			_ = db.Select(&targets, fallbackQuery, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userIDStr, userEmail)
+			_ = db.Select(&targets, fallbackQuery, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr)
 		}
 
 		if targets == nil {
@@ -1062,8 +1106,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			CategoryID       string `json:"category_id" binding:"required"`
 			StartTargetName  string `json:"start_target"`
 			ArchersPerTarget int    `json:"archers_per_target"`
-			DrawType         string `json:"draw_type"`   // "standard" or "field"
-			AssignMode       string `json:"assign_mode"` // "unassigned_only" (default) or "all"
+			DrawType         string `json:"draw_type"` // "standard" or "field"
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1076,9 +1119,6 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if req.DrawType == "" {
 			req.DrawType = "standard"
-		}
-		if req.AssignMode == "" {
-			req.AssignMode = "unassigned_only"
 		}
 
 		// Get session details
@@ -1126,17 +1166,16 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if req.AssignMode == "all" {
-			if _, err = db.Exec(`
-				DELETE FROM qualification_target_assignments
-				WHERE session_uuid = ?
-				  AND participant_uuid IN (
-				    SELECT uuid FROM tournament_participants WHERE category_id = ?
-				  )
-			`, sessionUUID, req.CategoryID); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete previous target assignments", "details": err.Error()})
-				return
-			}
+		// Delete any existing target assignments for this category in this session
+		if _, err = db.Exec(`
+			DELETE FROM qualification_target_assignments
+			WHERE session_uuid = ?
+			  AND participant_uuid IN (
+			    SELECT uuid FROM tournament_participants WHERE category_id = ?
+			  )
+		`, sessionUUID, req.CategoryID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete previous target assignments", "details": err.Error()})
+			return
 		}
 
 		// 2. Build map of targets grouped by number
@@ -1166,105 +1205,47 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 		sort.Ints(targetNumbers)
 
-		// 3. Build available slots based on Draw Type
+		// 3. Build available slots (preserve targets taken by other categories in this session)
 		var existing []string
-		if req.AssignMode == "unassigned_only" {
-			// In unassigned_only mode, all currently assigned targets in this session are taken
-			db.Select(&existing, `
-				SELECT qta.target_uuid
-				FROM qualification_target_assignments qta
-				WHERE qta.session_uuid = ?
-			`, sessionID)
-		} else {
-			// In "all" mode (0 scores), targets taken by other categories are preserved
-			db.Select(&existing, `
-				SELECT qta.target_uuid
-				FROM qualification_target_assignments qta
-				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
-				WHERE qta.session_uuid = ? AND ep.category_id != ?
-			`, sessionID, req.CategoryID)
-		}
+		db.Select(&existing, `
+			SELECT qta.target_uuid
+			FROM qualification_target_assignments qta
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+			WHERE qta.session_uuid = ? AND ep.category_id != ?
+		`, sessionID, req.CategoryID)
 
 		isTaken := make(map[string]bool)
 		for _, e := range existing {
 			isTaken[e] = true
 		}
 
-		// Sequence for Standard Draw (A-C-B-D style)
+		// Sequence for World Archery ACBD shooting positions
 		letterSequence := []string{"A", "C", "B", "D", "E", "F", "G", "H"}
 		if req.ArchersPerTarget <= 2 {
 			letterSequence = []string{"A", "B"}
 		}
 
-		availableSlots := []Target{}
 		startTargetNum := 0
 		if req.StartTargetName != "" {
 			numPart := strings.TrimRight(req.StartTargetName, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			startTargetNum, _ = strconv.Atoi(numPart)
 		}
 
-		step := 1
-		if req.DrawType == "field" {
-			step = 2
-		}
-
-		for i := 0; i < len(targetNumbers); i += step {
-			num := targetNumbers[i]
-			if num < startTargetNum {
-				continue
-			}
-
-			group := targetGroupsMap[num]
-			// Fill in specific letter sequence
-			for _, letter := range letterSequence {
-				target, exists := group.Slots[letter]
-				if !exists {
-					continue
-				}
-
-				// Ensure index of letter < ArchersPerTarget
-				idxInAlphabet := int(letter[0] - 'A')
-				if idxInAlphabet >= req.ArchersPerTarget {
-					continue
-				}
-
-				if !isTaken[target.UUID] {
-					availableSlots = append(availableSlots, target)
-				}
-			}
-		}
-
-		// 4. Get participants for this category
+		// 4. Get all paid participants for this category
 		type ParticipantWithClub struct {
 			ParticipationUUID string  `db:"uuid"`
 			ClubName          *string `db:"club_name"`
 		}
 		var participants []ParticipantWithClub
-
-		if req.AssignMode == "unassigned_only" {
-			// Fetch only participants who are NOT yet assigned in this session
-			err = db.Select(&participants, `
-				SELECT ep.uuid, c.name as club_name
-				FROM tournament_participants ep
-				JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN clubs c ON a.club_id = c.uuid
-				WHERE ep.category_id = ?
-				  AND ep.uuid NOT IN (
-				    SELECT participant_uuid FROM qualification_target_assignments WHERE session_uuid = ?
-				  )
-				ORDER BY ep.uuid
-			`, req.CategoryID, sessionID)
-		} else {
-			// Fetch ALL participants for this category
-			err = db.Select(&participants, `
-				SELECT ep.uuid, c.name as club_name
-				FROM tournament_participants ep
-				JOIN archers a ON ep.archer_id = a.uuid
-				LEFT JOIN clubs c ON a.club_id = c.uuid
-				WHERE ep.category_id = ?
-				ORDER BY ep.uuid
-			`, req.CategoryID)
-		}
+		err = db.Select(&participants, `
+			SELECT ep.uuid, c.name as club_name
+			FROM tournament_participants ep
+			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			WHERE ep.category_id = ?
+			  AND ep.payment_status IN ('paid', 'lunas')
+			ORDER BY ep.uuid
+		`, req.CategoryID)
 
 		if err != nil || len(participants) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "No participants to assign", "count": 0})
@@ -1303,53 +1284,299 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			boardNumberToBoardUUID[b.BoardNumber] = b.UUID
 		}
 
-		// 5. Randomize participants with Club Separation (Tournament Fairness / World Archery Rule)
-		// Group participants by club and interleave them so same-club archers are placed on different target boards
-		clubMap := make(map[string][]ParticipantWithClub)
-		var clubNames []string
-		for _, p := range participants {
-			cName := "Independent"
-			if p.ClubName != nil && strings.TrimSpace(*p.ClubName) != "" {
-				cName = strings.TrimSpace(*p.ClubName)
-			}
-			if len(clubMap[cName]) == 0 {
-				clubNames = append(clubNames, cName)
-			}
-			clubMap[cName] = append(clubMap[cName], p)
+		// 5. Structure Target Boards for World Archery / IANSEO Layered Draw
+		type TargetBoardSlot struct {
+			Letter string
+			Target Target
+			IsTaken bool
+			AssignedArcher *ParticipantWithClub
 		}
 
-		// Shuffle club order and members within each club
-		rand.Shuffle(len(clubNames), func(i, j int) {
-			clubNames[i], clubNames[j] = clubNames[j], clubNames[i]
-		})
-		for _, cName := range clubNames {
-			group := clubMap[cName]
-			rand.Shuffle(len(group), func(i, j int) {
-				group[i], group[j] = group[j], group[i]
-			})
-			clubMap[cName] = group
+		type ActiveTargetBoard struct {
+			Number            int
+			Slots             []*TargetBoardSlot
+			ClubCounts        map[string]int
+			ClubWave1Counts   map[string]int
+			ClubWave2Counts   map[string]int
+			Wave1Count        int // Letters A and C
+			Wave2Count        int // Letters B and D
+			TotalAssigned     int
 		}
 
-		// Round-Robin across clubs to interleave archers
-		var separatedParticipants []ParticipantWithClub
-		maxInAnyClub := 0
-		for _, group := range clubMap {
-			if len(group) > maxInAnyClub {
-				maxInAnyClub = len(group)
+		// Determine targets to use
+		var targetBoards []*ActiveTargetBoard
+		for _, num := range targetNumbers {
+			if num < startTargetNum {
+				continue
+			}
+			group := targetGroupsMap[num]
+			var boardSlots []*TargetBoardSlot
+			clubCounts := make(map[string]int)
+			clubWave1Counts := make(map[string]int)
+			clubWave2Counts := make(map[string]int)
+			wave1 := 0
+			wave2 := 0
+			totalAssigned := 0
+
+			for _, letter := range letterSequence {
+				target, exists := group.Slots[letter]
+				if !exists {
+					continue
+				}
+				idxInAlphabet := int(letter[0] - 'A')
+				if idxInAlphabet >= req.ArchersPerTarget {
+					continue
+				}
+
+				taken := isTaken[target.UUID]
+				slot := &TargetBoardSlot{
+					Letter: letter,
+					Target: target,
+					IsTaken: taken,
+				}
+				boardSlots = append(boardSlots, slot)
+
+				if taken {
+					totalAssigned++
+					isW1 := letter == "A" || letter == "C"
+					if isW1 {
+						wave1++
+					} else {
+						wave2++
+					}
+				}
+			}
+
+			if len(boardSlots) > 0 {
+				targetBoards = append(targetBoards, &ActiveTargetBoard{
+					Number: num,
+					Slots: boardSlots,
+					ClubCounts: clubCounts,
+					ClubWave1Counts: clubWave1Counts,
+					ClubWave2Counts: clubWave2Counts,
+					Wave1Count: wave1,
+					Wave2Count: wave2,
+					TotalAssigned: totalAssigned,
+				})
 			}
 		}
 
-		for round := 0; round < maxInAnyClub; round++ {
-			for _, cName := range clubNames {
-				group := clubMap[cName]
-				if round < len(group) {
-					separatedParticipants = append(separatedParticipants, group[round])
+		if len(targetBoards) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No valid target boards available for assignment"})
+			return
+		}
+
+		// Calculate how many target boards are needed for this category
+		totalAvailableSlotsCount := 0
+		for _, tb := range targetBoards {
+			for _, s := range tb.Slots {
+				if !s.IsTaken {
+					totalAvailableSlotsCount++
 				}
 			}
 		}
-		participants = separatedParticipants
 
-		// Start Transaction
+		if totalAvailableSlotsCount < len(participants) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Not enough target slots. Available slots: %d, participants to assign: %d", totalAvailableSlotsCount, len(participants)),
+			})
+			return
+		}
+
+		// Limit active boards to ceil(len(participants) / ArchersPerTarget) to keep boards compact
+		neededBoardsCount := (len(participants) + req.ArchersPerTarget - 1) / req.ArchersPerTarget
+		var activeBoards []*ActiveTargetBoard
+		for _, tb := range targetBoards {
+			if len(activeBoards) < neededBoardsCount {
+				activeBoards = append(activeBoards, tb)
+			}
+		}
+		// If still not enough slots in activeBoards, expand
+		currentActiveSlots := 0
+		for _, ab := range activeBoards {
+			for _, s := range ab.Slots {
+				if !s.IsTaken {
+					currentActiveSlots++
+				}
+			}
+		}
+		if currentActiveSlots < len(participants) {
+			activeBoards = targetBoards
+		}
+
+		// 6. Execute Assignment Algorithm
+		type FinalAssignment struct {
+			Participant ParticipantWithClub
+			TargetUUID string
+		}
+		var finalAssignments []FinalAssignment
+
+		if req.DrawType == "standard" {
+			// Standard Draw: Pure random shuffle with horizontal ACBD balanced distribution
+			rand.Shuffle(len(participants), func(i, j int) {
+				participants[i], participants[j] = participants[j], participants[i]
+			})
+
+			pIndex := 0
+			// Pass across slots: first all available slot A, then slot C, then slot B, then slot D
+			for _, letter := range letterSequence {
+				for _, board := range activeBoards {
+					if pIndex >= len(participants) {
+						break
+					}
+					for _, slot := range board.Slots {
+						if slot.Letter == letter && !slot.IsTaken && slot.AssignedArcher == nil {
+							archer := participants[pIndex]
+							slot.AssignedArcher = &archer
+							finalAssignments = append(finalAssignments, FinalAssignment{
+								Participant: archer,
+								TargetUUID: slot.Target.UUID,
+							})
+							pIndex++
+							break
+						}
+					}
+				}
+			}
+			// If any remaining
+			if pIndex < len(participants) {
+				for _, board := range activeBoards {
+					for _, slot := range board.Slots {
+						if pIndex >= len(participants) {
+							break
+						}
+						if !slot.IsTaken && slot.AssignedArcher == nil {
+							archer := participants[pIndex]
+							slot.AssignedArcher = &archer
+							finalAssignments = append(finalAssignments, FinalAssignment{
+								Participant: archer,
+								TargetUUID: slot.Target.UUID,
+							})
+							pIndex++
+						}
+					}
+				}
+			}
+
+		} else {
+			// Field Draw: World Archery & IANSEO Constraint-Based Multi-Pass Target Allocation
+			// Step 1: Group participants by club
+			clubMap := make(map[string][]ParticipantWithClub)
+			var clubNames []string
+			for _, p := range participants {
+				cName := "Independent"
+				if p.ClubName != nil && strings.TrimSpace(*p.ClubName) != "" {
+					cName = strings.TrimSpace(*p.ClubName)
+				}
+				if len(clubMap[cName]) == 0 {
+					clubNames = append(clubNames, cName)
+				}
+				clubMap[cName] = append(clubMap[cName], p)
+			}
+
+			// Step 2: Sort clubs descending by member count (Dominant clubs placed first to maximize spread)
+			// Secondary sort: randomize order among clubs with identical size
+			rand.Shuffle(len(clubNames), func(i, j int) {
+				clubNames[i], clubNames[j] = clubNames[j], clubNames[i]
+			})
+			sort.SliceStable(clubNames, func(i, j int) bool {
+				return len(clubMap[clubNames[i]]) > len(clubMap[clubNames[j]])
+			})
+
+			// Shuffle members inside each club
+			for _, cName := range clubNames {
+				group := clubMap[cName]
+				rand.Shuffle(len(group), func(i, j int) {
+					group[i], group[j] = group[j], group[i]
+				})
+				clubMap[cName] = group
+			}
+
+			// Step 3: Constraint solver placement
+			for _, cName := range clubNames {
+				group := clubMap[cName]
+				for _, archer := range group {
+					// Find the best target board for this archer
+					var bestBoard *ActiveTargetBoard
+					var bestSlot *TargetBoardSlot
+					bestScore := math.MaxInt32
+
+					// Shuffle boards evaluation order for fairness among equal-scoring boards
+					evalBoards := make([]*ActiveTargetBoard, len(activeBoards))
+					copy(evalBoards, activeBoards)
+					rand.Shuffle(len(evalBoards), func(i, j int) {
+						evalBoards[i], evalBoards[j] = evalBoards[j], evalBoards[i]
+					})
+
+					for _, board := range evalBoards {
+						for _, candidateSlot := range board.Slots {
+							if candidateSlot.IsTaken || candidateSlot.AssignedArcher != nil {
+								continue
+							}
+
+							// Calculate penalty score (Lower score = Better choice)
+							sameClubCount := board.ClubCounts[cName]
+							// Weight 1: Heavy penalty for same club on this board (World Archery Rule: avoid same club)
+							score := sameClubCount * 10000
+
+							// Weight 2: Wave penalty if placing second archer from same club in same wave
+							isWave1 := candidateSlot.Letter == "A" || candidateSlot.Letter == "C"
+							if sameClubCount > 0 {
+								if isWave1 && board.ClubWave1Counts[cName] > 0 {
+									score += 8000 // Heavy penalty: disallow same wave for same club
+								} else if !isWave1 && board.ClubWave2Counts[cName] > 0 {
+									score += 8000
+								}
+							}
+
+							// Weight 3: Balance total archers across boards
+							score += board.TotalAssigned * 10
+
+							// Weight 4: Board proximity to keep boards contiguous
+							score += (board.Number - startTargetNum) * 2
+
+							// Weight 5: Letter preference (A and C first, then B and D)
+							if candidateSlot.Letter == "A" {
+								score += 0
+							} else if candidateSlot.Letter == "C" {
+								score += 1
+							} else if candidateSlot.Letter == "B" {
+								score += 2
+							} else {
+								score += 3
+							}
+
+							if score < bestScore {
+								bestScore = score
+								bestBoard = board
+								bestSlot = candidateSlot
+							}
+						}
+					}
+
+					if bestBoard != nil && bestSlot != nil {
+						curArcher := archer
+						bestSlot.AssignedArcher = &curArcher
+						bestBoard.ClubCounts[cName]++
+						bestBoard.TotalAssigned++
+						if bestSlot.Letter == "A" || bestSlot.Letter == "C" {
+							bestBoard.Wave1Count++
+							bestBoard.ClubWave1Counts[cName]++
+						} else {
+							bestBoard.Wave2Count++
+							bestBoard.ClubWave2Counts[cName]++
+						}
+
+						finalAssignments = append(finalAssignments, FinalAssignment{
+							Participant: curArcher,
+							TargetUUID: bestSlot.Target.UUID,
+						})
+					}
+				}
+			}
+		}
+
+		// 7. Start Transaction & Save to Database
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction", "details": err.Error()})
@@ -1357,15 +1584,9 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 6. Assign in order: slot order is already target-full-first (1A..1D, 2A..2D, ...)
 		assignedCount := 0
-		for i, archer := range participants {
-			if i >= len(availableSlots) {
-				break
-			}
-			target := availableSlots[i]
-
-			boardNumber := targetUUIDToBoardNumber[target.UUID]
+		for _, fa := range finalAssignments {
+			boardNumber := targetUUIDToBoardNumber[fa.TargetUUID]
 			
 			var targetBoardUUID sql.NullString
 			if uuidVal, ok := boardNumberToBoardUUID[boardNumber]; ok {
@@ -1377,7 +1598,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 			_, err := tx.Exec(`
 				INSERT INTO qualification_target_assignments (uuid, session_uuid, participant_uuid, target_uuid, target_board_id)
 				VALUES (?, ?, ?, ?, ?)`,
-				assignmentUUID, sessionUUID, archer.ParticipationUUID, target.UUID, targetBoardUUID)
+				assignmentUUID, sessionUUID, fa.Participant.ParticipationUUID, fa.TargetUUID, targetBoardUUID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment", "details": err.Error()})
 				return

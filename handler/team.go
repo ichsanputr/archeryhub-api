@@ -26,37 +26,114 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		teamID := uuid.New().String()
-
-		_, err := db.Exec(`
-			INSERT INTO teams (uuid, tournament_id, event_id, team_name, status)
-			VALUES (?, ?, ?, ?, 'active')
-		`, teamID, eventID, req.CategoryID, req.TeamName)
-
+		// Resolve event UUID (allow slug)
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat tim"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 
-		// 1. Get team_size based on event type
-		var teamSize int
-		err = db.Get(&teamSize, `
-			SELECT CASE 
-				WHEN ret.code = 'mixed_team' THEN 2 
-				WHEN ret.code = 'team' THEN 3 
-				ELSE 1 
-			END as team_size
-			FROM tournament_categories ec
-			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
-			WHERE ec.uuid = ?`, req.CategoryID)
-		if err != nil {
-			teamSize = 3 // Fallback
+		// 1. Check if an elimination bracket already exists/active for this category
+		var bracketCount int
+		_ = db.Get(&bracketCount, `
+			SELECT COUNT(*) FROM elimination_brackets 
+			WHERE category_uuid = ? AND tournament_uuid = ? AND status != 'draft'
+		`, req.CategoryID, eventUUID)
+		if bracketCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Bagan eliminasi untuk kategori ini sudah dibuat. Hapus atau reset bagan eliminasi terlebih dahulu untuk mengubah susunan tim.",
+			})
+			return
 		}
 
-		// 2. Add team members
+		// 2. Get category info and required team size
+		var catInfo struct {
+			TypeCode   string `db:"type_code"`
+			GenderCode string `db:"gender_code"`
+			TeamSize   int    `db:"team_size"`
+		}
+		err = db.Get(&catInfo, `
+			SELECT 
+				ret.code as type_code, 
+				COALESCE(rgd.code, '') as gender_code,
+				CASE 
+					WHEN ret.code = 'mixed_team' THEN 2 
+					WHEN ret.code = 'team' THEN 3 
+					ELSE 1 
+				END as team_size
+			FROM tournament_categories ec
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			WHERE ec.uuid = ?`, req.CategoryID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
+			return
+		}
+
+		if len(req.MemberIDs) != catInfo.TeamSize {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Jumlah anggota harus tepat %d orang untuk kategori ini", catInfo.TeamSize),
+			})
+			return
+		}
+
+		// 3. Validate member genders if mixed team
+		if catInfo.TypeCode == "mixed_team" || strings.Contains(strings.ToLower(catInfo.TypeCode), "mixed") {
+			type MemberGender struct {
+				Gender string `db:"gender"`
+			}
+			query, args, _ := sqlx.In(`
+				SELECT COALESCE(a.gender, '') as gender
+				FROM tournament_participants tp
+				JOIN archers a ON tp.archer_id = a.uuid
+				WHERE tp.uuid IN (?)
+			`, req.MemberIDs)
+			query = db.Rebind(query)
+			var genders []MemberGender
+			if err := db.Select(&genders, query, args...); err != nil || len(genders) != 2 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal memverifikasi data anggota tim"})
+				return
+			}
+			hasMale := false
+			hasFemale := false
+			for _, g := range genders {
+				if g.Gender == "male" || g.Gender == "men" {
+					hasMale = true
+				}
+				if g.Gender == "female" || g.Gender == "women" {
+					hasFemale = true
+				}
+			}
+			if !hasMale || !hasFemale {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Mixed team wajib terdiri dari 1 pemanah putra dan 1 pemanah putri"})
+				return
+			}
+		}
+
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			return
+		}
+		defer tx.Rollback()
+
+		teamID := uuid.New().String()
+
+		_, err = tx.Exec(`
+			INSERT INTO teams (uuid, tournament_id, event_id, category_id, team_name, status)
+			VALUES (?, ?, ?, ?, ?, 'active')
+		`, teamID, eventUUID, req.CategoryID, req.CategoryID, req.TeamName)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat tim", "details": err.Error()})
+			return
+		}
+
+		// 4. Add team members
 		for i, participantID := range req.MemberIDs {
 			memberID := uuid.New().String()
-			_, err = db.Exec(`
+			_, err = tx.Exec(`
 				INSERT INTO team_members (uuid, team_id, participant_id, member_order)
 				VALUES (?, ?, ?, ?)
 			`, memberID, teamID, participantID, i+1)
@@ -67,7 +144,12 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		utils.LogActivity(db, userID.(string), eventID, "team_created", "team", teamID,
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data tim"})
+			return
+		}
+
+		utils.LogActivity(db, userID.(string), eventUUID, "team_created", "team", teamID,
 			fmt.Sprintf("Created team: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -92,7 +174,19 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		query := `
-			SELECT t.*, COUNT(tm.uuid) as member_count 
+			SELECT 
+				t.uuid, 
+				t.tournament_id, 
+				t.event_id, 
+				COALESCE(t.category_id, t.event_id) as category_id,
+				t.team_name, 
+				t.team_rank, 
+				t.total_score, 
+				t.total_x_count, 
+				t.status, 
+				t.created_at, 
+				t.updated_at, 
+				COUNT(tm.uuid) as member_count 
 			FROM teams t
 			LEFT JOIN team_members tm ON t.uuid = tm.team_id
 			WHERE t.tournament_id = ?
@@ -100,11 +194,11 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{eventUUID}
 
 		if categoryID != "" {
-			query += " AND t.event_id = ?"
-			args = append(args, categoryID)
+			query += " AND (t.event_id = ? OR t.category_id = ?)"
+			args = append(args, categoryID, categoryID)
 		}
 
-		query += " GROUP BY t.uuid ORDER BY t.team_rank ASC, t.total_score DESC, t.total_x_count DESC"
+		query += " GROUP BY t.uuid, t.tournament_id, t.event_id, t.category_id, t.team_name, t.team_rank, t.total_score, t.total_x_count, t.status, t.created_at, t.updated_at ORDER BY t.team_rank ASC, t.total_score DESC, t.total_x_count DESC"
 
 		var teams []models.Team
 		err = db.Select(&teams, query, args...)
@@ -122,6 +216,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 			UUID          string `json:"id" db:"uuid"`
 			ParticipantID string `json:"participant_id" db:"participant_id"`
 			FullName      string `json:"full_name" db:"full_name"`
+			Gender        string `json:"gender" db:"gender"`
 			ClubName      string `json:"club_name" db:"club_name"`
 			TotalScore    int    `json:"total_score" db:"total_score"`
 			TotalX        int    `json:"total_x" db:"total_x"`
@@ -141,6 +236,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 					tm.uuid,
 					ep.uuid as participant_id,
 					COALESCE(a.full_name, '') as full_name,
+					COALESCE(a.gender, '') as gender,
 					COALESCE(cl.name, 'Independen') as club_name,
 					COALESCE(SUM(qes.total_score_end), 0) as total_score,
 					COALESCE(SUM(qes.x_count_end), 0) as total_x,
@@ -151,7 +247,7 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid
 				WHERE tm.team_id = ?
-				GROUP BY tm.uuid, ep.uuid, a.full_name, cl.name, tm.member_order
+				GROUP BY tm.uuid, ep.uuid, a.full_name, a.gender, cl.name, tm.member_order
 				ORDER BY tm.member_order ASC
 			`, team.UUID)
 
@@ -176,46 +272,73 @@ func GetTeams(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// GetMyTeams returns all teams managed by the authenticated user's organizer or club
+// GetMyTeams returns all teams managed by the authenticated user's organizer, club, or archer
 func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
-
 		userType, _ := c.Get("user_type")
-
-		query := `
-			SELECT t.*, e.name as event_name, c.name as category_name, COUNT(tm.id) as member_count 
-			FROM teams t
-			JOIN tournaments e ON t.tournament_id = e.uuid
-			JOIN tournament_categories c ON t.event_id = c.uuid
-			LEFT JOIN team_members tm ON t.uuid = tm.team_id
-			WHERE `
-
-		if userType == "organizer" {
-			query += "e.organization_id = ?"
-		} else if userType == "club" {
-			query += "e.club_id = ?"
-		} else {
-			c.JSON(http.StatusOK, gin.H{"data": []interface{}{}, "total": 0})
-			return
-		}
-
-		query += `
-			GROUP BY t.uuid
-			ORDER BY t.created_at DESC
-		`
 
 		var teams []struct {
 			models.Team
 			EventName    string `json:"event_name" db:"event_name"`
 			CategoryName string `json:"category_name" db:"category_name"`
 			MemberCount  int    `json:"member_count" db:"member_count"`
+			IsCaptain    bool   `json:"is_captain" db:"is_captain"`
 		}
 
-		err := db.Select(&teams, query, userID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data tim Anda"})
-			return
+		if userType == "organizer" {
+			query := `
+				SELECT t.*, e.name as event_name, COALESCE(c.category_name_custom, '') as category_name, 
+				       COUNT(DISTINCT tm.uuid) as member_count, 0 as is_captain
+				FROM teams t
+				JOIN tournaments e ON t.tournament_id = e.uuid
+				LEFT JOIN tournament_categories c ON (t.category_id = c.uuid OR t.event_id = c.uuid)
+				LEFT JOIN team_members tm ON t.uuid = tm.team_id
+				WHERE e.organizer_id = ?
+				GROUP BY t.uuid, t.tournament_id, t.event_id, t.category_id, t.team_name, t.team_rank, t.total_score, t.total_x_count, t.status, t.created_at, t.updated_at, e.name, c.category_name_custom
+				ORDER BY t.created_at DESC
+			`
+			_ = db.Select(&teams, query, userID)
+		} else if userType == "club" {
+			query := `
+				SELECT t.*, e.name as event_name, COALESCE(c.category_name_custom, '') as category_name, 
+				       COUNT(DISTINCT tm.uuid) as member_count, 0 as is_captain
+				FROM teams t
+				JOIN tournaments e ON t.tournament_id = e.uuid
+				LEFT JOIN tournament_categories c ON (t.category_id = c.uuid OR t.event_id = c.uuid)
+				LEFT JOIN team_members tm ON t.uuid = tm.team_id
+				WHERE e.organizer_id = ?
+				GROUP BY t.uuid, t.tournament_id, t.event_id, t.category_id, t.team_name, t.team_rank, t.total_score, t.total_x_count, t.status, t.created_at, t.updated_at, e.name, c.category_name_custom
+				ORDER BY t.created_at DESC
+			`
+			_ = db.Select(&teams, query, userID)
+		} else {
+			// Archer user type
+			query := `
+				SELECT t.*, e.name as event_name, COALESCE(c.category_name_custom, '') as category_name, 
+				       COUNT(DISTINCT tm.uuid) as member_count,
+				       CASE WHEN my_tm.member_order = 1 THEN 1 ELSE 0 END as is_captain
+				FROM teams t
+				JOIN tournaments e ON t.tournament_id = e.uuid
+				LEFT JOIN tournament_categories c ON (t.category_id = c.uuid OR t.event_id = c.uuid)
+				JOIN team_members my_tm ON t.uuid = my_tm.team_id
+				JOIN tournament_participants tp ON my_tm.participant_id = tp.uuid
+				LEFT JOIN team_members tm ON t.uuid = tm.team_id
+				WHERE tp.archer_id = ?
+				GROUP BY t.uuid, t.tournament_id, t.event_id, t.category_id, t.team_name, t.team_rank, t.total_score, t.total_x_count, t.status, t.created_at, t.updated_at, e.name, c.category_name_custom, my_tm.member_order
+				ORDER BY t.created_at DESC
+			`
+			_ = db.Select(&teams, query, userID)
+		}
+
+		if teams == nil {
+			teams = []struct {
+				models.Team
+				EventName    string `json:"event_name" db:"event_name"`
+				CategoryName string `json:"category_name" db:"category_name"`
+				MemberCount  int    `json:"member_count" db:"member_count"`
+				IsCaptain    bool   `json:"is_captain" db:"is_captain"`
+			}{}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -225,32 +348,281 @@ func GetMyTeams(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetEligiblePartners returns archers eligible to join a team in a category
+func GetEligiblePartners(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("slug")
+		if eventID == "" {
+			eventID = c.Param("id")
+		}
+		categoryID := c.Param("categoryId")
+		search := strings.TrimSpace(c.Query("search"))
+		genderFilter := strings.TrimSpace(strings.ToLower(c.Query("gender")))
+		clubID := strings.TrimSpace(c.Query("club_id"))
+		excludeArcherID := strings.TrimSpace(c.Query("exclude_archer_id"))
+
+		// 1. Resolve Tournament UUID & entry fee
+		var tour struct {
+			UUID     string  `db:"uuid"`
+			EntryFee float64 `db:"entry_fee"`
+		}
+		err := db.Get(&tour, `SELECT uuid, entry_fee FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Turnamen tidak ditemukan"})
+			return
+		}
+
+		// 2. Resolve Category Info
+		var catInfo struct {
+			UUID               string  `db:"uuid"`
+			DivisionUUID       string  `db:"division_uuid"`
+			CategoryUUID       string  `db:"category_uuid"`
+			TournamentTypeUUID string  `db:"tournament_type_uuid"`
+			GenderDivisionUUID *string `db:"gender_division_uuid"`
+			TypeCode           string  `db:"type_code"`
+			GenderCode         string  `db:"gender_code"`
+		}
+		err = db.Get(&catInfo, `
+			SELECT 
+				tc.uuid,
+				COALESCE(tc.division_uuid, '') as division_uuid,
+				COALESCE(tc.category_uuid, '') as category_uuid,
+				COALESCE(tc.tournament_type_uuid, '') as tournament_type_uuid,
+				tc.gender_division_uuid,
+				COALESCE(rtt.code, 'team') as type_code,
+				COALESCE(rgd.code, '') as gender_code
+			FROM tournament_categories tc
+			LEFT JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+			WHERE tc.uuid = ? AND tc.tournament_id = ?
+		`, categoryID, tour.UUID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
+			return
+		}
+
+		// Required gender
+		requiredGender := genderFilter
+		if requiredGender == "" && catInfo.GenderCode != "" && catInfo.GenderCode != "mixed" {
+			requiredGender = catInfo.GenderCode
+		}
+
+		// 3. Find matching individual category ID for this division & age group
+		var indivCatID string
+		_ = db.Get(&indivCatID, `
+			SELECT tc.uuid
+			FROM tournament_categories tc
+			JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
+			WHERE tc.tournament_id = ? 
+			  AND tc.division_uuid = ? 
+			  AND tc.category_uuid = ? 
+			  AND rtt.code = 'individual'
+			  AND (? = '' OR tc.gender_division_uuid = (SELECT uuid FROM ref_gender_divisions WHERE code = ? LIMIT 1))
+			LIMIT 1
+		`, tour.UUID, catInfo.DivisionUUID, catInfo.CategoryUUID, requiredGender, requiredGender)
+
+		// 4. Query Registered Participants (already in tournament)
+		queryRegistered := `
+			SELECT 
+				a.uuid as archer_id,
+				tp.uuid as participant_id,
+				a.full_name,
+				COALESCE(a.gender, 'male') as gender,
+				COALESCE(cl.name, 'Independen') as club_name,
+				a.avatar_url,
+				tp.payment_status,
+				CASE WHEN tp.payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END as is_already_registered_individual,
+				CASE WHEN tp.payment_status IN ('paid', 'lunas') THEN 0.00 ELSE ? END as individual_fee
+			FROM tournament_participants tp
+			JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			WHERE tp.tournament_id = ?
+			  AND tp.payment_status != 'cancelled'
+			  AND (? = '' OR tp.category_id = ? OR tp.category_id = ?)
+			  AND (? = '' OR a.gender = ?)
+			  AND (? = '' OR a.uuid != ?)
+			  AND (? = '' OR a.full_name LIKE ? OR a.username LIKE ? OR a.id LIKE ?)
+			  AND tp.uuid NOT IN (
+				  SELECT tm.participant_id 
+				  FROM team_members tm 
+				  JOIN teams t ON tm.team_id = t.uuid 
+				  WHERE (t.category_id = ? OR t.event_id = ?) AND t.status != 'eliminated'
+			  )
+			GROUP BY a.uuid, tp.uuid, a.full_name, a.gender, cl.name, a.avatar_url, tp.payment_status
+			ORDER BY is_already_registered_individual DESC, a.full_name ASC
+			LIMIT 25
+		`
+		searchPattern := "%" + search + "%"
+		var registeredPartners []models.EligiblePartner
+		_ = db.Select(&registeredPartners, queryRegistered,
+			tour.EntryFee,
+			tour.UUID,
+			indivCatID, indivCatID, categoryID,
+			requiredGender, requiredGender,
+			excludeArcherID, excludeArcherID,
+			search, searchPattern, searchPattern, searchPattern,
+			categoryID, categoryID,
+		)
+
+		// 5. Query non-registered archers if searching or club provided
+		var nonRegisteredPartners []models.EligiblePartner
+		if search != "" || clubID != "" {
+			queryArchers := `
+				SELECT 
+					a.uuid as archer_id,
+					NULL as participant_id,
+					a.full_name,
+					COALESCE(a.gender, 'male') as gender,
+					COALESCE(cl.name, 'Independen') as club_name,
+					a.avatar_url,
+					'unregistered' as payment_status,
+					0 as is_already_registered_individual,
+					? as individual_fee
+				FROM archers a
+				LEFT JOIN clubs cl ON a.club_id = cl.uuid
+				WHERE (? = '' OR a.gender = ?)
+				  AND (? = '' OR a.uuid != ?)
+				  AND (? = '' OR a.club_id = ?)
+				  AND (? = '' OR a.full_name LIKE ? OR a.username LIKE ? OR a.id LIKE ?)
+				  AND a.uuid NOT IN (
+					  SELECT DISTINCT archer_id FROM tournament_participants 
+					  WHERE tournament_id = ? AND payment_status != 'cancelled'
+				  )
+				ORDER BY a.full_name ASC
+				LIMIT 25
+			`
+			_ = db.Select(&nonRegisteredPartners, queryArchers,
+				tour.EntryFee,
+				requiredGender, requiredGender,
+				excludeArcherID, excludeArcherID,
+				clubID, clubID,
+				search, searchPattern, searchPattern, searchPattern,
+				tour.UUID,
+			)
+		}
+
+		// Deduplicate and combine
+		seenArchers := map[string]bool{}
+		finalResults := []models.EligiblePartner{}
+
+		for _, p := range registeredPartners {
+			if !seenArchers[p.ArcherID] {
+				seenArchers[p.ArcherID] = true
+				finalResults = append(finalResults, p)
+			}
+		}
+		for _, p := range nonRegisteredPartners {
+			if !seenArchers[p.ArcherID] {
+				seenArchers[p.ArcherID] = true
+				finalResults = append(finalResults, p)
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"data":   finalResults,
+			"meta": gin.H{
+				"tournament_id": tour.UUID,
+				"category_id":   catInfo.UUID,
+				"team_type":     catInfo.TypeCode,
+				"gender":        requiredGender,
+				"total":         len(finalResults),
+			},
+		})
+	}
+}
+
+
 // GetTeam returns a single team with members
 func GetTeam(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		teamID := c.Param("teamId")
 
-		var team models.Team
-		err := db.Get(&team, "SELECT * FROM teams WHERE uuid = ?", teamID)
+		type MemberDetail struct {
+			UUID          string  `json:"id" db:"uuid"`
+			TeamID        string  `json:"team_id" db:"team_id"`
+			ParticipantID string  `json:"participant_id" db:"participant_id"`
+			MemberOrder   int     `json:"member_order" db:"member_order"`
+			FullName      string  `json:"full_name" db:"full_name"`
+			ArcherName    string  `json:"archer_name" db:"archer_name"`
+			Gender        string  `json:"gender" db:"gender"`
+			ClubName      string  `json:"club_name" db:"club_name"`
+			AthleteCode   string  `json:"athlete_code" db:"athlete_code"`
+			BackNumber    *string `json:"back_number" db:"back_number"`
+			Score         int     `json:"score" db:"score"`
+			TotalScore    int     `json:"total_score" db:"total_score"`
+			TotalX        int     `json:"total_x" db:"total_x"`
+		}
+
+		type TeamDetail struct {
+			models.Team
+			Name         string         `json:"name" db:"name"`
+			CategoryName string         `json:"category_name" db:"category_name"`
+			ClubName     string         `json:"club_name" db:"club_name"`
+			Rank         *int           `json:"rank" db:"rank"`
+			XCount       int            `json:"x_count" db:"x_count"`
+			Members      []MemberDetail `json:"members"`
+		}
+
+		var team TeamDetail
+		err := db.Get(&team, `
+			SELECT 
+				t.*,
+				t.team_name as name,
+				t.team_rank as rank,
+				t.total_x_count as x_count,
+				COALESCE(tc.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name,
+				COALESCE(
+					(SELECT cl.name FROM team_members tm2 
+					 JOIN tournament_participants tp2 ON tm2.participant_id = tp2.uuid 
+					 JOIN archers a2 ON tp2.archer_id = a2.uuid 
+					 JOIN clubs cl ON a2.club_id = cl.uuid 
+					 WHERE tm2.team_id = t.uuid LIMIT 1), 'Independen'
+				) as club_name
+			FROM teams t
+			LEFT JOIN tournament_categories tc ON (t.category_id = tc.uuid OR t.event_id = tc.uuid)
+			LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+			WHERE t.uuid = ?
+		`, teamID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Tim tidak ditemukan"})
 			return
 		}
 
-		var members []models.TeamMemberWithDetails
+		var members []MemberDetail
 		err = db.Select(&members, `
-			SELECT tm.uuid, tm.team_id, tm.participant_id, tm.member_order, COALESCE(a.full_name, '') as full_name, tp.target_name as back_number, '' as city
+			SELECT 
+				tm.uuid, tm.team_id, tm.participant_id, tm.member_order,
+				COALESCE(a.full_name, '') as full_name,
+				COALESCE(a.full_name, '') as archer_name,
+				COALESCE(a.gender, '') as gender,
+				COALESCE(cl.name, 'Independen') as club_name,
+				COALESCE(a.id, tm.participant_id) as athlete_code,
+				tp.target_name as back_number,
+				COALESCE(SUM(qes.total_score_end), 0) as score,
+				COALESCE(SUM(qes.total_score_end), 0) as total_score,
+				COALESCE(SUM(qes.x_count_end), 0) as total_x
 			FROM team_members tm
 			JOIN tournament_participants tp ON tm.participant_id = tp.uuid
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = tp.uuid
 			WHERE tm.team_id = ?
-			ORDER BY tm.member_order
+			GROUP BY tm.uuid, tm.team_id, tm.participant_id, tm.member_order, a.full_name, a.gender, cl.name, a.id, tp.target_name
+			ORDER BY tm.member_order ASC
 		`, teamID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data anggota tim"})
 			return
 		}
+
+		if members == nil {
+			members = []MemberDetail{}
+		}
+		team.Members = members
 
 		c.JSON(http.StatusOK, gin.H{
 			"team":    team,
@@ -304,9 +676,16 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
+			return
+		}
+		defer tx.Rollback()
+
 		// Get previous running total
 		var prevRunningTotal int
-		db.Get(&prevRunningTotal, `
+		_ = tx.Get(&prevRunningTotal, `
 			SELECT COALESCE(MAX(running_total), 0) 
 			FROM team_scores 
 			WHERE team_id = ? AND session = ? AND distance_order = ? AND end_number < ?
@@ -318,7 +697,7 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 		memberScoresJSON, _ := json.Marshal(req.MemberScores)
 
 		scoreID := uuid.New().String()
-		_, err := db.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO team_scores 
 			(id, team_id, tournament_id, session, distance_order, end_number, member_scores, end_total, x_count, running_total, entered_by)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -334,12 +713,21 @@ func SubmitTeamScore(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Update team total
-		db.Exec(`
+		_, err = tx.Exec(`
 			UPDATE teams SET 
 				total_score = (SELECT COALESCE(SUM(end_total), 0) FROM team_scores WHERE team_id = ?),
 				total_x_count = (SELECT COALESCE(SUM(x_count), 0) FROM team_scores WHERE team_id = ?)
-			WHERE id = ?
-		`, req.TeamID, req.TeamID, req.TeamID)
+			WHERE id = ? OR uuid = ?
+		`, req.TeamID, req.TeamID, req.TeamID, req.TeamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui total skor tim"})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan skor"})
+			return
+		}
 
 		// Broadcast update
 		// BroadcastEventUpdate(req.EventID, gin.H{
@@ -405,19 +793,49 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get team size for the category
-		var teamSize int
-		err := db.Get(&teamSize, `
-			SELECT CASE 
-				WHEN ret.code = 'mixed_team' THEN 2 
-				WHEN ret.code = 'team' THEN 3 
-				ELSE 1 
-			END as team_size
+		// Get team size and category info
+		var catInfo struct {
+			TournamentID     string  `db:"tournament_id"`
+			DivisionID       string  `db:"division_uuid"`
+			AgeGroupID       string  `db:"category_uuid"`
+			GenderDivisionID *string `db:"gender_division_uuid"`
+			TeamSize         int     `db:"team_size"`
+		}
+		err := db.Get(&catInfo, `
+			SELECT 
+				ec.tournament_id,
+				ec.division_uuid,
+				ec.category_uuid,
+				ec.gender_division_uuid,
+				CASE 
+					WHEN ret.code = 'mixed_team' THEN 2 
+					WHEN ret.code = 'team' THEN 3 
+					ELSE 1 
+				END as team_size
 			FROM tournament_categories ec
 			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
 			WHERE ec.uuid = ?`, categoryID)
 		if err != nil {
-			teamSize = 3 // Fallback
+			catInfo.TeamSize = 3 // Fallback
+		}
+
+		teamSize := catInfo.TeamSize
+		if teamSize <= 0 {
+			teamSize = 3
+		}
+
+		participantCatIDs := []string{categoryID}
+		var indivCatID string
+		if catInfo.GenderDivisionID != nil && catInfo.TournamentID != "" {
+			if err2 := db.Get(&indivCatID, `
+				SELECT ec.uuid
+				FROM tournament_categories ec
+				JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+				WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+				  AND ec.gender_division_uuid = ? AND ret.code = 'individual'
+			`, catInfo.TournamentID, catInfo.DivisionID, catInfo.AgeGroupID, *catInfo.GenderDivisionID); err2 == nil && indivCatID != "" {
+				participantCatIDs = append(participantCatIDs, indivCatID)
+			}
 		}
 
 		type TeamRankingEntry struct {
@@ -425,6 +843,7 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 			ClubID         string `json:"club_id" db:"club_id"`
 			ClubName       string `json:"club_name" db:"club_name"`
 			TotalScore     int    `json:"total_score" db:"total_score"`
+			Total10Count   int    `json:"total_10" db:"total_10"`
 			TotalXCount    int    `json:"total_x" db:"total_x"`
 			MemberCount    int    `json:"member_count" db:"member_count"`
 			MemberNames    string `json:"member_names" db:"member_names"`
@@ -434,38 +853,44 @@ func GetTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 		// SQL for Multi-Team and Partial Team support
 		query := `
 			SELECT 
-				ROW_NUMBER() OVER(ORDER BY SUM(individual_score) DESC, SUM(individual_x) DESC) as rank,
+				ROW_NUMBER() OVER(ORDER BY SUM(individual_score) DESC, SUM(individual_10) DESC, SUM(individual_x) DESC) as rank,
 				club_id,
 				club_name,
 				SUM(individual_score) as total_score,
+				SUM(individual_10) as total_10,
 				SUM(individual_x) as total_x,
 				COUNT(*) as member_count,
-				GROUP_CONCAT(archer_name ORDER BY individual_score DESC SEPARATOR ', ') as member_names,
-				GROUP_CONCAT(archer_id ORDER BY individual_score DESC SEPARATOR ',') as participant_ids
+				GROUP_CONCAT(archer_name ORDER BY individual_score DESC, individual_10 DESC, individual_x DESC SEPARATOR ', ') as member_names,
+				GROUP_CONCAT(participant_id ORDER BY individual_score DESC, individual_10 DESC, individual_x DESC SEPARATOR ',') as participant_ids
 			FROM (
 				SELECT 
+					ep.uuid as participant_id,
 					a.uuid as archer_id,
 					a.full_name as archer_name,
 					cl.uuid as club_id,
 					COALESCE(cl.name, 'Independen') as club_name,
 					COALESCE(SUM(s.total_score_end), 0) as individual_score,
+					COALESCE(SUM(s.ten_count_end), 0) as individual_10,
 					COALESCE(SUM(s.x_count_end), 0) as individual_x,
 					ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as club_rank
 				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
 				LEFT JOIN clubs cl ON a.club_id = cl.uuid
 				LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
-				WHERE ep.category_id = ?
-				GROUP BY ep.uuid, cl.uuid, cl.name
+				WHERE ep.category_id IN (?)
+				GROUP BY ep.uuid, a.uuid, a.full_name, cl.uuid, cl.name
 			) ranked
 			WHERE club_id IS NOT NULL
 			GROUP BY club_id, club_name, CEIL(club_rank / ?)
 			HAVING member_count >= 2
-			ORDER BY total_score DESC, total_x DESC
+			ORDER BY total_score DESC, total_10 DESC, total_x DESC
 		`
 
+		fullQuery, args, _ := sqlx.In(query, participantCatIDs, teamSize)
+		fullQuery = db.Rebind(fullQuery)
+
 		var rankings []TeamRankingEntry
-		err = db.Select(&rankings, query, categoryID, teamSize)
+		err = db.Select(&rankings, fullQuery, args...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung peringkat tim", "details": err.Error()})
 			return
@@ -630,6 +1055,27 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Resolve event UUID (allow slug)
+		var eventUUID string
+		err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, tournamentID, tournamentID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+			return
+		}
+
+		// Check if elimination bracket exists
+		var bracketCount int
+		_ = db.Get(&bracketCount, `
+			SELECT COUNT(*) FROM elimination_brackets 
+			WHERE category_uuid = ? AND tournament_uuid = ? AND status != 'draft'
+		`, req.CategoryID, eventUUID)
+		if bracketCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Bagan eliminasi untuk kategori ini sudah dibuat. Hapus atau reset bagan eliminasi terlebih dahulu untuk mengubah susunan tim.",
+			})
+			return
+		}
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
@@ -638,15 +1084,14 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		// 1. Delete existing teams for this category to allow "Regeneration"
-		// First get team UUIDs to delete members
 		var teamUUIDs []string
-		err = tx.Select(&teamUUIDs, "SELECT uuid FROM teams WHERE tournament_id = ? AND event_id = ?", tournamentID, req.CategoryID)
+		err = tx.Select(&teamUUIDs, "SELECT uuid FROM teams WHERE tournament_id = ? AND (event_id = ? OR category_id = ?)", eventUUID, req.CategoryID, req.CategoryID)
 		if err == nil && len(teamUUIDs) > 0 {
 			query, args, _ := sqlx.In("DELETE FROM team_members WHERE team_id IN (?)", teamUUIDs)
 			query = db.Rebind(query)
 			_, _ = tx.Exec(query, args...)
 
-			_, _ = tx.Exec("DELETE FROM teams WHERE tournament_id = ? AND event_id = ?", tournamentID, req.CategoryID)
+			_, _ = tx.Exec("DELETE FROM teams WHERE tournament_id = ? AND (event_id = ? OR category_id = ?)", eventUUID, req.CategoryID, req.CategoryID)
 		}
 
 		// 2. Insert new teams
@@ -654,9 +1099,9 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 			teamUUID := uuid.New().String()
 
 			_, err = tx.Exec(`
-				INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count, status)
-				VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-			`, teamUUID, tournamentID, req.CategoryID, teamReq.TeamName, i+1, teamReq.TotalScore, teamReq.TotalX)
+				INSERT INTO teams (uuid, tournament_id, event_id, category_id, team_name, team_rank, total_score, total_x_count, status)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+			`, teamUUID, eventUUID, req.CategoryID, req.CategoryID, teamReq.TeamName, i+1, teamReq.TotalScore, teamReq.TotalX)
 
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data tim", "details": err.Error(), "team": teamReq.TeamName})
@@ -685,7 +1130,7 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogActivity(db, userID.(string), tournamentID, "teams_regenerated", "event", tournamentID,
+		utils.LogActivity(db, userID.(string), eventUUID, "teams_regenerated", "event", eventUUID,
 			fmt.Sprintf("Regenerated %d teams for category %s", len(req.Teams), req.CategoryID), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil disinkronisasi", "count": len(req.Teams)})
@@ -714,15 +1159,28 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 1. Check category type (Standard vs Mixed)
+		// 1. Check if elimination bracket exists
+		var bracketCount int
+		_ = db.Get(&bracketCount, `
+			SELECT COUNT(*) FROM elimination_brackets 
+			WHERE category_uuid = ? AND tournament_uuid = ? AND status != 'draft'
+		`, req.CategoryID, eventUUID)
+		if bracketCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Bagan eliminasi untuk kategori ini sudah dibuat. Hapus atau reset bagan eliminasi terlebih dahulu sebelum melakukan sinkronisasi ulang tim.",
+			})
+			return
+		}
+
+		// 2. Check category type (Standard vs Mixed)
 		var catInfo struct {
-			TypeID           string `db:"tournament_type_uuid"`
-			TypeCode         string `db:"type_code"`
-			DivisionID       string `db:"division_uuid"`
-			AgeGroupID       string `db:"category_uuid"`
-			GenderDivisionID string `db:"gender_division_uuid"`
-			DivisionName     string `db:"division_name"`
-			TeamSize         int    `db:"team_size"`
+			TypeID           string  `db:"tournament_type_uuid"`
+			TypeCode         string  `db:"type_code"`
+			DivisionID       string  `db:"division_uuid"`
+			AgeGroupID       string  `db:"category_uuid"`
+			GenderDivisionID *string `db:"gender_division_uuid"`
+			DivisionName     string  `db:"division_name"`
+			TeamSize         int     `db:"team_size"`
 		}
 		err = db.Get(&catInfo, `
 			SELECT 
@@ -760,14 +1218,14 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 2. Clear old teams
+		// 3. Clear old teams
 		var teamUUIDs []string
-		err = tx.Select(&teamUUIDs, "SELECT uuid FROM teams WHERE tournament_id = ? AND event_id = ?", eventUUID, req.CategoryID)
+		err = tx.Select(&teamUUIDs, "SELECT uuid FROM teams WHERE tournament_id = ? AND (event_id = ? OR category_id = ?)", eventUUID, req.CategoryID, req.CategoryID)
 		if err == nil && len(teamUUIDs) > 0 {
 			query, args, _ := sqlx.In("DELETE FROM team_members WHERE team_id IN (?)", teamUUIDs)
 			query = db.Rebind(query)
 			_, _ = tx.Exec(query, args...)
-			_, _ = tx.Exec("DELETE FROM teams WHERE tournament_id = ? AND event_id = ?", eventUUID, req.CategoryID)
+			_, _ = tx.Exec("DELETE FROM teams WHERE tournament_id = ? AND (event_id = ? OR category_id = ?)", eventUUID, req.CategoryID, req.CategoryID)
 		}
 
 		syncCount := 0
@@ -779,21 +1237,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if isMixed {
-			var maleParticipants int
-			_ = tx.Get(&maleParticipants, `
-				SELECT COUNT(DISTINCT ep.archer_id)
-				FROM tournament_participants ep
-				WHERE ep.category_id = ?
-			`, req.CategoryID)
-
-			var femaleParticipants int
-			_ = tx.Get(&femaleParticipants, `
-				SELECT COUNT(DISTINCT ep.archer_id)
-				FROM tournament_participants ep
-				WHERE ep.category_id = ?
-			`, req.CategoryID)
-
-			// Find male/female categories
+			// Find male/female individual categories
 			var catIDs []struct {
 				UUID   string `db:"uuid"`
 				Gender string `db:"gender_code"`
@@ -809,13 +1253,10 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 			if err != nil || len(catIDs) < 2 {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Matching individual male/female categories not found or incomplete",
+					"error": "Kategori individu putra dan putri tidak lengkap untuk divisi/kelompok umur ini",
 					"details": gin.H{
-						"reason_code":          "missing_individual_categories",
-						"male_participants":   maleParticipants,
-						"female_participants": femaleParticipants,
-						"found_categories":    len(catIDs),
-						"reason":              "Mixed team requires both Individual Men and Individual Women categories under the same division and age class.",
+						"reason_code": "missing_individual_categories",
+						"reason":      "Mixed team membutuhkan kategori Individu Putra dan Individu Putri dalam divisi dan kelompok umur yang sama.",
 					},
 				})
 				return
@@ -832,9 +1273,14 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if maleCatID == "" || femaleCatID == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to identify men/women categories"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal mengidentifikasi kategori putra dan putri"})
 				return
 			}
+
+			// Count participants with scores
+			var maleParticipants, femaleParticipants int
+			_ = tx.Get(&maleParticipants, `SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE category_id = ? AND payment_status IN ('paid', 'lunas')`, maleCatID)
+			_ = tx.Get(&femaleParticipants, `SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE category_id = ? AND payment_status IN ('paid', 'lunas')`, femaleCatID)
 
 			// Calculate mixed rankings and insert
 			var rankings []struct {
@@ -844,12 +1290,21 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				FemaleID    string `db:"female_id"`
 				MaleScore   int    `db:"male_score"`
 				FemaleScore int    `db:"female_score"`
+				Male10      int    `db:"male_10"`
+				Female10    int    `db:"female_10"`
+				MaleX       int    `db:"male_x"`
+				FemaleX     int    `db:"female_x"`
 				TotalScore  int    `db:"total_score"`
+				Total10     int    `db:"total_10"`
 				TotalX      int    `db:"total_x"`
 			}
 
 			query := `
-				SELECT club_id, club_name, male_id, female_id, male_score, female_score, (male_score + female_score) as total_score, (male_x + female_x) as total_x
+				SELECT 
+					club_id, club_name, male_id, female_id, 
+					male_score, female_score, (male_score + female_score) as total_score, 
+					male_10, female_10, (male_10 + female_10) as total_10,
+					male_x, female_x, (male_x + female_x) as total_x
 				FROM (
 					SELECT 
 						cl.uuid as club_id, cl.name as club_name, ep_ranked.rank_in_club,
@@ -857,26 +1312,30 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.participant_id ELSE '' END) as female_id,
 						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_score ELSE 0 END) as male_score,
 						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_score ELSE 0 END) as female_score,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_10 ELSE 0 END) as male_10,
+						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_10 ELSE 0 END) as female_10,
 						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_x ELSE 0 END) as male_x,
 						MAX(CASE WHEN ep_ranked.category_id = ? THEN ep_ranked.individual_x ELSE 0 END) as female_x
 					FROM (
-						SELECT ep_team.archer_id, ep_team.uuid as participant_id, a.club_id, ep_indiv.category_id, 
-                               COALESCE(SUM(s.total_score_end), 0) as individual_score, 
-                               COALESCE(SUM(s.x_count_end), 0) as individual_x,
-							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep_indiv.category_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as rank_in_club
-						FROM tournament_participants ep_team
-						JOIN archers a ON ep_team.archer_id = a.uuid
-						JOIN tournament_participants ep_indiv ON a.uuid = ep_indiv.archer_id
-						LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep_indiv.uuid
-						WHERE ep_team.category_id = ? AND ep_indiv.category_id IN (?, ?)
-						GROUP BY ep_team.archer_id, ep_team.uuid, a.club_id, ep_indiv.category_id
+						SELECT 
+							ep.archer_id, ep.uuid as participant_id, a.club_id, ep.category_id, 
+							COALESCE(SUM(s.total_score_end), 0) as individual_score, 
+							COALESCE(SUM(s.ten_count_end), 0) as individual_10, 
+							COALESCE(SUM(s.x_count_end), 0) as individual_x,
+							ROW_NUMBER() OVER(PARTITION BY a.club_id, ep.category_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as rank_in_club
+						FROM tournament_participants ep
+						JOIN archers a ON ep.archer_id = a.uuid
+						LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
+						WHERE ep.category_id IN (?, ?) AND ep.payment_status IN ('paid', 'lunas')
+						GROUP BY ep.archer_id, ep.uuid, a.club_id, ep.category_id
 					) ep_ranked
 					JOIN clubs cl ON ep_ranked.club_id = cl.uuid
 					GROUP BY cl.uuid, cl.name, ep_ranked.rank_in_club
-					HAVING male_score > 0 AND female_score > 0
-				) mixed ORDER BY total_score DESC, total_x DESC`
+					HAVING male_id != '' AND female_id != ''
+				) mixed 
+				ORDER BY total_score DESC, total_10 DESC, total_x DESC`
 
-			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, req.CategoryID, maleCatID, femaleCatID)
+			err = tx.Select(&rankings, query, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID, maleCatID, femaleCatID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate mixed team rankings", "details": err.Error()})
 				return
@@ -886,18 +1345,32 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			syncDetails["female_participants"] = femaleParticipants
 			syncDetails["eligible_team_groups"] = len(rankings)
 
-			clubCounter := make(map[string]int)
+			// Count total teams per club to format names
+			clubTotalTeams := make(map[string]int)
+			for _, r := range rankings {
+				clubTotalTeams[r.ClubID]++
+			}
+			clubCurrentIndex := make(map[string]int)
 			letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 			for i, r := range rankings {
-				clubCounter[r.ClubID]++
+				clubCurrentIndex[r.ClubID]++
 				suffix := ""
-				if clubCounter[r.ClubID] <= len(letters) {
-					suffix = " " + string(letters[clubCounter[r.ClubID]-1])
+				if clubTotalTeams[r.ClubID] > 1 {
+					idx := clubCurrentIndex[r.ClubID]
+					if idx <= len(letters) {
+						suffix = " " + string(letters[idx-1])
+					} else {
+						suffix = fmt.Sprintf(" %d", idx)
+					}
 				}
 
 				teamUUID := uuid.New().String()
-				if _, err = tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-					teamUUID, eventUUID, req.CategoryID, "Mixed "+r.ClubName+suffix, i+1, r.TotalScore, r.TotalX); err != nil {
+				teamName := "Mixed " + r.ClubName + suffix
+				if _, err = tx.Exec(`
+					INSERT INTO teams (uuid, tournament_id, event_id, category_id, team_name, team_rank, total_score, total_x_count, status) 
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+				`, teamUUID, eventUUID, req.CategoryID, req.CategoryID, teamName, i+1, r.TotalScore, r.TotalX); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert mixed team data", "details": err.Error()})
 					return
 				}
@@ -918,6 +1391,7 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 				ClubID         string `db:"club_id"`
 				ClubName       string `db:"club_name"`
 				TotalScore     int    `db:"total_score"`
+				Total10        int    `db:"total_10"`
 				TotalX         int    `db:"total_x"`
 				ParticipantIDs string `db:"participant_ids"`
 				MemberCount    int    `db:"member_count"`
@@ -929,52 +1403,65 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 
 			// Participants register under the individual category, not the team category.
 			// Resolve the matching individual category (same event/division/age/gender).
-			participantCatID := req.CategoryID
+			participantCatIDs := []string{req.CategoryID}
 			var indivCatID string
-			if err2 := tx.Get(&indivCatID, `
-				SELECT ec.uuid
-				FROM tournament_categories ec
-				JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
-				WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
-				  AND ec.gender_division_uuid = ? AND ret.code = 'individual'
-			`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID, catInfo.GenderDivisionID); err2 == nil && indivCatID != "" {
-				participantCatID = indivCatID
+			if catInfo.GenderDivisionID != nil {
+				if err2 := tx.Get(&indivCatID, `
+					SELECT ec.uuid
+					FROM tournament_categories ec
+					JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+					WHERE ec.tournament_id = ? AND ec.division_uuid = ? AND ec.category_uuid = ?
+					  AND ec.gender_division_uuid = ? AND ret.code = 'individual'
+				`, eventUUID, catInfo.DivisionID, catInfo.AgeGroupID, *catInfo.GenderDivisionID); err2 == nil && indivCatID != "" {
+					participantCatIDs = append(participantCatIDs, indivCatID)
+				}
 			}
 
 			var totalParticipants int
-			_ = tx.Get(&totalParticipants, `
-				SELECT COUNT(DISTINCT ep.archer_id)
-				FROM tournament_participants ep
-				WHERE ep.category_id = ?
-			`, req.CategoryID)
+			pQuery, pArgs, _ := sqlx.In(`SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE category_id IN (?) AND payment_status IN ('paid', 'lunas')`, participantCatIDs)
+			pQuery = tx.Rebind(pQuery)
+			_ = tx.Get(&totalParticipants, pQuery, pArgs...)
 
 			var clubsWithParticipants int
-			_ = tx.Get(&clubsWithParticipants, `
+			cQuery, cArgs, _ := sqlx.In(`
 				SELECT COUNT(DISTINCT a.club_id)
 				FROM tournament_participants ep
 				JOIN archers a ON ep.archer_id = a.uuid
-				WHERE ep.category_id = ? AND a.club_id IS NOT NULL AND a.club_id <> ''
-			`, req.CategoryID)
+				WHERE ep.category_id IN (?) AND ep.payment_status IN ('paid', 'lunas') AND a.club_id IS NOT NULL AND a.club_id <> ''
+			`, participantCatIDs)
+			cQuery = tx.Rebind(cQuery)
+			_ = tx.Get(&clubsWithParticipants, cQuery, cArgs...)
 
 			query := `
-				SELECT club_id, club_name, SUM(individual_score) as total_score, SUM(individual_x) as total_x, GROUP_CONCAT(participant_id ORDER BY individual_score DESC SEPARATOR ',') as participant_ids, COUNT(*) as member_count
+				SELECT 
+					club_id, club_name, 
+					SUM(individual_score) as total_score, 
+					SUM(individual_10) as total_10, 
+					SUM(individual_x) as total_x, 
+					GROUP_CONCAT(participant_id ORDER BY individual_score DESC, individual_10 DESC, individual_x DESC SEPARATOR ',') as participant_ids, 
+					COUNT(*) as member_count
 				FROM (
-					SELECT ep_team.uuid as participant_id, cl.uuid as club_id, COALESCE(cl.name, 'Independen') as club_name, COALESCE(SUM(s.total_score_end), 0) as individual_score, COALESCE(SUM(s.x_count_end), 0) as individual_x,
+					SELECT 
+						ep.uuid as participant_id, cl.uuid as club_id, COALESCE(cl.name, 'Independen') as club_name, 
+						COALESCE(SUM(s.total_score_end), 0) as individual_score, 
+						COALESCE(SUM(s.ten_count_end), 0) as individual_10, 
+						COALESCE(SUM(s.x_count_end), 0) as individual_x,
 						ROW_NUMBER() OVER(PARTITION BY a.club_id ORDER BY SUM(s.total_score_end) DESC, SUM(s.ten_count_end) DESC, SUM(s.x_count_end) DESC) as club_rank
-					FROM tournament_participants ep_team
-					JOIN archers a ON ep_team.archer_id = a.uuid
-					JOIN tournament_participants ep_indiv ON a.uuid = ep_indiv.archer_id
+					FROM tournament_participants ep
+					JOIN archers a ON ep.archer_id = a.uuid
 					LEFT JOIN clubs cl ON a.club_id = cl.uuid
-					LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep_indiv.uuid
-					WHERE ep_team.category_id = ? AND ep_indiv.category_id = ?
-					GROUP BY ep_team.uuid, cl.uuid, cl.name
+					LEFT JOIN qualification_end_scores s ON s.participant_uuid = ep.uuid
+					WHERE ep.category_id IN (?) AND ep.payment_status IN ('paid', 'lunas')
+					GROUP BY ep.uuid, a.uuid, a.club_id, cl.uuid, cl.name
 				) ranked
 				WHERE club_id IS NOT NULL
 				GROUP BY club_id, club_name, CEIL(club_rank / ?)
 				HAVING member_count >= ?
-				ORDER BY total_score DESC, total_x DESC`
+				ORDER BY total_score DESC, total_10 DESC, total_x DESC`
 
-			err = tx.Select(&rankings, query, req.CategoryID, participantCatID, teamSize, teamSize)
+			fullQuery, args, _ := sqlx.In(query, participantCatIDs, teamSize, teamSize)
+			fullQuery = tx.Rebind(fullQuery)
+			err = tx.Select(&rankings, fullQuery, args...)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate team rankings", "details": err.Error()})
 				return
@@ -984,18 +1471,32 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			syncDetails["clubs_with_participants"] = clubsWithParticipants
 			syncDetails["eligible_team_groups"] = len(rankings)
 
-			clubCounter := make(map[string]int)
+			// Count total teams per club to format names
+			clubTotalTeams := make(map[string]int)
+			for _, r := range rankings {
+				clubTotalTeams[r.ClubID]++
+			}
+			clubCurrentIndex := make(map[string]int)
 			letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 			for i, r := range rankings {
-				clubCounter[r.ClubID]++
+				clubCurrentIndex[r.ClubID]++
 				suffix := ""
-				if clubCounter[r.ClubID] <= len(letters) {
-					suffix = " " + string(letters[clubCounter[r.ClubID]-1])
+				if clubTotalTeams[r.ClubID] > 1 {
+					idx := clubCurrentIndex[r.ClubID]
+					if idx <= len(letters) {
+						suffix = " " + string(letters[idx-1])
+					} else {
+						suffix = fmt.Sprintf(" %d", idx)
+					}
 				}
 
 				teamUUID := uuid.New().String()
-				if _, err = tx.Exec(`INSERT INTO teams (uuid, tournament_id, event_id, team_name, team_rank, total_score, total_x_count) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-					teamUUID, eventUUID, req.CategoryID, r.ClubName+suffix, i+1, r.TotalScore, r.TotalX); err != nil {
+				teamName := r.ClubName + suffix
+				if _, err = tx.Exec(`
+					INSERT INTO teams (uuid, tournament_id, event_id, category_id, team_name, team_rank, total_score, total_x_count, status) 
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+				`, teamUUID, eventUUID, req.CategoryID, req.CategoryID, teamName, i+1, r.TotalScore, r.TotalX); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert team data", "details": err.Error()})
 					return
 				}
@@ -1050,6 +1551,91 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// 1. Get existing team info
+		var currentTeam struct {
+			TournamentID string `db:"tournament_id"`
+			EventID      string `db:"event_id"`
+		}
+		err := db.Get(&currentTeam, "SELECT tournament_id, event_id FROM teams WHERE uuid = ?", teamID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Tim tidak ditemukan"})
+			return
+		}
+
+		// Check elimination bracket
+		var bracketCount int
+		_ = db.Get(&bracketCount, `
+			SELECT COUNT(*) FROM elimination_brackets 
+			WHERE category_uuid = ? AND tournament_uuid = ? AND status != 'draft'
+		`, req.CategoryID, currentTeam.TournamentID)
+		if bracketCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Bagan eliminasi untuk kategori ini sudah dibuat. Hapus/reset bagan eliminasi terlebih dahulu untuk mengubah susunan tim.",
+			})
+			return
+		}
+
+		// 2. Get category info and team_size
+		var catInfo struct {
+			TypeCode string `db:"type_code"`
+			TeamSize int    `db:"team_size"`
+		}
+		err = db.Get(&catInfo, `
+			SELECT 
+				ret.code as type_code, 
+				CASE 
+					WHEN ret.code = 'mixed_team' THEN 2 
+					WHEN ret.code = 'team' THEN 3 
+					ELSE 1 
+				END as team_size
+			FROM tournament_categories ec
+			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
+			WHERE ec.uuid = ?`, req.CategoryID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Kategori tidak ditemukan"})
+			return
+		}
+
+		if len(req.MemberIDs) != catInfo.TeamSize {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Jumlah anggota harus tepat %d orang untuk kategori ini", catInfo.TeamSize),
+			})
+			return
+		}
+
+		// Validate mixed team genders
+		if catInfo.TypeCode == "mixed_team" || strings.Contains(strings.ToLower(catInfo.TypeCode), "mixed") {
+			type MemberGender struct {
+				Gender string `db:"gender"`
+			}
+			query, args, _ := sqlx.In(`
+				SELECT COALESCE(a.gender, '') as gender
+				FROM tournament_participants tp
+				JOIN archers a ON tp.archer_id = a.uuid
+				WHERE tp.uuid IN (?)
+			`, req.MemberIDs)
+			query = db.Rebind(query)
+			var genders []MemberGender
+			if err := db.Select(&genders, query, args...); err != nil || len(genders) != 2 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal memverifikasi data anggota tim"})
+				return
+			}
+			hasMale := false
+			hasFemale := false
+			for _, g := range genders {
+				if g.Gender == "male" || g.Gender == "men" {
+					hasMale = true
+				}
+				if g.Gender == "female" || g.Gender == "women" {
+					hasFemale = true
+				}
+			}
+			if !hasMale || !hasFemale {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Mixed team wajib terdiri dari 1 pemanah putra dan 1 pemanah putri"})
+				return
+			}
+		}
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
@@ -1057,40 +1643,25 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 1. Update team basic info
+		// Update team basic info
 		_, err = tx.Exec(`
-			UPDATE teams SET team_name = ?, event_id = ?
+			UPDATE teams SET team_name = ?, event_id = ?, category_id = ?
 			WHERE uuid = ?
-		`, req.TeamName, req.CategoryID, teamID)
+		`, req.TeamName, req.CategoryID, req.CategoryID, teamID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui info tim"})
 			return
 		}
 
-		// 2. Delete existing members
+		// Delete existing members
 		_, err = tx.Exec("DELETE FROM team_members WHERE team_id = ?", teamID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset anggota tim"})
 			return
 		}
 
-		// 3. Get team_size based on event type
-		var teamSize int
-		err = tx.Get(&teamSize, `
-			SELECT CASE 
-				WHEN ret.code = 'mixed_team' THEN 2 
-				WHEN ret.code = 'team' THEN 3 
-				ELSE 1 
-			END as team_size
-			FROM tournament_categories ec
-			JOIN ref_tournament_types ret ON ec.tournament_type_uuid = ret.uuid
-			WHERE ec.uuid = ?`, req.CategoryID)
-		if err != nil {
-			teamSize = 3 // Fallback
-		}
-
-		// 4. Add new members
+		// Add new members
 		for i, participantID := range req.MemberIDs {
 			memberID := uuid.New().String()
 			_, err = tx.Exec(`
@@ -1122,6 +1693,19 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 		teamID := c.Param("teamId")
 		userID, _ := c.Get("user_id")
 
+		// 1. Check if team is part of an elimination bracket match
+		var matchCount int
+		_ = db.Get(&matchCount, `
+			SELECT COUNT(*) FROM elimination_entries ee 
+			WHERE ee.participant_uuid = ? AND ee.participant_type = 'team'
+		`, teamID)
+		if matchCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Tim tidak dapat dihapus karena sudah terdaftar dalam bagan eliminasi. Hapus atau reset bagan eliminasi terlebih dahulu.",
+			})
+			return
+		}
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
@@ -1129,14 +1713,14 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// 1. Delete members
+		// 2. Delete members
 		_, err = tx.Exec("DELETE FROM team_members WHERE team_id = ?", teamID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus anggota tim"})
 			return
 		}
 
-		// 2. Delete team
+		// 3. Delete team
 		_, err = tx.Exec("DELETE FROM teams WHERE uuid = ?", teamID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus tim"})
@@ -1171,7 +1755,9 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 		if archerID == "" {
 			userID, _ := c.Get("user_id")
 			if userID != nil && userID != "" {
-				_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR email = (SELECT email FROM users WHERE uuid = ?)`, userID, userID, userID)
+				userEmailVal, _ := c.Get("email")
+				userEmail := fmt.Sprintf("%v", userEmailVal)
+				_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?) LIMIT 1`, userID, userID, userEmail)
 			}
 		}
 
@@ -1214,7 +1800,7 @@ func GetMyEventTeam(db *sqlx.DB) gin.HandlerFunc {
 			JOIN tournament_participants ep ON tm.participant_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
-			LEFT JOIN tournament_categories ec ON t.event_id = ec.uuid
+			LEFT JOIN tournament_categories ec ON COALESCE(t.category_id, t.event_id) = ec.uuid
 			WHERE t.tournament_id = ? AND (
 				ep.archer_id = ? 
 				OR ep.archer_id IN (SELECT uuid FROM archers WHERE email = (SELECT email FROM archers WHERE uuid = ? OR id = ?))

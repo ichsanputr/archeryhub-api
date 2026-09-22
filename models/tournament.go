@@ -96,6 +96,7 @@ type Event struct {
 	QuotaMaxCategories   *int       `json:"quota_max_categories" db:"quota_max_categories"`
 	QuotaMaxScorekeepers *int       `json:"quota_max_scorekeepers" db:"quota_max_scorekeepers"`
 	QuotaMaxMediaMB      *int       `json:"quota_max_media_mb" db:"quota_max_media_mb"`
+	Visibility           string     `json:"visibility" db:"visibility" example:"external"` // external, internal
 }
 
 // EventWithDetails includes organizer information
@@ -196,6 +197,7 @@ type CreateEventRequest struct {
 	PageSettings          *string                   `json:"page_settings"`
 	FAQ                   interface{}               `json:"faq"`
 	QuotaType             *string                   `json:"quota_type"`
+	Visibility            *string                   `json:"visibility"`
 }
 
 // UpdateEventRequest represents the request payload for updating a Event
@@ -223,6 +225,7 @@ type UpdateEventRequest struct {
 	TechnicalGuidebookURL *string       `json:"technical_guidebook_url"`
 	PageSettings          *string       `json:"page_settings"`
 	FAQ                   interface{}   `json:"faq"`
+	Visibility            *string       `json:"visibility"`
 }
 
 // EventEvent represents an event within a Event (division + category)
@@ -339,5 +342,45 @@ type QualificationResultsResponse struct {
 	TotalCumulativeEnds int                  `json:"total_cumulative_ends"`
 	Leaderboard         []QualificationEntry `json:"leaderboard"`
 }
+
+// TeamMemberRegistrationInput represents a member inside a team registration payload
+type TeamMemberRegistrationInput struct {
+	ArcherID                    string  `json:"archer_id"`
+	ParticipantID               *string `json:"participant_id,omitempty"`
+	FullName                    string  `json:"full_name"`
+	Gender                      string  `json:"gender"`
+	DateOfBirth                 string  `json:"date_of_birth"`
+	ClubID                      *string `json:"club_id,omitempty"`
+	IsCaptain                   bool    `json:"is_captain"`
+	NeedsIndividualRegistration bool    `json:"needs_individual_registration"`
+}
+
+// TeamRegistrationInput represents a team being registered by a captain
+type TeamRegistrationInput struct {
+	CategoryID string                        `json:"category_id"`
+	TeamName   string                        `json:"team_name"`
+	Members    []TeamMemberRegistrationInput `json:"members"`
+}
+
+// DelegationAthleteInput represents an athlete being registered by a club/delegation
+type DelegationAthleteInput struct {
+	ArcherID    string   `json:"archer_id"`
+	FullName    string   `json:"full_name"`
+	Gender      string   `json:"gender"`
+	Email       string   `json:"email"`
+	Phone       string   `json:"phone"`
+	DateOfBirth string   `json:"date_of_birth"`
+	ClubID      *string  `json:"club_id,omitempty"`
+	ClubName    *string  `json:"club_name,omitempty"`
+	CategoryIDs []string `json:"category_ids"`
+}
+
+// DelegationTeamBookingInput represents reserved team slots for a club
+type DelegationTeamBookingInput struct {
+	CategoryID string `json:"category_id"`
+	TeamName   string `json:"team_name"`
+	Count      int    `json:"count"`
+}
+
 
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -126,17 +127,20 @@ type DocLocalized struct {
 }
 
 type DocJSON struct {
-	Slug     string       `json:"slug"`
-	Icon     string       `json:"icon"`
-	Category string       `json:"category"`
-	ReadTime string       `json:"readTime"`
-	EN       DocLocalized `json:"en"`
+	Slug     string        `json:"slug"`
+	Icon     string        `json:"icon"`
+	Category string        `json:"category"`
+	Order    int           `json:"order,omitempty"`
+	ReadTime string        `json:"readTime"`
+	EN       DocLocalized  `json:"en"`
+	ID       *DocLocalized `json:"id,omitempty"`
 }
 
 type DocResponse struct {
 	Slug     string       `json:"slug"`
 	Icon     string       `json:"icon"`
 	Category string       `json:"category"`
+	Order    int          `json:"order,omitempty"`
 	ReadTime string       `json:"readTime"`
 	Title    string       `json:"title"`
 	Excerpt  string       `json:"excerpt"`
@@ -162,13 +166,24 @@ func nestedSlug(category, baseSlug string) string {
 	return category + "/" + baseSlug
 }
 
-// ListDocs returns metadata of all documentation articles
+// ListDocs returns metadata of all documentation articles sorted by category workflow and order
 func ListDocs() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		lang := strings.ToLower(c.DefaultQuery("lang", "en"))
 		files, err := os.ReadDir("data/docs")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read docs directory", "details": err.Error()})
 			return
+		}
+
+		categoryOrder := map[string]int{
+			"accounts":      1,
+			"tournaments":   2,
+			"scorekeeper":   3,
+			"qualification": 4,
+			"elimination":   5,
+			"finance":       6,
+			"subscriptions": 7,
 		}
 
 		var list []DocResponse
@@ -185,17 +200,40 @@ func ListDocs() gin.HandlerFunc {
 				}
 
 				localized := doc.EN
+				if lang == "id" && doc.ID != nil && doc.ID.Title != "" {
+					localized = *doc.ID
+				}
 
 				list = append(list, DocResponse{
 					Slug:     nestedSlug(doc.Category, doc.Slug),
 					Icon:     doc.Icon,
 					Category: doc.Category,
+					Order:    doc.Order,
 					ReadTime: doc.ReadTime,
 					Title:    localized.Title,
 					Excerpt:  localized.Excerpt,
 				})
 			}
 		}
+
+		sort.Slice(list, func(i, j int) bool {
+			catI := categoryOrder[list[i].Category]
+			if catI == 0 {
+				catI = 99
+			}
+			catJ := categoryOrder[list[j].Category]
+			if catJ == 0 {
+				catJ = 99
+			}
+
+			if catI != catJ {
+				return catI < catJ
+			}
+			if list[i].Order != list[j].Order {
+				return list[i].Order < list[j].Order
+			}
+			return list[i].Title < list[j].Title
+		})
 
 		c.JSON(http.StatusOK, list)
 	}
@@ -204,6 +242,7 @@ func ListDocs() gin.HandlerFunc {
 // GetDocDetail returns full details of a specific documentation article
 func GetDocDetail() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		lang := strings.ToLower(c.DefaultQuery("lang", "en"))
 		paramSlug := normalizeDocSlugParam(c.Param("slug"))
 		// We store docs as flat files using the base slug as the filename.
 		// URL can be nested: /docs/{category}/{slug}
@@ -238,6 +277,9 @@ func GetDocDetail() gin.HandlerFunc {
 		}
 
 		localized := doc.EN
+		if lang == "id" && doc.ID != nil && doc.ID.Title != "" {
+			localized = *doc.ID
+		}
 
 		res := DocResponse{
 			Slug:     nestedSlug(doc.Category, doc.Slug),
@@ -290,3 +332,4 @@ func DeleteDoc(db *sqlx.DB) gin.HandlerFunc {
 		})
 	}
 }
+

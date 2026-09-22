@@ -70,7 +70,7 @@ func GetGenderDivisions(db *sqlx.DB) gin.HandlerFunc {
 func GetAgeGroups(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var data []RefData
-		err := db.Select(&data, "SELECT uuid, code, name FROM ref_age_groups ORDER BY name")
+		err := db.Select(&data, "SELECT uuid, code, name FROM ref_age_groups ORDER BY CASE WHEN code = 'kustom' THEN 1 ELSE 0 END, name ASC")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch age groups"})
 			return

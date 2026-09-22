@@ -13,7 +13,7 @@ const docTemplate = `{
         "contact": {
             "name": "Archeris Support",
             "url": "https://archeris.net",
-            "email": "support@archeris.net"
+            "email": "admin@archeris.net"
         },
         "license": {
             "name": "Apache 2.0",

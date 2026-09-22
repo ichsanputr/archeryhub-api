@@ -5,16 +5,27 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
+var ensureResetTableOnce sync.Once
+
+func ensurePasswordResetsSchema(db *sqlx.DB) {
+	ensureResetTableOnce.Do(func() {
+		db.Exec(`ALTER TABLE password_resets MODIFY COLUMN otp_code VARCHAR(255) NOT NULL`)
+	})
+}
+
 // ForgotPassword — Step 1: user submits email, we find their account and send OTP
 func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
+	ensurePasswordResetsSchema(db)
 	return func(c *gin.Context) {
 		var req struct {
 			Email string `json:"email" binding:"required,email"`
@@ -39,7 +50,6 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 		}{
 			{"archers", "full_name", "archer"},
 			{"organizers", "name", "organizer"},
-			{"clubs", "name", "club"},
 		}
 
 		for _, t := range tables {
@@ -79,7 +89,11 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Send OTP email with Archeris design system
-		go utils.SendPasswordResetOTPEmail(req.Email, found.FullName, otp, 5)
+		go func() {
+			if err := utils.SendPasswordResetOTPEmail(req.Email, found.FullName, otp, 5); err != nil {
+				log.WithError(err).WithField("email", req.Email).Error("Failed to send password reset OTP email")
+			}
+		}()
 
 		c.JSON(http.StatusOK, gin.H{"message": "If this email is registered, a verification code has been sent"})
 	}
@@ -87,6 +101,7 @@ func ForgotPassword(db *sqlx.DB) gin.HandlerFunc {
 
 // VerifyResetOTP — Step 2: validate OTP only (returns a short-lived token)
 func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
+	ensurePasswordResetsSchema(db)
 	return func(c *gin.Context) {
 		var req struct {
 			Email string `json:"email" binding:"required,email"`
@@ -141,6 +156,7 @@ func VerifyResetOTP(db *sqlx.DB) gin.HandlerFunc {
 
 // ResetPassword — Step 3: set the new password using the verified reset token
 func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
+	ensurePasswordResetsSchema(db)
 	return func(c *gin.Context) {
 		var req struct {
 			Email       string `json:"email"        binding:"required,email"`
@@ -196,11 +212,18 @@ func ResetPassword(db *sqlx.DB) gin.HandlerFunc {
 			table = "clubs"
 		}
 
-		// Update password and increment token_version to invalidate other sessions
+		// Hash new password securely with bcrypt
+		hashedPassword, hashErr := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+		if hashErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password encryption", "code": "server_error"})
+			return
+		}
+
+		// Update password and increment token_version to invalidate previous sessions
 		_, err = tx.Exec(fmt.Sprintf(
 			"UPDATE %s SET password = ?, token_version = token_version + 1, updated_at = NOW() WHERE uuid = ?",
 			table,
-		), req.NewPassword, row.UserID)
+		), string(hashedPassword), row.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password", "code": "server_error"})
 			return

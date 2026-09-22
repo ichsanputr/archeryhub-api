@@ -661,8 +661,15 @@ func MobileManualApprovePayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 		_ = c.ShouldBindJSON(&req)
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database"})
+			return
+		}
+		defer tx.Rollback()
+
 		now := time.Now()
-		_, err := db.Exec(`
+		_, err = tx.Exec(`
 			UPDATE payment_transactions
 			SET status = 'paid', paid_at = ?, payment_method = 'Manual Transfer'
 			WHERE uuid = ? OR reference = ?
@@ -670,6 +677,18 @@ func MobileManualApprovePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyetujui pembayaran"})
+			return
+		}
+
+		// Also update linked tournament_participants
+		var pUUID string
+		_ = tx.Get(&pUUID, "SELECT uuid FROM payment_transactions WHERE uuid = ? OR reference = ? LIMIT 1", transactionID, transactionID)
+		if pUUID != "" {
+			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", pUUID)
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan pembayaran"})
 			return
 		}
 
@@ -697,7 +716,14 @@ func MobileRefundPayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec(`
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database"})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec(`
 			UPDATE payment_transactions
 			SET status = 'refunded'
 			WHERE uuid = ? OR reference = ?
@@ -705,6 +731,18 @@ func MobileRefundPayment(db *sqlx.DB) gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses refund"})
+			return
+		}
+
+		// Also update participant status if applicable
+		var pUUID string
+		_ = tx.Get(&pUUID, "SELECT uuid FROM payment_transactions WHERE uuid = ? OR reference = ? LIMIT 1", transactionID, transactionID)
+		if pUUID != "" {
+			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'refunded' WHERE payment_id = ?", pUUID)
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan refund"})
 			return
 		}
 

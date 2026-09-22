@@ -157,13 +157,20 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			nameField = "name"
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database: " + err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
 		if isUpdate {
 			updateQuery := `
 				UPDATE ` + table + ` 
 				SET password = ?, full_name = ?, phone = ?, status = 'active', is_verified = true, updated_at = NOW()
 				WHERE uuid = ?
 			`
-			_, err = db.Exec(updateQuery, req.Password, req.FullName, req.Phone, userID)
+			_, err = tx.Exec(updateQuery, req.Password, req.FullName, req.Phone, userID)
 		} else {
 			isVerified := true
 			if table == "organizers" {
@@ -180,7 +187,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					INSERT INTO organizers (uuid, user_id, slug, email, password, name, acronym, whatsapp_no, city, address, status, subscription_plan_id, subscription_status, subscription_expires_at, quota_free, quota_standard, quota_elite)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, 'active', NULL, 20, 0, 0)
 				`
-				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
+				_, err = tx.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName, req.Acronym, whatsappNo, req.City, req.Address)
 
 			} else if table != "archers" {
 				// For other tables (sellers, organizers, clubs)
@@ -195,12 +202,12 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					INSERT INTO ` + table + ` (uuid, user_id, ` + columnName + `, email, password, ` + nameField + `, status)
 					VALUES (?, ?, ?, ?, ?, ?, 'active')
 				`
-				_, err = db.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName)
+				_, err = tx.Exec(insertQuery, userID, userID, cleanUsername, req.Email, req.Password, req.FullName)
 			} else {
 				// For archers, include id and is_verified
 				// Generate id (ARC-XXXX)
 				var maxID sql.NullInt64
-				_ = db.Get(&maxID, "SELECT MAX(CAST(SUBSTRING(id, 5) AS UNSIGNED)) FROM archers WHERE id REGEXP '^ARC-[0-9]+$'")
+				_ = tx.Get(&maxID, "SELECT MAX(CAST(SUBSTRING(id, 5) AS UNSIGNED)) FROM archers WHERE id REGEXP '^ARC-[0-9]+$'")
 				nextIDNum := 1
 				if maxID.Valid && maxID.Int64 > 0 {
 					nextIDNum = int(maxID.Int64) + 1
@@ -222,7 +229,7 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					if clubSlug == "" {
 						clubSlug = "club-" + newClubUUID[:8]
 					}
-					_, err = db.Exec(`
+					_, err = tx.Exec(`
 						INSERT INTO clubs (uuid, slug, name, created_at, updated_at)
 						VALUES (?, ?, ?, NOW(), NOW())
 					`, newClubUUID, clubSlug, req.NewClubName)
@@ -237,12 +244,17 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, bow_type, club_id)
 					VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
 				`
-				_, err = db.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.BowType, clubID)
+				_, err = tx.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, req.FullName, req.Phone, isVerified, req.Gender, req.DateOfBirth, req.BowType, clubID)
 			}
 		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pendaftaran: " + err.Error()})
 			return
 		}
 

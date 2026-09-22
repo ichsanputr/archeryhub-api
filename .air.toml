@@ -1,29 +1,29 @@
-﻿root = "."
+root = "."
+testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  bin = ".\\tmp\\main.exe"
-  cmd = "go build -o ./tmp/main.exe ."
+  args_bin = []
+  bin = "tmp/main.exe"
+  cmd = "go build -o tmp/main.exe main.go"
   delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "docs", "storage", "logs"]
-  exclude_file = []
+  exclude_dir = [".git", "assets", "tmp", "vendor", "testdata", "uploads", "public", "docs", "logs", "scripts", "scratch"]
+  exclude_file = ["*.log", ".env*"]
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
   full_bin = ""
-  include_dir = []
-  include_ext = ["go", "tpl", "tmpl", "html", "env"]
-  include_file = []
-  kill_delay = "0s"
-  log = "build-errors.log"
+  include_dir = ["handler", "database", "middleware", "models", "utils"]
+  include_ext = ["go"]
+  include_file = ["main.go"]
+  kill_delay = "1000ms"
   poll = false
   poll_interval = 0
   post_cmd = []
   pre_cmd = []
   rerun = false
   rerun_delay = 500
-  send_interrupt = false
-  stop_on_error = false
+  stop_on_error = true
 
 [color]
   app = ""
@@ -38,7 +38,7 @@ tmp_dir = "tmp"
   time = false
 
 [misc]
-  clean_on_exit = true
+  clean_on_exit = false
 
 [screen]
   clear_on_rebuild = false

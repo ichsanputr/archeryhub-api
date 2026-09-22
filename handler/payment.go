@@ -130,12 +130,49 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		if req.Method == "" {
+			if req.PaymentMethod != "" {
+				req.Method = req.PaymentMethod
+			} else if req.Gateway != "" {
+				req.Method = req.Gateway
+			}
+		}
+		if req.Method == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Metode pembayaran (method / payment_method) wajib diisi"})
+			return
+		}
+
 		var amount int
+		var floatAmount float64
 		var customerName, customerEmail, customerPhone string
 		var registrationID *string
+		var allRegIDs []string
 		var eventID *string
 		if req.EventID != "" {
 			eventID = &req.EventID
+			var psStr *string
+			_ = db.Get(&psStr, "SELECT page_settings FROM tournaments WHERE uuid = ? OR slug = ?", req.EventID, req.EventID)
+			if psStr != nil && *psStr != "" {
+				var ps struct {
+					Currency string `json:"currency"`
+				}
+				if errJson := json.Unmarshal([]byte(*psStr), &ps); errJson == nil && ps.Currency != "" {
+					if strings.ToUpper(ps.Currency) == "IDR" && strings.ToLower(req.Method) == "paypal" {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": "Turnamen dengan mata uang IDR tidak mendukung pembayaran via PayPal",
+							"code":  "gateway_currency_mismatch",
+						})
+						return
+					}
+					if strings.ToUpper(ps.Currency) == "USD" && strings.ToLower(req.Method) != "paypal" {
+						c.JSON(http.StatusBadRequest, gin.H{
+							"error": "Turnamen internasional dengan mata uang USD hanya mendukung pembayaran via PayPal",
+							"code":  "gateway_currency_mismatch",
+						})
+						return
+					}
+				}
+			}
 		}
 
 		if req.Type == "platform_fee" {
@@ -149,7 +186,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 			// Check if already has a pending platform fee for this event
 			var existingPending int
-			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status = 'pending' AND expired_at > NOW()", req.EventID)
+			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status = 'pending' AND expired_at > NOW()", req.EventID)
 			if err == nil && existingPending > 0 {
 				c.JSON(http.StatusConflict, gin.H{
 					"error": "Anda memiliki pembayaran biaya platform untuk turnamen ini yang masih tertunda. Silakan selesaikan di riwayat transaksi.",
@@ -240,9 +277,23 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				customerPhone = "08123456789"
 			}
 		} else {
-			// Default to registration
-			if req.RegistrationID == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID wajib diisi untuk tipe registrasi"})
+			allRegIDs = []string{}
+			if req.RegistrationID != nil && *req.RegistrationID != "" {
+				allRegIDs = append(allRegIDs, *req.RegistrationID)
+			}
+			for _, id := range req.RegistrationIDs {
+				if trimmed := strings.TrimSpace(id); trimmed != "" {
+					allRegIDs = append(allRegIDs, trimmed)
+				}
+			}
+			for _, id := range req.ParticipantIDs {
+				if trimmed := strings.TrimSpace(id); trimmed != "" {
+					allRegIDs = append(allRegIDs, trimmed)
+				}
+			}
+
+			if len(allRegIDs) == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID atau ParticipantIDs wajib diisi untuk tipe registrasi"})
 				return
 			}
 
@@ -255,29 +306,50 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				Email         *string `db:"email"`
 				Phone         *string `db:"phone"`
 			}
-			var reg ParticipantReg
-			err := db.Get(&reg, `
+			queryReg, argsReg, errIn := sqlx.In(`
 				SELECT ep.uuid, ep.tournament_id as event_id, ep.archer_id, ep.payment_amount,
 				       COALESCE(a.full_name, 'Peserta Panahan') as full_name, a.email, a.phone
-			FROM tournament_participants ep
-			LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
-			WHERE ep.uuid = ?
-			`, *req.RegistrationID)
-
-			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan", "details": err.Error(), "reg_id": *req.RegistrationID})
+				FROM tournament_participants ep
+				LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
+				WHERE ep.uuid IN (?)
+			`, allRegIDs)
+			if errIn != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyusun query registrasi", "details": errIn.Error()})
+				return
+			}
+			queryReg = db.Rebind(queryReg)
+			var regs []ParticipantReg
+			err := db.Select(&regs, queryReg, argsReg...)
+			if err != nil || len(regs) == 0 {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan", "reg_ids": allRegIDs})
 				return
 			}
 
-			amount = int(reg.PaymentAmount)
-			customerName = reg.FullName
-			customerEmail = utils.StringValue(reg.Email, "user@archeris.net")
-			customerPhone = utils.StringValue(reg.Phone, "08123456789")
-			registrationID = req.RegistrationID
-			eventID = &reg.EventID
+			totalParticipantAmount := 0.0
+			for _, r := range regs {
+				totalParticipantAmount += r.PaymentAmount
+			}
+
+			firstReg := regs[0]
+			amount = int(totalParticipantAmount)
+			floatAmount = totalParticipantAmount
+			if floatAmount <= 0 && req.Amount > 0 {
+				floatAmount = req.Amount
+				amount = int(req.Amount)
+			}
+			customerName = firstReg.FullName
+			if len(regs) > 1 {
+				customerName = fmt.Sprintf("%s (+%d lainnya)", firstReg.FullName, len(regs)-1)
+			}
+			customerEmail = utils.StringValue(firstReg.Email, "user@archeris.net")
+			customerPhone = utils.StringValue(firstReg.Phone, "08123456789")
+			registrationID = &firstReg.UUID
+			if eventID == nil || *eventID == "" {
+				eventID = &firstReg.EventID
+			}
 		}
 
-		if amount <= 0 {
+		if amount <= 0 && floatAmount <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Jumlah pembayaran tidak valid atau bernilai nol"})
 			return
 		}
@@ -303,7 +375,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				PaymentMethod:      utils.StringPtr("manual"),
 				Months:             req.Months,
 				Status:             "pending",
-				ExpiredAt:          time.Now().Add(7 * 24 * time.Hour), // 7 days for manual payment
+				ExpiredAt:          utils.TimePtr(time.Now().Add(7 * 24 * time.Hour)), // 7 days for manual payment
 			}
 		} else {
 			appURL := os.Getenv("APP_URL")
@@ -318,9 +390,44 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				description = fmt.Sprintf("Registrasi Event: %s", customerName)
 			}
 
+			// Validate currency against gateway for tournaments
+			eventCurrency := "IDR"
+			if eventID != nil && *eventID != "" {
+				var psStr *string
+				_ = db.Get(&psStr, "SELECT page_settings FROM tournaments WHERE uuid = ? OR slug = ?", *eventID, *eventID)
+				if psStr != nil && *psStr != "" {
+					var ps struct {
+						Currency string `json:"currency"`
+					}
+					if errJson := json.Unmarshal([]byte(*psStr), &ps); errJson == nil && ps.Currency != "" {
+						eventCurrency = strings.ToUpper(ps.Currency)
+					}
+				}
+
+				if eventCurrency == "IDR" && req.Method == "paypal" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "Turnamen dengan mata uang IDR tidak mendukung pembayaran via PayPal",
+						"code":  "gateway_currency_mismatch",
+					})
+					return
+				}
+				if eventCurrency == "USD" && req.Method != "paypal" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "Turnamen internasional dengan mata uang USD hanya mendukung pembayaran via PayPal",
+						"code":  "gateway_currency_mismatch",
+					})
+					return
+				}
+			}
+
 			if req.Method == "paypal" {
 				paypalClient := utils.NewPayPalClient()
-				usdAmount := paypalClient.ConvertIDRToUSD(float64(amount))
+				var usdAmount string
+				if eventCurrency == "USD" {
+					usdAmount = fmt.Sprintf("%.2f", floatAmount)
+				} else {
+					usdAmount = paypalClient.ConvertIDRToUSD(floatAmount)
+				}
 				returnURL := fmt.Sprintf("%s/payment/status/%s?provider=paypal", strings.TrimSuffix(appURL, "/"), merchantRef)
 				cancelURL := fmt.Sprintf("%s/payment/status/%s?cancelled=true", strings.TrimSuffix(appURL, "/"), merchantRef)
 
@@ -344,14 +451,14 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 					EventID:            eventID,
 					RegistrationID:     registrationID,
 					SubscriptionPlanID: req.PlanID,
-					Amount:             float64(amount),
+					Amount:             floatAmount,
 					FeeAmount:          0,
-					TotalAmount:        float64(amount),
+					TotalAmount:        floatAmount,
 					PaymentMethod:      utils.StringPtr("paypal"),
 					CheckoutURL:        &checkoutURL,
 					Months:             req.Months,
 					Status:             "pending",
-					ExpiredAt:          time.Now().Add(24 * time.Hour),
+					ExpiredAt:          utils.TimePtr(time.Now().Add(24 * time.Hour)),
 				}
 			} else {
 				mayarClient := utils.NewMayarClient()
@@ -390,7 +497,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 					CheckoutURL:        &checkoutURL,
 					Months:             req.Months,
 					Status:             "pending",
-					ExpiredAt:          time.Now().Add(24 * time.Hour),
+					ExpiredAt:          utils.TimePtr(time.Now().Add(24 * time.Hour)),
 				}
 			}
 		}
@@ -399,29 +506,52 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			transaction.Months = 1
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database: " + err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
 		query := `
 			INSERT INTO payment_transactions (
-				uuid, reference, gateway_reference, user_id, event_id, registration_id, subscription_plan_id,
+				uuid, reference, gateway_reference, user_id, tournament_id, registration_id, subscription_plan_id,
 				amount, fee_amount, total_amount, payment_method, va_number, qr_url,
 				checkout_url, pay_code, instructions, months, status, expired_at
 			) VALUES (
-				:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id, :subscription_plan_id,
+				:uuid, :reference, :gateway_reference, :user_id, :tournament_id, :registration_id, :subscription_plan_id,
 				:amount, :fee_amount, :total_amount, :payment_method, :va_number, :qr_url,
 				:checkout_url, :pay_code, :instructions, :months, :status, :expired_at
 			)
 		`
-		_, err := db.NamedExec(query, transaction)
+		_, err = tx.NamedExec(query, transaction)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
 			return
 		}
 
 		// Update participant registration with payment_id
-		if registrationID != nil {
-			_, err := db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
-			if err != nil {
-				fmt.Printf("Warning: Failed to update participant: %v\n", err)
+		if len(allRegIDs) > 0 {
+			qUp, argsUp, errIn := sqlx.In("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid IN (?)", transactionID, allRegIDs)
+			if errIn == nil {
+				qUp = tx.Rebind(qUp)
+				_, err = tx.Exec(qUp, argsUp...)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungkan transaksi ke peserta: " + err.Error()})
+					return
+				}
 			}
+		} else if registrationID != nil {
+			_, err := tx.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghubungkan transaksi ke peserta: " + err.Error()})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi: " + err.Error()})
+			return
 		}
 
 		c.JSON(http.StatusOK, transaction)
@@ -554,13 +684,13 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 		var transaction struct {
 			UUID               string  `db:"uuid"`
 			UserID             string  `db:"user_id"`
-			EventID            *string `db:"event_id"`
+			EventID            *string `db:"tournament_id"`
 			RegistrationID     *string `db:"registration_id"`
 			SubscriptionPlanID *int    `db:"subscription_plan_id"`
 			Months             int     `db:"months"`
 			Status             string  `db:"status"`
 		}
-		err = db.Get(&transaction, "SELECT uuid, user_id, event_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE gateway_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+		err = db.Get(&transaction, "SELECT uuid, user_id, tournament_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE gateway_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaction not found locally, ignored"})
 			return
@@ -576,16 +706,17 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memulai transaksi database"})
 			return
 		}
+		defer tx.Rollback()
 
 		now := time.Now()
 		_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', paid_at = ?, callback_data = ? WHERE uuid = ?", now, bodyBytes, transaction.UUID)
 
 		if transaction.RegistrationID != nil && *transaction.RegistrationID != "" {
-			_, _ = tx.Exec("UPDATE event_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *transaction.RegistrationID, transaction.UUID)
+			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *transaction.RegistrationID, transaction.UUID)
 		}
 
 		if transaction.RegistrationID == nil && transaction.EventID != nil && transaction.SubscriptionPlanID == nil {
-			_, _ = tx.Exec("UPDATE events SET status = 'published' WHERE uuid = ?", *transaction.EventID)
+			_, _ = tx.Exec("UPDATE tournaments SET status = 'published' WHERE uuid = ?", *transaction.EventID)
 		}
 
 		if transaction.SubscriptionPlanID != nil {
@@ -621,7 +752,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 
 		type EnrichedTransaction struct {
 			models.PaymentTransaction
-			Description string  `json:"description" db:"description"`
+			Description *string `json:"description" db:"description"`
 			PlanName    *string `json:"plan_name" db:"plan_name"`
 			EventName   *string `json:"event_name" db:"event_name"`
 			AthleteName *string `json:"athlete_name" db:"athlete_name"`
@@ -635,8 +766,8 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				CASE 
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
-					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
-					WHEN t.event_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
+					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', COALESCE(a.full_name, 'Peserta'))
+					WHEN t.tournament_id IS NOT NULL THEN CONCAT('Platform Fee: ', COALESCE(e.name, 'Turnamen'))
 					ELSE 'Transaksi Archeris'
 				END as description,
 				p.name as plan_name,
@@ -646,16 +777,17 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, rag.name) as category
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
-			LEFT JOIN event_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			LEFT JOIN events e ON t.event_id = e.uuid
-			LEFT JOIN event_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN tournaments e ON t.tournament_id = e.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-			WHERE t.reference = ? OR t.gateway_reference = ?
+			WHERE t.reference = ? OR t.gateway_reference = ? OR t.uuid = ?
 		`
-		err := db.Get(&transaction, query, reference)
+		err := db.Get(&transaction, query, reference, reference, reference)
 		if err != nil {
+			fmt.Printf("[DEBUG GetPaymentStatus] reference=%s, err=%v\n", reference, err)
 			// Fallback: Check in quota_purchases table
 			var qPurchase struct {
 				UUID             string    `db:"uuid"`
@@ -742,6 +874,8 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 					"created_at":       qPurchase.PurchasedAt,
 					"purchased_at":     qPurchase.PurchasedAt,
 					"expiry_date":      qPurchase.PurchasedAt.Add(24 * time.Hour).Unix(),
+					"participants":     []interface{}{},
+					"participant_count": 0,
 				})
 				return
 			}
@@ -750,7 +884,154 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, transaction)
+		type ParticipantItem struct {
+			UUID               string     `json:"uuid" db:"uuid"`
+			ArcherID           string     `json:"archer_id" db:"archer_id"`
+			ArcherName         string     `json:"archer_name" db:"athlete_name"`
+			AthleteName        string     `json:"athlete_name" db:"athlete_name"`
+			Gender             *string    `json:"gender" db:"gender"`
+			ClubName           *string    `json:"club_name" db:"club_name"`
+			CategoryID         *string    `json:"category_id" db:"category_id"`
+			CategoryName       *string    `json:"category_name" db:"category_name"`
+			DivisionName       *string    `json:"division_name" db:"division_name"`
+			AgeGroupName       *string    `json:"age_group_name" db:"age_group_name"`
+			PaymentAmount      float64    `json:"payment_amount" db:"payment_amount"`
+			PaymentStatus      string     `json:"payment_status" db:"payment_status"`
+			LastReregistration *time.Time `json:"last_reregistration_at" db:"last_reregistration_at"`
+			QRRaw              *string    `json:"qr_raw" db:"qr_raw"`
+		}
+
+		var participants []ParticipantItem
+		partQuery := `
+			SELECT 
+				tp.uuid,
+				tp.archer_id,
+				COALESCE(a.full_name, 'Peserta') as athlete_name,
+				a.gender,
+				COALESCE(c.name, '') as club_name,
+				tp.category_id,
+				COALESCE(tc.category_name_custom, CONCAT_WS(' ', rbt.name, rag.name, rgd.name), '') as category_name,
+				COALESCE(rbt.name, '') as division_name,
+				COALESCE(rag.name, '') as age_group_name,
+				tp.payment_amount,
+				tp.payment_status,
+				tp.last_reregistration_at,
+				tp.qr_raw
+			FROM tournament_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+			WHERE (tp.payment_id = ? AND tp.payment_id != '') OR (tp.uuid = ? AND tp.uuid != '')
+			ORDER BY tp.created_at ASC
+		`
+		_ = db.Select(&participants, partQuery, transaction.UUID, transaction.RegistrationID)
+		if participants == nil {
+			participants = []ParticipantItem{}
+		}
+
+		var regUser struct {
+			FullName string `db:"full_name"`
+			Email    string `db:"email"`
+		}
+		if errU := db.Get(&regUser, `SELECT full_name, COALESCE(email, '') as email FROM archers WHERE uuid = ? OR id = ? LIMIT 1`, transaction.UserID, transaction.UserID); errU == nil {
+			transaction.RegisteredByName = &regUser.FullName
+			transaction.RegisteredByEmail = &regUser.Email
+			if transaction.PayerName == nil || *transaction.PayerName == "" {
+				transaction.PayerName = &regUser.FullName
+			}
+			if transaction.PayerEmail == nil || *transaction.PayerEmail == "" {
+				transaction.PayerEmail = &regUser.Email
+			}
+		}
+
+		type TeamItem struct {
+			UUID         string  `json:"uuid" db:"uuid"`
+			TeamName     string  `json:"team_name" db:"team_name"`
+			CategoryID   string  `json:"category_id" db:"category_id"`
+			CategoryName string  `json:"category_name" db:"category_name"`
+			DivisionName string  `json:"division_name" db:"division_name"`
+			Fee          float64 `json:"fee" db:"fee"`
+			Status       string  `json:"status" db:"status"`
+			MemberCount  int     `json:"member_count" db:"member_count"`
+		}
+
+		var teams []TeamItem
+		if transaction.EventID != nil {
+			teamQuery := `
+				SELECT 
+					t.uuid,
+					t.team_name,
+					t.category_id,
+					COALESCE(tc.category_name_custom, CONCAT_WS(' ', rbt.name, rag.name, rgd.name), '') as category_name,
+					COALESCE(rbt.name, '') as division_name,
+					COALESCE(tc.team_fee, 0) as fee,
+					t.status,
+					(SELECT COUNT(*) FROM team_members tm WHERE tm.team_id = t.uuid) as member_count
+				FROM teams t
+				LEFT JOIN tournament_categories tc ON t.category_id = tc.uuid
+				LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+				LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
+				LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+				WHERE t.tournament_id = ? AND (
+					t.uuid IN (SELECT DISTINCT team_id FROM team_members tm WHERE tm.archer_id IN (SELECT archer_id FROM tournament_participants WHERE payment_id = ? OR uuid = ?))
+				)
+				ORDER BY t.created_at ASC
+			`
+			_ = db.Select(&teams, teamQuery, *transaction.EventID, transaction.UUID, transaction.RegistrationID)
+		}
+		if teams == nil {
+			teams = []TeamItem{}
+		}
+
+		res := gin.H{
+			"uuid":                 transaction.UUID,
+			"reference":            transaction.Reference,
+			"gateway_reference":    transaction.GatewayReference,
+			"user_id":              transaction.UserID,
+			"tournament_id":        transaction.EventID,
+			"event_id":             transaction.EventID,
+			"registration_id":      transaction.RegistrationID,
+			"subscription_plan_id": transaction.SubscriptionPlanID,
+			"amount":               transaction.Amount,
+			"fee_amount":           transaction.FeeAmount,
+			"total_amount":         transaction.TotalAmount,
+			"payment_method":       transaction.PaymentMethod,
+			"payment_channel":      transaction.PaymentChannel,
+			"va_number":            transaction.VANumber,
+			"qr_url":               transaction.QRURL,
+			"checkout_url":         transaction.CheckoutURL,
+			"pay_code":             transaction.PayCode,
+			"instructions":         transaction.Instructions,
+			"status":               transaction.Status,
+			"paid_at":              transaction.PaidAt,
+			"created_at":           transaction.CreatedAt,
+			"expired_at":           transaction.ExpiredAt,
+			"proof_url":            transaction.ProofURL,
+			"proof_uploaded_at":    transaction.ProofUploadedAt,
+			"verified_at":          transaction.VerifiedAt,
+			"sender_name":          transaction.SenderName,
+			"rejection_reason":     transaction.RejectionReason,
+			"registered_by_name":   transaction.RegisteredByName,
+			"registered_by_email":  transaction.RegisteredByEmail,
+			"payer_name":           transaction.PayerName,
+			"payer_email":          transaction.PayerEmail,
+			"description":          transaction.Description,
+			"plan_name":            transaction.PlanName,
+			"event_name":           transaction.EventName,
+			"athlete_name":         transaction.AthleteName,
+			"division":             transaction.Division,
+			"category":             transaction.Category,
+			"category_name":        transaction.Category,
+			"participants":         participants,
+			"participant_count":    len(participants),
+			"teams":                teams,
+			"team_count":           len(teams),
+		}
+
+		c.JSON(http.StatusOK, res)
 	}
 }
 
@@ -787,7 +1068,7 @@ func GetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 			FROM payment_transactions t
 			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
-			WHERE t.event_id = ? AND t.status = 'paid'
+			WHERE t.tournament_id = ? AND t.status = 'paid'
 			ORDER BY t.paid_at DESC
 		`
 		err = db.Select(&payments, query, actualEventID)
@@ -1030,9 +1311,42 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			paymentMethodStr = "paypal"
 		}
 
+		// Validate currency against gateway for tournaments
+		eventCurrency := "IDR"
+		var psStr *string
+		_ = db.Get(&psStr, "SELECT page_settings FROM tournaments WHERE uuid = ?", reg.EventID)
+		if psStr != nil && *psStr != "" {
+			var ps struct {
+				Currency string `json:"currency"`
+			}
+			if errJson := json.Unmarshal([]byte(*psStr), &ps); errJson == nil && ps.Currency != "" {
+				eventCurrency = strings.ToUpper(ps.Currency)
+			}
+		}
+
+		if eventCurrency == "IDR" && paymentMethodStr == "paypal" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Turnamen dengan mata uang IDR tidak mendukung pembayaran via PayPal",
+				"code":  "gateway_currency_mismatch",
+			})
+			return
+		}
+		if eventCurrency == "USD" && paymentMethodStr != "paypal" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Turnamen internasional dengan mata uang USD hanya mendukung pembayaran via PayPal",
+				"code":  "gateway_currency_mismatch",
+			})
+			return
+		}
+
 		if paymentMethodStr == "paypal" {
 			paypalClient := utils.NewPayPalClient()
-			usdAmount := paypalClient.ConvertIDRToUSD(float64(amount))
+			var usdAmount string
+			if eventCurrency == "USD" {
+				usdAmount = fmt.Sprintf("%.2f", float64(amount))
+			} else {
+				usdAmount = paypalClient.ConvertIDRToUSD(float64(amount))
+			}
 			returnURL := fmt.Sprintf("%s/payment/status/%s?provider=paypal", strings.TrimSuffix(appURL, "/"), merchantRef)
 			cancelURL := fmt.Sprintf("%s/payment/status/%s?cancelled=true", strings.TrimSuffix(appURL, "/"), merchantRef)
 
@@ -1083,16 +1397,16 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			PaymentMethod:    utils.StringPtr(paymentMethodStr),
 			CheckoutURL:      &checkoutURL,
 			Status:           "pending",
-			ExpiredAt:        time.Now().Add(24 * time.Hour),
+			ExpiredAt:        utils.TimePtr(time.Now().Add(24 * time.Hour)),
 		}
 
 		query := `
 			INSERT INTO payment_transactions (
-				uuid, reference, gateway_reference, user_id, event_id, registration_id,
+				uuid, reference, gateway_reference, user_id, tournament_id, registration_id,
 				amount, fee_amount, total_amount, payment_method,
 				checkout_url, status, expired_at
 			) VALUES (
-				:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id,
+				:uuid, :reference, :gateway_reference, :user_id, :tournament_id, :registration_id,
 				:amount, :fee_amount, :total_amount, :payment_method,
 				:checkout_url, :status, :expired_at
 			)
@@ -1135,6 +1449,7 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 		var amount int
 		var registrationID *string
 		var eventID *string
+		var allRegIDs []string
 
 		if req.Type == "platform_fee" {
 			// Get event details
@@ -1147,7 +1462,7 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 
 			// Check if already has a pending platform fee for this event
 			var existingPending int
-			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status IN ('pending', 'awaiting_verification') AND expired_at > NOW()", req.EventID)
+			err = db.Get(&existingPending, "SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND subscription_plan_id IS NULL AND registration_id IS NULL AND status IN ('pending', 'awaiting_verification') AND expired_at > NOW()", req.EventID)
 			if err == nil && existingPending > 0 {
 				c.JSON(http.StatusConflict, gin.H{
 					"error": "Anda memiliki pembayaran biaya platform untuk turnamen ini yang masih tertunda",
@@ -1200,8 +1515,22 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 			amount = totalPrice
 		} else {
 			// Default to registration
-			if req.RegistrationID == nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID wajib diisi untuk tipe registrasi"})
+			if req.RegistrationID != nil && *req.RegistrationID != "" {
+				allRegIDs = append(allRegIDs, *req.RegistrationID)
+			}
+			for _, id := range req.RegistrationIDs {
+				if trimmed := strings.TrimSpace(id); trimmed != "" {
+					allRegIDs = append(allRegIDs, trimmed)
+				}
+			}
+			for _, id := range req.ParticipantIDs {
+				if trimmed := strings.TrimSpace(id); trimmed != "" {
+					allRegIDs = append(allRegIDs, trimmed)
+				}
+			}
+
+			if len(allRegIDs) == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "RegistrationID atau ParticipantIDs wajib diisi untuk tipe registrasi"})
 				return
 			}
 
@@ -1211,22 +1540,49 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 				ArcherID      string  `db:"archer_id"`
 				PaymentAmount float64 `db:"payment_amount"`
 			}
-			var reg ParticipantReg
-			err := db.Get(&reg, `
+			var regs []ParticipantReg
+			qIn, argsIn, errIn := sqlx.In(`
 				SELECT ep.uuid, ep.tournament_id as event_id, ep.archer_id, ep.payment_amount
 				FROM tournament_participants ep
-				JOIN archers a ON ep.archer_id = a.uuid
-				WHERE ep.uuid = ? AND (a.uuid = ? OR EXISTS(SELECT 1 FROM tournaments e WHERE e.uuid = ep.tournament_id AND e.organizer_id = ?))
-			`, *req.RegistrationID, userID.(string), userID.(string))
-
-			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan"})
-				return
+				WHERE ep.uuid IN (?)
+			`, allRegIDs)
+			if errIn == nil {
+				qIn = db.Rebind(qIn)
+				_ = db.Select(&regs, qIn, argsIn...)
 			}
 
-			amount = int(reg.PaymentAmount)
-			registrationID = req.RegistrationID
-			eventID = &reg.EventID
+			if len(regs) > 0 {
+				totalParticipantAmount := 0.0
+				for _, r := range regs {
+					totalParticipantAmount += r.PaymentAmount
+				}
+				amount = int(totalParticipantAmount)
+				registrationID = &regs[0].UUID
+				eventID = &regs[0].EventID
+			} else {
+				// Check if it's a team booking (e.g. from delegation_teams)
+				var team struct {
+					UUID         string `db:"uuid"`
+					TournamentID string `db:"tournament_id"`
+				}
+				errTeam := db.Get(&team, "SELECT uuid, tournament_id FROM teams WHERE uuid = ? LIMIT 1", allRegIDs[0])
+				if errTeam == nil {
+					var fee float64
+					_ = db.Get(&fee, "SELECT entry_fee FROM tournaments WHERE uuid = ?", team.TournamentID)
+					amount = int(fee)
+					if amount <= 0 {
+						amount = 75000
+					}
+					if len(allRegIDs) > 1 {
+						amount = amount * len(allRegIDs)
+					}
+					registrationID = &team.UUID
+					eventID = &team.TournamentID
+				} else {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan", "reg_ids": allRegIDs})
+					return
+				}
+			}
 		}
 
 		if amount <= 0 {
@@ -1249,35 +1605,50 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 			TotalAmount:        float64(amount),
 			PaymentMethod:      utils.StringPtr("manual"),
 			Months:             req.Months,
-			Status:             "pending",                          // Will change to awaiting_verification after proof upload
-			ExpiredAt:          time.Now().Add(7 * 24 * time.Hour), // 7 days for manual payment
+			Status:             "pending",                                         // Will change to awaiting_verification after proof upload
+			ExpiredAt:          utils.TimePtr(time.Now().Add(7 * 24 * time.Hour)), // 7 days for manual payment
 		}
 
 		if transaction.Months <= 0 {
 			transaction.Months = 1
 		}
 
+		tx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database: " + err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
 		query := `
 			INSERT INTO payment_transactions (
-				uuid, reference, user_id, event_id, registration_id, subscription_plan_id,
+				uuid, reference, user_id, tournament_id, registration_id, subscription_plan_id,
 				amount, fee_amount, total_amount, payment_method, months, status, expired_at
 			) VALUES (
-				:uuid, :reference, :user_id, :event_id, :registration_id, :subscription_plan_id,
+				:uuid, :reference, :user_id, :tournament_id, :registration_id, :subscription_plan_id,
 				:amount, :fee_amount, :total_amount, :payment_method, :months, :status, :expired_at
 			)
 		`
-		_, err := db.NamedExec(query, transaction)
+		_, err = tx.NamedExec(query, transaction)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi: " + err.Error()})
 			return
 		}
 
-		// Update participant registration with payment_id
-		if registrationID != nil {
-			_, err := db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, *registrationID)
-			if err != nil {
-				fmt.Printf("Warning: Failed to update participant: %v\n", err)
+		// Update participant registrations with payment_id
+		if len(allRegIDs) > 0 {
+			qUp, argsUp, errIn := sqlx.In("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', updated_at = NOW() WHERE uuid IN (?)", transactionID, allRegIDs)
+			if errIn == nil {
+				qUp = tx.Rebind(qUp)
+				_, _ = tx.Exec(qUp, argsUp...)
 			}
+		} else if req.RegistrationID != nil && *req.RegistrationID != "" {
+			_, _ = tx.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', updated_at = NOW() WHERE uuid = ?", transactionID, *req.RegistrationID)
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi: " + err.Error()})
+			return
 		}
 
 		c.JSON(http.StatusOK, transaction)
@@ -1331,8 +1702,8 @@ func UploadPaymentProof(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Verify status is pending
-		if transaction.Status != "pending" && transaction.Status != "rejected" {
+		// Verify status is pending or rejected
+		if transaction.Status != "pending" && transaction.Status != "rejected" && transaction.Status != "awaiting_verification" && transaction.Status != "cancelled" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Transaksi tidak dalam status yang dapat diupload bukti"})
 			return
 		}
@@ -1350,13 +1721,15 @@ func UploadPaymentProof(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if transaction.RegistrationID != nil && *transaction.RegistrationID != "" {
-			_, _ = db.Exec(`
-				UPDATE tournament_participants 
-				SET payment_proof_urls = ?, payment_status = 'pending', updated_at = ?
-				WHERE uuid = ?
-			`, req.ProofURL, now, *transaction.RegistrationID)
+		regID := ""
+		if transaction.RegistrationID != nil {
+			regID = *transaction.RegistrationID
 		}
+		_, _ = db.Exec(`
+			UPDATE tournament_participants 
+			SET payment_id = ?, payment_status = 'pending', updated_at = ?
+			WHERE payment_id = ? OR (uuid = ? AND ? != '')
+		`, transaction.UUID, now, transaction.UUID, regID, regID)
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":     "Bukti pembayaran berhasil diupload",
@@ -1462,17 +1835,29 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Update exact registration row
+			// Update linked participants
+			regID := ""
 			if transaction.RegistrationID != nil {
-				_, err = tx.Exec(
-					"UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?",
-					*transaction.RegistrationID, transaction.UUID,
-				)
-				if err != nil {
-					tx.Rollback()
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui registrasi peserta"})
-					return
-				}
+				regID = *transaction.RegistrationID
+			}
+
+			// Update all tournament participants linked by payment_id OR registration_id, and assign qr_raw if missing
+			_, err = tx.Exec(`
+				UPDATE tournament_participants 
+				SET payment_status = 'paid',
+				    qr_raw = COALESCE(NULLIF(qr_raw, ''), UUID()),
+				    updated_at = ?
+				WHERE payment_id = ? OR (uuid = ? AND ? != '')
+			`, now, transaction.UUID, regID, regID)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui registrasi peserta"})
+				return
+			}
+
+			// Also update teams if registration was for a team
+			if regID != "" {
+				_, _ = tx.Exec("UPDATE teams SET status = 'active' WHERE uuid = ?", regID)
 			}
 
 			// Update event status if platform fee is paid
@@ -1549,11 +1934,104 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menolak pembayaran"})
 				return
 			}
+
+			// Update all linked participants to rejected
+			regID := ""
+			if transaction.RegistrationID != nil {
+				regID = *transaction.RegistrationID
+			}
+			_, _ = tx.Exec(`
+				UPDATE tournament_participants 
+				SET payment_status = 'rejected', updated_at = ? 
+				WHERE payment_id = ? OR (uuid = ? AND ? != '')
+			`, now, transaction.UUID, regID, regID)
 		}
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan"})
 			return
+		}
+
+		if req.Action == "approve" {
+			// Asynchronously send approval email to the athlete/payer
+			go func(txUUID string) {
+				var emailData struct {
+					Email     string  `db:"email"`
+					FullName  string  `db:"full_name"`
+					EventName string  `db:"event_name"`
+					Amount    float64 `db:"total_amount"`
+				}
+				errEmail := db.Get(&emailData, `
+					SELECT 
+						COALESCE(NULLIF(a.email, ''), NULLIF(u.email, ''), o.email, '') as email,
+						COALESCE(NULLIF(a.full_name, ''), NULLIF(u.full_name, ''), o.name, 'Peserta') as full_name,
+						COALESCE(e.name, 'Turnamen Archeris') as event_name,
+						pt.total_amount
+					FROM payment_transactions pt
+					LEFT JOIN tournaments e ON pt.tournament_id = e.uuid
+					LEFT JOIN tournament_participants ep ON pt.registration_id = ep.uuid
+					LEFT JOIN archers a ON ep.archer_id = a.uuid
+					LEFT JOIN archers u ON pt.user_id = u.uuid
+					LEFT JOIN organizers o ON pt.user_id = o.uuid
+					WHERE pt.uuid = ? LIMIT 1
+				`, txUUID)
+				if errEmail == nil && emailData.Email != "" {
+					var catNames []string
+					_ = db.Select(&catNames, `
+						SELECT DISTINCT COALESCE(tc.category_name_custom, rag.name, 'General')
+						FROM tournament_participants tp
+						LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+						LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+						WHERE tp.payment_id = ?
+					`, txUUID)
+					_ = utils.SendPaymentApprovedEmail(emailData.Email, emailData.FullName, emailData.EventName, emailData.Amount, catNames)
+				}
+			}(transaction.UUID)
+		}
+
+		if req.Action == "reject" && req.RejectionReason != nil {
+			// Asynchronously send email notification to the athlete/user
+			go func(txRef, rejReason string) {
+				var emailData struct {
+					Email     string  `db:"email"`
+					FullName  string  `db:"full_name"`
+					EventName *string `db:"event_name"`
+				}
+				errEmail := db.Get(&emailData, `
+					SELECT 
+						COALESCE(a.email, u.email, '') as email,
+						COALESCE(a.full_name, u.full_name, 'Peserta') as full_name,
+						e.name as event_name
+					FROM payment_transactions pt
+					LEFT JOIN tournaments e ON pt.tournament_id = e.uuid
+					LEFT JOIN tournament_participants ep ON pt.registration_id = ep.uuid
+					LEFT JOIN archers a ON ep.archer_id = a.uuid
+					LEFT JOIN archers u ON pt.user_id = u.uuid
+					WHERE pt.reference = ? LIMIT 1
+				`, txRef)
+				if errEmail == nil && emailData.Email != "" {
+					eventName := "Turnamen"
+					if emailData.EventName != nil && *emailData.EventName != "" {
+						eventName = *emailData.EventName
+					}
+					subject := fmt.Sprintf("[Archeris] Tindak Lanjut Bukti Pembayaran: %s", eventName)
+					contentHTML := fmt.Sprintf(`
+						<p>Halo <strong>%s</strong>,</p>
+						<p>Bukti pembayaran yang Anda unggah untuk transaksi turnamen <strong>%s</strong> (Kode Referensi: <code>%s</code>) <strong>belum dapat diverifikasi</strong> oleh pihak penyelenggara.</p>
+						<div style="background-color:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;margin:16px 0;border-radius:4px;">
+							<strong style="color:#b91c1c;">Alasan Penolakan:</strong>
+							<p style="margin:4px 0 0;color:#7f1d1d;">%s</p>
+						</div>
+						<p>Mohon untuk mengunggah ulang foto atau screenshot bukti transfer yang jelas dan sesuai nominal melalui tautan berikut:</p>
+						<p style="margin:24px 0;">
+							<a href="%s/dashboard/archer/payments/%s" style="background-color:#0d9488;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">Upload Ulang Bukti Pembayaran</a>
+						</p>
+						<p style="color:#64748b;font-size:13px;">Jika Anda merasa ini adalah kekeliruan, silakan hubungi kontak panitia penyelenggara turnamen.</p>
+					`, emailData.FullName, eventName, txRef, rejReason, utils.GetAppURL(), txRef)
+					emailBody := utils.BuildCleanCardEmail(subject, contentHTML)
+					_ = utils.SendEmail(emailData.Email, subject, emailBody)
+				}
+			}(reference, *req.RejectionReason)
 		}
 
 		message := "Pembayaran berhasil disetujui"
@@ -1631,6 +2109,223 @@ func GetPendingManualPayments(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// GetEventManualPayments returns all manual payments/invoices for a tournament with participant breakdowns
+func GetEventManualPayments(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		eventID := c.Param("id")
+		var actualEventID string
+		var organizerID string
+		err := db.QueryRow("SELECT uuid, organizer_id FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID).Scan(&actualEventID, &organizerID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Turnamen tidak ditemukan"})
+			return
+		}
+
+		userRole, _ := c.Get("user_role")
+		if organizerID != userID.(string) && userRole != "root" && userRole != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya penyelenggara turnamen yang dapat mengakses daftar pembayaran ini"})
+			return
+		}
+
+		type ParticipantDetail struct {
+			UUID               string     `json:"id" db:"uuid"`
+			PaymentID          *string    `json:"payment_id" db:"payment_id"`
+			PaymentStatus      string     `json:"payment_status" db:"payment_status"`
+			PaymentAmount      float64    `json:"payment_amount" db:"payment_amount"`
+			LastReregistration *time.Time `json:"last_reregistration_at" db:"last_reregistration_at"`
+			ArcherName         string     `json:"archer_name" db:"archer_name"`
+			Gender             *string    `json:"gender" db:"gender"`
+			ClubName           *string    `json:"club_name" db:"club_name"`
+			CategoryName       *string    `json:"category_name" db:"category_name"`
+		}
+
+		type ManualPaymentInvoice struct {
+			UUID             string              `json:"id" db:"uuid"`
+			Reference        string              `json:"reference" db:"reference"`
+			PaymentMethod    *string             `json:"payment_method" db:"payment_method"`
+			Amount           float64             `json:"amount" db:"amount"`
+			FeeAmount        float64             `json:"fee_amount" db:"fee_amount"`
+			TotalAmount      float64             `json:"total_amount" db:"total_amount"`
+			Status           string              `json:"status" db:"status"`
+			ProofURL         *string             `json:"proof_url" db:"proof_url"`
+			ProofUploadedAt  *time.Time          `json:"proof_uploaded_at" db:"proof_uploaded_at"`
+			SenderName       *string             `json:"sender_name" db:"sender_name"`
+			RejectionReason  *string             `json:"rejection_reason" db:"rejection_reason"`
+			CreatedAt        time.Time           `json:"created_at" db:"created_at"`
+			PaidAt           *time.Time          `json:"paid_at" db:"paid_at"`
+			VerifiedAt       *time.Time          `json:"verified_at" db:"verified_at"`
+			PayerName        *string             `json:"payer_name" db:"payer_name"`
+			PayerEmail       *string             `json:"payer_email" db:"payer_email"`
+			ClubName         *string             `json:"club_name" db:"club_name"`
+			RegistrationID   *string             `json:"registration_id" db:"registration_id"`
+			Participants     []ParticipantDetail `json:"participants"`
+			ParticipantCount int                 `json:"participant_count"`
+		}
+
+		var invoices []ManualPaymentInvoice
+		txQuery := `
+			SELECT 
+				pt.uuid, pt.reference, pt.payment_method, pt.amount, pt.fee_amount, pt.total_amount,
+				pt.status, pt.proof_url, pt.proof_uploaded_at, pt.sender_name, pt.rejection_reason,
+				pt.created_at, pt.paid_at, pt.verified_at, pt.registration_id,
+				COALESCE(a.full_name, o.name, 'Pendaftar') as payer_name,
+				COALESCE(a.email, o.email, '') as payer_email,
+				c.name as club_name
+			FROM payment_transactions pt
+			LEFT JOIN archers a ON pt.user_id = a.uuid
+			LEFT JOIN organizers o ON pt.user_id = o.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			WHERE pt.tournament_id = ?
+			ORDER BY pt.created_at DESC
+		`
+		err = db.Select(&invoices, txQuery, actualEventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data tagihan: " + err.Error()})
+			return
+		}
+
+		var allParticipants []ParticipantDetail
+		partQuery := `
+			SELECT 
+				tp.uuid, tp.payment_id, COALESCE(tp.payment_status, 'unpaid') as payment_status,
+				tp.payment_amount, tp.last_reregistration_at,
+				a.full_name as archer_name, a.gender,
+				COALESCE(c.name, '') as club_name,
+				COALESCE(tc.category_name_custom, ag.name, '') as category_name
+			FROM tournament_participants tp
+			INNER JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+			LEFT JOIN ref_age_groups ag ON tc.category_uuid = ag.uuid
+			WHERE tp.tournament_id = ?
+		`
+		_ = db.Select(&allParticipants, partQuery, actualEventID)
+
+		// Map participants to invoices
+		for i := range invoices {
+			invoices[i].Participants = []ParticipantDetail{}
+			for _, p := range allParticipants {
+				if (p.PaymentID != nil && *p.PaymentID == invoices[i].UUID) ||
+					(invoices[i].RegistrationID != nil && *invoices[i].RegistrationID == p.UUID) {
+					invoices[i].Participants = append(invoices[i].Participants, p)
+				}
+			}
+			invoices[i].ParticipantCount = len(invoices[i].Participants)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"payments": invoices,
+			"count":    len(invoices),
+		})
+	}
+}
+
+// CancelPaymentTransaction allows a user or organizer to cancel a pending/awaiting payment transaction
+func CancelPaymentTransaction(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak diizinkan"})
+			return
+		}
+
+		reference := c.Param("reference")
+
+		var tx struct {
+			UUID           string  `db:"uuid"`
+			UserID         string  `db:"user_id"`
+			Status         string  `db:"status"`
+			TournamentID   *string `db:"tournament_id"`
+			RegistrationID *string `db:"registration_id"`
+			OrganizerID    *string `db:"organizer_id"`
+		}
+
+		query := `
+			SELECT 
+				pt.uuid, pt.user_id, pt.status, pt.tournament_id, pt.registration_id,
+				e.organizer_id
+			FROM payment_transactions pt
+			LEFT JOIN tournaments e ON pt.tournament_id = e.uuid
+			WHERE pt.reference = ? OR pt.uuid = ?
+			LIMIT 1
+		`
+		err := db.Get(&tx, query, reference, reference)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
+			return
+		}
+
+		userRole, _ := c.Get("user_role")
+		isOwner := tx.UserID == userID.(string)
+		isOrganizer := tx.OrganizerID != nil && *tx.OrganizerID == userID.(string)
+		isAdmin := userRole == "root" || userRole == "admin"
+
+		if !isOwner && !isOrganizer && !isAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki wewenang untuk membatalkan transaksi ini"})
+			return
+		}
+
+		if tx.Status == "paid" || tx.Status == "settlement" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Transaksi yang sudah lunas tidak dapat dibatalkan"})
+			return
+		}
+
+		if tx.Status == "cancelled" {
+			c.JSON(http.StatusOK, gin.H{"message": "Transaksi sudah dibatalkan sebelumnya", "status": "cancelled"})
+			return
+		}
+
+		dbTx, err := db.Beginx()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi database"})
+			return
+		}
+		defer dbTx.Rollback()
+
+		now := time.Now()
+		_, err = dbTx.Exec(`
+			UPDATE payment_transactions 
+			SET status = 'cancelled', updated_at = ? 
+			WHERE uuid = ?
+		`, now, tx.UUID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status transaksi: " + err.Error()})
+			return
+		}
+
+		// Reset linked participants payment_status = 'unpaid', payment_id = NULL
+		regID := ""
+		if tx.RegistrationID != nil {
+			regID = *tx.RegistrationID
+		}
+		_, err = dbTx.Exec(`
+			UPDATE tournament_participants 
+			SET payment_status = 'unpaid', payment_id = NULL, updated_at = ? 
+			WHERE (payment_id = ? OR uuid = ?) AND payment_status NOT IN ('paid', 'lunas')
+		`, now, tx.UUID, regID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mereset status peserta: " + err.Error()})
+			return
+		}
+
+		if err := dbTx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Transaksi berhasil dibatalkan. Tagihan peserta telah direset.",
+			"status":  "cancelled",
+		})
+	}
+}
+
 // CleanupExpiredPayments auto-expires stale pending payment transactions and releases slots.
 func CleanupExpiredPayments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -1657,7 +2352,7 @@ func PerformPaymentCleanup(db *sqlx.DB) (int, error) {
 	err = tx.Select(&expiredTx, `
 		SELECT uuid, registration_id
 		FROM payment_transactions
-		WHERE status = 'pending' AND expired_at IS NOT NULL AND expired_at < NOW()
+		WHERE (status = 'pending' OR status = 'rejected') AND expired_at IS NOT NULL AND expired_at < NOW()
 	`)
 	if err != nil && err != sql.ErrNoRows {
 		return 0, err
@@ -1670,16 +2365,25 @@ func PerformPaymentCleanup(db *sqlx.DB) (int, error) {
 	_, err = tx.Exec(`
 		UPDATE payment_transactions
 		SET status = 'EXPIRED', updated_at = NOW()
-		WHERE status = 'pending' AND expired_at IS NOT NULL AND expired_at < NOW()
+		WHERE (status = 'pending' OR status = 'rejected') AND expired_at IS NOT NULL AND expired_at < NOW()
 	`)
 	if err != nil {
 		return 0, err
 	}
 
 	for _, t := range expiredTx {
-		if t.RegistrationID != nil && *t.RegistrationID != "" {
-			_, _ = tx.Exec(`UPDATE tournament_participants SET status = 'cancelled' WHERE uuid = ? AND payment_status = 'pending'`, *t.RegistrationID)
-			_, _ = tx.Exec(`DELETE FROM qualification_target_assignments WHERE participant_id = ?`, *t.RegistrationID)
+		regID := ""
+		if t.RegistrationID != nil {
+			regID = *t.RegistrationID
+		}
+		_, _ = tx.Exec(`
+			UPDATE tournament_participants 
+			SET payment_status = 'cancelled', updated_at = NOW() 
+			WHERE (payment_id = ? OR (uuid = ? AND ? != '')) 
+			  AND payment_status IN ('pending', 'rejected', 'unpaid')
+		`, t.UUID, regID, regID)
+		if regID != "" {
+			_, _ = tx.Exec(`DELETE FROM qualification_target_assignments WHERE participant_id = ?`, regID)
 		}
 	}
 
@@ -1767,9 +2471,9 @@ func GetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 				PaymentMethods []string `json:"payment_methods"`
 			}
 			if errJson := json.Unmarshal([]byte(*event.PageSettings), &pageSettings); errJson == nil {
-				// If payment_methods array is defined, we filter the active bank accounts.
-				// If not present, we return all active bank accounts for backward compatibility.
-				if pageSettings.PaymentMethods != nil {
+				// If payment_methods array is defined and non-empty, we filter the active bank accounts.
+				// If empty or not present, we return all active bank accounts for backward compatibility.
+				if len(pageSettings.PaymentMethods) > 0 {
 					enabledMap := make(map[string]bool)
 					for _, uuid := range pageSettings.PaymentMethods {
 						enabledMap[uuid] = true
@@ -2048,11 +2752,11 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 				pt.*,
 				COALESCE(e.name, (SELECT name FROM tournaments WHERE uuid = ep.tournament_id LIMIT 1), (SELECT name FROM tournaments WHERE uuid = pt.tournament_id LIMIT 1)) as event_name,
 				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), ec.category_name_custom, '') as category_name,
+				COALESCE((SELECT COUNT(*) FROM tournament_participants tp WHERE (tp.payment_id = pt.uuid AND tp.payment_id != '') OR (tp.uuid = pt.registration_id AND tp.uuid != '')), 1) as participant_count,
 				sp.name as plan_name,
 				CASE 
 					WHEN pt.subscription_plan_id IS NOT NULL THEN 'Langganan Organisasi / Klub'
 					WHEN pt.registration_id IS NOT NULL OR pt.tournament_id IS NOT NULL THEN 'Registrasi Turnamen Panahan'
-					WHEN pt.order_id IS NOT NULL THEN 'Pembelian Produk Toko'
 					ELSE 'Transaksi Pembayaran'
 				END as purpose
 			FROM payment_transactions pt
@@ -2074,10 +2778,11 @@ func GetMyPayments(db *sqlx.DB) gin.HandlerFunc {
 
 		type PaymentWithExtra struct {
 			models.PaymentTransaction
-			EventName    *string `json:"event_name" db:"event_name"`
-			CategoryName *string `json:"category_name" db:"category_name"`
-			PlanName     *string `json:"plan_name" db:"plan_name"`
-			Purpose      *string `json:"purpose" db:"purpose"`
+			EventName        *string `json:"event_name" db:"event_name"`
+			CategoryName     *string `json:"category_name" db:"category_name"`
+			ParticipantCount int     `json:"participant_count" db:"participant_count"`
+			PlanName         *string `json:"plan_name" db:"plan_name"`
+			Purpose          *string `json:"purpose" db:"purpose"`
 		}
 
 		uid := userID.(string)

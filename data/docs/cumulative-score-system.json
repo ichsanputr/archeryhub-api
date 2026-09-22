@@ -4,7 +4,7 @@
   "category": "elimination",
   "readTime": "4 min",
   "en": {
-    "title": "Compound Cumulative Scoring",
+    "title": "4. Cumulative Scoring (Compound)",
     "excerpt": "How cumulative point scoring operates for Compound individual and team elimination matches.",
     "toc": [
       {
@@ -29,5 +29,6 @@
       }
     ],
     "content": "<h2 id=\"cumulative-logic\">Cumulative Point Addition</h2>\n      <p>Compound bow competition uses <strong>Cumulative Scoring</strong> rather than the Set System. Every arrow value is added directly to a running total score across all ends.</p>\n\n      <h2 id=\"compound-individual\">Individual Match Format (15 Arrows)</h2>\n      <p>Individual Compound matches consist of <strong>5 ends of 3 arrows</strong> (15 arrows total, maximum score of 150 points). The archer with the highest cumulative total score after 15 arrows wins the match.</p>\n\n      <h2 id=\"compound-team\">Team Match Format (24 Arrows)</h2>\n      <p>Team Compound matches consist of <strong>4 ends of 6 arrows</strong> (24 arrows total, maximum score of 240 points). The team with the highest combined total score wins.</p>\n\n      <h2 id=\"tie-resolutions\">Compound Match Tie Resolutions</h2>\n      <p>If both competitors finish with identical cumulative totals (e.g., 144-144), a single-arrow shoot-off determines the winner based on score or closest-to-center proximity.</p>"
-  }
+  },
+  "order": 4
 }

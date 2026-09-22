@@ -2544,7 +2544,7 @@ definitions:
 host: api.archeris.net
 info:
   contact:
-    email: support@archeris.net
+    email: admin@archeris.net
     name: Archeris Support
     url: https://archeris.net
   description: Dedicated API for Archeris Mobile App

@@ -29,7 +29,7 @@ import (
 
 // @contact.name Archeris Support
 // @contact.url https://archeris.net
-// @contact.email support@archeris.net
+// @contact.email admin@archeris.net
 
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
@@ -330,6 +330,7 @@ func main() {
 				tournaments.GET("", middleware.RateLimit(60, 1*time.Minute), handler.GetEvents(db))
 				tournaments.GET("/:id", handler.GetEventByID(db))
 				tournaments.GET("/:id/categories", handler.GetEventEvents(db))
+				tournaments.GET("/:id/categories/:categoryId/eligible-partners", handler.GetEligiblePartners(db))
 				tournaments.GET("/:id/participants", handler.GetEventParticipants(db))
 				tournaments.GET("/:id/participants/:participantId", handler.GetEventParticipant(db))
 				tournaments.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
@@ -339,6 +340,7 @@ func main() {
 				tournaments.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 				tournaments.POST("/participants/:participantId/payment", middleware.AuthMiddleware(), handler.CreateParticipantPayment(db))
 				tournaments.GET("/:id/teams", handler.GetEventTeams(db))
+				tournaments.GET("/:id/teams/:teamId", handler.GetTeam(db))
 				tournaments.GET("/:id/my-team", middleware.AuthMiddleware(), handler.GetMyEventTeam(db))
 				tournaments.GET("/:id/images", handler.GetEventImages(db))
 				tournaments.GET("/:id/schedule", handler.GetEventSchedule(db))
@@ -347,7 +349,9 @@ func main() {
 				tournaments.GET("/:id/target-names", handler.GetTargetNames(db))
 				tournaments.GET("/:id/payment-methods", handler.GetEventPaymentMethods(db))
 				tournaments.GET("/:id/payments", handler.GetEventPayments(db))
-				tournaments.POST("/participants/reregister", handler.ReregisterParticipant(db))
+				tournaments.GET("/:id/manual-payments", middleware.AuthMiddleware(), handler.GetEventManualPayments(db))
+				tournaments.POST("/:id/checkin/batch", middleware.AuthMiddleware(), handler.BatchCheckinParticipants(db))
+				tournaments.POST("/participants/reregister", middleware.AuthMiddleware(), handler.ReregisterParticipant(db))
 				tournaments.GET("/:id/participants/printout", handler.GetEventParticipantList(db))
 				tournaments.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
 				tournaments.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
@@ -360,11 +364,13 @@ func main() {
 				tournaments.GET("/:id/results/final-ranking/printout", handler.GetFinalRankingsPrintout(db))
 				tournaments.GET("/:id/targets/labels/printout", handler.GetTargetLabelsPrintout(db))
 				tournaments.GET("/:id/entries/by-club/printout", handler.GetEntriesByClubPrintout(db))
+				tournaments.GET("/:id/elimination/scoresheet", handler.GetEliminationScoresheet(db))
 				tournaments.GET("/:id/elimination/scoresheet-team", handler.GetTeamEliminationScoresheetPrintout(db))
 				tournaments.GET("/:id/elimination/schedule/printout", handler.GetEliminationSchedulePrintout(db))
 				tournaments.GET("/:id/elimination/start-list/printout", handler.GetEliminationStartListPrintout(db))
 				tournaments.GET("/:id/elimination/brackets/printout", handler.GetEliminationBracketVectorPDF(db))
 				tournaments.GET("/:id/schedule/printout", handler.GetEventSchedulePrintout(db))
+
 
 				// Event Targets Data Master routes
 				tournaments.GET("/:id/targets", handler.GetEventTargets(db))
@@ -375,6 +381,7 @@ func main() {
 				// Public Results endpoints
 				tournaments.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
 				tournaments.GET("/:id/results/elimination", handler.GetPublicEliminationResults(db))
+				tournaments.POST("/:id/verify-roster", handler.VerifyTournamentRoster(db))
 
 				// Protected Event routes (require authentication)
 				protected := tournaments.Group("")
@@ -403,8 +410,11 @@ func main() {
 					
 					// Certificate distribution & management
 					protected.POST("/:id/certificates/upload-zip", handler.UploadCertificatesZIP(db))
+					protected.POST("/:id/certificates/bulk-upload", handler.UploadCertificatesZIP(db))
 					protected.GET("/:id/certificates/upload-batches", handler.GetCertificateUploadBatches(db))
+					protected.GET("/:id/certificates/batches", handler.GetCertificateUploadBatches(db))
 					protected.GET("/:id/certificates/upload-batches/:batchId/progress", handler.GetBatchProgress(db))
+					protected.GET("/:id/certificates/batches/:batchId", handler.GetBatchProgress(db))
 					protected.POST("/:id/certificates/manual-assign", handler.ManualAssignCertificate(db))
 					protected.GET("/:id/certificates", handler.GetEventCertificates(db))
 					protected.POST("/:id/certificates/generate-all", handler.GenerateAllCertificates(db))
@@ -532,6 +542,8 @@ func main() {
 				protected.GET("/me/events", handler.GetMyArcherEvents(db))
 				protected.GET("/my/certificates", handler.GetArcherCertificates(db))
 				protected.GET("/me/certificates", handler.GetArcherCertificates(db))
+				protected.POST("/bulk-delete", handler.BulkDeleteArchers(db))
+				protected.DELETE("/bulk", handler.BulkDeleteArchers(db))
 				protected.POST("", handler.CreateArcher(db))
 				protected.PUT("/:id", handler.UpdateArcher(db))
 				protected.DELETE("/:id", handler.DeleteArcher(db))
@@ -630,6 +642,7 @@ func main() {
 			payment.POST("/paypal/capture", handler.CapturePayPalPayment(db))
 			payment.GET("/simulate-success/:reference", middleware.AuthMiddleware(), handler.SimulatePaymentSuccess(db))
 			payment.GET("/my", middleware.AuthMiddleware(), handler.GetMyPayments(db))
+			payment.POST("/:reference/cancel", middleware.AuthMiddleware(), handler.CancelPaymentTransaction(db))
 
 			// Manual payment routes
 			payment.POST("/manual/create", middleware.AuthMiddleware(), handler.CreateManualPayment(db))
@@ -637,6 +650,8 @@ func main() {
 			payment.POST("/manual/:reference/verify", middleware.AuthMiddleware(), handler.VerifyManualPayment(db))
 			payment.GET("/manual/pending", middleware.AuthMiddleware(), handler.GetPendingManualPayments(db))
 		}
+		// Route alias for /payments -> CreatePayment
+		api.POST("/payments", middleware.AuthMiddleware(), handler.CreatePayment(db))
 
 		// Webhook route aliases for prefix compatibility (/api/v1/payment and /api/payment)
 		for _, prefix := range []string{"/api/v1/payment", "/api/payment"} {
@@ -691,6 +706,10 @@ func main() {
 				protected.DELETE("/articles/:id", handler.RootDeleteArticle(db))
 				protected.PATCH("/articles/:id/status", handler.RootToggleArticleStatus(db))
 				protected.POST("/articles/upload", handler.RootUploadArticleImage)
+
+				// Internal Tournaments management & package credit refund
+				protected.GET("/tournaments", handler.RootListTournaments(db))
+				protected.DELETE("/tournaments/:id", handler.RootDeleteTournament(db))
 
 				// Business Owner Executive Recap & Analytics
 				protected.GET("/recap", handler.RootGetBusinessRecap(db))
@@ -1017,6 +1036,7 @@ func main() {
 		cbr := api.Group("/clubs")
 		{
 			cbr.GET("", handler.GetClubs(db))
+			cbr.POST("", handler.CreateClub(db))
 			cbr.GET("/:id", handler.GetClubByID(db))
 		}
 
