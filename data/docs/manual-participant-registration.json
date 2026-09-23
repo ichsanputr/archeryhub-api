@@ -1,0 +1,81 @@
+{
+  "slug": "manual-participant-registration",
+  "icon": "ph:user-plus-bold",
+  "category": "tournaments",
+  "order": 10,
+  "readTime": "4 min",
+  "en": {
+    "title": "Adding Participants Manually",
+    "excerpt": "How to manually register participants for your tournament: individual registration, bulk registration, CSV import, and managing participant data.",
+    "toc": [
+      {
+        "id": "mengapa-manual",
+        "level": 2,
+        "text": "1. When to Register Participants Manually"
+      },
+      {
+        "id": "daftar-individual",
+        "level": 2,
+        "text": "2. Registering Participants One by One"
+      },
+      {
+        "id": "daftar-bulk",
+        "level": 2,
+        "text": "3. Registering Multiple Participants at Once"
+      },
+      {
+        "id": "import-csv",
+        "level": 2,
+        "text": "4. Importing Participants from CSV File"
+      },
+      {
+        "id": "kelola-peserta",
+        "level": 2,
+        "text": "5. Managing Participant Data"
+      },
+      {
+        "id": "tips-manual",
+        "level": 2,
+        "text": "6. Tips for Manual Registration"
+      }
+    ],
+    "content": "<p>Although most participants register themselves through the tournament registration page, there are times when you as an organizer need to register participants manually. For example, for invited guests, athletes who register on-site, or participants from clubs registering collectively. Archeris provides several ways to add participants manually.</p>\n\n<img src=\"https://picsum.photos/800/400\" alt=\"Tournament participants page with Add Participant and Import CSV buttons\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"mengapa-manual\">1. When to Register Participants Manually</h2>\n<p>Situations that require manual registration:</p>\n<ul>\n  <li><strong>Invited guests:</strong> Athletes specially invited by the organizer without paying registration fees.</li>\n  <li><strong>Walk-in registration:</strong> Participants who come directly to the venue and register on-site.</li>\n  <li><strong>Collective registration:</strong> Clubs or schools registering all their athletes at once through the organizer.</li>\n  <li><strong>Data correction:</strong> Participants who already registered but need their data corrected or updated by the organizer.</li>\n</ul>\n\n<h2 id=\"daftar-individual\">2. Registering Participants One by One</h2>\n<p>To add a participant individually:</p>\n<ol>\n  <li>Go to <strong>Organizer Dashboard &gt; Tournaments &gt; [Select Tournament] &gt; Participants</strong>.</li>\n  <li>Click the <strong>+ Add Participant</strong> button.</li>\n  <li>Fill in the registration form with participant data:\n    <ul>\n      <li><strong>Full Name:</strong> Official participant name (will be printed on certificates).</li>\n      <li><strong>Club / Contingent:</strong> Club origin or \"Independent\" if none.</li>\n      <li><strong>Category:</strong> Select the competition category.</li>\n      <li><strong>Payment Status:</strong> Choose <em>Paid</em> if already paid, <em>Unpaid</em> if not, or <em>Free</em> for invited guests.</li>\n    </ul>\n  </li>\n  <li>Click <strong>Save</strong>. The participant will immediately appear in the list with the status you set.</li>\n</ol>\n<p><strong>Note:</strong> If payment status is set to \"Free\", the participant does not need to go through payment checkout and is immediately confirmed.</p>\n\n<h2 id=\"daftar-bulk\">3. Registering Multiple Participants at Once</h2>\n<p>To register many participants in one step:</p>\n<ol>\n  <li>Open the <strong>Participants</strong> page for your tournament.</li>\n  <li>Click the <strong>Batch Register</strong> button (available depending on your subscription plan).</li>\n  <li>Set the same category for all participants or choose different categories per participant.</li>\n  <li>Enter participant data in the batch form.</li>\n  <li>Click <strong>Submit</strong> to process all registrations at once.</li>\n</ol>\n<p>All participants registered in batch will receive automatic registration numbers and appear in the participant list.</p>\n\n<h2 id=\"import-csv\">4. Importing Participants from CSV File</h2>\n<p>If you already have participant data in spreadsheet format (Excel/CSV), you can import directly:</p>\n<ol>\n  <li>Prepare a CSV file with the following columns (order can vary, but column names must match):\n    <ul>\n      <li><code>full_name</code> - Participant full name</li>\n      <li><code>date_of_birth</code> - Date of birth (format: YYYY-MM-DD)</li>\n      <li><code>gender</code> - Gender (male / female)</li>\n      <li><code>city</code> - City of origin</li>\n      <li><code>email</code> - Participant email (optional)</li>\n      <li><code>phone</code> - Phone number (optional)</li>\n      <li><code>division</code> - Bow division (Recurve / Compound / Barebow / etc.)</li>\n      <li><code>category</code> - Category name (must match categories already created in the tournament)</li>\n    </ul>\n  </li>\n  <li>Open the <strong>Participants</strong> page for your tournament.</li>\n  <li>Click the <strong>Import CSV</strong> button.</li>\n  <li>Upload your CSV file. The system will validate the data and show a preview before importing.</li>\n  <li>Review the preview, make sure there are no errors. If any rows have issues, fix the CSV file and re-upload.</li>\n  <li>Click <strong>Confirm Import</strong> to process.</li>\n</ol>\n<p>After a successful import, all participants will be added to the list with default payment status <em>Unpaid</em>. You can change payment status manually or in batch.</p>\n\n<h2 id=\"kelola-peserta\">5. Managing Participant Data</h2>\n<p>After participants are registered, you can:</p>\n<ul>\n  <li><strong>View details:</strong> Click a participant name to see full data including photo, category, and payment status.</li>\n  <li><strong>Edit data:</strong> Change name, category, or participant info if there are errors.</li>\n  <li><strong>Delete participant:</strong> Remove participants who cancel. Category quota will be restored.</li>\n  <li><strong>Export to CSV:</strong> Download the complete participant list for administration or reporting.</li>\n  <li><strong>Print participant list:</strong> Generate a PDF printout of the participant list to post at the tournament venue.</li>\n</ul>\n\n<h2 id=\"tips-manual\">6. Tips for Manual Registration</h2>\n<ul>\n  <li><strong>Ensure names match official ID</strong> as they will be printed on certificates.</li>\n  <li><strong>Verify categories</strong> - make sure the selected category matches the participant division and age.</li>\n  <li><strong>Use CSV Import</strong> for collective registrations as it is faster and reduces manual input errors.</li>\n  <li><strong>Set payment status correctly</strong> - if the participant has paid, set to \"Paid\" so they do not appear in the outstanding list.</li>\n</ul>"
+  },
+  "id": {
+    "title": "Mendaftarkan Peserta Secara Manual",
+    "excerpt": "Panduan mendaftarkan peserta secara manual: pendaftaran individual, batch, import CSV, dan pengelolaan data peserta.",
+    "toc": [
+      {
+        "id": "mengapa-manual",
+        "level": 2,
+        "text": "1. Kapan Harus Mendaftarkan Peserta Secara Manual"
+      },
+      {
+        "id": "daftar-individual",
+        "level": 2,
+        "text": "2. Mendaftarkan Peserta Satu per Satu"
+      },
+      {
+        "id": "daftar-bulk",
+        "level": 2,
+        "text": "3. Mendaftarkan Beberapa Peserta Sekaligus"
+      },
+      {
+        "id": "import-csv",
+        "level": 2,
+        "text": "4. Import Peserta dari File CSV"
+      },
+      {
+        "id": "kelola-peserta",
+        "level": 2,
+        "text": "5. Mengelola Data Peserta"
+      },
+      {
+        "id": "tips-manual",
+        "level": 2,
+        "text": "6. Tips Mendaftarkan Peserta Manual"
+      }
+    ],
+    "content": "<p>Meskipun sebagian besar peserta mendaftar sendiri melalui halaman pendaftaran turnamen, ada kalanya Anda sebagai penyelenggara perlu mendaftarkan peserta secara manual. Misalnya untuk tamu undangan, atlet yang mendaftar langsung ke panitia di lokasi, atau peserta dari klub yang mendaftar secara kolektif. Archeris menyediakan beberapa cara untuk menambahkan peserta secara manual.</p>\n\n<img src=\"https://picsum.photos/800/400\" alt=\"Halaman daftar peserta turnamen dengan tombol Add Participant dan Import CSV\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"mengapa-manual\">1. Kapan Harus Mendaftarkan Peserta Secara Manual</h2>\n<p>Berikut situasi yang membutuhkan pendaftaran manual:</p>\n<ul>\n  <li><strong>Tamu undangan (invited):</strong> Atlet yang diundang khusus oleh panitia tanpa perlu membayar biaya pendaftaran.</li>\n  <li><strong>Walk-in registration:</strong> Peserta yang datang langsung ke lokasi dan mendaftar di tempat.</li>\n  <li><strong>Pendaftaran kolektif:</strong> Klub atau sekolah yang mendaftarkan seluruh atletnya sekaligus melalui panitia.</li>\n  <li><strong>Koreksi data:</strong> Peserta yang sudah mendaftar tapi datanya perlu diubah atau ditambahkan oleh panitia.</li>\n</ul>\n\n<h2 id=\"daftar-individual\">2. Mendaftarkan Peserta Satu per Satu</h2>\n<p>Untuk menambahkan peserta satu per satu:</p>\n<ol>\n  <li>Buka <strong>Dashboard Organizer &gt; Turnamen &gt; [Pilih Turnamen] &gt; Participants</strong>.</li>\n  <li>Klik tombol <strong>+ Add Participant</strong>.</li>\n  <li>Isi formulir pendaftaran dengan data peserta:\n    <ul>\n      <li><strong>Nama Lengkap:</strong> Nama resmi peserta (akan dicetak di sertifikat).</li>\n      <li><strong>Klub / Kontingen:</strong> Asal klub atau \"Independent\" jika tidak ada.</li>\n      <li><strong>Kategori:</strong> Pilih kategori lomba yang diikuti.</li>\n      <li><strong>Status Pembayaran:</strong> Pilih <em>Lunas</em> jika sudah bayar, <em>Belum Lunas</em> jika belum, atau <em>Gratis</em> untuk tamu undangan.</li>\n    </ul>\n  </li>\n  <li>Klik <strong>Simpan</strong>. Peserta akan langsung muncul di daftar dengan status yang Anda tentukan.</li>\n</ol>\n<p><strong>Catatan:</strong> Jika status pembayaran diset \"Gratis\", peserta tidak perlu melakukan checkout pembayaran dan langsung terkonfirmasi.</p>\n\n<h2 id=\"daftar-bulk\">3. Mendaftarkan Beberapa Peserta Sekaligus</h2>\n<p>Untuk mendaftarkan banyak peserta dalam satu langkah:</p>\n<ol>\n  <li>Buka halaman <strong>Participants</strong> turnamen Anda.</li>\n  <li>Klik tombol <strong>Batch Register</strong> (jika tersedia sesuai paket).</li>\n  <li>Tentukan kategori yang sama untuk seluruh peserta atau pilih kategori berbeda per peserta.</li>\n  <li>Masukkan data peserta dalam formulir batch.</li>\n  <li>Klik <strong>Submit</strong> untuk memproses semua pendaftaran sekaligus.</li>\n</ol>\n<p>Semua peserta yang didaftarkan secara batch akan mendapat nomor registrasi otomatis dan masuk ke daftar peserta.</p>\n\n<h2 id=\"import-csv\">4. Import Peserta dari File CSV</h2>\n<p>Jika Anda sudah punya data peserta dalam format spreadsheet (Excel/CSV), Anda bisa langsung import:</p>\n<ol>\n  <li>Siapkan file CSV dengan kolom berikut (urutan bisa berbeda, tapi nama kolom harus sesuai):\n    <ul>\n      <li><code>full_name</code> - Nama lengkap peserta</li>\n      <li><code>date_of_birth</code> - Tanggal lahir (format: YYYY-MM-DD)</li>\n      <li><code>gender</code> - Jenis kelamin (male / female)</li>\n      <li><code>city</code> - Kota asal</li>\n      <li><code>email</code> - Email peserta (opsional)</li>\n      <li><code>phone</code> - Nomor telepon (opsional)</li>\n      <li><code>division</code> - Divisi busur (Recurve / Compound / Barebow / dll)</li>\n      <li><code>category</code> - Nama kategori (harus sesuai dengan kategori yang sudah dibuat di turnamen)</li>\n    </ul>\n  </li>\n  <li>Buka halaman <strong>Participants</strong> turnamen Anda.</li>\n  <li>Klik tombol <strong>Import CSV</strong>.</li>\n  <li>Upload file CSV Anda. Sistem akan memvalidasi data dan menampilkan preview sebelum import.</li>\n  <li>Periksa preview, pastikan tidak ada error. Jika ada baris yang bermasalah, perbaiki file CSV dan upload ulang.</li>\n  <li>Klik <strong>Confirm Import</strong> untuk memproses.</li>\n</ol>\n<p>Setelah import berhasil, semua peserta akan masuk ke daftar dengan status pembayaran default <em>Belum Lunas</em>. Anda bisa mengubah status pembayaran secara manual atau batch.</p>\n\n<h2 id=\"kelola-peserta\">5. Mengelola Data Peserta</h2>\n<p>Setelah peserta terdaftar, Anda bisa melakukan hal berikut:</p>\n<ul>\n  <li><strong>Lihat detail:</strong> Klik nama peserta untuk melihat data lengkap termasuk foto, kategori, dan status pembayaran.</li>\n  <li><strong>Edit data:</strong> Ubah nama, kategori, atau informasi peserta jika ada kesalahan.</li>\n  <li><strong>Hapus peserta:</strong> Hapus peserta yang batal ikut. Kuota kategori akan kembali tersedia.</li>\n  <li><strong>Export ke CSV:</strong> Unduh daftar peserta lengkap untuk keperluan administrasi atau laporan.</li>\n  <li><strong>Cetak daftar peserta:</strong> Generate printout daftar peserta dalam format PDF untuk ditempel di lokasi turnamen.</li>\n</ul>\n\n<h2 id=\"tips-manual\">6. Tips Mendaftarkan Peserta Manual</h2>\n<ul>\n  <li><strong>Pastikan nama sesuai identitas resmi</strong> karena akan dicetak di sertifikat.</li>\n  <li><strong>Periksa kategori</strong> - pastikan kategori yang dipilih sesuai dengan divisi dan usia peserta.</li>\n  <li><strong>Gunakan Import CSV</strong> untuk pendaftaran kolektif karena lebih cepat dan mengurangi kesalahan input manual.</li>\n  <li><strong>Set status pembayaran dengan benar</strong> - jika peserta sudah bayar, set ke \"Lunas\" agar tidak muncul di daftar tunggakan.</li>\n</ul>"
+  }
+}

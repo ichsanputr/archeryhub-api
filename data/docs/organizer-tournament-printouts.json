@@ -1,0 +1,31 @@
+{
+  "slug": "organizer-tournament-printouts",
+  "icon": "ph:printer-bold",
+  "category": "reporting",
+  "order": 2,
+  "readTime": "4 min",
+  "en": {
+    "title": "Organizer Tournament Printouts",
+    "excerpt": "Learn how tournament organizers export and print official World Archery results books (bulletin), physical target scorecards, athlete rosters, and medal classification sheets in PDF format.",
+    "toc": [
+      { "id": "overview", "level": 2, "text": "1. Overview of Organizer Printouts" },
+      { "id": "results-bulletin", "level": 2, "text": "2. Official Tournament Results Book (Bulletin PDF)" },
+      { "id": "target-scorecards", "level": 2, "text": "3. Batch Printing Physical Scorecards" },
+      { "id": "target-posters", "level": 2, "text": "4. Target Butt Assignment Noticeboard Posters" },
+      { "id": "medal-classification", "level": 2, "text": "5. Printing Final Medal Classifications" }
+    ],
+    "content": "<p>Archeris provides comprehensive high-resolution PDF generation tools for tournament field operations, official federation reporting, athlete score verification, and award ceremonies.</p>\n\n<h2 id=\"overview\">1. Overview of Organizer Printouts</h2>\n<p>During the lifecycle of a championship, organizers generate essential documents across every phase — from initial registration lists and target assignments to the final official results bulletin.</p>\n\n<h2 id=\"results-bulletin\">2. Official Tournament Results Book (Bulletin PDF)</h2>\n<p>To generate the complete World Archery compliant results book:</p>\n<ol>\n  <li>Navigate to <strong>Organizer Dashboard &gt; Reports &gt; Official Bulletin</strong>.</li>\n  <li>Select the desired sections (Cover, Officials List, Entry Roster, Qualification Standings, Elimination Brackets, Medal Table).</li>\n  <li>Click <strong>Generate PDF Bulletin</strong>. The system compiles all verified category results into a single multi-page document complete with Chief Judge signature boxes.</li>\n</ol>\n\n<h2 id=\"target-scorecards\">3. Batch Printing Physical Scorecards</h2>\n<p>For target butt scoring or paper backup recording:</p>\n<ul>\n  <li><strong>Qualification Scorecards:</strong> 2-up layout per sheet showing archer names, target numbers, distance, and 6-end scoring grids.</li>\n  <li><strong>Elimination Matchplay Scorecards:</strong> End-by-end set point and cumulative tally boxes with archer signature verification lines.</li>\n  <li>Click <strong>Print Batch Scorecards</strong> from the respective session menu.</li>\n</ul>\n\n<h2 id=\"target-posters\">4. Target Butt Assignment Noticeboard Posters</h2>\n<p>To print large-format target allocation sheets for the competition noticeboard:</p>\n<ul>\n  <li>Go to <strong>Qualification &gt; Target Butt Assignment &gt; Export PDF</strong>.</li>\n  <li>Choose between alphabetical archer lookup lists or sequential target butt layout posters (Targets 1 to 50+).</li>\n</ul>\n\n<h2 id=\"medal-classification\">5. Printing Final Medal Classifications</h2>\n<p>For podium presentations and award ceremonies, organizers can export a 1-page <strong>Medal Summary Sheet</strong> listing Gold (1st), Silver (2nd), and Bronze (3rd) medalists grouped by category.</p>"
+  },
+  "id": {
+    "title": "Cetak Dokumen Turnamen Organizer",
+    "excerpt": "Pelajari cara panitia mengekspor dan mencetak buku hasil resmi kejuaraan (Bulletin PDF), lembar skor fisik bantalan, daftar peserta, dan rekap perolehan medali juara.",
+    "toc": [
+      { "id": "overview", "level": 2, "text": "1. Gambaran Umum Dokumen Cetak Panitia" },
+      { "id": "results-bulletin", "level": 2, "text": "2. Buku Hasil Resmi Kejuaraan (Bulletin PDF)" },
+      { "id": "target-scorecards", "level": 2, "text": "3. Cetak Massal Lembar Skor Fisik (Scorecard)" },
+      { "id": "target-posters", "level": 2, "text": "4. Poster Alokasi Bantalan Papan Pengumuman" },
+      { "id": "medal-classification", "level": 2, "text": "5. Cetak Rekapitulasi Perolehan Medali Juara" }
+    ],
+    "content": "<p>Sistem Archeris menyediakan fitur cetak dan ekspor dokumen PDF resolusi tinggi untuk seluruh kebutuhan operasional lapangan, laporan federasi, verifikasi skor atlet, dan upacara penghormatan pemenang (podium).</p>\n\n<h2 id=\"overview\">1. Gambaran Umum Dokumen Cetak Panitia</h2>\n<p>Panitia dapat mencetak dokumen penting di setiap tahapan lomba — mulai dari daftar alokasi target bantalan awal, lembar skor fisik pertandingan, hingga buku kompilasi hasil akhir resmi.</p>\n\n<h2 id=\"results-bulletin\">2. Buku Hasil Resmi Kejuaraan (Bulletin PDF)</h2>\n<p>Langkah mencetak buku hasil lengkap standar World Archery / Perpani:</p>\n<ol>\n  <li>Buka menu <strong>Dashboard Organizer &gt; Laporan &gt; Buku Hasil Resmi</strong>.</li>\n  <li>Pilih bagian laporan yang diinginkan (Sampul, Dewan Wasit, Roster Peserta, Hasil Kualifikasi, Bagan Eliminasi, Klasemen Medali).</li>\n  <li>Klik <strong>Cetak Buku Hasil Resmi (PDF)</strong>. Sistem menyusun seluruh hasil kejuaraan ke dalam satu dokumen terpadu lengkap dengan kolom tanda tangan Ketua Wasit.</li>\n</ol>\n\n<h2 id=\"target-scorecards\">3. Cetak Massal Lembar Skor Fisik (Scorecard)</h2>\n<p>Untuk lembar skor di bantalan atau cadangan manual lapangan:</p>\n<ul>\n  <li><strong>Lembar Skor Kualifikasi:</strong> Format 2 lembar per halaman A4 berisi nama pemanah, nomor bantalan, jarak tembak, dan tabel 6 rambahan.</li>\n  <li><strong>Lembar Skor Eliminasi:</strong> Format pencatatan poin set dan kumulatif satu lawan satu dengan kolom tanda tangan atlet dan wasit.</li>\n  <li>Klik <strong>Cetak Massal Scorecard</strong> pada menu babak terkait.</li>\n</ul>\n\n<h2 id=\"target-posters\">4. Poster Alokasi Bantalan Papan Pengumuman</h2>\n<p>Untuk mencetak daftar bantalan di papan pengumuman (*noticeboard*):</p>\n<ul>\n  <li>Buka menu <strong>Kualifikasi &gt; Alokasi Bantalan Target &gt; Ekspor PDF</strong>.</li>\n  <li>Pilih format urut abjad nama atlet atau urut nomor bantalan (Bantalan 1 s/d selesai).</li>\n</ul>\n\n<h2 id=\"medal-classification\">5. Cetak Rekapitulasi Perolehan Medali Juara</h2>\n<p>Untuk upacara pengalungan medali di podium, panitia dapat mengekspor <strong>Lembar Rekap Juara (Medal Summary)</strong> yang memuat daftar peraih Medali Emas (1), Perak (2), dan Perunggu (3) per kategori lomba.</p>"
+  }
+}

@@ -2,9 +2,10 @@
   "slug": "generate-scorekeeper-codes",
   "icon": "ph:key-bold",
   "category": "scorekeeper",
+  "order": 1,
   "readTime": "5 min",
   "en": {
-    "title": "1. Scorekeeper Management & Access Codes",
+    "title": "Scorekeeper Management & Access Codes",
     "excerpt": "Learn how to generate quick 5-character staff login codes, manage line scorekeeper permissions, and streamline digital scoring on the field.",
     "toc": [
       {
@@ -35,5 +36,36 @@
     ],
     "content": "<h2 id=\"why-access-codes\">1. Why Short Access Codes?</h2>\n<p>On tournament day, organizers often recruit student volunteers or club members to act as shooting line scorekeepers. Requiring every staff member to register email accounts and verify passwords creates unnecessary delays on the field. With Archeris, organizers generate simple, secure 5-character codes (such as <code>SK123</code> or <code>KP9VM</code>) that give instant access to target scorecards.</p>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/scorekeeper-roster-overview.png\" alt=\"Scorekeepers Management Roster and Code Overview\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 1:</strong> The Organizer Scorekeeper Roster showing staff member names, assigned 5-character access codes, active status badges, and management actions.\n  </figcaption>\n</figure>\n\n<h2 id=\"scorekeeper-roster\">2. Scorekeeper Roster &amp; Code Overview</h2>\n<p>To view and manage your organization's scorekeepers:</p>\n<ol>\n  <li>Navigate to <strong>Organizer Dashboard &gt; Scorekeepers</strong> (<code>/dashboard/organizer/scorekeepers</code>) in the side navigation.</li>\n  <li>The main table lists all active and inactive scorekeeper accounts linked to your organizer profile.</li>\n  <li>You can search staff by name or code using the quick search bar, or filter by active status.</li>\n</ol>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/scorekeeper-add-modal.png\" alt=\"Add Scorekeeper and Generate Code Modal\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 2:</strong> The Add Scorekeeper popup where organizers enter the staff member's name and generate a unique login code.\n  </figcaption>\n</figure>\n\n<h2 id=\"adding-new-scorekeeper\">3. Generating a New Scorekeeper Account</h2>\n<p>To add a new line judge or scorekeeper:</p>\n<ol>\n  <li>Click the yellow <strong>+ Add Staff</strong> button at the top right of the scorekeeper dashboard.</li>\n  <li>Enter the staff member's full name (e.g., <em>Budi Santoso</em> or <em>Line Judge Target 1-4</em>).</li>\n  <li>Click <strong>Generate Account</strong>. The system automatically creates a unique 5-character alphanumeric access code.</li>\n  <li>Provide this code to your field staff via printed badge, WhatsApp, or lanyard card.</li>\n</ol>\n\n<figure class=\"my-6\">\n  <img src=\"/docs/flutter-scorekeeper-login.png\" alt=\"Scorekeeper Mobile App 5-Character Code Login Screen\" class=\"w-full max-w-sm mx-auto rounded-3xl border border-gray-200 shadow-md my-6 block\" />\n  <figcaption class=\"mt-2 text-xs text-center text-gray-500 font-medium\">\n    <strong>Figure 3:</strong> The Scorekeeper mobile login interface where field volunteers type their 5-character code for 1-tap entry.\n  </figcaption>\n</figure>\n\n<h2 id=\"mobile-line-login\">4. How Scorekeepers Log In on the Field</h2>\n<p>When line scorekeepers open the Archeris Scorekeeper portal on their mobile device:</p>\n<ol>\n  <li>They open the Scorekeeper login page or tap <strong>Scorekeeper Mode</strong> on the mobile app.</li>\n  <li>They enter their assigned <strong>5-character code</strong> and tap <strong>Enter Arena</strong>.</li>\n  <li>They immediately see their assigned tournament, active qualification waves, and target faces (e.g., Target 1A, 1B) ready for arrow input.</li>\n</ol>\n\n<h2 id=\"code-security\">5. Managing Permissions &amp; Code Status</h2>\n<p>You have full real-time control over every scorekeeper code:</p>\n<ul>\n  <li><strong>Active / Inactive Toggle:</strong> If a volunteer finishes their shift or leaves the field, toggle their status to <em>Inactive</em> to immediately revoke scoring access.</li>\n  <li><strong>Edit &amp; Reassign:</strong> Click the <strong>Pencil icon</strong> to rename accounts or reassign codes for upcoming tournament days.</li>\n  <li><strong>Delete Account:</strong> Remove temporary volunteer credentials once the championship concludes.</li>\n</ul>"
   },
-  "order": 1
+  "id": {
+    "title": "Manajemen Petugas Skor & Kode Akses",
+    "excerpt": "Pelajari cara membuat kode login 5 karakter untuk petugas lapangan, mengelola hak akses scorekeeper, dan mempermudah pencatatan skor digital di lapangan.",
+    "toc": [
+      {
+        "id": "why-access-codes",
+        "level": 2,
+        "text": "1. Mengapa Menggunakan Kode Akses Singkat?"
+      },
+      {
+        "id": "scorekeeper-roster",
+        "level": 2,
+        "text": "2. Daftar Petugas Skor & Tinjauan Kode"
+      },
+      {
+        "id": "adding-new-scorekeeper",
+        "level": 2,
+        "text": "3. Membuat Akun Petugas Skor Baru"
+      },
+      {
+        "id": "mobile-line-login",
+        "level": 2,
+        "text": "4. Cara Petugas Skor Login di Lapangan"
+      },
+      {
+        "id": "code-security",
+        "level": 2,
+        "text": "5. Mengelola Status & Hak Akses Kode"
+      }
+    ],
+    "content": "<h2 id=\"why-access-codes\">1. Mengapa Menggunakan Kode Akses Singkat?</h2>\n<p>Di hari pertandingan, panitia sering merekrut relawan, pelajar, atau anggota klub sebagai petugas skor lapangan. Meminta setiap petugas mendaftarkan email dan memverifikasi kata sandi akan memakan waktu. Dengan Archeris, panitia cukup membuat kode singkat 5 karakter (seperti <code>SK123</code> atau <code>KP9VM</code>) untuk akses langsung ke lembar skor bantalan target.</p>\n\n<h2 id=\"scorekeeper-roster\">2. Daftar Petugas Skor &amp; Tinjauan Kode</h2>\n<p>Untuk melihat dan mengelola petugas skor:</p>\n<ol>\n  <li>Buka menu <strong>Dashboard Organizer &gt; Petugas Skor (Scorekeepers)</strong>.</li>\n  <li>Tabel utama menampilkan seluruh akun petugas skor yang aktif maupun nonaktif.</li>\n  <li>Gunakan kotak pencarian untuk mencari petugas berdasarkan nama atau kode akses.</li>\n</ol>\n\n<h2 id=\"adding-new-scorekeeper\">3. Membuat Akun Petugas Skor Baru</h2>\n<p>Untuk menambahkan petugas baru:</p>\n<ol>\n  <li>Klik tombol <strong>+ Tambah Petugas</strong> di pojok kanan atas.</li>\n  <li>Masukkan nama lengkap petugas (contoh: <em>Budi Santoso</em> atau <em>Scorer Bantalan 1-4</em>).</li>\n  <li>Klik <strong>Buat Akun</strong>. Sistem otomatis menghasilkan kode alfanumerik 5 karakter unik.</li>\n  <li>Berikan kode ini kepada petugas melalui name tag, WhatsApp, atau lanyard kartu panitia.</li>\n</ol>\n\n<h2 id=\"mobile-line-login\">4. Cara Petugas Skor Login di Lapangan</h2>\n<p>Saat petugas membuka portal Archeris di smartphone:</p>\n<ol>\n  <li>Buka halaman login petugas skor atau pilih <strong>Mode Scorekeeper</strong> pada aplikasi mobile.</li>\n  <li>Masukkan <strong>kode 5 karakter</strong> yang telah diberikan lalu klik <strong>Masuk Arena</strong>.</li>\n  <li>Petugas langsung melihat turnamen yang ditugaskan, sesi kualifikasi yang aktif, dan bantalan target siap diinput.</li>\n</ol>\n\n<h2 id=\"code-security\">5. Mengelola Status &amp; Hak Akses Kode</h2>\n<p>Panitia memiliki kendali penuh secara real-time:</p>\n<ul>\n  <li><strong>Toggle Aktif / Nonaktif:</strong> Jika petugas selesai bertugas, ubah status menjadi <em>Nonaktif</em> untuk mencabut izin input skor.</li>\n  <li><strong>Ubah &amp; Tugaskan Ulang:</strong> Klik ikon pensil untuk mengubah nama atau menugaskan ulang kode ke pertandingan hari berikutnya.</li>\n  <li><strong>Hapus Akun:</strong> Hapus kode sementara setelah kejuaraan selesai.</li>\n</ul>"
+  }
 }

@@ -1,0 +1,71 @@
+{
+  "slug": "tournament-registration-pricing",
+  "icon": "ph:currency-circle-dollar-bold",
+  "category": "tournaments",
+  "order": 4,
+  "readTime": "4 min",
+  "en": {
+    "title": "Setting Registration Fees",
+    "excerpt": "How to set registration prices for your tournament: individual pricing, per-category pricing, per-type pricing, and fee calculation for participants.",
+    "toc": [
+      {
+        "id": "jenis-harga",
+        "level": 2,
+        "text": "1. Types of Registration Fee Settings"
+      },
+      {
+        "id": "harga-per-partisipan",
+        "level": 2,
+        "text": "2. Flat Fee per Participant"
+      },
+      {
+        "id": "harga-per-kategori",
+        "level": 2,
+        "text": "3. Price per Category"
+      },
+      {
+        "id": "harga-per-tipe",
+        "level": 2,
+        "text": "4. Price per Type (Individual / Team / Mixed)"
+      },
+      {
+        "id": "tips-harga",
+        "level": 2,
+        "text": "5. Tips for Setting Prices"
+      }
+    ],
+    "content": "<p>Determining tournament registration fees is an important step after you create an event. In Archeris, you can choose several ways to set prices - whether to standardize for all categories, have different prices per category, or different prices based on competition type (individual, team, mixed). The system will automatically calculate the total cost that participants must pay when they register.</p>\n\n<img src=\"https://picsum.photos/800/400\" alt=\"Tournament Page Builder page with registration fee configuration section\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"jenis-harga\">1. Types of Registration Fee Settings</h2>\n<p>On the tournament settings page (Page Builder tab), you will find the <strong>Registration Fee</strong> section with pricing mode options:</p>\n<ul>\n  <li><strong>Flat Fee (per participant):</strong> One price for all categories. Simplest and suitable for small tournaments.</li>\n  <li><strong>Per Category:</strong> Different prices for each category. Suitable if you have categories with different shooting distances or facilities.</li>\n  <li><strong>Per Type:</strong> Different prices based on competition type - Individual, Team, or Mixed Team.</li>\n</ul>\n\n<h2 id=\"harga-per-partisipan\">2. Flat Fee per Participant</h2>\n<p>This is the simplest mode. All participants pay the same price, regardless of which category they choose.</p>\n<ol>\n  <li>Go to <strong>Organizer Dashboard &gt; Tournaments &gt; [Select Tournament] &gt; Page Builder</strong>.</li>\n  <li>Scroll to the <strong>Registration Fee</strong> section.</li>\n  <li>Select <strong>Flat Fee</strong> mode or simply fill in the <strong>Entry Fee</strong> field with a number.</li>\n  <li>Enter the fee amount. Example: <code>150000</code> for Rp 150,000 per participant.</li>\n  <li>Click <strong>Save</strong> to apply changes.</li>\n</ol>\n<p>With this mode, every participant who registers - whether in Recurve Open, Compound Senior, or Barebow - will be charged the exact same fee.</p>\n\n<h2 id=\"harga-per-kategori\">3. Price per Category</h2>\n<p>Use this mode if you want to set different prices for each category. For example, Recurve 70m category is more expensive than Recurve 50m because it uses the field longer.</p>\n<ol>\n  <li>Make sure you have already created categories in the <strong>Categories</strong> menu.</li>\n  <li>Open <strong>Page Builder</strong> and select <strong>Per Category</strong> mode in the Registration Fee section.</li>\n  <li>You will see a list of categories you have created. Fill in the price for each category.</li>\n  <li>Click <strong>Save</strong>.</li>\n</ol>\n<p>When participants register, they will see the price according to the category they select on the checkout page.</p>\n\n<h2 id=\"harga-per-tipe\">4. Price per Type (Individual / Team / Mixed)</h2>\n<p>This mode groups prices by competition type:</p>\n<ul>\n  <li><strong>Individual:</strong> Price for individual categories (Recurve, Compound, Barebow, etc.).</li>\n  <li><strong>Team:</strong> Price for team categories (3 archers per team).</li>\n  <li><strong>Mixed Team:</strong> Price for mixed team categories (1 male + 1 female).</li>\n</ul>\n<p>Each type can have a different price. The price you enter is the price <strong>per category within that type</strong>, not per team. For example, if you set Individual at Rp 150,000 and Team at Rp 200,000, then a participant choosing 1 individual category pays Rp 150,000, and one choosing 1 team category pays Rp 200,000 per category.</p>\n\n<h2 id=\"tips-harga\">5. Tips for Setting Prices</h2>\n<ul>\n  <li><strong>Include administration costs</strong> in the registration fee so there are no hidden costs for participants.</li>\n  <li><strong>Consider field rental costs</strong> - if you are renting a field, divide the rental cost by the number of participants to determine the minimum price.</li>\n  <li><strong>Team category prices</strong> are usually higher because they involve more logistics and targets.</li>\n  <li><strong>Use Per Category mode</strong> if you have many categories with different needs so participants feel the pricing is fairer.</li>\n</ul>"
+  },
+  "id": {
+    "title": "Mengatur Harga Registrasi Turnamen",
+    "excerpt": "Panduan mengatur biaya pendaftaran turnamen: harga flat, harga per kategori, harga per tipe, dan tips menentukan harga yang tepat.",
+    "toc": [
+      {
+        "id": "jenis-harga",
+        "level": 2,
+        "text": "1. Jenis Pengaturan Harga Registrasi"
+      },
+      {
+        "id": "harga-per-partisipan",
+        "level": 2,
+        "text": "2. Harga Flat per Peserta"
+      },
+      {
+        "id": "harga-per-kategori",
+        "level": 2,
+        "text": "3. Harga per Kategori"
+      },
+      {
+        "id": "harga-per-tipe",
+        "level": 2,
+        "text": "4. Harga per Tipe (Individu / Tim / Mixed)"
+      },
+      {
+        "id": "tips-harga",
+        "level": 2,
+        "text": "5. Tips Menentukan Harga"
+      }
+    ],
+    "content": "<p>Menentukan harga registrasi turnamen adalah langkah penting setelah Anda membuat event. Di Archeris, Anda bisa memilih beberapa cara mengatur harga - mau diseragamkan untuk semua kategori, beda harga per kategori, atau beda harga berdasarkan tipe lomba (individu, tim, mixed). Sistem akan otomatis menghitung total biaya yang harus dibayar peserta saat mereka mendaftar.</p>\n\n<img src=\"https://picsum.photos/800/400\" alt=\"Halaman Page Builder turnamen dengan bagian konfigurasi harga registrasi\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"jenis-harga\">1. Jenis Pengaturan Harga Registrasi</h2>\n<p>Di halaman pengaturan turnamen (tab <strong>Page Builder</strong>), Anda akan menemukan bagian <strong>Registration Fee</strong> dengan pilihan mode harga:</p>\n<ul>\n  <li><strong>Flat Fee (per peserta):</strong> Satu harga untuk semua kategori. Paling simpel dan cocok untuk turnamen kecil.</li>\n  <li><strong>Per Category:</strong> Harga berbeda untuk setiap kategori. Cocok jika Anda punya kategori dengan jarak tembak atau fasilitas berbeda.</li>\n  <li><strong>Per Type:</strong> Harga berbeda berdasarkan tipe lomba - Individu, Tim, atau Mixed Team.</li>\n</ul>\n\n<h2 id=\"harga-per-partisipan\">2. Harga Flat per Peserta</h2>\n<p>Ini adalah mode paling sederhana. Semua peserta membayar harga yang sama, tidak peduli kategori apa yang mereka pilih.</p>\n<ol>\n  <li>Buka <strong>Dashboard Organizer &gt; Turnamen &gt; [Pilih Turnamen] &gt; Page Builder</strong>.</li>\n  <li>Gulir ke bagian <strong>Registration Fee</strong>.</li>\n  <li>Pilih mode <strong>Flat Fee</strong> atau cukup isi kolom <strong>Entry Fee</strong> dengan angka.</li>\n  <li>Masukkan nominal harga. Contoh: <code>150000</code> untuk Rp 150.000 per peserta.</li>\n  <li>Klik <strong>Simpan</strong> untuk menerapkan perubahan.</li>\n</ol>\n<p>Dengan mode ini, setiap peserta yang mendaftar - baik di kategori Recurve Umum, Compound Senior, atau Barebow - akan dikenakan biaya yang sama persis.</p>\n\n<h2 id=\"harga-per-kategori\">3. Harga per Kategori</h2>\n<p>Gunakan mode ini jika Anda ingin menetapkan harga berbeda untuk setiap kategori. Misalnya, kategori Recurve Jarak 70m lebih mahal dari Recurve Jarak 50m karena pemakaian lapangan lebih lama.</p>\n<ol>\n  <li>Pastikan Anda sudah membuat kategori di menu <strong>Categories</strong>.</li>\n  <li>Buka <strong>Page Builder</strong> dan pilih mode <strong>Per Category</strong> di bagian Registration Fee.</li>\n  <li>Anda akan melihat daftar kategori yang sudah dibuat. Isi harga untuk masing-masing kategori.</li>\n  <li>Klik <strong>Simpan</strong>.</li>\n</ol>\n<p>Saat peserta mendaftar, mereka akan melihat harga sesuai kategori yang mereka pilih di halaman checkout.</p>\n\n<h2 id=\"harga-per-tipe\">4. Harga per Tipe (Individu / Tim / Mixed)</h2>\n<p>Mode ini mengelompokkan harga berdasarkan tipe lomba:</p>\n<ul>\n  <li><strong>Individual:</strong> Harga untuk kategori perorangan (Recurve, Compound, Barebow, dll).</li>\n  <li><strong>Team:</strong> Harga untuk kategori beregu (3 pemanah per tim).</li>\n  <li><strong>Mixed Team:</strong> Harga untuk kategori tim campuran (1 putra + 1 putri).</li>\n</ul>\n<p>Setiap tipe bisa punya harga berbeda. Harga yang Anda masukkan adalah harga <strong>per kategori dalam tipe tersebut</strong>, bukan harga per tim. Misalnya, jika Anda set harga Individual Rp 150.000 dan Team Rp 200.000, maka peserta yang memilih 1 kategori individual membayar Rp 150.000, dan yang memilih 1 kategori team membayar Rp 200.000 per kategori.</p>\n\n<h2 id=\"tips-harga\">5. Tips Menentukan Harga</h2>\n<ul>\n  <li><strong>Sertakan biaya administrasi</strong> dalam harga registrasi agar tidak ada biaya tersembunyi bagi peserta.</li>\n  <li><strong>Perhatikan biaya lapangan</strong> - jika Anda menyewa lapangan, hitung biaya sewa dibagi jumlah peserta untuk menentukan harga minimum.</li>\n  <li><strong>Harga untuk kategori beregu</strong> biasanya lebih tinggi karena melibatkan lebih banyak logistik dan target.</li>\n  <li><strong>Gunakan mode Per Category</strong> jika Anda punya banyak kategori dengan kebutuhan yang berbeda-beda agar peserta merasa harga lebih adil.</li>\n</ul>"
+  }
+}

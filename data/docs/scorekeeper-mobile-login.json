@@ -2,33 +2,60 @@
   "slug": "scorekeeper-mobile-login",
   "icon": "ph:device-mobile-bold",
   "category": "scorekeeper",
+  "order": 2,
   "readTime": "4 min",
   "en": {
-    "title": "2. Scorekeeper Mobile Login",
+    "title": "Scorekeeper Mobile Login",
     "excerpt": "Walkthrough of scorekeeper authentication on mobile devices, lane selection, and device connection checks.",
     "toc": [
       {
         "id": "portal-access",
         "level": 2,
-        "text": "Accessing the Mobile Portal"
+        "text": "1. Accessing the Mobile Portal"
       },
       {
         "id": "authentication-step",
         "level": 2,
-        "text": "Entering the 5-Character Code"
+        "text": "2. Entering the 5-Character Code"
       },
       {
         "id": "target-selection",
         "level": 2,
-        "text": "Selecting Assigned Target Butts"
+        "text": "3. Selecting Assigned Target Butts"
       },
       {
         "id": "network-check",
         "level": 2,
-        "text": "Connection Indicator & PWA Installation"
+        "text": "4. Connection Indicator & PWA Installation"
       }
     ],
-    "content": "<h2 id=\"portal-access\">Accessing the Mobile Portal</h2>\n      <p>Scorekeepers open any standard mobile web browser (Chrome, Safari, Firefox, Edge) on a smartphone or tablet and navigate to <code>archeris.net/scorekeeper/login</code>.</p>\n\n      <h2 id=\"authentication-step\">Entering the 5-Character Code</h2>\n      <p>Type the assigned 5-character code into the large-format input box. The system automatically converts letters to uppercase and validates the code against the active tournament registry.</p>\n\n      <h2 id=\"target-selection\">Selecting Assigned Target Butts</h2>\n      <p>Upon successful code validation, the screen displays the assigned target butt (e.g., <em>Target Butt 12</em>) along with athlete names in positions 12A, 12B, 12C, and 12D. Confirm the names match the archers present at the target.</p>\n\n      <h2 id=\"network-check\">Connection Indicator & PWA Installation</h2>\n      <p>The top status bar displays a green connection dot indicating live server synchronization. Scorekeepers can tap <strong>Add to Home Screen</strong> to run Archeris as a full-screen standalone application without browser URL bars.</p>"
+    "content": "<h2 id=\"portal-access\">1. Accessing the Mobile Portal</h2>\n<p>Scorekeepers open any standard mobile web browser (Chrome, Safari, Firefox, Edge) on a smartphone or tablet and navigate to <code>archeris.net/scorekeeper/login</code>.</p>\n\n<h2 id=\"authentication-step\">2. Entering the 5-Character Code</h2>\n<p>Type the assigned 5-character code into the large-format input box. The system automatically converts letters to uppercase and validates the code against the active tournament registry.</p>\n\n<h2 id=\"target-selection\">3. Selecting Assigned Target Butts</h2>\n<p>Upon successful code validation, the screen displays the assigned target butt (e.g., <em>Target Butt 12</em>) along with athlete names in positions 12A, 12B, 12C, and 12D. Confirm the names match the archers present at the target.</p>\n\n<h2 id=\"network-check\">4. Connection Indicator & PWA Installation</h2>\n<p>The top status bar displays a green connection dot indicating live server synchronization. Scorekeepers can tap <strong>Add to Home Screen</strong> to run Archeris as a full-screen standalone application without browser URL bars.</p>"
   },
-  "order": 2
+  "id": {
+    "title": "Login Mobile Petugas Skor",
+    "excerpt": "Panduan autentikasi petugas skor di perangkat smartphone/tablet, pemilihan bantalan target, dan pengecekan koneksi lapangan.",
+    "toc": [
+      {
+        "id": "portal-access",
+        "level": 2,
+        "text": "1. Mengakses Portal Mobile Scorekeeper"
+      },
+      {
+        "id": "authentication-step",
+        "level": 2,
+        "text": "2. Memasukkan Kode 5 Karakter"
+      },
+      {
+        "id": "target-selection",
+        "level": 2,
+        "text": "3. Memilih Bantalan Target yang Ditugaskan"
+      },
+      {
+        "id": "network-check",
+        "level": 2,
+        "text": "4. Indikator Koneksi & Mode Layar Penuh"
+      }
+    ],
+    "content": "<h2 id=\"portal-access\">1. Mengakses Portal Mobile Scorekeeper</h2>\n<p>Petugas skor dapat membuka browser di smartphone atau tablet (Chrome, Safari, dsb) lalu menuju alamat <code>archeris.net/scorekeeper/login</code> atau membuka aplikasi mobile Archeris.</p>\n\n<h2 id=\"authentication-step\">2. Memasukkan Kode 5 Karakter</h2>\n<p>Ketikkan kode akses 5 karakter yang telah diberikan panitia. Sistem secara otomatis memformat huruf menjadi kapital dan memvalidasi ke database turnamen.</p>\n\n<h2 id=\"target-selection\">3. Memilih Bantalan Target yang Ditugaskan</h2>\n<p>Setelah kode terverifikasi, layar akan menampilkan nomor bantalan (contoh: <em>Bantalan 12</em>) beserta nama-nama atlet di posisi 12A, 12B, 12C, dan 12D. Pastikan nama atlet sesuai dengan yang berdiri di garis tembak.</p>\n\n<h2 id=\"network-check\">4. Indikator Koneksi & Mode Layar Penuh</h2>\n<p>Indikator hijau di bagian atas menandakan koneksi sinkronisasi data ke server berjalan lancar. Petugas dapat memilih <em>Tambahkan ke Layar Utama (Add to Home Screen)</em> untuk pengalaman scoring layar penuh.</p>"
+  }
 }

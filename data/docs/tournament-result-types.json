@@ -1,0 +1,71 @@
+{
+  "slug": "tournament-result-types",
+  "icon": "ph:chart-bar-bold",
+  "category": "tournaments",
+  "order": 9,
+  "readTime": "3 min",
+  "en": {
+    "title": "Setting Tournament Result Types",
+    "excerpt": "How to configure the type of results and scoring output for your tournament: qualification-only, full elimination, or qualification-only with medal standings.",
+    "toc": [
+      {
+        "id": "jenis-hasil",
+        "level": 2,
+        "text": "1. Tournament Result Types in Archeris"
+      },
+      {
+        "id": "kualifikasi-saja",
+        "level": 2,
+        "text": "2. Qualification Only (No Elimination)"
+      },
+      {
+        "id": "kualifikasi-eliminasi",
+        "level": 2,
+        "text": "3. Qualification + Elimination (Full)"
+      },
+      {
+        "id": "peringkat-medali",
+        "level": 2,
+        "text": "4. Medal Standings and Final Ranking"
+      },
+      {
+        "id": "tips-hasil",
+        "level": 2,
+        "text": "5. Tips for Choosing Result Types"
+      }
+    ],
+    "content": "<p>Every tournament has different result needs. Some only need qualification rankings, some want to continue to elimination rounds, and some want both. In Archeris, you can determine the tournament result format so participants know what to expect and organizers can prepare the appropriate scoring system.</p>\n\n<img src=\"https://picsum.photos/800/400\" alt=\"Tournament overview page showing results and statistics section\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"jenis-hasil\">1. Tournament Result Types in Archeris</h2>\n<p>Archeris supports three main result formats for each tournament category:</p>\n<ul>\n  <li><strong>Qualification Only:</strong> Participants shoot in the qualification round, and the final result is a ranking based on total score. No elimination round.</li>\n  <li><strong>Qualification + Elimination:</strong> After qualification is complete, the top participants advance to the elimination bracket (head-to-head) to determine the champion.</li>\n  <li><strong>Medal Standings:</strong> Based on qualification and/or elimination results, the system generates medal rankings (Gold, Silver, Bronze) and a complete final ranking.</li>\n</ul>\n\n<h2 id=\"kualifikasi-saja\">2. Qualification Only (No Elimination)</h2>\n<p>This format is suitable for sparring tournaments, practice events, or tournaments that do not have enough time for elimination rounds.</p>\n<ul>\n  <li>Participants shoot according to the number of ends determined.</li>\n  <li>Scores are calculated as the total from all ends, including 10s and Xs for tie-breaking.</li>\n  <li>Final results are a ranking table: name, category, total score, number of 10s, number of Xs, and rank.</li>\n  <li>Certificates are issued based on these qualification results.</li>\n</ul>\n<p>To set this up, create a qualification session in the <strong>Qualification &gt; Sessions</strong> menu, then make sure you do not create an elimination bracket for that category.</p>\n\n<h2 id=\"kualifikasi-eliminasi\">3. Qualification + Elimination (Full)</h2>\n<p>The complete format commonly used in official championships. The flow:</p>\n<ol>\n  <li><strong>Qualification Round:</strong> All participants shoot and receive scores. These scores are used for seeding (placement) in the elimination bracket.</li>\n  <li><strong>Elimination Round:</strong> Participants with the highest qualification scores receive byes or are placed in seeded positions. Head-to-head matches use the set system format (for Recurve) or cumulative score (for Compound/Barebow).</li>\n  <li><strong>Finals:</strong> Winners from each bracket meet in the final to determine the champion.</li>\n</ol>\n<p>To set up eliminations, go to <strong>Elimination &gt; Brackets</strong>, create a new bracket, select the category, then click <strong>Generate</strong> to automatically create the match bracket based on qualification results.</p>\n\n<h2 id=\"peringkat-medali\">4. Medal Standings and Final Ranking</h2>\n<p>After the tournament is complete, Archeris automatically generates:</p>\n<ul>\n  <li><strong>Medal Standings:</strong> A list of medal wins (Gold, Silver, Bronze) per category.</li>\n  <li><strong>Final Rankings:</strong> Complete rankings of all participants from first to last.</li>\n  <li><strong>Printouts:</strong> PDF documents that can be printed for official reports or organizer archives.</li>\n</ul>\n<p>All these results can be accessed in the <strong>Results</strong> tab on the tournament public page and in the organizer dashboard.</p>\n\n<h2 id=\"tips-hasil\">5. Tips for Choosing Result Types</h2>\n<ul>\n  <li><strong>Small tournaments / sparring:</strong> Qualification only. Saves time and still provides a scoring experience.</li>\n  <li><strong>Official tournaments / championships:</strong> Use the full format (qualification + elimination) for more competitive results that meet standards.</li>\n  <li><strong>Tournaments with many participants:</strong> Consider creating separate qualification sessions (morning/afternoon) so the field is not overloaded.</li>\n</ul>"
+  },
+  "id": {
+    "title": "Menentukan Jenis Hasil Turnamen",
+    "excerpt": "Panduan mengatur format hasil turnamen: kualifikasi saja, kualifikasi + eliminasi, peringkat medali, dan final ranking.",
+    "toc": [
+      {
+        "id": "jenis-hasil",
+        "level": 2,
+        "text": "1. Jenis Hasil Turnamen di Archeris"
+      },
+      {
+        "id": "kualifikasi-saja",
+        "level": 2,
+        "text": "2. Kualifikasi Saja (Tanpa Eliminasi)"
+      },
+      {
+        "id": "kualifikasi-eliminasi",
+        "level": 2,
+        "text": "3. Kualifikasi + Eliminasi (Full)"
+      },
+      {
+        "id": "peringkat-medali",
+        "level": 2,
+        "text": "4. Peringkat Medali dan Final Ranking"
+      },
+      {
+        "id": "tips-hasil",
+        "level": 2,
+        "text": "5. Tips Memilih Jenis Hasil"
+      }
+    ],
+    "content": "<p>Setiap turnamen punya kebutuhan hasil yang berbeda. Ada yang hanya butuh peringkat kualifikasi, ada yang ingin lanjut ke babak eliminasi, dan ada yang keduanya. Di Archeris, Anda bisa menentukan format hasil turnamen agar peserta tahu apa yang diharapkan dan panitia bisa menyiapkan sistem scoring yang sesuai.</p>\n\n<img src=\"https://picsum.photos/800/400\" alt=\"Halaman overview turnamen dengan bagian hasil dan statistik\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n\n<h2 id=\"jenis-hasil\">1. Jenis Hasil Turnamen di Archeris</h2>\n<p>Archeris mendukung tiga format hasil utama untuk setiap kategori turnamen:</p>\n<ul>\n  <li><strong>Kualifikasi Saja:</strong> Peserta menembak di babak kualifikasi, dan hasil akhirnya adalah peringkat berdasarkan total skor. Tidak ada babak eliminasi.</li>\n  <li><strong>Kualifikasi + Eliminasi:</strong> Setelah kualifikasi selesai, peserta terbaik lolos ke babak eliminasi (head-to-head) sampai menentukan juara.</li>\n  <li><strong>Peringkat Medali:</strong> Berdasarkan hasil kualifikasi dan/atau eliminasi, sistem menghasilkan peringkat medali (Gold, Silver, Bronze) dan final ranking lengkap.</li>\n</ul>\n\n<h2 id=\"kualifikasi-saja\">2. Kualifikasi Saja (Tanpa Eliminasi)</h2>\n<p>Format ini cocok untuk turnamen sparring, latihan, atau event yang tidak memiliki waktu cukup untuk babak eliminasi.</p>\n<ul>\n  <li>Peserta menembak sesuai jumlah end (babak tembak) yang ditentukan.</li>\n  <li>Skor dihitung total dari seluruh end, termasuk 10s dan Xs untuk tie-breaker.</li>\n  <li>Hasil akhir berupa tabel peringkat: nama, kategori, total skor, jumlah 10, jumlah X, dan ranking.</li>\n  <li>Sertifikat diterbitkan berdasarkan hasil kualifikasi ini.</li>\n</ul>\n<p>Untuk mengatur ini, buat sesi kualifikasi di menu <strong>Qualification &gt; Sessions</strong>, lalu pastikan Anda tidak membuat bracket eliminasi untuk kategori tersebut.</p>\n\n<h2 id=\"kualifikasi-eliminasi\">3. Kualifikasi + Eliminasi (Full)</h2>\n<p>Format lengkap yang biasa digunakan di kejuaraan resmi. Alurnya:</p>\n<ol>\n  <li><strong>Babak Kualifikasi:</strong> Semua peserta menembak dan mendapat skor. Skor ini digunakan untuk seeding (penempatan) di bracket eliminasi.</li>\n  <li><strong>Babak Eliminasi:</strong> Peserta dengan skor tertinggi di kualifikasi mendapat bye atau ditempatkan di posisi unggulan. Pertandingan head-to-head menggunakan format set system (untuk Recurve) atau cumulative score (untuk Compound/Barebow).</li>\n  <li><strong>Final:</strong> Pemenang dari setiap bracket bertemu di final untuk menentukan juara.</li>\n</ol>\n<p>Untuk mengatur eliminasi, buka menu <strong>Elimination &gt; Brackets</strong>, buat bracket baru, pilih kategori, lalu klik <strong>Generate</strong> untuk membuat bagan pertandingan secara otomatis berdasarkan hasil kualifikasi.</p>\n\n<h2 id=\"peringkat-medali\">4. Peringkat Medali dan Final Ranking</h2>\n<p>Setelah turnamen selesai, Archeris otomatis menghasilkan:</p>\n<ul>\n  <li><strong>Medal Standings:</strong> Daftar perolehan medali (Gold, Silver, Bronze) per kategori.</li>\n  <li><strong>Final Rankings:</strong> Peringkat lengkap semua peserta dari pertama sampai terakhir.</li>\n  <li><strong>Printout:</strong> Dokumen PDF yang bisa dicetak untuk laporan resmi atau arsip panitia.</li>\n</ul>\n<p>Semua hasil ini bisa diakses di tab <strong>Results</strong> pada halaman publik turnamen dan di dashboard organizer.</p>\n\n<h2 id=\"tips-hasil\">5. Tips Memilih Jenis Hasil</h2>\n<ul>\n  <li><strong>Turnamen kecil / sparring:</strong> Cukup kualifikasi saja. Hemat waktu dan tetap memberikan pengalaman scoring.</li>\n  <li><strong>Turnamen resmi / kejuaraan:</strong> Gunakan format lengkap (kualifikasi + eliminasi) agar hasil lebih kompetitif dan sesuai standar.</li>\n  <li><strong>Turnamen dengan banyak peserta:</strong> Pertimbangkan untuk membuat sesi kualifikasi terpisah (pagi/siang) agar lapangan tidak overload.</li>\n</ul>"
+  }
+}

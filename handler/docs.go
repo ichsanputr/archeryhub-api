@@ -127,25 +127,27 @@ type DocLocalized struct {
 }
 
 type DocJSON struct {
-	Slug     string        `json:"slug"`
-	Icon     string        `json:"icon"`
-	Category string        `json:"category"`
-	Order    int           `json:"order,omitempty"`
-	ReadTime string        `json:"readTime"`
-	EN       DocLocalized  `json:"en"`
-	ID       *DocLocalized `json:"id,omitempty"`
+	Slug      string        `json:"slug"`
+	Icon      string        `json:"icon"`
+	Category  string        `json:"category"`
+	Order     int           `json:"order,omitempty"`
+	ReadTime  string        `json:"readTime"`
+	UpdatedAt string        `json:"updated_at,omitempty"`
+	EN        DocLocalized  `json:"en"`
+	ID        *DocLocalized `json:"id,omitempty"`
 }
 
 type DocResponse struct {
-	Slug     string       `json:"slug"`
-	Icon     string       `json:"icon"`
-	Category string       `json:"category"`
-	Order    int          `json:"order,omitempty"`
-	ReadTime string       `json:"readTime"`
-	Title    string       `json:"title"`
-	Excerpt  string       `json:"excerpt"`
-	Content  string       `json:"content,omitempty"`
-	TOC      []DocTOCItem `json:"toc,omitempty"`
+	Slug      string       `json:"slug"`
+	Icon      string       `json:"icon"`
+	Category  string       `json:"category"`
+	Order     int          `json:"order,omitempty"`
+	ReadTime  string       `json:"readTime"`
+	Title     string       `json:"title"`
+	Excerpt   string       `json:"excerpt"`
+	Content   string       `json:"content,omitempty"`
+	TOC       []DocTOCItem `json:"toc,omitempty"`
+	UpdatedAt string       `json:"updated_at,omitempty"`
 }
 
 func normalizeDocSlugParam(param string) string {
@@ -182,8 +184,7 @@ func ListDocs() gin.HandlerFunc {
 			"scorekeeper":   3,
 			"qualification": 4,
 			"elimination":   5,
-			"finance":       6,
-			"subscriptions": 7,
+			"reporting":     6,
 		}
 
 		var list []DocResponse
@@ -204,14 +205,22 @@ func ListDocs() gin.HandlerFunc {
 					localized = *doc.ID
 				}
 
+				updatedAt := doc.UpdatedAt
+				if updatedAt == "" {
+					if fileInfo, err := file.Info(); err == nil {
+						updatedAt = fileInfo.ModTime().UTC().Format("2006-01-02T15:04:05Z07:00")
+					}
+				}
+
 				list = append(list, DocResponse{
-					Slug:     nestedSlug(doc.Category, doc.Slug),
-					Icon:     doc.Icon,
-					Category: doc.Category,
-					Order:    doc.Order,
-					ReadTime: doc.ReadTime,
-					Title:    localized.Title,
-					Excerpt:  localized.Excerpt,
+					Slug:      nestedSlug(doc.Category, doc.Slug),
+					Icon:      doc.Icon,
+					Category:  doc.Category,
+					Order:     doc.Order,
+					ReadTime:  doc.ReadTime,
+					Title:     localized.Title,
+					Excerpt:   localized.Excerpt,
+					UpdatedAt: updatedAt,
 				})
 			}
 		}
@@ -259,7 +268,8 @@ func GetDocDetail() gin.HandlerFunc {
 		}
 
 		filePath := filepath.Join("data/docs", baseSlug+".json")
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		fileInfo, statErr := os.Stat(filePath)
+		if statErr != nil && os.IsNotExist(statErr) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Documentation article not found"})
 			return
 		}
@@ -281,15 +291,21 @@ func GetDocDetail() gin.HandlerFunc {
 			localized = *doc.ID
 		}
 
+		updatedAt := doc.UpdatedAt
+		if updatedAt == "" && fileInfo != nil {
+			updatedAt = fileInfo.ModTime().UTC().Format("2006-01-02T15:04:05Z07:00")
+		}
+
 		res := DocResponse{
-			Slug:     nestedSlug(doc.Category, doc.Slug),
-			Icon:     doc.Icon,
-			Category: doc.Category,
-			ReadTime: doc.ReadTime,
-			Title:    localized.Title,
-			Excerpt:  localized.Excerpt,
-			Content:  localized.Content,
-			TOC:      localized.TOC,
+			Slug:      nestedSlug(doc.Category, doc.Slug),
+			Icon:      doc.Icon,
+			Category:  doc.Category,
+			ReadTime:  doc.ReadTime,
+			Title:     localized.Title,
+			Excerpt:   localized.Excerpt,
+			Content:   localized.Content,
+			TOC:       localized.TOC,
+			UpdatedAt: updatedAt,
 		}
 
 		c.JSON(http.StatusOK, res)
