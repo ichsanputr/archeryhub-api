@@ -442,7 +442,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				'' as city,
 				a.club_id,
 				NULLIF(COALESCE(cl.name, ''), '') as club_name,
-				tp.tournament_id,
+				tp.tournament_id as event_id,
 				tp.category_id,
 				COALESCE(bt.name, '') as division_name,
 				COALESCE(ec.category_name_custom, ag.name, '') as category_name,
@@ -452,7 +452,9 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				tp.qr_raw,
 				a.avatar_url,
 				tp.registration_date,
-				COALESCE(tp.payment_status, 'pending') as payment_status
+				COALESCE(tp.payment_status, 'pending') as payment_status,
+				tp.last_reregistration_at,
+				CASE WHEN tp.last_reregistration_at IS NOT NULL THEN true ELSE false END as is_checked_in
 			FROM tournament_participants tp
 			LEFT JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid

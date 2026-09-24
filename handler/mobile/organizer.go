@@ -518,22 +518,32 @@ func MobileGetCheckinSummary(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		var eventUUID string
+		if err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1`, eventID, eventID); err != nil {
+			eventUUID = eventID
+		}
+
 		var totalParticipants int
 		var checkedInParticipants int
 
 		_ = db.Get(&totalParticipants, `
 			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ?
-		`, eventID)
+		`, eventUUID)
 
 		_ = db.Get(&checkedInParticipants, `
-			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND checked_in_at IS NOT NULL
-		`, eventID)
+			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND last_reregistration_at IS NOT NULL
+		`, eventUUID)
+
+		percentage := 0.0
+		if totalParticipants > 0 {
+			percentage = (float64(checkedInParticipants) / float64(totalParticipants)) * 100
+		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"event_id":              eventID,
+			"event_id":              eventUUID,
 			"total_participants":    totalParticipants,
 			"checked_in_count":      checkedInParticipants,
-			"checked_in_percentage": float64(checkedInParticipants) / float64(func() int { if totalParticipants == 0 { return 1 }; return totalParticipants }()) * 100,
+			"checked_in_percentage": percentage,
 		})
 	}
 }
@@ -544,15 +554,26 @@ func MobileManualCheckin(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		participantID := c.Param("participantId")
 
+		var eventUUID string
+		if err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1`, eventID, eventID); err != nil {
+			eventUUID = eventID
+		}
+
 		now := time.Now()
-		_, err := db.Exec(`
+		res, err := db.Exec(`
 			UPDATE tournament_participants 
-			SET checked_in_at = ?
-			WHERE tournament_id = ? AND (uuid = ? OR id = ?)
-		`, now, eventID, participantID, participantID)
+			SET last_reregistration_at = ?
+			WHERE tournament_id = ? AND (uuid = ? OR qr_raw = ?)
+		`, now, eventUUID, participantID, participantID)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal check-in manual"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal check-in manual", "details": err.Error()})
+			return
+		}
+
+		rows, _ := res.RowsAffected()
+		if rows == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Peserta tidak ditemukan pada turnamen ini"})
 			return
 		}
 

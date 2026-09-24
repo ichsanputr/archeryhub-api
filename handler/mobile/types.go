@@ -572,6 +572,8 @@ type MobileOrganizationParticipantItem struct {
 	AvatarURL          *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
 	RegistrationDate   string  `json:"registration_date" example:"2026-05-01T09:30:00Z"`
 	PaymentStatus      string  `json:"payment_status" example:"lunas"`
+	LastReregistrationAt *string `json:"last_reregistration_at,omitempty" db:"last_reregistration_at"`
+	IsCheckedIn        bool    `json:"is_checked_in" db:"is_checked_in"`
 }
 
 // MobileOrganizationEventParticipantsResponse represents /mobile/organizer/tournaments/{id}/participants.
