@@ -227,7 +227,7 @@ type MobileRegistrationItem struct {
 	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
 	PaymentAmount    float64 `db:"payment_amount" json:"payment_amount"`
 	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
-	QRCodeDataURL    *string `json:"qr_code_data_url"`
+	QRCodeDataURL      *string `json:"qr_code_data_url" db:"-" example:"data:image/png;base64,iVBORw0KGgoAAA..."`
 	PaymentMethod    *string `db:"payment_method" json:"payment_method"`
 	GatewayReference *string `db:"gateway_reference" json:"gateway_reference"`
 	CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
@@ -449,7 +449,7 @@ type MobileMyEventItem struct {
 	LogoURL          *string  `db:"logo_url" json:"logo_url"`
 	BannerURL        *string  `db:"banner_url" json:"banner_url"`
 	QRRaw            *string  `db:"qr_raw" json:"qr_raw"`
-	QRCodeDataURL    *string  `json:"qr_code_data_url"`
+	QRCodeDataURL      *string `json:"qr_code_data_url" db:"-" example:"data:image/png;base64,iVBORw0KGgoAAA..."`
 	CategoryName     string   `db:"category_name" json:"category_name"`
 	PaymentStatus    string   `db:"payment_status" json:"payment_status"`
 	PaymentMethod    *string  `db:"payment_method" json:"payment_method,omitempty"`
@@ -568,7 +568,7 @@ type MobileOrganizationParticipantItem struct {
 	GenderDivisionName *string `json:"gender_division_name" example:"Putra"`
 	TargetName         *string `json:"target_name" example:"A-12"`
 	QRRaw              *string `json:"qr_raw" example:"EVT2026-ARC-0001"`
-	QRCodeDataURL      *string `json:"qr_code_data_url" example:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."`
+	QRCodeDataURL      *string `json:"qr_code_data_url" db:"-" example:"data:image/png;base64,iVBORw0KGgoAAA..."`
 	AvatarURL          *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
 	RegistrationDate   string  `json:"registration_date" example:"2026-05-01T09:30:00Z"`
 	PaymentStatus      string  `json:"payment_status" example:"lunas"`
