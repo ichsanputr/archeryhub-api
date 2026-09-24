@@ -356,6 +356,7 @@ func main() {
 				tournaments.GET("/:id/participants/statistics-classes", handler.GetEventStatisticsClasses(db))
 				tournaments.GET("/:id/participants/statistics-clubs", handler.GetEventStatisticsClubs(db))
 				tournaments.GET("/:id/qualification/scoresheet", handler.GetQualificationScoresheet(db))
+				tournaments.GET("/:id/qualification/scoresheets-zip", handler.GetQualificationScoresheetsZip(db))
 				tournaments.GET("/:id/qualification/start-list/printout", handler.GetQualificationStartListPrintout(db))
 				tournaments.GET("/:id/qualification/results/printout", handler.GetQualificationResultsPrintout(db))
 				tournaments.GET("/:id/qualification/results-team/printout", handler.GetTeamQualificationResultsPrintout(db))
@@ -426,7 +427,6 @@ func main() {
 					protected.PUT("/:id/schedules", middleware.RequireActivePlan(db), handler.UpdateEventSchedule(db))
 					protected.POST("/:id/schedule/items", middleware.RequireActivePlan(db), handler.SaveTournamentScheduleItem(db))
 					protected.DELETE("/:id/schedule/items/:itemId", middleware.RequireActivePlan(db), handler.DeleteTournamentScheduleItem(db))
-					protected.POST("/:id/schedule/auto-generate", middleware.RequireActivePlan(db), handler.AutoGenerateTournamentSchedule(db))
 					protected.POST("/:id/schedule/shift", middleware.RequireActivePlan(db), handler.ShiftTournamentScheduleDelay(db))
 					protected.POST("/:id/payment-methods", middleware.RequireActivePlan(db), handler.CreateEventPaymentMethod(db))
 					protected.PUT("/:id/payment-methods/:methodId", middleware.RequireActivePlan(db), handler.UpdateEventPaymentMethod(db))
@@ -584,6 +584,7 @@ func main() {
 		docs := api.Group("/docs")
 		{
 			docs.GET("", handler.ListDocs())
+			docs.POST("/replace-image", handler.ReplaceDocImage())
 			// Use wildcard so docs can be nested by category, e.g. /docs/archer/archer-profile
 			docs.GET("/*slug", handler.GetDocDetail())
 			docs.DELETE("/*slug", handler.DeleteDoc(db))
@@ -706,6 +707,14 @@ func main() {
 				protected.DELETE("/articles/:id", handler.RootDeleteArticle(db))
 				protected.PATCH("/articles/:id/status", handler.RootToggleArticleStatus(db))
 				protected.POST("/articles/upload", handler.RootUploadArticleImage)
+
+				// Docs management (Knowledge base / Documentation articles)
+				protected.GET("/docs", handler.RootListDocs(db))
+				protected.GET("/docs/:slug", handler.RootGetDoc(db))
+				protected.POST("/docs", handler.RootCreateDoc(db))
+				protected.PUT("/docs/:slug", handler.RootUpdateDoc(db))
+				protected.DELETE("/docs/:slug", handler.DeleteDoc(db))
+				protected.POST("/docs/upload", handler.RootUploadDocImage)
 
 				// Internal Tournaments management & package credit refund
 				protected.GET("/tournaments", handler.RootListTournaments(db))

@@ -122,7 +122,7 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, COALESCE(a.id, '') as id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.banner_url, a.address,
 				a.city, a.country,
-				a.hand_dominance, a.height_cm, a.weight_kg,
+				a.hand_dominance,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
@@ -617,21 +617,9 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			query += ", bow_type = ?"
 			args = append(args, *req.BowType)
 		}
-		if req.NIK != nil {
-			query += ", nik = ?"
-			args = append(args, *req.NIK)
-		}
 		if req.HandDominance != nil {
 			query += ", hand_dominance = ?"
 			args = append(args, *req.HandDominance)
-		}
-		if req.HeightCM != nil {
-			query += ", height_cm = ?"
-			args = append(args, *req.HeightCM)
-		}
-		if req.WeightKG != nil {
-			query += ", weight_kg = ?"
-			args = append(args, *req.WeightKG)
 		}
 		if req.EmergencyContactName != nil {
 			query += ", emergency_contact_name = ?"
@@ -965,12 +953,9 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			BannerURL             *string `json:"banner_url" db:"banner_url"`
 			FullName              string  `json:"full_name" db:"full_name"`
 			Nickname              *string `json:"nickname" db:"nickname"`
-			NIK                   *string `json:"nik" db:"nik"`
 			DateOfBirth           *string `json:"date_of_birth" db:"date_of_birth"`
 			Gender                string  `json:"gender" db:"gender"`
 			HandDominance         *string `json:"hand_dominance" db:"hand_dominance"`
-			HeightCM              *int    `json:"height_cm" db:"height_cm"`
-			WeightKG              *int    `json:"weight_kg" db:"weight_kg"`
 			Phone                 *string `json:"phone" db:"phone"`
 			EmergencyContactName  *string `json:"emergency_contact_name" db:"emergency_contact_name"`
 			Address               *string `json:"address" db:"address"`
@@ -1001,10 +986,9 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Get(&archer, `
 		SELECT a.uuid, COALESCE(a.id, '') as id, a.username, a.email, a.avatar_url, a.banner_url,
-		       COALESCE(a.full_name, '') as full_name, a.nickname, a.nik, a.date_of_birth, 
+		       COALESCE(a.full_name, '') as full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
 		       COALESCE(a.hand_dominance, 'right') as hand_dominance,
-		       a.height_cm, a.weight_kg,
 		       a.phone, a.emergency_contact_name,
 		       a.address, a.city, a.country, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
@@ -1032,12 +1016,9 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"banner_url":              archer.BannerURL,
 			"full_name":               archer.FullName,
 			"nickname":                archer.Nickname,
-			"nik":                     archer.NIK,
 			"date_of_birth":           archer.DateOfBirth,
 			"gender":                  archer.Gender,
 			"hand_dominance":          archer.HandDominance,
-			"height_cm":               archer.HeightCM,
-			"weight_kg":               archer.WeightKG,
 			"phone":                   archer.Phone,
 			"emergency_contact_name":  archer.EmergencyContactName,
 			"address":                 archer.Address,

@@ -1501,3 +1501,1553 @@ The tournament detail page `/tournaments/:slug/[[tab]]` supports these tabs:
 - **gallery** - Tournament images and media
 
 Alias slugs supported: ringkasan→overview, jadwal→schedule, peserta→athletes, hasil→results, lokasi→venue
+
+
+---
+
+## Flutter Mobile App (Archery Hub)
+
+### Overview
+**Project Name:** Archery Hub (archeris.net Mobile)  
+**Repository:** `C:\E\ichsan\startup\archeryhub.id\Archery-Hub`  
+**Framework:** Flutter (Dart ^3.9.0)  
+**Version:** 1.0.0+3  
+**Architecture:** Clean Architecture with BLoC pattern  
+**API Base URL:** https://api.archeris.net (same as web platform)  
+
+### Tech Stack
+
+| Component | Library/Tool |
+|-----------|--------------|
+| **State Management** | flutter_bloc (^9.1.1) |
+| **Dependency Injection** | get_it (^8.0.3) |
+| **Routing** | go_router (^17.1.0) |
+| **HTTP Client** | dio (^5.9.2) |
+| **Secure Storage** | flutter_secure_storage (^10.0.0) |
+| **QR Scanning** | mobile_scanner (^7.2.0) |
+| **QR Generation** | qr_flutter (^4.1.0) |
+| **Google Sign-In** | google_sign_in (^6.2.1) |
+| **Image Picker** | image_picker (^1.1.2) |
+| **PDF Viewer** | flutter_pdfview (^1.4.4) |
+| **WebView** | webview_flutter (^4.10.0) |
+| **Sharing** | share_plus (^13.3.0) |
+| **UI/Fonts** | google_fonts (^8.0.2) |
+| **HTML Rendering** | flutter_widget_from_html_core (^0.17.0) |
+| **Loading States** | shimmer (^3.0.0) |
+| **Internationalization** | intl (^0.20.2) |
+| **Firebase** | firebase_core (^4.13.0) |
+
+### Architecture
+
+```
+lib/
+├── core/                  # Shared utilities, widgets, theme, routes
+│   ├── constants/         # API constants, colors, routes
+│   ├── network/           # Dio client, interceptors
+│   ├── theme/             # App theme, colors, text styles
+│   ├── widgets/           # Reusable widgets (DsImage, buttons, cards)
+│   └── routes/            # GoRouter configuration
+├── features/              # Feature modules (Clean Architecture)
+│   ├── auth/              # Authentication & onboarding
+│   ├── home/              # Landing screen & search
+│   ├── tournaments/       # Tournament browsing & registration
+│   ├── profile/           # User profile & settings
+│   ├── news/              # News/blog articles
+│   ├── shop/              # Marketplace products
+│   ├── cart/              # Shopping cart
+│   ├── scoring/           # Scorekeeper scoring interface
+│   ├── organization/      # Event organizer portal
+│   ├── seller/            # Product seller dashboard
+│   ├── notifications/     # Notification center
+│   └── chat/              # Chat & chatbot
+├── presentation/          # Legacy seller shell screens
+├── l10n/                  # Localization files
+└── main.dart              # App entry point
+```
+
+Each feature follows Clean Architecture:
+- **data/** — API data sources, models (fromJson/toJson), repository implementations
+- **domain/** — Business entities, repository contracts, use cases
+- **presentation/** — BLoC state management, screens, widgets
+
+### User Roles
+
+The app supports 4 distinct user roles with different navigation flows:
+
+| Role | Description | Main Entry Point |
+|------|-------------|-----------------|
+| **Archer** | Athletes/archers who register for tournaments, view results, manage tickets | MainHub (bottom nav) |
+| **Scorekeeper** | Field judges who scan targets and input arrow scores | ScorekeeperLandingScreen |
+| **Organizer** | Event organizers who manage tournaments, participants, check-ins | OrganizationEventSelectorScreen |
+| **Seller** | Marketplace vendors who sell archery equipment | SellerMainScaffold |
+
+### Navigation Flow
+
+```
+SplashScreen → OnboardingScreen → LoginScreen → Role-Based Hub
+                                                    ↓
+                ┌────────────────────────────────────────────────────┐
+                │                                                    │
+       ┌────────▼────────┐  ┌──────────────┐  ┌─────────────┐  ┌──────────────┐
+       │ Archer MainHub  │  │ Scorekeeper  │  │ Organizer   │  │ Seller Hub   │
+       │ (5 bottom tabs) │  │ Landing      │  │ Event Picker│  │ (4 tabs)     │
+       └─────────────────┘  └──────────────┘  └─────────────┘  └──────────────┘
+```
+
+### Complete Screen List (77 Total)
+
+#### 🔐 Auth & Onboarding (8 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 1 | SplashScreen | splash_screen.dart | /splash | App initialization with logo animation |
+| 2 | OnboardingScreen | onboarding_screen.dart | /onboarding | Feature introduction for new users |
+| 3 | LoginScreen | login_screen.dart | /login | Multi-role login (Archer/Organizer/Scorekeeper) |
+| 4 | RegisterScreen | register_screen.dart | /register | Account registration (Archer/Organizer) |
+| 5 | ForgotPasswordScreen | forgot_password_screen.dart | /forgot-password | Password reset request |
+| 6 | ResetPasswordScreen | reset_password_screen.dart | /reset-password | New password input with OTP |
+| 7 | VerifyEmailScreen | verify_email_screen.dart | /verify-email | Email OTP verification |
+| 8 | ScorekeeperLoginScreen | scorekeeper_login_screen.dart | /scorekeeper-login | 5-character access code login for scorekeepers |
+
+#### 🏹 Archer/User Portal (29 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 9 | MainHub | main_hub.dart | — | Bottom navigation shell (Home/Events/Tickets/News/Profile) |
+| 10 | LandingScreen | landing_screen.dart | / | Home screen with featured events, news, quick actions |
+| 11 | SearchScreen | search_screen.dart | /search | Global search for tournaments, clubs, locations |
+| 12 | TournamentsScreen | tournaments_screen.dart | /events | Tournament directory with filters |
+| 13 | TournamentDetailScreen | tournament_detail_screen.dart | /events/detail | Event details, categories, schedule, registration |
+| 14 | TicketConfirmationScreen | ticket_confirmation_screen.dart | /ticket-confirmation | Registration summary before payment |
+| 15 | PaymentMethodScreen | payment_method_screen.dart | /payment-method | Payment channel selection (QRIS/VA/Cards/Manual) |
+| 16 | PaymentStatusScreen | payment_status_screen.dart | /payment-status | Payment instructions with countdown timer |
+| 17 | PaymentSuccessScreen | payment_success_screen.dart | /payment-success | Payment confirmation & ticket issuance |
+| 18 | ArcherPaymentHistoryScreen | archer_payment_history_screen.dart | /payment-history | Payment transaction history |
+| 19 | PaymentDetailScreen | payment_detail_screen.dart | /payment-detail | Invoice detail view |
+| 20 | MyTicketsScreen | my_tickets_screen.dart | /my-tickets | Active tournament tickets with QR codes |
+| 21 | TicketDetailScreen | ticket_detail_screen.dart | /ticket-detail | Digital ticket with QR for check-in |
+| 22 | MyTournamentsScreen | my_tournaments_screen.dart | /my-events | Tournaments archer is registered for |
+| 23 | TournamentResultScreen | tournament_result_screen.dart | /event-result | Live qualification & elimination results |
+| 24 | TournamentMyScoreScreen | tournament_my_score_screen.dart | /event-my-score | Personal scorecard per end |
+| 25 | ArcherTournamentPerformanceScreen | archer_tournament_performance_screen.dart | /event-performance | Accuracy stats & performance analytics |
+| 26 | SavedTournamentsScreen | saved_tournaments_screen.dart | /saved-events | Bookmarked/favorite tournaments |
+| 27 | TournamentPdfPreviewScreen | tournament_pdf_preview_screen.dart | /event-pdf-preview | Technical handbook PDF viewer |
+| 28 | ImagePreviewScreen | image_preview_screen.dart | /image-preview | Full-screen image viewer with zoom |
+| 29 | WebViewScreen | webview_screen.dart | /webview | In-app web browser (payment gateway, etc.) |
+| 30 | ProfileScreen | profile_screen.dart | /profile | User profile with stats & settings |
+| 31 | EditProfileScreen | edit_profile_screen.dart | /profile/edit | Edit name, photo, club, contact info |
+| 32 | ArcherInfoScreen | archer_info_screen.dart | /profile/archer-info | Technical archery data (bow specs, draw weight) |
+| 33 | MyCertificatesScreen | my_certificates_screen.dart | /my-certificates | Digital certificates gallery |
+| 34 | CertificatePreviewScreen | certificate_preview_screen.dart | /certificate-preview | Certificate viewer & download |
+| 35 | NotificationScreen | notification_screen.dart | /notifications | Activity notifications center |
+| 36 | SecurityScreen | security_screen.dart | /security | Password change & security settings |
+| 37 | HelpSupportScreen | help_support_screen.dart | /help-support | FAQ & customer support |
+| 38 | AboutAppScreen | about_app_screen.dart | /about-app | App version, credits, licenses |
+| 39 | TermsConditionsScreen | terms_conditions_screen.dart | /terms-conditions | Terms of service & privacy policy |
+
+#### 📰 News (2 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 40 | NewsScreen | news_screen.dart | /news | News articles listing |
+| 41 | NewsDetailScreen | news_detail_screen.dart | /news/detail | Article detail with comments |
+
+#### 🛒 Marketplace & Cart (9 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 42 | MarketplaceScreen | marketplace_screen.dart | /marketplace | Product browsing with categories |
+| 43 | ShopDetailScreen | shop_detail_screen.dart | /shop/detail | Product detail page |
+| 44 | ShopReviewOrderScreen | shop_review_order_screen.dart | /shop/review-order | Order review before checkout |
+| 45 | ShopCommentListScreen | shop_comment_list_screen.dart | /shop/comments | Product reviews & ratings |
+| 46 | OrderDetailScreen | order_detail_screen.dart | /order/detail | Order detail & tracking |
+| 47 | OrderHistoryScreen | order_history_screen.dart | /order/history | Past orders list |
+| 48 | CartScreen | cart_screen.dart | /cart | Shopping cart with item management |
+| 49 | PaymentSuccessScreen | payment_success_screen.dart | /shop/payment-success | Shop order payment confirmation |
+
+#### 💬 Chat & Support (3 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 50 | ChatListScreen | chat_list_screen.dart | /chat | Conversation list |
+| 51 | ChatDetailScreen | chat_detail_screen.dart | /chat/detail | Individual chat thread |
+| 52 | ChatbotScreen | chatbot_screen.dart | /chatbot | AI chatbot for tournament/archery queries |
+
+#### 🎯 Scorekeeper (8 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 53 | ScorekeeperLandingScreen | scorekeeper_landing_screen.dart | /scorekeeper | Scorekeeper hub: target selection |
+| 54 | ListScoreScreen | list_score_screen.dart | /list-score | List of archers on assigned target |
+| 55 | TargetBarcodeScreen | target_barcode_screen.dart | /barcode | QR code scanner for target verification |
+| 56 | ManualCodeInputScreen | manual_code_input_screen.dart | /manual-code-input | Manual ticket code entry (fallback) |
+| 57 | ManualScoreEntryScreen | manual_score_entry_screen.dart | /manual-score | Per-end score input keypad (X,10,9..M) |
+| 58 | TargetScoreEntryScreen | target_score_entry_screen.dart | /target-score | Quick scoring for all archers on target |
+| 59 | DetailScoreScreen | detail_score_screen.dart | /detail-score | Complete scorecard with signature |
+| 60 | ScorekeeperHistoryScreen | scorekeeper_history_screen.dart | /scorekeeper/history | Past scored sessions |
+
+#### 🏢 Event Organizer (23 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 61 | OrganizationHomeScreen | organization_home_screen.dart | /organization | Organizer portal main hub |
+| 62 | OrganizationEventSelectorScreen | organization_event_selector_screen.dart | /organization/event-selector | Tournament switcher |
+| 63 | OrganizationEventShellScreen | organization_event_shell_screen.dart | /organization/event-shell | 3-tab shell: Dashboard/Check-in/Broadcast |
+| 64 | OrganizationDashboardScreen | organization_dashboard_screen.dart | (Tab 0) | Event stats, attendance, activity log |
+| 65 | OrganizationCheckinScreen | organization_checkin_screen.dart | (Tab 1) | QR ticket scanner for athlete check-in |
+| 66 | OrganizationAnnouncementsScreen | organization_announcements_screen.dart | (Tab 2) | Broadcast composer (Push/Email/WhatsApp) |
+| 67 | OrganizationBroadcastHistoryScreen | organization_broadcast_history_screen.dart | /organization/broadcast-history | Past broadcast messages |
+| 68 | OrganizationBroadcastDetailScreen | organization_broadcast_detail_screen.dart | /organization/broadcast-detail | Broadcast message detail & read status |
+| 69 | OrganizationEventDetailScreen | organization_event_detail_screen.dart | /organization/event-detail | Event settings & configuration |
+| 70 | OrganizationTicketDetailScreen | organization_ticket_detail_screen.dart | /organization/ticket-detail | Participant ticket validation |
+| 71 | OrganizationParticipantsScreen | organization_participants_screen.dart | /organization/participants | Full participant table with filters |
+| 72 | OrganizationParticipantDetailScreen | organization_participant_detail_screen.dart | /organization/participants/detail | Individual participant profile |
+| 73 | OrganizationPaymentListScreen | organization_payment_list_screen.dart | /organization/payments | Payment transactions list |
+| 74 | OrganizationInvoiceDetailScreen | organization_invoice_detail_screen.dart | /organization/payments/invoice | Invoice detail & payment proof |
+| 75 | OrganizationSettingsScreen | organization_settings_screen.dart | /organization/settings | Organizer preferences & scorekeepers |
+| 76 | OrganizationWithdrawScreen | organization_withdraw_screen.dart | /organization/withdraw | Payout/withdrawal request form |
+| 77 | OrganizationWithdrawStatusScreen | organization_withdraw_status_screen.dart | /organization/withdraw-status | Withdrawal status tracking |
+| 78 | OrganizationTransactionHistoryScreen | organization_transaction_history_screen.dart | /organization/transaction-history | Financial ledger & mutations |
+| 79 | OrganizationTransactionDetailScreen | organization_transaction_detail_screen.dart | /organization/transaction-detail | Transaction proof detail |
+| 80 | OrganizationNotificationsScreen | organization_notifications_screen.dart | /organization/notifications | EO notification center |
+| 81 | OrganizationEditProfileScreen | organization_edit_profile_screen.dart | /organization/profile/edit | Organization profile editor |
+| 82 | OrganizationGlobalSearchScreen | organization_global_search_screen.dart | /organization/search | Search participants, tickets, transactions |
+| 83 | OrganizationHelpScreen | organization_help_screen.dart | /organization/help | EO-specific help center |
+
+#### 🏪 Seller/Marketplace Vendor (8 screens)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 84 | SellerMainScaffold | seller_shell_screen.dart | /seller | Seller hub with 4 bottom tabs |
+| 85 | SellerHomeScreen | seller_home_screen.dart | /seller/home | Seller dashboard overview |
+| 86 | SellerProductFormScreen | seller_product_form_screen.dart | /seller/product/form | Add/edit product listing |
+| 87 | SellerDashboardScreen | seller_dashboard_screen.dart | /seller/dashboard | Sales analytics & metrics |
+| 88 | SellerInventoryScreen | seller_inventory_screen.dart | /seller/inventory | Product inventory management |
+| 89 | SellerOrdersScreen | seller_orders_screen.dart | /seller/orders | Incoming orders & fulfillment |
+| 90 | SellerStoreProfileScreen | seller_store_profile_screen.dart | /seller/profile | Store branding & settings |
+| 91 | SellerChatScreen | seller_chat_screen.dart | /seller/chat | Customer chat support |
+
+#### 🛠️ Developer Tools (1 screen)
+
+| # | Screen Name | File | Route | Description |
+|---|-------------|------|-------|-------------|
+| 92 | DesignSystemShowcasePage | desain_system_showcase_page.dart | /design-system | UI component catalog for developers |
+
+### Total Screens: **92**
+
+### Screen Statistics by Module
+
+| Module | Screen Count |
+|--------|:------------:|
+| 🔐 Auth & Onboarding | 8 |
+| 🏹 Archer/User Portal | 29 |
+| 📰 News | 2 |
+| 🛒 Marketplace & Cart | 9 |
+| 💬 Chat & Support | 3 |
+| 🎯 Scorekeeper | 8 |
+| 🏢 Event Organizer | 23 |
+| 🏪 Seller/Vendor | 8 |
+| 🛠️ Developer Tools | 1 |
+| **TOTAL** | **92** |
+
+### API Integration Status
+
+| Feature | API Status | Data Source | BLoC/State |
+|---------|-----------|-------------|------------|
+| **Auth** (login/register/forgot/reset/Google OAuth) | ✅ Complete | AuthRemoteDataSource | AuthBloc |
+| **Events/Tournaments** (list/detail/register/payment) | ✅ Complete | EventsRemoteDataSource | EventsBloc, TicketBloc |
+| **News/Blog** (list/detail/comments) | ✅ Complete | NewsRemoteDataSource | NewsBloc |
+| **Shop/Products** (list/detail/categories) | ✅ Complete | ShopRemoteDataSource | ShopBloc |
+| **Cart** (CRUD/checkout) | ✅ Complete | CartRemoteDataSource | CartBloc |
+| **QR Scanning** (target/ticket scan) | ✅ Complete | ScoringRemoteDataSource | ScanBloc |
+| **Scoring** (assignments/submit scores) | ✅ Complete | ScoringRemoteDataSource | ScoringBloc |
+| **Chat/Chatbot** (conversations/messages) | ✅ Complete | ChatRemoteDataSource | ChatBloc, ChatbotBloc |
+| **Organization** (dashboard/participants/finance) | ⚠️ Partial | OrgRemoteDataSource | Uses mock via AppConfig |
+| **Seller** (products/inventory/orders) | ⚠️ Partial | SellerRemoteDataSource | Uses mock via AppConfig |
+| **Profile** (view/edit) | ⚠️ Partial | Profile edit hits API, others UI only | — |
+| **Notifications** | ❌ UI Only | No data source | — |
+| **Certificates** | ❌ UI Only | No data source | — |
+| **Order History** | ❌ UI Only | No data source | — |
+
+**Note:** `AppConfig.useStaticData = true` (default) means repositories use mock data from MockData class. When set to `false`, all repositories switch to real API calls.
+
+### Key Features
+
+#### Multi-Role Authentication
+- Archer login (email/password or Google OAuth)
+- Organizer login (email/password)
+- Scorekeeper login (5-character access code)
+- Auto-redirect to role-specific hub after login
+
+#### Tournament Discovery & Registration
+- Browse tournaments with filters (status, type, location)
+- View detailed event information with categories & schedules
+- Multi-step registration flow (ticket confirmation → payment method → payment status)
+- Digital ticket generation with QR code for check-in
+
+#### Payment Integration
+- Mayar payment gateway (QRIS, Virtual Accounts, E-Wallets, Cards)
+- PayPal for international payments
+- Manual bank transfer with proof upload
+- Payment status tracking with countdown timer
+- Invoice history & receipt viewing
+
+#### Digital Scoring (Scorekeeper)
+- QR code scanning for target verification
+- Arrow-by-arrow score entry (X, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, M)
+- Quick scoring for multiple archers on same target
+- Digital scorecard with signature
+- Real-time leaderboard updates
+
+#### Event Organizer Portal
+- Multi-tournament management (event switcher)
+- Dashboard with real-time stats (participants, check-ins, revenue)
+- QR ticket scanner for athlete check-in at venue
+- Participant management (search, filter, detail view)
+- Broadcast messaging (push notifications, email, WhatsApp)
+- Financial tracking (revenue, withdrawals, transaction history)
+- Payment proof verification & approval
+
+#### Marketplace
+- Product browsing by category
+- Product detail with images & reviews
+- Shopping cart with quantity management
+- Order checkout flow
+- Order history & tracking
+- Seller dashboard with inventory & order management
+
+#### Profile & Certificates
+- Archer profile with statistics & tournament history
+- Digital certificate gallery with QR verification
+- Profile photo & banner upload
+- Security settings (password change)
+- Help & support center
+
+### Custom UI Components
+
+#### DsImage Widget
+Premium image component with:
+- **Loading State:** CircularProgressIndicator while downloading
+- **Error Fallback:** Gray container with icon if image fails to load
+- **Empty URL Handling:** Automatic placeholder for missing URLs
+- **URL Sanitization:** Auto-replaces localhost/127.0.0.1 with host IP
+
+Used throughout the app to ensure consistent image handling and prevent broken image errors.
+
+### Build & Release
+
+#### Development
+```bash
+flutter pub get
+flutter run
+```
+
+#### Production Build
+```bash
+flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/app/outputs/symbols
+```
+
+#### CI/CD
+- **Platform:** GitHub Actions
+- **Workflow:** Automated APK build on version tag push
+- **Release:** Automatic GitHub Releases with changelog
+- **Artifacts:** Split APK per ABI (arm64-v8a, armeabi-v7a, x86_64)
+- **Retention:** 90 days
+
+### Release Workflow
+1. Update version in pubspec.yaml
+2. Commit and create git tag (e.g., `v1.0.3`)
+3. Push tag to GitHub: `git push origin main --tags`
+4. GitHub Actions automatically builds and releases APK
+
+### Configuration
+
+#### App Config
+Located in `lib/core/constants/api_constants.dart`:
+- **API Base URL:** `https://api.archeris.net`
+- **Static Data Mode:** `AppConfig.useStaticData = true` (toggles mock vs real API)
+- **Image URL Sanitization:** Auto-fixes localhost URLs to host IP
+
+#### Routing
+GoRouter configuration with:
+- Nested ShellRoutes for multi-tab navigation
+- Role-based route guards
+- Deep linking support
+- Named routes for type-safe navigation
+
+#### State Management
+- BLoC for business logic & state
+- GetIt for dependency injection
+- Equatable for value comparison
+- Stream-based reactive updates
+
+### Testing
+```bash
+flutter test
+flutter analyze
+```
+
+Test accounts and API endpoints: See `docs/API_REFERENCE.md` in project root.
+
+### Distribution
+- **Google Play Store:** Published
+- **Direct APK Download:** Available from website
+- **Minimum Android SDK:** 21 (Android 5.0 Lollipop)
+
+### Future Development
+Planned features (based on UI-only screens):
+- Full certificate API integration
+- Complete notification system with push
+- Enhanced order tracking with real-time updates
+- Seller analytics dashboard with API
+- Organization financial reports with API
+
+
+
+---
+
+## Detailed Flow Documentation
+
+### 1. Tournament Creation Flow
+
+#### API Endpoint
+```
+POST /api/v1/tournaments
+Authorization: Bearer token (Organizer/Club only)
+```
+
+#### Prerequisites & Access Control
+- **User Role Check**: Only `organizer` or `club` roles can create tournaments
+- **Archers are rejected** with error code `only_organizer_allowed`
+- **Subscription Check**: Organizer's subscription status must be `active`
+
+#### Auto-Generated Fields
+1. **Tournament Code**: Auto-generated as `EVT-XXXX` (e.g., `EVT-0001`, `EVT-0002`)
+   - System queries last code: `SELECT code FROM tournaments WHERE code LIKE 'EVT-%' ORDER BY code DESC LIMIT 1`
+   - Increments number sequentially
+   - Can be manually provided in request
+
+2. **Slug Generation**:
+   - Uses user-provided `slug` field OR falls back to `name` field
+   - Sanitization: lowercase, spaces→dashes, only `a-z`, `0-9`, `-` allowed
+   - **Uniqueness**: Appends numeric suffix if slug exists (e.g., `event`, `event-2`, `event-3`)
+   - No random strings - deterministic suffixes only
+
+3. **UUID**: Generated via `uuid.New().String()`
+
+#### Quota System (Per-Tournament Tier)
+The platform has **3 tournament tiers** with different quota types:
+
+| Tier | quota_type | Participant Limit | Storage Limit | Price (IDR/USD) | Notes |
+|------|-----------|-------------------|---------------|-----------------|-------|
+| **Free Starter** | `free` | 50 | 200 MB | Rp 0 / $0 | 20 free quotas per organizer, lifetime |
+| **Standard EO** | `standard` | 200 | 3 GB | Rp 49,999 / $3.00 | Promo: 50% off (Rp 24,999 / $1.50) |
+| **Elite EO** | `elite` | Unlimited | 10 GB | Rp 79,999 / $7.00 | Promo: 50% off (Rp 39,999 / $3.50) |
+
+#### Quota Deduction Logic
+**Tournament quota is deducted at CREATION time**, NOT at publish time:
+
+```go
+// Standard Quota Check
+SELECT quota_standard FROM organizers WHERE uuid = ? FOR UPDATE
+UPDATE organizers SET quota_standard = quota_standard - 1 WHERE uuid = ? AND quota_standard > 0
+
+// Elite Quota Check  
+SELECT quota_elite FROM organizers WHERE uuid = ? FOR UPDATE
+UPDATE organizers SET quota_elite = quota_elite - 1 WHERE uuid = ? AND quota_elite > 0
+```
+
+**Error Response if Insufficient**:
+```json
+{
+  "error": "Quota Standard tidak mencukupi. Silakan beli kuota terlebih dahulu.",
+  "code": "quota_insufficient"
+}
+```
+
+#### Date Fields (Nullable)
+- `start_date`: Can be NULL if not set
+- `end_date`: Can be NULL if not set
+- `registration_deadline`: Can be NULL (open registration)
+
+#### Transaction Safety
+- Entire creation wrapped in SQL transaction (`db.Beginx()`)
+- Auto-rollback on any error (`defer tx.Rollback()`)
+- Commits only if all steps succeed
+
+#### Response
+```json
+{
+  "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "code": "EVT-0042",
+  "slug": "national-championship-2026",
+  "name": "National Championship 2026",
+  "quota_type": "standard",
+  "status": "draft",
+  "created_at": "2026-09-23T10:30:00Z"
+}
+```
+
+#### Status Lifecycle
+1. **draft** (initial) → Organizer can edit everything
+2. **published** → Public, participants can register
+3. **ongoing** → Event has started
+4. **completed** → Event finished, results finalized
+
+---
+
+### 2. Tournament Registration Flow
+
+#### API Endpoint
+```
+POST /api/v1/tournaments/:id/participants
+Authorization: Bearer token OR organizer privilege
+```
+
+#### Registration Modes
+The system supports **3 distinct registration modes**:
+
+| Mode | Code | Who Can Use | Use Case |
+|------|------|-------------|----------|
+| **Individual/Captain** | `captain_team` | Archer themselves | Self-register + optionally add teammates |
+| **Club Delegation** | `club_delegation` | Archer/Organizer | Mass registration under single invoice |
+| **Organizer Manual** | `organizer_added` | Organizer only | Add participant directly (no self-register) |
+
+#### Gate Checking System
+
+##### Gate A: Organizer Subscription Status Check
+```go
+SELECT COALESCE(subscription_status, 'active') 
+FROM organizers 
+WHERE uuid = ?
+```
+**If NOT `active`:**
+```json
+{
+  "error": "Pendaftaran ditutup sementara",
+  "code": "organizer_subscription_expired",
+  "message": "Pendaftaran peserta untuk event ini ditutup sementara oleh sistem karena masa berlaku layanan penyelenggara telah berakhir."
+}
+```
+
+##### Gate B: Registration Deadline Check
+```go
+if !isPrivileged && event.RegistrationDeadline != nil && time.Now().After(*event.RegistrationDeadline)
+```
+**If deadline passed:**
+```json
+{
+  "error": "Pendaftaran untuk turnamen ini telah ditutup",
+  "code": "registration_closed"
+}
+```
+
+**Bypass**: Admins and tournament organizers can bypass this (`isPrivileged = true`)
+
+##### Gate C: Overall Event Quota Check
+```go
+SELECT COUNT(*) FROM tournament_participants 
+WHERE tournament_id = ? AND payment_status != 'cancelled'
+```
+**If `current_total >= quota_max_participants`:**
+```json
+{
+  "error": "Kuota keseluruhan turnamen ini telah penuh",
+  "code": "event_quota_exceeded"
+}
+```
+
+#### Category-Level Validation
+
+##### Eligibility Validation
+**Gender Check**:
+```go
+func validateEligibility(catMeta *CategoryMeta, archerGender string, archerDOB *time.Time) (error, code) {
+  catGender := catMeta.GenderCode // "men" | "women" | "mixed"
+  
+  if catGender == "men" && archerGender != "male":
+    return "Atlet perempuan tidak dapat mendaftar di kategori putra (Men)", "gender_ineligible"
+  
+  if catGender == "women" && archerGender != "male":
+    return "Atlet laki-laki tidak dapat mendaftar di kategori putri (Women)", "gender_ineligible"
+}
+```
+
+**Age Validation**: Currently not enforced (future feature based on `date_of_birth` vs `age_code`)
+
+##### Quota Check Per Category
+```go
+SELECT COUNT(*) FROM tournament_participants 
+WHERE category_id = ? AND payment_status != 'cancelled'
+```
+**Bypass**: Organizers and admins can exceed category quotas
+
+#### Registration Modes in Detail
+
+##### Mode 1: Individual/Captain Registration (`captain_team`)
+**Request Structure**:
+```json
+{
+  "athlete_id": "archer-uuid-or-username",
+  "registration_mode": "captain_team",
+  "event_category_ids": ["cat-uuid-1", "cat-uuid-2"],
+  "team_registration": {
+    "team_category_id": "team-cat-uuid",
+    "partner_id": "partner-uuid",
+    "team_name": "Team Awesome"
+  }
+}
+```
+
+**Flow**:
+1. Fetch captain archer data: `SELECT uuid, gender, date_of_birth FROM archers WHERE uuid = ?`
+2. For each **individual category**:
+   - Validate eligibility (gender, age)
+   - Check category quota
+   - Calculate fee from category `entry_fee`
+   - Create `tournament_participants` record
+3. For **team categories**:
+   - Fetch partner archer data
+   - Validate BOTH captain and partner eligibility
+   - Check team quota
+   - Calculate fee = captain_fee + partner_fee
+   - Create 2 participant records (captain + partner) linked by `team_uuid`
+   - Create `teams` record with `team_name`
+
+##### Mode 2: Club Delegation (`club_delegation`)
+**Request Structure**:
+```json
+{
+  "registration_mode": "club_delegation",
+  "delegation_athletes": [
+    {
+      "athlete_id": "archer-1-uuid",
+      "category_ids": ["cat-1", "cat-2"]
+    },
+    {
+      "athlete_id": "archer-2-uuid",
+      "category_ids": ["cat-3"]
+    }
+  ],
+  "delegation_teams": [
+    {
+      "team_category_id": "team-cat-uuid",
+      "team_name": "Club Team Alpha",
+      "member_ids": ["archer-1-uuid", "archer-2-uuid", "archer-3-uuid"]
+    }
+  ]
+}
+```
+
+**Flow**:
+1. Loop through each athlete in `delegation_athletes`
+2. For each athlete:
+   - Fetch archer data
+   - Loop through their `category_ids`
+   - Validate eligibility per category
+   - Check quota
+   - Create participant record
+3. Loop through `delegation_teams`
+4. For each team:
+   - Validate all team members
+   - Create team record
+   - Create participant records for each member
+5. **Single invoice** for entire delegation
+
+##### Mode 3: Organizer Manual Add
+**Auto-detected when**:
+- Request comes from organizer/admin (`isPrivileged = true`)
+- `registration_source` defaults to `"organizer_added"`
+- Can set `payment_status` directly (e.g., `"paid"` for free entry)
+
+#### Payment Status Assignment
+```go
+paymentStatus := "unpaid"  // Default
+
+// Organizers can override
+if req.PaymentStatus != "" && isPrivileged {
+  paymentStatus = req.PaymentStatus  // "paid", "free", "unpaid"
+}
+```
+
+#### Response
+```json
+{
+  "success": true,
+  "participants": [
+    {
+      "uuid": "participant-uuid-1",
+      "athlete_id": "archer-uuid",
+      "category_id": "cat-uuid",
+      "payment_amount": 150000,
+      "payment_status": "unpaid",
+      "registration_source": "self_register"
+    }
+  ],
+  "teams": [
+    {
+      "uuid": "team-uuid",
+      "team_name": "Dream Team",
+      "members": ["archer-1", "archer-2"]
+    }
+  ],
+  "total_amount": 450000
+}
+```
+
+---
+
+### 3. Tournament Payment Flow
+
+#### API Endpoint
+```
+POST /api/v1/payment/create
+Authorization: Bearer token
+```
+
+#### Payment Types
+| Type | When | Amount Source |
+|------|------|---------------|
+| `registration` | Participant registration | Sum of all `participant.payment_amount` |
+| `subscription` | Organizer buys package | `subscription_plan.price * months` |
+| `platform_fee` | Organizer publishes event | Fixed Rp 50,000 (env: `PLATFORM_FEE_AMOUNT`) |
+
+#### Currency-Gateway Matching (Gate Check)
+**Query event currency**:
+```go
+SELECT page_settings FROM tournaments WHERE uuid = ?
+// Parse JSON: {"currency": "IDR" | "USD"}
+```
+
+**Rules**:
+- **IDR events** → Cannot use PayPal
+  ```json
+  {
+    "error": "Turnamen dengan mata uang IDR tidak mendukung pembayaran via PayPal",
+    "code": "gateway_currency_mismatch"
+  }
+  ```
+
+- **USD events** → MUST use PayPal
+  ```json
+  {
+    "error": "Turnamen internasional dengan mata uang USD hanya mendukung pembayaran via PayPal",
+    "code": "gateway_currency_mismatch"
+  }
+  ```
+
+#### Payment Methods
+| Method Code | Gateway | Supported Channels |
+|-------------|---------|-------------------|
+| `mayar` | Mayar | QRIS, Virtual Account (BCA, BNI, BRI, Mandiri, BSI, CIMB, Danamon, Permata), E-Wallet (GoPay, OVO, Dana, ShopeePay), Cards (Visa, Mastercard) |
+| `paypal` | PayPal | International credit/debit cards |
+| `manual` | Manual Transfer | Bank transfer with proof upload |
+
+#### Payment Transaction Creation
+
+##### Step 1: Validate No Pending Payment
+```go
+// For platform_fee
+SELECT COUNT(*) FROM payment_transactions 
+WHERE tournament_id = ? AND subscription_plan_id IS NULL 
+  AND registration_id IS NULL AND status = 'pending' 
+  AND expired_at > NOW()
+
+// For subscription
+SELECT COUNT(*) FROM payment_transactions 
+WHERE user_id = ? AND subscription_plan_id IS NOT NULL 
+  AND status = 'pending' AND expired_at > NOW()
+```
+
+**If exists:**
+```json
+{
+  "error": "Anda memiliki pembayaran yang masih tertunda. Silakan selesaikan pembayaran tersebut atau tunggu hingga kedaluwarsa.",
+  "code": "pending_subscription_exists"
+}
+```
+
+##### Step 2: Calculate Total Amount
+**For Registration**:
+```go
+SELECT payment_amount FROM tournament_participants WHERE uuid IN (?)
+// Sum all amounts
+```
+
+**For Subscription**:
+```go
+SELECT price FROM subscription_plans WHERE id = ?
+totalPrice = price * months  // months: 1-12
+```
+
+##### Step 3: Generate Reference Number
+```go
+// Pattern: TXN-YYYYMMDD-RANDOM6
+reference := fmt.Sprintf("TXN-%s-%s", time.Now().Format("20060102"), randomString(6))
+```
+
+##### Step 4: Create Payment Transaction Record
+```sql
+INSERT INTO payment_transactions (
+  uuid, user_id, tournament_id, subscription_plan_id, registration_id,
+  amount, payment_method, status, reference, expired_at, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, DATE_ADD(NOW(), INTERVAL 24 HOUR), NOW())
+```
+
+**Expiry**: Default 24 hours from creation
+
+##### Step 5: Gateway-Specific Processing
+
+###### Mayar Gateway
+```go
+// Call Mayar API
+POST https://api.mayar.id/v1/payments
+{
+  "amount": 150000,
+  "currency": "IDR",
+  "channel": "qris", // or "va_bca", "gopay", etc.
+  "reference": "TXN-20260923-ABC123",
+  "customer": {
+    "name": "John Archer",
+    "email": "john@example.com",
+    "phone": "08123456789"
+  },
+  "redirect_url": "https://archeris.net/payment/status/TXN-20260923-ABC123",
+  "webhook_url": "https://api.archeris.net/api/v1/payment/mayar/webhook"
+}
+
+// Response
+{
+  "checkout_url": "https://checkout.mayar.id/pay/xyz",
+  "qr_string": "00020101...",  // For QRIS
+  "va_number": "880812345678"  // For VA
+}
+```
+
+**Update transaction**:
+```sql
+UPDATE payment_transactions 
+SET checkout_url = ?, instructions = ? 
+WHERE uuid = ?
+```
+
+###### PayPal Gateway
+```go
+// Create PayPal Order
+POST https://api.paypal.com/v2/checkout/orders
+{
+  "intent": "CAPTURE",
+  "purchase_units": [{
+    "amount": {
+      "currency_code": "USD",
+      "value": "3.50"
+    },
+    "reference_id": "TXN-20260923-ABC123"
+  }],
+  "application_context": {
+    "return_url": "https://archeris.net/payment/status/TXN-20260923-ABC123",
+    "cancel_url": "https://archeris.net/payment/failed/TXN-20260923-ABC123"
+  }
+}
+
+// Response
+{
+  "id": "PAYPAL-ORDER-ID",
+  "links": [{
+    "rel": "approve",
+    "href": "https://www.paypal.com/checkoutnow?token=..."
+  }]
+}
+```
+
+###### Manual Transfer
+- No external API call
+- Returns bank account details in `instructions` JSON
+- User uploads proof later via `/payment/manual/:reference/upload-proof`
+
+##### Step 6: Update Participant Payment Status Link
+```sql
+UPDATE tournament_participants 
+SET payment_transaction_id = ? 
+WHERE uuid IN (?)
+```
+
+#### Webhook Handling (Mayar)
+```
+POST /api/v1/payment/mayar/webhook
+X-Signature: mayar-signature-hmac
+```
+
+**Verification**:
+```go
+expectedSignature := hmac.New(sha256.New, []byte(MAYAR_SECRET_KEY))
+expectedSignature.Write([]byte(requestBody))
+if hmac.Equal(expectedSignature.Sum(nil), receivedSignature) {
+  // Process webhook
+}
+```
+
+**Status Mapping**:
+| Mayar Status | Our Status | Action |
+|--------------|-----------|--------|
+| `settlement` | `paid` | Mark participants as `paid`, trigger certificate generation |
+| `expired` | `expired` | Mark transaction expired |
+| `failed` | `failed` | Allow retry |
+| `cancelled` | `cancelled` | Release quotas |
+
+**Payment Confirmation Actions**:
+1. Update `payment_transactions.status = 'paid'`
+2. Update all linked participants: `tournament_participants.payment_status = 'paid'`
+3. For subscription payments: Update `organizers.quota_standard += qty` or `quota_elite += qty`
+4. Send email confirmation (async)
+5. Generate digital ticket QR code
+
+#### Manual Payment Verification (Organizer)
+```
+POST /api/v1/payment/manual/:reference/verify
+Authorization: Bearer token (Organizer)
+```
+
+**Request**:
+```json
+{
+  "action": "approve",  // or "reject"
+  "notes": "Payment verified via BCA transfer"
+}
+```
+
+**If approved**: Same actions as webhook settlement
+**If rejected**: Participant can re-upload proof
+
+---
+
+### 4. Organizer Package/Subscription System
+
+#### Package Tiers (Unified Pricing)
+**Source of Truth**: `handler/subscription.go` → `buildUnifiedPricing()`
+
+| ID | Tier Key | Name | Badge | Price IDR (Promo) | Price USD (Promo) | Discount |
+|----|----------|------|-------|-------------------|-------------------|----------|
+| 0 | `free` | Free Starter | Starter | Rp 0 | $0 | - |
+| 7 | `standard` | Standard EO | Most Popular | Rp 49,999 (Rp 24,999) | $3.00 ($1.50) | 50% |
+| 8 | `elite` | Elite EO | Professional Tier | Rp 79,999 (Rp 39,999) | $7.00 ($3.50) | 50% |
+
+#### Feature Comparison Matrix
+
+| Feature | Free | Standard | Elite |
+|---------|------|----------|-------|
+| **Participant Limit** | 50 | 200 | Unlimited |
+| **Media Storage** | 200 MB | 3 GB | 10 GB |
+| **Competition Categories** | Unlimited | Unlimited | Unlimited |
+| **Scorekeeper Accounts** | Unlimited | Unlimited | Unlimited |
+| **Access Period** | Lifetime | Lifetime | Lifetime |
+| **Tournament Setup** | ✅ | ✅ | ✅ |
+| **Online Registration** | ✅ | ✅ | ✅ |
+| **Scoring & Match Play** | ✅ | ✅ | ✅ |
+| **Printouts & Certificates** | ✅ | ✅ | ✅ |
+| **Data Export (CSV/Excel)** | ✅ | ✅ | ✅ |
+| **Customer Support** | 24/7 | 24/7 | 24/7 |
+
+#### Bundle Discount Rules
+**Apply to Standard & Elite purchases**:
+
+| Quantity | Discount | Label |
+|----------|----------|-------|
+| 1 | 0% | Single Package |
+| 3-4 | 7% | Save 7% |
+| 5-9 | 12% | Save 12% |
+| 10+ | 20% | Save 20% |
+
+**Example**:
+- Buy 5 Standard EO: `5 × Rp 24,999 × (1 - 0.12) = Rp 109,995`
+- Buy 10 Elite EO: `10 × Rp 39,999 × (1 - 0.20) = Rp 319,992`
+
+#### Quota Storage (Organizer Account)
+```sql
+SELECT quota_free, quota_standard, quota_elite, subscription_status 
+FROM organizers 
+WHERE user_id = ?
+```
+
+**Fields**:
+- `quota_free`: Integer (starts at 20, never expires, non-refundable)
+- `quota_standard`: Integer (purchased quota count)
+- `quota_elite`: Integer (purchased quota count)
+- `subscription_status`: `'active'` | `'expired'` | `'suspended'`
+
+#### Purchasing Flow
+1. **Browse Packages**: `GET /api/v1/subscription/pricing`
+2. **Create Payment**: `POST /api/v1/payment/create` with `type: "subscription"`, `plan_id: 7`, `months: 3`
+3. **Payment Gateway**: Redirect to Mayar/PayPal checkout
+4. **Webhook Callback**: On success, increment quota
+5. **Quota Update**:
+   ```sql
+   UPDATE organizers 
+   SET quota_standard = quota_standard + 3 
+   WHERE user_id = ?
+   ```
+
+#### Quota Consumption
+**Consumed when**:
+- Creating a tournament (see Tournament Creation Flow above)
+
+**NOT consumed when**:
+- Saving tournament as draft
+- Editing tournament settings
+- Deleting tournament (quota is NOT refunded)
+
+#### Auto-Expiry (Not Implemented)
+**Note**: Current system has lifetime quotas. No automatic expiration logic in codebase.
+
+---
+
+### 5. Scoring Rules & Systems
+
+#### A. Scorekeeper Role & Access
+
+##### Scorekeeper Account Creation
+```
+POST /api/v1/organizers/me/scorekeepers
+Authorization: Bearer token (Organizer)
+```
+
+**Request**:
+```json
+{
+  "name": "John Scorekeeper",
+  "email": "scorekeeper@example.com"
+}
+```
+
+**Auto-Generated**:
+- **Access Code**: 5-character alphanumeric (e.g., `A7B2X`)
+- Unique per scorekeeper
+- Used for mobile app login
+
+**Response**:
+```json
+{
+  "uuid": "scorekeeper-uuid",
+  "name": "John Scorekeeper",
+  "code": "A7B2X",
+  "status": "active"
+}
+```
+
+##### Scorekeeper Login (Mobile App)
+```
+POST /api/v1/mobile/auth/scorekeeper/login
+```
+
+**Request**:
+```json
+{
+  "code": "A7B2X"
+}
+```
+
+**Returns**: JWT token with scorekeeper role
+
+---
+
+#### B. Qualification Scoring System
+
+##### Qualification Session Structure
+**Each tournament can have multiple qualification sessions**:
+- Session Name (e.g., "Morning Session Day 1")
+- `total_ends`: Default 12 (World Archery outdoor standard)
+- `arrows_per_end`: Default 6
+- `is_locked`: Boolean (prevents score changes when true)
+
+##### Target Board & Assignment
+**Target Board Qualification**:
+```sql
+CREATE TABLE target_board_qualification (
+  uuid VARCHAR(36) PRIMARY KEY,
+  session_uuid VARCHAR(36),
+  category_uuid VARCHAR(36),
+  board_number INT,
+  code VARCHAR(10) UNIQUE  -- e.g., "001JFR", "042JFR"
+)
+```
+
+**Target Assignment**:
+```sql
+CREATE TABLE qualification_target_assignments (
+  uuid VARCHAR(36) PRIMARY KEY,
+  session_uuid VARCHAR(36),
+  participant_uuid VARCHAR(36),
+  target_uuid VARCHAR(36),
+  target_board_id VARCHAR(36),
+  position VARCHAR(2)  -- "A", "B", "C", "D" (World Archery 4 archers per target)
+)
+```
+
+**Positions**:
+- Each target (e.g., `5`) has 4 board positions: `5A`, `5B`, `5C`, `5D`
+- Stored in `tournament_targets.target_name`
+
+##### Scoring Input (Mobile App)
+
+###### Scan Target Board
+```
+GET /api/v1/mobile/scan?code=001JFR
+Authorization: Bearer token (Scorekeeper)
+```
+
+**Response**:
+```json
+{
+  "type": "qualification",
+  "board": {
+    "uuid": "board-uuid",
+    "board_number": 1,
+    "code": "001JFR",
+    "session_uuid": "session-uuid",
+    "session_name": "Morning Session"
+  },
+  "archers": [
+    {
+      "assignment_uuid": "assign-uuid",
+      "participant_uuid": "part-uuid",
+      "position": "A",
+      "target_name": "1A",
+      "name": "John Doe",
+      "avatar_url": "...",
+      "division": "Recurve Men",
+      "current_score": 320,
+      "ends_completed": 8,
+      "total_ends": 12
+    }
+  ]
+}
+```
+
+###### Submit Scores
+```
+PUT /api/v1/qualification/scoring/scores/:assignmentId
+Authorization: Bearer token (Scorekeeper)
+```
+
+**Request (Batch Mode)**:
+```json
+{
+  "ends": [
+    {
+      "end_number": 1,
+      "arrows": ["X", "10", "9", "9", "8", "7"]
+    },
+    {
+      "end_number": 2,
+      "arrows": ["10", "10", "9", "8", "8", "M"]
+    }
+  ]
+}
+```
+
+**Request (Single End Mode)**:
+```json
+{
+  "end_number": 3,
+  "arrows": ["X", "X", "10", "9", "9", "8"]
+}
+```
+
+##### Arrow Value Calculation
+```go
+func calculateArrowValue(arrow string) (val int, x int, ten int) {
+  arrow = strings.ToUpper(strings.TrimSpace(arrow))
+  
+  switch arrow {
+  case "X":
+    return 10, 1, 1  // X counts as 10 + X + 10 for tiebreak
+  case "10":
+    return 10, 0, 1
+  case "M", "":
+    return 0, 0, 0   // Miss
+  default:
+    v, _ := strconv.Atoi(arrow)  // "9", "8", "7"..."1"
+    return v, 0, 0
+  }
+}
+```
+
+**Allowed Values**: `X`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, `1`, `M` (miss)
+
+##### Validation Rules
+1. **End Number**: Must be 1 to `total_ends` (default 12)
+2. **Arrows Per End**: Max `arrows_per_end` (default 6)
+3. **Locked Session**: Cannot submit scores if `is_locked = true`
+   ```json
+   {
+     "error": "Qualification session is locked. Score changes are not permitted."
+   }
+   ```
+
+##### Score Storage Structure
+```sql
+-- Per-end totals
+CREATE TABLE qualification_end_scores (
+  uuid VARCHAR(36) PRIMARY KEY,
+  session_uuid VARCHAR(36),
+  participant_uuid VARCHAR(36),
+  end_number INT,
+  total_score_end INT,   -- Sum of 6 arrows
+  x_count_end INT,       -- Count of X's
+  ten_count_end INT      -- Count of 10's (including X's)
+)
+
+-- Individual arrows (for detailed scorecard)
+CREATE TABLE qualification_arrow_scores (
+  uuid VARCHAR(36) PRIMARY KEY,
+  end_score_uuid VARCHAR(36),
+  arrow_number INT,      -- 1-6
+  value INT,             -- 0-10
+  is_x TINYINT(1)        -- 1 if X, 0 otherwise
+)
+```
+
+##### Leaderboard Calculation
+```
+GET /api/v1/tournaments/:id/qualification/leaderboard
+```
+
+**Query**:
+```sql
+SELECT 
+  ep.uuid, a.full_name, a.avatar_url,
+  ec.category_name_custom,
+  SUM(qes.total_score_end) as total_score,
+  SUM(qes.x_count_end) as total_x,
+  SUM(qes.ten_count_end) as total_ten,
+  COUNT(DISTINCT qes.end_number) as ends_completed,
+  qs.total_ends
+FROM tournament_participants ep
+LEFT JOIN qualification_end_scores qes 
+  ON qes.participant_uuid = ep.uuid AND qes.session_uuid = ?
+GROUP BY ep.uuid
+ORDER BY total_score DESC, total_x DESC, total_ten DESC
+```
+
+**Tie-Breaking Order** (World Archery standard):
+1. Total Score (highest wins)
+2. Total X count (most X's wins)
+3. Total 10 count (most 10's wins)
+4. If still tied: Shoot-off (not automated)
+
+---
+
+#### C. Elimination Bracket System
+
+##### Bracket Creation
+```
+POST /api/v1/tournaments/:id/elimination/brackets
+Authorization: Bearer token (Organizer)
+```
+
+**Request**:
+```json
+{
+  "name": "Men Recurve Elimination",
+  "category_id": "cat-uuid",
+  "bracket_size": 16,
+  "format": "set_system",  // or "cumulative"
+  "match_type": "individual"  // or "team", "mixed_team"
+}
+```
+
+**Bracket Sizes** (Power of 2):
+- 4, 8, 16, 32, 64, 128
+
+**Formats**:
+1. **Set System** (World Archery Olympic):
+   - Best of 5 sets
+   - Each set: 3 arrows per archer
+   - Win set: 2 points, Draw: 1 point each
+   - First to 6 points wins
+
+2. **Cumulative** (Total score):
+   - Fixed number of ends (e.g., 5 ends × 3 arrows)
+   - Highest total score wins
+
+##### Bracket Generation (Seeding)
+```
+POST /api/v1/tournaments/:id/elimination/brackets/:bracketId/generate
+```
+
+**Flow**:
+1. Fetch top N qualifiers: `SELECT * FROM qualification_leaderboard ORDER BY total_score DESC LIMIT :bracket_size`
+2. Apply World Archery seeding pattern
+3. Create matches for Round 1
+
+**Seeding Example (16-person bracket)**:
+```
+Match 1: Seed 1 vs Seed 16
+Match 2: Seed 8 vs Seed 9
+Match 3: Seed 5 vs Seed 12
+Match 4: Seed 4 vs Seed 13
+Match 5: Seed 3 vs Seed 14
+Match 6: Seed 6 vs Seed 11
+Match 7: Seed 7 vs Seed 10
+Match 8: Seed 2 vs Seed 15
+```
+
+**Round Structure**:
+- 32-person: 1/32, 1/16, 1/8, 1/4, Semi, Final
+- 16-person: 1/16, 1/8, 1/4, Semi, Final
+- 8-person: 1/8, 1/4, Semi, Final
+
+##### Match Structure
+```sql
+CREATE TABLE elimination_matches (
+  uuid VARCHAR(36) PRIMARY KEY,
+  bracket_uuid VARCHAR(36),
+  round_no INT,          -- 1, 2, 3, 4... (1=earliest, higher=closer to final)
+  match_no INT,          -- Within round
+  match_id VARCHAR(10),  -- e.g., "1/8-1", "1/4-2", "SF-1", "F"
+  entry_a_uuid VARCHAR(36),  -- Link to elimination_entries
+  entry_b_uuid VARCHAR(36),
+  target_uuid VARCHAR(36),
+  board_uuid VARCHAR(36),
+  status VARCHAR(20),    -- "pending", "ongoing", "completed"
+  winner_side VARCHAR(1), -- "A" or "B"
+  
+  -- Set System scoring
+  sets_a INT,            -- Number of sets won by A
+  sets_b INT,            -- Number of sets won by B
+  total_points_a INT,    -- Total set points (max 10)
+  total_points_b INT,
+  
+  -- Cumulative scoring
+  total_score_a INT,     -- Sum of all arrows
+  total_score_b INT,
+  
+  next_match_uuid VARCHAR(36)  -- Winner advances to this match
+)
+```
+
+##### Elimination Scoring (Mobile App)
+
+###### Scan Elimination Board
+```
+GET /api/v1/mobile/scan?code=E001JFR
+```
+
+**Response**:
+```json
+{
+  "type": "elimination",
+  "board": {
+    "uuid": "board-uuid",
+    "board_number": 1,
+    "code": "E001JFR",
+    "bracket_uuid": "bracket-uuid",
+    "category_name": "Men Recurve"
+  },
+  "archers": [
+    {
+      "match_uuid": "match-uuid",
+      "match_id": "1/8-1",
+      "side": "A",
+      "target_name": "1A",
+      "name": "John Doe",
+      "club": "Archery Club",
+      "score": 4,
+      "status": "ongoing"
+    },
+    {
+      "match_uuid": "match-uuid",
+      "match_id": "1/8-1",
+      "side": "B",
+      "target_name": "1B",
+      "name": "Jane Smith",
+      "club": "Elite Archers",
+      "score": 2,
+      "status": "ongoing"
+    }
+  ]
+}
+```
+
+###### Submit Match Score
+```
+POST /api/v1/elimination/matches/:matchId/score
+Authorization: Bearer token (Scorekeeper)
+```
+
+**Set System Format**:
+```json
+{
+  "sets": [
+    {
+      "set_number": 1,
+      "arrows_a": ["X", "10", "9"],
+      "arrows_b": ["10", "9", "8"]
+    },
+    {
+      "set_number": 2,
+      "arrows_a": ["10", "10", "9"],
+      "arrows_b": ["X", "10", "10"]
+    }
+  ]
+}
+```
+
+**Set Winner Calculation**:
+```go
+totalA := sum(arrows_a)
+totalB := sum(arrows_b)
+
+if totalA > totalB {
+  points_a += 2
+} else if totalB > totalA {
+  points_b += 2
+} else {
+  points_a += 1
+  points_b += 1
+}
+```
+
+**Match Winner**:
+- First to **6 set points** wins
+- If 5-5: Shoot-off (1 arrow closest to center)
+
+##### Shoot-Off Handling
+```json
+{
+  "shoot_off": {
+    "round": 1,
+    "arrow_a": {
+      "score": 10,
+      "distance_mm": 45  // Distance from center in mm
+    },
+    "arrow_b": {
+      "score": 10,
+      "distance_mm": 52
+    }
+  }
+}
+```
+
+**Winner**: Closest to center (smallest `distance_mm`)
+
+##### Match Completion & Advancement
+```
+POST /api/v1/elimination/matches/:matchId/finish
+```
+
+**Actions**:
+1. Set `winner_side` = "A" or "B"
+2. Set `status` = "completed"
+3. Find `next_match_uuid`
+4. Update next match:
+   ```sql
+   UPDATE elimination_matches 
+   SET entry_a_uuid = :winner_entry_uuid
+   WHERE uuid = :next_match_uuid AND entry_a_uuid IS NULL
+   
+   -- OR if entry_a already filled:
+   UPDATE elimination_matches 
+   SET entry_b_uuid = :winner_entry_uuid
+   WHERE uuid = :next_match_uuid
+   ```
+5. If next match is FINAL and completed → Award medals
+
+##### Medal Assignment
+**Automatic on final completion**:
+```sql
+UPDATE elimination_entries 
+SET medal = 'gold' 
+WHERE uuid = :winner_entry_uuid
+
+UPDATE elimination_entries 
+SET medal = 'silver' 
+WHERE uuid = :loser_entry_uuid
+
+-- Bronze (both semi-final losers)
+UPDATE elimination_entries 
+SET medal = 'bronze' 
+WHERE match_uuid IN (
+  SELECT uuid FROM elimination_matches 
+  WHERE next_match_uuid = :final_match_uuid
+) AND winner = false
+```
+
+---
+
+### 6. Gate Checking Summary (All Critical Gates)
+
+#### Tournament Creation Gates
+✅ **G1.1**: User role must be `organizer` or `club` (NOT `archer`)  
+✅ **G1.2**: Quota check (`quota_free` OR `quota_standard` OR `quota_elite` > 0)  
+✅ **G1.3**: Slug uniqueness check (auto-append `-2`, `-3` if duplicate)  
+✅ **G1.4**: Transaction rollback on any error  
+
+#### Tournament Registration Gates
+✅ **G2.1**: Organizer subscription status = `active`  
+✅ **G2.2**: Registration deadline not passed (bypass for organizers)  
+✅ **G2.3**: Event overall quota not exceeded  
+✅ **G2.4**: Category quota not exceeded (per category)  
+✅ **G2.5**: Gender eligibility (`men` → male only, `women` → female only)  
+✅ **G2.6**: No duplicate registration (same archer + category)  
+
+#### Payment Gates
+✅ **G3.1**: Currency-gateway matching (IDR ≠ PayPal, USD = PayPal only)  
+✅ **G3.2**: No pending payment for same type (subscription/platform_fee)  
+✅ **G3.3**: Payment expiry (24 hours default)  
+✅ **G3.4**: Webhook signature verification (HMAC SHA256)  
+
+#### Scoring Gates
+✅ **G4.1**: Scorekeeper must have valid access code  
+✅ **G4.2**: Session must NOT be locked (`is_locked = false`)  
+✅ **G4.3**: End number within valid range (1 to `total_ends`)  
+✅ **G4.4**: Arrow count ≤ `arrows_per_end`  
+✅ **G4.5**: Arrow values must be valid (X, 10, 9...1, M)  
+✅ **G4.6**: Match must be `ongoing` (not `completed`)  
+
+---
+
+### 7. Board Code System
+
+#### Qualification Board Codes
+**Format**: `{board_number}JFR` with zero-padding
+- Board 1 → `001JFR`
+- Board 42 → `042JFR`
+- Board 128 → `128JFR`
+
+**Alternative Scan Formats**:
+- Raw number: `1`, `42`
+- With position: `1A`, `42C`
+- Full code: `001JFR`
+
+**Generation**:
+```go
+code := fmt.Sprintf("%03dJFR", board_number)
+```
+
+#### Elimination Board Codes
+**Format**: `E{board_number}JFR`
+- Board 1 → `E001JFR`
+- Board 10 → `E010JFR`
+
+**Purpose**: Distinguish elimination boards from qualification boards when scanning
+
+#### QR Code Generation
+**Mobile App Display**:
+- Archer ticket: Contains `participant_uuid`
+- Board code: Contains board `code` (e.g., `001JFR`)
+- Scorekeeper scans using `mobile_scanner` package (Flutter)
+
+**Backend Decode**:
+```go
+// Flexible matching in SQL
+WHERE code = ? 
+   OR CAST(board_number AS CHAR) = ?
+   OR CONCAT(CAST(board_number AS CHAR), 'A') = ?
+   OR code = CONCAT(LPAD(?, 3, '0'), 'JFR')
+```
+
+---
+
+This comprehensive flow documentation covers every gate, validation, calculation, and business rule in the Archeris platform's tournament creation, registration, payment, package subscription, and scoring systems.
+

@@ -36,21 +36,23 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type SessionWithCount struct {
-			UUID             string   `db:"uuid" json:"uuid"`
-			EventUUID        string   `db:"tournament_uuid" json:"event_uuid"`
-			SessionCode      string   `db:"session_code" json:"session_code"`
-			SessionDate      *string  `db:"session_date" json:"session_date"`
-			Name             string   `db:"name" json:"name"`
-			StartTime        *string  `db:"start_time" json:"start_time"`
-			EndTime          *string  `db:"end_time" json:"end_time"`
-			TotalEnds        int      `db:"total_ends" json:"total_ends"`
-			ArrowsPerEnd     int      `db:"arrows_per_end" json:"arrows_per_end"`
-			CreatedAt        *string  `db:"created_at" json:"created_at"`
-			UpdatedAt        *string  `db:"updated_at" json:"updated_at"`
-			ParticipantCount int      `db:"participant_count" json:"participant_count"`
-			CategoryIDs      string   `db:"category_ids" json:"-"`
-			CategoryList     []string `json:"category_ids"`
-			IsLocked         bool     `db:"is_locked" json:"is_locked"`
+			UUID             string          `db:"uuid" json:"uuid"`
+			EventUUID        string          `db:"tournament_uuid" json:"event_uuid"`
+			SessionCode      string          `db:"session_code" json:"session_code"`
+			SessionDate      *string         `db:"session_date" json:"session_date"`
+			Name             string          `db:"name" json:"name"`
+			StartTime        *string         `db:"start_time" json:"start_time"`
+			EndTime          *string         `db:"end_time" json:"end_time"`
+			TotalEnds        int             `db:"total_ends" json:"total_ends"`
+			ArrowsPerEnd     int             `db:"arrows_per_end" json:"arrows_per_end"`
+			CreatedAt        *string         `db:"created_at" json:"created_at"`
+			UpdatedAt        *string         `db:"updated_at" json:"updated_at"`
+			ParticipantCount    int             `db:"participant_count" json:"participant_count"`
+			CategoryIDs         string          `db:"category_ids" json:"-"`
+			CategoryList        []string        `json:"category_ids"`
+			CategoryLocks       map[string]bool `json:"category_locks"`
+			CategoryTargetLocks map[string]bool `json:"category_target_locks"`
+			IsLocked            bool            `db:"is_locked" json:"is_locked"`
 		}
 
 		var sessions []SessionWithCount
@@ -82,11 +84,67 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		type CategoryLockInfo struct {
+			SessionUUID  string `db:"session_uuid"`
+			CategoryUUID string `db:"category_uuid"`
+			IsLocked     bool   `db:"is_locked"`
+		}
+		var catLocks []CategoryLockInfo
+		_ = db.Select(&catLocks, `
+			SELECT qsc.session_uuid, qsc.category_uuid, COALESCE(qsc.is_locked, 0) as is_locked
+			FROM qualification_session_categories qsc
+			JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+			WHERE qs.tournament_uuid = ?
+		`, eventUUID)
+
+		catLockMap := make(map[string]map[string]bool)
+		for _, cl := range catLocks {
+			if catLockMap[cl.SessionUUID] == nil {
+				catLockMap[cl.SessionUUID] = make(map[string]bool)
+			}
+			catLockMap[cl.SessionUUID][cl.CategoryUUID] = cl.IsLocked
+		}
+
+		type CategoryTargetLockInfo struct {
+			SessionUUID  string `db:"session_uuid"`
+			CategoryUUID string `db:"category_uuid"`
+			HasScores    int    `db:"has_scores"`
+		}
+		var catTargetLocks []CategoryTargetLockInfo
+		_ = db.Select(&catTargetLocks, `
+			SELECT qsc.session_uuid, qsc.category_uuid,
+			       CASE WHEN COUNT(qes.uuid) > 0 THEN 1 ELSE 0 END AS has_scores
+			FROM qualification_session_categories qsc
+			LEFT JOIN tournament_participants tp ON tp.category_id = qsc.category_uuid
+			LEFT JOIN qualification_end_scores qes ON qes.session_uuid = qsc.session_uuid AND qes.participant_uuid = tp.uuid AND qes.total_score_end > 0
+			JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+			WHERE qs.tournament_uuid = ?
+			GROUP BY qsc.session_uuid, qsc.category_uuid
+		`, eventUUID)
+
+		catTargetLockMap := make(map[string]map[string]bool)
+		for _, ctl := range catTargetLocks {
+			if catTargetLockMap[ctl.SessionUUID] == nil {
+				catTargetLockMap[ctl.SessionUUID] = make(map[string]bool)
+			}
+			catTargetLockMap[ctl.SessionUUID][ctl.CategoryUUID] = (ctl.HasScores > 0)
+		}
+
 		for i := range sessions {
 			if sessions[i].CategoryIDs != "" {
 				sessions[i].CategoryList = strings.Split(sessions[i].CategoryIDs, ",")
 			} else {
 				sessions[i].CategoryList = []string{}
+			}
+			if lockMap, ok := catLockMap[sessions[i].UUID]; ok {
+				sessions[i].CategoryLocks = lockMap
+			} else {
+				sessions[i].CategoryLocks = make(map[string]bool)
+			}
+			if tLockMap, ok := catTargetLockMap[sessions[i].UUID]; ok {
+				sessions[i].CategoryTargetLocks = tLockMap
+			} else {
+				sessions[i].CategoryTargetLocks = make(map[string]bool)
 			}
 		}
 		if err != nil {
@@ -118,7 +176,7 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			EndTime      *string  `json:"end_time"`
 			TotalEnds    int      `json:"total_ends"`
 			ArrowsPerEnd int      `json:"arrows_per_end"`
-			CategoryIDs  []string `json:"category_ids"`
+			Categories   []string `json:"category_ids"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -126,93 +184,71 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Set defaults
-		if req.TotalEnds == 0 {
+		if req.TotalEnds <= 0 {
 			req.TotalEnds = 12
 		}
-		if req.ArrowsPerEnd == 0 {
+		if req.ArrowsPerEnd <= 0 {
 			req.ArrowsPerEnd = 6
 		}
 
-		// Generate clean short session code (e.g., QS-7K9M2)
-		var sessionCode string
-		for {
-			sessionCode = utils.GenerateShortCode("QS", 5)
-			var count int
-			err := db.Get(&count, "SELECT COUNT(*) FROM qualification_sessions WHERE session_code = ?", sessionCode)
-			if err == nil && count == 0 {
-				break
-			}
-		}
-
-		// Handle StartTime and EndTime if they are just "HH:MM" and session_date is provided
-		var finalStartTime, finalEndTime *string
-		if req.SessionDate != nil && *req.SessionDate != "" {
-			if req.StartTime != nil && *req.StartTime != "" {
-				s := fmt.Sprintf("%s %s:00", *req.SessionDate, *req.StartTime)
-				finalStartTime = &s
-			}
-			if req.EndTime != nil && *req.EndTime != "" {
-				s := fmt.Sprintf("%s %s:00", *req.SessionDate, *req.EndTime)
-				finalEndTime = &s
-			}
-		} else {
-			finalStartTime = req.StartTime
-			finalEndTime = req.EndTime
-		}
-
-		tx, err := db.Beginx()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
-			return
-		}
-		defer tx.Rollback()
+		// Generate session code
+		var count int
+		_ = db.Get(&count, `SELECT COUNT(*) FROM qualification_sessions WHERE tournament_uuid = ?`, eventUUID)
+		sessionCode := fmt.Sprintf("QS-%03d", count+1)
 
 		newUUID := uuid.New().String()
-		_, err = tx.Exec(`
-			INSERT INTO qualification_sessions (uuid, tournament_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			newUUID, eventUUID, sessionCode, req.SessionDate, req.Name, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd)
+		_, err = db.Exec(`
+			INSERT INTO qualification_sessions (
+				uuid, tournament_uuid, session_code, session_date, 
+				name, start_time, end_time, total_ends, arrows_per_end, is_locked
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+		`,
+			newUUID, eventUUID, sessionCode, req.SessionDate,
+			req.Name, req.StartTime, req.EndTime, req.TotalEnds, req.ArrowsPerEnd,
+		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session data", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create qualification session", "details": err.Error()})
 			return
 		}
 
-		// Insert categories
-		for _, catID := range req.CategoryIDs {
-			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, newUUID, catID)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add category to session", "details": err.Error()})
-				return
-			}
+		// Insert linked categories
+		for _, catID := range req.Categories {
+			_, _ = db.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid, is_locked) VALUES (?, ?, 0)`, newUUID, catID)
 		}
 
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"message":      "Session created successfully",
-			"session_uuid": newUUID,
-			"session_code": sessionCode,
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Qualification session created successfully",
+			"session": gin.H{
+				"uuid":             newUUID,
+				"session_code":     sessionCode,
+				"name":             req.Name,
+				"category_ids":     req.Categories,
+				"category_locks":   map[string]bool{},
+				"total_ends":       req.TotalEnds,
+				"arrows_per_end":   req.ArrowsPerEnd,
+				"is_locked":        false,
+			},
 		})
 	}
 }
 
-// UpdateQualificationSession updates an existing session
+// UpdateQualificationSession updates session details
 func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionUUID := c.Param("sessionId")
+		sessionID := c.Param("sessionId")
+		if sessionID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+			return
+		}
 
 		var req struct {
-			Name         string   `json:"name" binding:"required"`
+			Name         string   `json:"name"`
 			SessionDate  *string  `json:"session_date"`
 			StartTime    *string  `json:"start_time"`
 			EndTime      *string  `json:"end_time"`
 			TotalEnds    int      `json:"total_ends"`
 			ArrowsPerEnd int      `json:"arrows_per_end"`
-			CategoryIDs  []string `json:"category_ids"`
+			Categories   []string `json:"category_ids"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -220,20 +256,11 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Handle StartTime and EndTime merging
-		var finalStartTime, finalEndTime *string
-		if req.SessionDate != nil && *req.SessionDate != "" {
-			if req.StartTime != nil && *req.StartTime != "" {
-				s := fmt.Sprintf("%s %s:00", *req.SessionDate, *req.StartTime)
-				finalStartTime = &s
-			}
-			if req.EndTime != nil && *req.EndTime != "" {
-				s := fmt.Sprintf("%s %s:00", *req.SessionDate, *req.EndTime)
-				finalEndTime = &s
-			}
-		} else {
-			finalStartTime = req.StartTime
-			finalEndTime = req.EndTime
+		var sessionUUID string
+		err := db.Get(&sessionUUID, `SELECT uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ?`, sessionID, sessionID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Qualification session not found"})
+			return
 		}
 
 		tx, err := db.Beginx()
@@ -244,27 +271,45 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		_, err = tx.Exec(`
-			UPDATE qualification_sessions 
-			SET name = ?, session_date = ?, start_time = ?, end_time = ?, total_ends = ?, arrows_per_end = ?, updated_at = NOW()
-			WHERE uuid = ?`,
-			req.Name, req.SessionDate, finalStartTime, finalEndTime, req.TotalEnds, req.ArrowsPerEnd, sessionUUID)
+			UPDATE qualification_sessions SET
+				name = COALESCE(NULLIF(?, ''), name),
+				session_date = ?,
+				start_time = ?,
+				end_time = ?,
+				total_ends = CASE WHEN ? > 0 THEN ? ELSE total_ends END,
+				arrows_per_end = CASE WHEN ? > 0 THEN ? ELSE arrows_per_end END,
+				updated_at = NOW()
+			WHERE uuid = ?
+		`, req.Name, req.SessionDate, req.StartTime, req.EndTime, req.TotalEnds, req.TotalEnds, req.ArrowsPerEnd, req.ArrowsPerEnd, sessionUUID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session data", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session details", "details": err.Error()})
 			return
 		}
 
-		// Update categories: Delete old and insert new
-		_, err = tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update categories", "details": err.Error()})
-			return
-		}
+		// If categories are provided, update them while preserving existing is_locked state
+		if req.Categories != nil {
+			var existingLocks []struct {
+				CategoryUUID string `db:"category_uuid"`
+				IsLocked     bool   `db:"is_locked"`
+			}
+			_ = tx.Select(&existingLocks, `SELECT category_uuid, COALESCE(is_locked, 0) as is_locked FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
+			oldLockMap := make(map[string]bool)
+			for _, el := range existingLocks {
+				oldLockMap[el.CategoryUUID] = el.IsLocked
+			}
 
-		for _, catID := range req.CategoryIDs {
-			_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid) VALUES (?, ?)`, sessionUUID, catID)
+			_, err = tx.Exec(`DELETE FROM qualification_session_categories WHERE session_uuid = ?`, sessionUUID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to re-add categories", "details": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update categories", "details": err.Error()})
 				return
+			}
+			for _, catID := range req.Categories {
+				wasLocked := oldLockMap[catID]
+				_, err = tx.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid, is_locked) VALUES (?, ?, ?)`, sessionUUID, catID, wasLocked)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert category relation", "details": err.Error()})
+					return
+				}
 			}
 		}
 
@@ -273,11 +318,11 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Session updated successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Qualification session updated successfully"})
 	}
 }
 
-// ToggleLockQualificationSession locks or unlocks scoring for a qualification session
+// ToggleLockQualificationSession locks or unlocks scoring for a qualification session or specific category
 func ToggleLockQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
@@ -286,15 +331,56 @@ func ToggleLockQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		var isLocked bool
-		err := db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ? OR session_code = ?`, sessionID, sessionID)
+		var sessionUUID string
+		err := db.Get(&sessionUUID, `SELECT uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Qualification session not found"})
 			return
 		}
 
+		var req struct {
+			CategoryID string `json:"category_id"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		if req.CategoryID == "" {
+			req.CategoryID = c.Query("category_id")
+		}
+
+		if req.CategoryID != "" {
+			var isCatLocked bool
+			err := db.Get(&isCatLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_session_categories WHERE session_uuid = ? AND category_uuid = ?`, sessionUUID, req.CategoryID)
+			if err != nil {
+				isCatLocked = false
+			}
+
+			newLockState := !isCatLocked
+			res, err := db.Exec(`UPDATE qualification_session_categories SET is_locked = ? WHERE session_uuid = ? AND category_uuid = ?`, newLockState, sessionUUID, req.CategoryID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update category lock status", "details": err.Error()})
+				return
+			}
+			rowsAff, _ := res.RowsAffected()
+			if rowsAff == 0 {
+				_, _ = db.Exec(`INSERT INTO qualification_session_categories (session_uuid, category_uuid, is_locked) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_locked = ?`, sessionUUID, req.CategoryID, newLockState, newLockState)
+			}
+
+			msg := "Category qualification scoring locked successfully"
+			if !newLockState {
+				msg = "Category qualification scoring unlocked successfully"
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message":     msg,
+				"category_id": req.CategoryID,
+				"is_locked":   newLockState,
+			})
+			return
+		}
+
+		var isLocked bool
+		_ = db.Get(&isLocked, `SELECT COALESCE(is_locked, 0) FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
 		newLockState := !isLocked
-		_, err = db.Exec(`UPDATE qualification_sessions SET is_locked = ? WHERE uuid = ? OR session_code = ?`, newLockState, sessionID, sessionID)
+		_, err = db.Exec(`UPDATE qualification_sessions SET is_locked = ? WHERE uuid = ?`, newLockState, sessionUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session lock status"})
 			return
@@ -342,8 +428,23 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			ArrowsPerEnd int  `db:"arrows_per_end"`
 		}
 		_ = db.Get(&sessionConfig, `SELECT COALESCE(is_locked, 0) as is_locked, COALESCE(total_ends, 0) as total_ends, COALESCE(arrows_per_end, 0) as arrows_per_end FROM qualification_sessions WHERE uuid = ?`, sessionUUID)
-		if sessionConfig.IsLocked {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Qualification session is locked. Score changes are not permitted."})
+
+		var isCategoryLocked bool
+		var isLocked bool
+		err := db.Get(&isCategoryLocked, `
+			SELECT COALESCE(qsc.is_locked, 0)
+			FROM tournament_participants tp
+			JOIN qualification_session_categories qsc ON qsc.session_uuid = ? AND qsc.category_uuid = tp.category_id
+			WHERE tp.uuid = ?
+		`, sessionUUID, participantUUID)
+		if err == nil {
+			isLocked = isCategoryLocked
+		} else {
+			isLocked = sessionConfig.IsLocked
+		}
+
+		if isLocked {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Qualification scoring for this category is locked. Score changes are not permitted."})
 			return
 		}
 
@@ -946,7 +1047,9 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			TargetUUID      string  `json:"target_id" db:"target_uuid"`
 			TargetName      string  `json:"target_name" db:"target_name"`
 			ArcherName      string  `json:"archer_name" db:"archer_name"`
+			AvatarURL       *string `json:"avatar_url" db:"avatar_url"`
 			ClubName        *string `json:"club_name" db:"club_name"`
+			CategoryName    *string `json:"category_name" db:"category_name"`
 			HasScore        bool    `json:"has_score" db:"has_score"`
 			TotalScore      int     `json:"total_score" db:"total_score"`
 			EndsCompleted   int     `json:"ends_completed" db:"ends_completed"`
@@ -960,13 +1063,18 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 				qta.target_uuid,
 				COALESCE(et.target_name, '') as target_name,
 				COALESCE(a.full_name, '') as archer_name,
+				a.avatar_url,
 				c.name as club_name,
+				COALESCE(tc.category_name_custom, CONCAT(bt.name, ' ', ag.name), '') as category_name,
 				COALESCE(SUM(qes.total_score_end), 0) as total_score,
 				COUNT(DISTINCT qes.end_number) as ends_completed,
 				CASE WHEN COUNT(qes.uuid) > 0 THEN 1 ELSE 0 END as has_score
 			FROM qualification_target_assignments qta
 			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
 			LEFT JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN tournament_categories tc ON ep.category_id = tc.uuid
+			LEFT JOIN ref_bow_types bt ON tc.division_uuid = bt.uuid
+			LEFT JOIN ref_age_groups ag ON tc.category_uuid = ag.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
@@ -979,7 +1087,7 @@ func GetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, categoryID)
 		}
 
-		query += " GROUP BY qta.uuid, qta.participant_uuid, qta.target_uuid, et.target_name, a.full_name, c.name ORDER BY (et.target_name + 0) ASC, et.target_name ASC"
+		query += " GROUP BY qta.uuid, qta.participant_uuid, qta.target_uuid, et.target_name, a.full_name, a.avatar_url, c.name, tc.category_name_custom, bt.name, ag.name ORDER BY (et.target_name + 0) ASC, et.target_name ASC"
 
 		err := db.Select(&assignments, query, args...)
 

@@ -9,12 +9,9 @@ type Archer struct {
 	UUID                   string     `json:"uuid" db:"uuid"`
 	Username               *string    `json:"username" db:"username"`
 	FullName               string     `json:"full_name" db:"full_name"`
-	NIK                    *string    `json:"nik" db:"nik"`
 	DateOfBirth            *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender                 *string    `json:"gender" db:"gender"` // M, F, X
 	HandDominance          *string    `json:"hand_dominance" db:"hand_dominance"`
-	HeightCM               *int       `json:"height_cm" db:"height_cm"`
-	WeightKG               *int       `json:"weight_kg" db:"weight_kg"`
 	Email                  *string    `json:"email" db:"email"`
 	Phone                  *string    `json:"phone" db:"phone"`
 	EmergencyContactName   *string    `json:"emergency_contact_name" db:"emergency_contact_name"`
@@ -79,12 +76,9 @@ type CreateArcherRequest struct {
 type UpdateArcherRequest struct {
 	FullName              *string       `json:"full_name"`
 	Username              *string       `json:"username"`
-	NIK                   *string       `json:"nik"`
 	DateOfBirth           *FlexibleTime `json:"date_of_birth"`
 	Gender                *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
 	HandDominance         *string       `json:"hand_dominance" binding:"omitempty,oneof=right left"`
-	HeightCM              *int          `json:"height_cm"`
-	WeightKG              *int          `json:"weight_kg"`
 	BowType               *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country               *string       `json:"country"`
 	City                  *string       `json:"city"`

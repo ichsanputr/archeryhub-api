@@ -19,6 +19,7 @@ type RegisterEmailRequest struct {
 	UserType         string `json:"user_type" binding:"required"` // archer, organizer
 	FullName         string `json:"full_name"`
 	OrganizationName string `json:"organization_name"`
+	Gender           string `json:"gender"`
 	Email            string `json:"email" binding:"required,email"`
 	Password         string `json:"password" binding:"required,min=6"`
 	Phone            string `json:"phone"`
@@ -183,18 +184,28 @@ func RegisterWithEmail(db *sqlx.DB) gin.HandlerFunc {
 				clubIDVal = &clubID
 			}
 
+			genderVal := "male"
+			if req.Gender != "" {
+				g := strings.ToLower(strings.TrimSpace(req.Gender))
+				if g == "female" || g == "perempuan" || g == "wanita" || g == "p" || g == "f" {
+					genderVal = "female"
+				} else {
+					genderVal = "male"
+				}
+			}
+
 			if isUpdate {
 				_, err = tx.Exec(`
 					UPDATE archers
-					SET password = ?, full_name = ?, phone = ?, club_id = ?, status = 'inactive', is_verified = false, updated_at = NOW()
+					SET password = ?, full_name = ?, phone = ?, club_id = ?, gender = ?, status = 'inactive', is_verified = false, updated_at = NOW()
 					WHERE uuid = ?
-				`, hashedPassword, name, phone, clubIDVal, userID)
+				`, hashedPassword, name, phone, clubIDVal, genderVal, userID)
 			} else {
 				insertQuery := `
 					INSERT INTO archers (uuid, id, username, email, password, full_name, phone, status, is_verified, gender, date_of_birth, bow_type, club_id, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive', false, NULL, NULL, NULL, ?, NOW(), NOW())
+					VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive', false, ?, NULL, NULL, ?, NOW(), NOW())
 				`
-				_, err = tx.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, name, phone, clubIDVal)
+				_, err = tx.Exec(insertQuery, userID, athleteID, username, req.Email, hashedPassword, name, phone, genderVal, clubIDVal)
 			}
 		}
 

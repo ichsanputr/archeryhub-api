@@ -2,12 +2,17 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -253,6 +258,12 @@ func GetDocDetail() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		lang := strings.ToLower(c.DefaultQuery("lang", "en"))
 		paramSlug := normalizeDocSlugParam(c.Param("slug"))
+		if strings.HasSuffix(paramSlug, "/id") {
+			paramSlug = strings.TrimSuffix(paramSlug, "/id")
+			if c.Query("lang") == "" {
+				lang = "id"
+			}
+		}
 		// We store docs as flat files using the base slug as the filename.
 		// URL can be nested: /docs/{category}/{slug}
 		baseSlug := path.Base(paramSlug)
@@ -345,6 +356,160 @@ func DeleteDoc(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Documentation article deleted successfully",
 			"slug":    baseSlug,
+		})
+	}
+}
+
+// ReplaceDocImage handles smart image replacement for documentation in dev / localhost mode.
+// Route: POST /docs/replace-image
+func ReplaceDocImage() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fileHeader, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded", "details": err.Error()})
+			return
+		}
+
+		rawSlug := c.PostForm("slug")
+		baseSlug := path.Base(normalizeDocSlugParam(rawSlug))
+		if baseSlug == "." || baseSlug == "/" || baseSlug == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid documentation slug"})
+			return
+		}
+
+		if baseSlug == "user-roles" {
+			baseSlug = "account-types"
+		}
+
+		oldSrc := strings.TrimSpace(c.PostForm("old_src"))
+
+		fileExt := strings.ToLower(filepath.Ext(fileHeader.Filename))
+		if fileExt == "" {
+			fileExt = ".webp"
+		}
+
+		// Generate clean filename
+		cleanBaseName := strings.TrimSuffix(fileHeader.Filename, filepath.Ext(fileHeader.Filename))
+		cleanBaseName = strings.ReplaceAll(cleanBaseName, " ", "-")
+		cleanBaseName = strings.ToLower(cleanBaseName)
+		cleanBaseName = regexp.MustCompile(`[^a-z0-9\-_]+`).ReplaceAllString(cleanBaseName, "-")
+		cleanBaseName = regexp.MustCompile(`-+`).ReplaceAllString(cleanBaseName, "-")
+		cleanBaseName = strings.Trim(cleanBaseName, "-")
+		if cleanBaseName == "" || cleanBaseName == "image" {
+			cleanBaseName = baseSlug
+		}
+
+		newFilename := fmt.Sprintf("%s-%d%s", cleanBaseName, time.Now().Unix(), fileExt)
+
+		// Read uploaded bytes
+		srcFile, err := fileHeader.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open uploaded file", "details": err.Error()})
+			return
+		}
+		defer srcFile.Close()
+
+		fileBytes, err := io.ReadAll(srcFile)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file bytes", "details": err.Error()})
+			return
+		}
+
+		// Destination folders: app/public/docs, api/public/docs, and api/media
+		targetDirs := []string{
+			filepath.Join("..", "app", "public", "docs"),
+			filepath.Join("app", "public", "docs"),
+			filepath.Join("public", "docs"),
+			"media",
+			filepath.Join("api", "media"),
+		}
+
+		for _, dir := range targetDirs {
+			_ = os.MkdirAll(dir, 0755)
+			destPath := filepath.Join(dir, newFilename)
+			_ = os.WriteFile(destPath, fileBytes, 0644)
+		}
+
+		newSrc := "/docs/" + newFilename
+
+		// Optional occurrence index (0-based) for the specific image instance
+		occurrenceIndex := -1
+		if occStr := c.PostForm("occurrence_index"); occStr != "" {
+			if parsed, err := strconv.Atoi(occStr); err == nil {
+				occurrenceIndex = parsed
+			}
+		}
+
+		replaceNthOccurrence := func(content, oldStr, newStr string, occ int) string {
+			if occ < 0 {
+				return strings.ReplaceAll(content, oldStr, newStr)
+			}
+			count := 0
+			start := 0
+			for {
+				idx := strings.Index(content[start:], oldStr)
+				if idx == -1 {
+					break
+				}
+				actualIdx := start + idx
+				if count == occ {
+					return content[:actualIdx] + newStr + content[actualIdx+len(oldStr):]
+				}
+				count++
+				start = actualIdx + len(oldStr)
+			}
+			return strings.Replace(content, oldStr, newStr, 1)
+		}
+
+		// Find data/docs/{baseSlug}.json across possible directories
+		possibleDocPaths := []string{
+			filepath.Join("data", "docs", baseSlug+".json"),
+			filepath.Join("api", "data", "docs", baseSlug+".json"),
+			filepath.Join("..", "api", "data", "docs", baseSlug+".json"),
+		}
+
+		for _, jsonFilePath := range possibleDocPaths {
+			if _, statErr := os.Stat(jsonFilePath); statErr == nil {
+				jsonData, readErr := os.ReadFile(jsonFilePath)
+				if readErr == nil {
+					var rawDoc map[string]interface{}
+					if jsonErr := json.Unmarshal(jsonData, &rawDoc); jsonErr == nil {
+						// Update UpdatedAt
+						rawDoc["updated_at"] = time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")
+
+						// Helper to replace oldSrc in a content string
+						replaceInContent := func(fieldMap map[string]interface{}, key string) {
+							if val, ok := fieldMap[key].(string); ok && val != "" {
+								if oldSrc != "" {
+									fieldMap[key] = replaceNthOccurrence(val, oldSrc, newSrc, occurrenceIndex)
+								}
+							}
+						}
+
+						if enMap, ok := rawDoc["en"].(map[string]interface{}); ok {
+							replaceInContent(enMap, "content")
+						}
+						if idMap, ok := rawDoc["id"].(map[string]interface{}); ok {
+							replaceInContent(idMap, "content")
+						}
+
+						updatedBytes, marshalErr := json.MarshalIndent(rawDoc, "", "  ")
+						if marshalErr == nil {
+							_ = os.WriteFile(jsonFilePath, updatedBytes, 0644)
+						}
+					}
+				}
+				break
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "success",
+			"message":  "Gambar dokumentasi berhasil diganti dan disimpan ke data/docs",
+			"new_src":  newSrc,
+			"old_src":  oldSrc,
+			"slug":     baseSlug,
+			"filename": newFilename,
 		})
 	}
 }

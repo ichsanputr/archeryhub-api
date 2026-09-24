@@ -3151,14 +3151,14 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			WHERE em.bracket_uuid = ? AND (em.is_bye = 0 OR em.is_bye IS NULL)
 			ORDER BY COALESCE(et.board_number, 9999) ASC, em.round_no ASC, em.match_no ASC`, bracket.UUID)
 
-		if len(matchRows) == 0 {
-			matchRows = append(matchRows, MatchRow{
+		blankMode := c.Query("blank") == "1"
+		if len(matchRows) == 0 || blankMode {
+			matchRows = []MatchRow{{
 				RoundNo: 1,
 				MatchNo: 1,
-			})
+			}}
 		}
 
-		blankMode := c.Query("blank") == "1"
 		isSetSystem := bracket.Format == "recurve_set" || strings.Contains(strings.ToLower(bracket.Format), "set")
 		numEnds := bracket.EndsPerMatch
 		if numEnds <= 0 {
@@ -3168,40 +3168,44 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		pdf := gofpdf.New("P", "mm", "A4", "")
 		pdf.SetAutoPageBreak(false, 0)
 
-		for _, m := range matchRows {
-			pdf.AddPage()
-
+		renderIndividualEliminationHalf := func(y float64, m MatchRow, copyBadge string) {
 			// 1. Header (Tournament & Document Info)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
 			pdf.SetLineWidth(0.2)
 
-			pdf.SetFont("Arial", "B", 10)
-			pdf.SetXY(10, 10)
-			pdf.CellFormat(120, 5, ev.Name, "", 0, "L", false, 0, "")
+			pdf.SetFont("Arial", "B", 9.5)
+			pdf.SetXY(10, y)
+			pdf.CellFormat(120, 4.5, ev.Name, "", 0, "L", false, 0, "")
 
-			pdf.SetFont("Arial", "B", 10)
-			pdf.SetXY(130, 10)
-			pdf.CellFormat(70, 5, "Individual Elimination Scoresheet", "", 1, "R", false, 0, "")
+			pdf.SetFont("Arial", "B", 9.5)
+			pdf.SetXY(130, y)
+			pdf.CellFormat(70, 4.5, "Individual Elimination Match", "", 1, "R", false, 0, "")
 
-			pdf.SetFont("Arial", "", 8)
-			pdf.SetTextColor(70, 70, 70)
-			pdf.SetXY(10, 15)
-			pdf.CellFormat(120, 4, fmt.Sprintf("%s | %s", loc, dateStr), "", 0, "L", false, 0, "")
+			pdf.SetFont("Arial", "", 6.8)
+			pdf.SetTextColor(80, 80, 80)
+			pdf.SetXY(10, y+4.5)
+			pdf.CellFormat(120, 3.5, fmt.Sprintf("%s | %s", loc, dateStr), "", 0, "L", false, 0, "")
 
-			pdf.SetXY(130, 15)
-			pdf.CellFormat(70, 4, "World Archery / PERPANI Official Match Record [C75A]", "", 1, "R", false, 0, "")
+			pdf.SetXY(130, y+4.5)
+			rightSub := "World Archery / IanSeo Official Match Record [C75A]"
+			if copyBadge != "" {
+				rightSub = fmt.Sprintf("WA / IanSeo Match Record  [%s]", copyBadge)
+			}
+			pdf.CellFormat(70, 3.5, rightSub, "", 1, "R", false, 0, "")
 
-			pdf.Line(10, 20, 200, 20)
+			pdf.SetDrawColor(180, 180, 180)
+			pdf.SetLineWidth(0.2)
+			pdf.Line(10, y+8.5, 200, y+8.5)
 
 			// 2. Round & Match Info Ribbon
 			roundName := getPrintElimRoundLabel(bracket.BracketSize, m.RoundNo, m.MatchNo)
-			pdf.SetFillColor(245, 245, 245)
+			pdf.SetFillColor(240, 240, 240)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
-			pdf.SetLineWidth(0.15)
-			pdf.SetFont("Arial", "B", 9)
-			pdf.SetXY(10, 22)
+			pdf.SetLineWidth(0.2)
+			pdf.SetFont("Arial", "B", 8)
+			pdf.SetXY(10, y+10)
 
 			targetInfo := "Target: -"
 			if m.TargetName.Valid && m.TargetName.String != "" {
@@ -3212,13 +3216,17 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 				schedInfo = fmt.Sprintf(" | Time: %s", m.ScheduledAt.Time.Format("02 Jan 15:04"))
 			}
 
-			infoText := fmt.Sprintf(" %s - %s | %s%s", bracket.CategoryName, roundName, targetInfo, schedInfo)
-			pdf.CellFormat(190, 7, infoText, "1", 1, "L", true, 0, "")
+			catName := bracket.CategoryName
+			if blankMode || catName == "" {
+				catName = "Individual Elimination"
+			}
+			infoText := fmt.Sprintf(" %s - %s | %s%s", catName, roundName, targetInfo, schedInfo)
+			pdf.CellFormat(190, 5.5, infoText, "1", 1, "L", true, 0, "")
 
 			// 3. Archer A Card (Left) & Archer B Card (Right)
 			cardW := 92.0
-			cardH := 24.0
-			yCards := 31.0
+			cardH := 18.0
+			yCards := y + 17.0
 
 			// Archer A Box
 			pdf.SetXY(10, yCards)
@@ -3228,33 +3236,34 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			if m.SeedA.Valid && m.SeedA.Int64 > 0 {
 				seedATxt = fmt.Sprintf("#%d", m.SeedA.Int64)
 			}
-			pdf.Rect(12, yCards+2, 12, 6, "D")
-			pdf.SetFont("Arial", "B", 8)
-			pdf.SetXY(12, yCards+2)
-			pdf.CellFormat(12, 6, seedATxt, "", 0, "C", false, 0, "")
+			pdf.SetFillColor(240, 240, 240)
+			pdf.Rect(11.5, yCards+1.5, 9, 4.5, "FD")
+			pdf.SetFont("Arial", "B", 7)
+			pdf.SetXY(11.5, yCards+1.5)
+			pdf.CellFormat(9, 4.5, seedATxt, "", 0, "C", false, 0, "")
 
-			pdf.SetFont("Arial", "B", 9.5)
-			pdf.SetXY(26, yCards+2)
+			pdf.SetFont("Arial", "B", 8.5)
+			pdf.SetXY(22, yCards+1.5)
 			nameA := strings.ToUpper(m.NameA.String)
 			if blankMode || nameA == "" {
 				nameA = "ARCHER A: ...................................."
 			}
-			pdf.CellFormat(74, 6, nameA, "", 1, "L", false, 0, "")
+			pdf.CellFormat(78, 4.5, nameA, "", 1, "L", false, 0, "")
 
 			pdf.SetTextColor(60, 60, 60)
-			pdf.SetFont("Arial", "", 7.5)
-			pdf.SetXY(12, yCards+9)
+			pdf.SetFont("Arial", "", 6.8)
+			pdf.SetXY(12, yCards+6.5)
 			clubAName := m.ClubA.String
 			if blankMode || clubAName == "" {
 				clubAName = "-"
 			}
 			nocA := generateNocCode(clubAName)
-			pdf.CellFormat(88, 3.5, fmt.Sprintf("[%s] %s", nocA, clubAName), "", 1, "L", false, 0, "")
+			pdf.CellFormat(88, 3.2, fmt.Sprintf("Club / Contingent: [%s] %s", nocA, clubAName), "", 1, "L", false, 0, "")
 
-			if m.BoardCode.Valid && m.BoardCode.String != "" {
-				pdf.SetFont("Arial", "B", 7)
-				pdf.SetXY(12, yCards+14)
-				pdf.CellFormat(88, 3.5, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
+			if m.BoardCode.Valid && m.BoardCode.String != "" && !blankMode {
+				pdf.SetFont("Arial", "B", 6.5)
+				pdf.SetXY(12, yCards+10.5)
+				pdf.CellFormat(88, 3.2, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
 			}
 
 			// Archer B Box
@@ -3267,43 +3276,45 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			if m.SeedB.Valid && m.SeedB.Int64 > 0 {
 				seedBTxt = fmt.Sprintf("#%d", m.SeedB.Int64)
 			}
-			pdf.Rect(xCardB+2, yCards+2, 12, 6, "D")
-			pdf.SetFont("Arial", "B", 8)
-			pdf.SetXY(xCardB+2, yCards+2)
-			pdf.CellFormat(12, 6, seedBTxt, "", 0, "C", false, 0, "")
+			pdf.SetFillColor(240, 240, 240)
+			pdf.Rect(xCardB+1.5, yCards+1.5, 9, 4.5, "FD")
+			pdf.SetFont("Arial", "B", 7)
+			pdf.SetXY(xCardB+1.5, yCards+1.5)
+			pdf.CellFormat(9, 4.5, seedBTxt, "", 0, "C", false, 0, "")
 
-			pdf.SetFont("Arial", "B", 9.5)
-			pdf.SetXY(xCardB+16, yCards+2)
+			pdf.SetFont("Arial", "B", 8.5)
+			pdf.SetXY(xCardB+12, yCards+1.5)
 			nameB := strings.ToUpper(m.NameB.String)
 			if blankMode || nameB == "" {
 				nameB = "ARCHER B: ...................................."
 			}
-			pdf.CellFormat(74, 6, nameB, "", 1, "L", false, 0, "")
+			pdf.CellFormat(78, 4.5, nameB, "", 1, "L", false, 0, "")
 
 			pdf.SetTextColor(60, 60, 60)
-			pdf.SetFont("Arial", "", 7.5)
-			pdf.SetXY(xCardB+2, yCards+9)
+			pdf.SetFont("Arial", "", 6.8)
+			pdf.SetXY(xCardB+2, yCards+6.5)
 			clubBName := m.ClubB.String
 			if blankMode || clubBName == "" {
 				clubBName = "-"
 			}
 			nocB := generateNocCode(clubBName)
-			pdf.CellFormat(88, 3.5, fmt.Sprintf("[%s] %s", nocB, clubBName), "", 1, "L", false, 0, "")
+			pdf.CellFormat(88, 3.2, fmt.Sprintf("Club / Contingent: [%s] %s", nocB, clubBName), "", 1, "L", false, 0, "")
 
-			if m.BoardCode.Valid && m.BoardCode.String != "" {
-				pdf.SetFont("Arial", "B", 7)
-				pdf.SetXY(xCardB+2, yCards+14)
-				pdf.CellFormat(88, 3.5, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
+			if m.BoardCode.Valid && m.BoardCode.String != "" && !blankMode {
+				pdf.SetFont("Arial", "B", 6.5)
+				pdf.SetXY(xCardB+2, yCards+10.5)
+				pdf.CellFormat(88, 3.2, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
 			}
 
 			// 4. Scoresheet Table (World Archery / IanSeo Standard)
-			yTable := yCards + cardH + 3.0
+			yTable := yCards + cardH + 2.5
 			pdf.SetY(yTable)
 			pdf.SetX(10)
-			pdf.SetFillColor(245, 245, 245)
+			pdf.SetFillColor(232, 232, 232)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
-			pdf.SetFont("Arial", "B", 7.5)
+			pdf.SetLineWidth(0.2)
+			pdf.SetFont("Arial", "B", 6.8)
 
 			setColTitle := "Set Pts"
 			runningColTitle := "Total Set"
@@ -3312,104 +3323,131 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 				runningColTitle = "Running"
 			}
 
-			arrowColW := 10.0
-			// Archer A Header (41mm + 15mm + 15mm + 16mm + 16mm VS + Archer B)
-			// Total table width = 190mm
-			// Left side: Set(8) + Arr1(10) + Arr2(10) + Arr3(10) + Total(16) + SetPts(15) + Running(16) = 85mm
-			// Center: VS(20mm)
-			// Right side: Running(16) + SetPts(15) + Total(16) + Arr1(10) + Arr2(10) + Arr3(10) + Set(8) = 85mm
-			// Total = 85 + 20 + 85 = 190mm
+			arrowColW := 9.0
+			wEnd := 7.5
+			wTot := 13.5
+			wSet := 14.5
+			wRun := 15.0
+			wCenter := 14.0
 
-			pdf.CellFormat(8, 7, "Set", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, 7, "1", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, 7, "2", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, 7, "3", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(16, 7, "Total", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(15, 7, setColTitle, "1", 0, "C", true, 0, "")
-			pdf.CellFormat(16, 7, runningColTitle, "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wEnd, 4.2, "Set", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, 4.2, "1", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, 4.2, "2", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, 4.2, "3", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wTot, 4.2, "Total", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wSet, 4.2, setColTitle, "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wRun, 4.2, runningColTitle, "1", 0, "C", true, 0, "")
 
 			// Center VS
-			pdf.CellFormat(20, 7, "VS", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wCenter, 4.2, "VS", "1", 0, "C", true, 0, "")
 
 			// Archer B side
-			pdf.CellFormat(16, 7, runningColTitle, "1", 0, "C", true, 0, "")
-			pdf.CellFormat(15, 7, setColTitle, "1", 0, "C", true, 0, "")
-			pdf.CellFormat(16, 7, "Total", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, 7, "1", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, 7, "2", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, 7, "3", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(8, 7, "Set", "1", 1, "C", true, 0, "")
+			pdf.CellFormat(wRun, 4.2, runningColTitle, "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wSet, 4.2, setColTitle, "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wTot, 4.2, "Total", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, 4.2, "1", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, 4.2, "2", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, 4.2, "3", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wEnd, 4.2, "Set", "1", 1, "C", true, 0, "")
 
 			// Sets / Ends Rows
-			rowH := 15.0
+			rowH := 5.2
 			for setNum := 1; setNum <= numEnds; setNum++ {
 				pdf.SetX(10)
-				pdf.SetFont("Arial", "B", 8.5)
-				pdf.SetFillColor(250, 250, 250)
-				pdf.CellFormat(8, rowH, fmt.Sprintf("%d", setNum), "1", 0, "C", true, 0, "")
+				pdf.SetFont("Arial", "B", 7.5)
+				pdf.SetFillColor(240, 240, 240)
+				pdf.CellFormat(wEnd, rowH, fmt.Sprintf("%d", setNum), "1", 0, "C", true, 0, "")
 
 				for a := 1; a <= 3; a++ {
 					pdf.CellFormat(arrowColW, rowH, "", "1", 0, "C", false, 0, "")
 				}
-				pdf.CellFormat(16, rowH, "", "1", 0, "C", true, 0, "")
-				pdf.CellFormat(15, rowH, "", "1", 0, "C", false, 0, "")
-				pdf.CellFormat(16, rowH, "", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(wTot, rowH, "", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(wSet, rowH, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(wRun, rowH, "", "1", 0, "C", true, 0, "")
 
-				pdf.CellFormat(20, rowH, fmt.Sprintf("S%d", setNum), "1", 0, "C", true, 0, "")
+				pdf.CellFormat(wCenter, rowH, fmt.Sprintf("S%d", setNum), "1", 0, "C", true, 0, "")
 
-				pdf.CellFormat(16, rowH, "", "1", 0, "C", true, 0, "")
-				pdf.CellFormat(15, rowH, "", "1", 0, "C", false, 0, "")
-				pdf.CellFormat(16, rowH, "", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(wRun, rowH, "", "1", 0, "C", true, 0, "")
+				pdf.CellFormat(wSet, rowH, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(wTot, rowH, "", "1", 0, "C", true, 0, "")
 				for a := 1; a <= 3; a++ {
 					pdf.CellFormat(arrowColW, rowH, "", "1", 0, "C", false, 0, "")
 				}
-				pdf.CellFormat(8, rowH, fmt.Sprintf("%d", setNum), "1", 1, "C", true, 0, "")
+				pdf.CellFormat(wEnd, rowH, fmt.Sprintf("%d", setNum), "1", 1, "C", true, 0, "")
 			}
 
 			// Shoot-Off Row (1 arrow each)
-			soH := 12.0
+			soH := 5.2
 			pdf.SetX(10)
-			pdf.SetFont("Arial", "B", 8)
+			pdf.SetFont("Arial", "B", 7)
 			pdf.SetFillColor(240, 240, 240)
-			pdf.CellFormat(8, soH, "S.O.", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wEnd, soH, "S.O.", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, soH, "", "1", 0, "C", false, 0, "")
+			pdf.CellFormat(arrowColW*2+wTot, soH, "Closest to Center: [   ]", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wSet, soH, "", "1", 0, "C", false, 0, "")
+			pdf.CellFormat(wRun, soH, "", "1", 0, "C", true, 0, "")
 
-			pdf.CellFormat(30, soH, "Arrow: [        ]", "1", 0, "C", false, 0, "")
-			pdf.CellFormat(47, soH, "Closest to Center: [   ]", "1", 0, "C", false, 0, "")
+			pdf.CellFormat(wCenter, soH, "TIE", "1", 0, "C", true, 0, "")
 
-			pdf.CellFormat(20, soH, "TIE", "1", 0, "C", true, 0, "")
-
-			pdf.CellFormat(47, soH, "Closest to Center: [   ]", "1", 0, "C", false, 0, "")
-			pdf.CellFormat(30, soH, "Arrow: [        ]", "1", 0, "C", false, 0, "")
-			pdf.CellFormat(8, soH, "S.O.", "1", 1, "C", true, 0, "")
+			pdf.CellFormat(wRun, soH, "", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wSet, soH, "", "1", 0, "C", false, 0, "")
+			pdf.CellFormat(arrowColW*2+wTot, soH, "Closest to Center: [   ]", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(arrowColW, soH, "", "1", 0, "C", false, 0, "")
+			pdf.CellFormat(wEnd, soH, "S.O.", "1", 1, "C", true, 0, "")
 
 			// 5. Final Result Box
-			yRes := pdf.GetY() + 4.0
-			pdf.SetY(yRes)
 			pdf.SetX(10)
-			pdf.SetFillColor(245, 245, 245)
-			pdf.SetFont("Arial", "B", 9)
-			pdf.CellFormat(60, 10, "FINAL SCORE:", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(70, 10, "WINNER: .................................................", "1", 0, "L", false, 0, "")
-			pdf.CellFormat(60, 10, "[  ] Side A     [  ] Side B", "1", 1, "C", true, 0, "")
+			pdf.SetFillColor(232, 232, 232)
+			pdf.SetFont("Arial", "B", 7)
+			pdf.CellFormat(wEnd+arrowColW*3+wTot, 5.5, "TOTAL SET POINTS / SCORE", "1", 0, "R", true, 0, "")
+			pdf.CellFormat(wSet+wRun, 5.5, "", "1", 0, "C", true, 0, "")
+
+			pdf.CellFormat(wCenter, 5.5, "WINNER", "1", 0, "C", true, 0, "")
+
+			pdf.CellFormat(wSet+wRun, 5.5, "", "1", 0, "C", true, 0, "")
+			pdf.CellFormat(wEnd+arrowColW*3+wTot, 5.5, "TOTAL SET POINTS / SCORE", "1", 1, "L", true, 0, "")
 
 			// 6. Signatures Section
-			ySig := pdf.GetY() + 4.0
+			ySig := y + 84.0
 			pdf.SetY(ySig)
-			pdf.SetX(10)
-			pdf.SetFont("Arial", "B", 8)
-			pdf.CellFormat(63, 5, "Archer A Signature", "LTR", 0, "C", false, 0, "")
-			pdf.CellFormat(64, 5, "Judge / Scorekeeper Signature", "LTR", 0, "C", false, 0, "")
-			pdf.CellFormat(63, 5, "Archer B Signature", "LTR", 1, "C", false, 0, "")
+			pdf.SetDrawColor(0, 0, 0)
+			pdf.SetLineWidth(0.15)
+			pdf.SetFont("Arial", "", 6.5)
 
-			pdf.SetX(10)
-			pdf.CellFormat(63, 16, "", "LBR", 0, "C", false, 0, "")
-			pdf.CellFormat(64, 16, "", "LBR", 0, "C", false, 0, "")
-			pdf.CellFormat(63, 16, "", "LBR", 1, "C", false, 0, "")
+			pdf.Line(15, ySig+9, 65, ySig+9)
+			pdf.SetXY(15, ySig+9.5)
+			pdf.CellFormat(50, 3.2, "Archer A Signature", "", 0, "C", false, 0, "")
 
-			pdf.SetY(pdf.GetY() + 2.0)
-			pdf.SetFont("Arial", "I", 7)
-			pdf.SetTextColor(100, 100, 100)
-			pdf.CellFormat(190, 3, "The signatures certify the correctness of the match result in accordance with World Archery Rules.", "", 1, "C", false, 0, "")
+			pdf.Line(82.5, ySig+9, 132.5, ySig+9)
+			pdf.SetXY(82.5, ySig+9.5)
+			pdf.CellFormat(50, 3.2, "Judge / Scorekeeper Signature", "", 0, "C", false, 0, "")
+
+			pdf.Line(150, ySig+9, 200, ySig+9)
+			pdf.SetXY(150, ySig+9.5)
+			pdf.CellFormat(50, 3.2, "Archer B Signature", "", 1, "C", false, 0, "")
+
+			pdf.SetFont("Arial", "I", 5.2)
+			pdf.SetTextColor(110, 110, 110)
+			pdf.SetXY(10, ySig+13.5)
+			pdf.CellFormat(190, 2.5, fmt.Sprintf("%s | %s | %s | WA Rules Match Record", ev.Name, catName, dateStr), "", 1, "C", false, 0, "")
+		}
+
+		for _, m := range matchRows {
+			pdf.AddPage()
+
+			// Top Half (Scorer / Judge Copy)
+			renderIndividualEliminationHalf(8.0, m, "Scorer Copy")
+
+			// Middle Cut Line (Dotted guide at Y = 148.5mm)
+			pdf.SetDrawColor(160, 160, 160)
+			pdf.SetLineWidth(0.15)
+			pdf.SetFont("Arial", "", 6)
+			pdf.SetTextColor(120, 120, 120)
+			pdf.SetXY(6, 147.0)
+			pdf.CellFormat(198, 3, "✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -", "", 1, "C", false, 0, "")
+
+			// Bottom Half (Athlete Copy)
+			renderIndividualEliminationHalf(154.0, m, "Athlete Copy")
 		}
 
 		setPdfHeaders(c, fmt.Sprintf("EliminationScoresheet-%s.pdf", ev.Slug))
@@ -3419,4 +3457,5 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 		}
 	}
 }
+
 

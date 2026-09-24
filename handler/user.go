@@ -280,10 +280,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", club_id = ?"
 			args = append(args, *req.ClubID)
 		}
-		if req.NIK != nil {
-			query += ", nik = ?"
-			args = append(args, *req.NIK)
-		}
 		if req.DateOfBirth != nil {
 			query += ", date_of_birth = ?"
 			args = append(args, *req.DateOfBirth)
@@ -295,14 +291,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.HandDominance != nil {
 			query += ", hand_dominance = ?"
 			args = append(args, *req.HandDominance)
-		}
-		if req.HeightCM != nil {
-			query += ", height_cm = ?"
-			args = append(args, *req.HeightCM)
-		}
-		if req.WeightKG != nil {
-			query += ", weight_kg = ?"
-			args = append(args, *req.WeightKG)
 		}
 		if req.EmergencyContactName != nil {
 			query += ", emergency_contact_name = ?"

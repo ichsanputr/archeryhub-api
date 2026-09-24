@@ -1,31 +1,62 @@
 {
-  "slug": "tournament-payment-verification",
-  "icon": "ph:receipt-bold",
   "category": "tournaments",
-  "order": 5,
-  "readTime": "4 min",
   "en": {
-    "title": "Verifying Registration Payments",
+    "content": "<p>When archers register for your tournament, their registrations start with a <em>Pending Payment</em> status until their transaction is verified. Depending on the payment method they chose — automatic gateway or manual bank transfer — verification either happens instantly or requires your manual review. This guide explains both workflows so you know exactly what to do for each payment type.</p>\n\n<h2 id=\"overview\">1. Overview of Payment Verification</h2>\n<p>Archeris supports two primary payment workflows:</p>\n<ul>\n  <li><strong>Direct Manual Transfer:</strong> Participants upload a payment receipt (bank transfer slip, QRIS screenshot). You review the image and mark the transaction as paid.</li>\n  <li><strong>Automated Payment Gateway:</strong> Payments made via Mayar (QRIS, Virtual Account, e-wallet) or PayPal are verified automatically via webhook — no action required from you.</li>\n</ul>\n<img src=\"/docs/fireshot-capture-024---payment-verification---archeris-dashboard---[localhost]-1790176993.png\" alt=\"Tournament Payments page showing transaction list with status badges: Paid, Pending Verification, and Pending\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n<p>You can access all payment transactions for a specific tournament from <strong>Organizer Dashboard &gt; Tournaments &gt; [Your Tournament] &gt; Payments</strong>.</p>\n\n<h2 id=\"manual-transfer\">2. Manual Bank Transfer Verification</h2>\n<p>To inspect and confirm manual bank transfer submissions:</p>\n<ol>\n  <li>Go to <strong>Organizer Dashboard &gt; Tournaments &gt; [Select Tournament] &gt; Payments</strong>.</li>\n  <li>Filter the transaction list by <strong>Status: Awaiting Verification</strong>.</li>\n  <li>Click any transaction row to open the transaction detail view.</li>\n  <li>Inspect the uploaded receipt image, bank reference number, transfer timestamp, and amount against your actual bank statement.</li>\n</ol>\n<p>Cross-check the transfer amount carefully against the invoice total before approving. Partial payments or mismatched amounts are the most common reason for rejection.</p>\n\n<h2 id=\"gateway-verification\">3. Automatic Gateway Verification</h2>\n<p>For payments made via Mayar (QRIS, Virtual Account, GoPay, OVO, Dana, ShopeePay, or card) and PayPal, the status updates to <strong>Paid</strong> in real time as soon as the participant completes checkout. The system automatically releases the participant's confirmed registration slot and assigns their category quota. You do not need to take any action for these transactions.</p>\n\n<h2 id=\"approve-reject\">4. Approving or Rejecting Transactions</h2>\n<p>When reviewing a pending manual payment, you have two options:</p>\n<ul>\n  <li><strong>Approve:</strong> Click <strong>Approve Payment</strong>. The transaction status switches to <em>Paid</em>, the participant's registration is confirmed, and a confirmation notification is sent to them.</li>\n  <li><strong>Reject:</strong> Click <strong>Reject Payment</strong> and enter a brief reason (e.g., <em>\"Transfer amount did not match the registration fee — please re-upload a valid receipt\"</em>). The participant can then re-upload a corrected receipt from their account dashboard.</li>\n</ul>\n<img src=\"/docs/fireshot-capture-026---tagihan-trx-tt1-20260923-0015---archeris-dashboard---localhost-1790177356.png\" alt=\"Transaction detail view showing the uploaded payment proof image, Approve and Reject buttons, and transaction summary\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n<p>Always write a clear rejection reason — participants cannot see your bank account statement, so a specific message helps them understand exactly what went wrong and what to fix.</p>",
     "excerpt": "Learn how organizers review participant payment proofs, verify bank transfers or gateway transactions, approve tournament slots, and manage payment statuses.",
+    "title": "Verifying Registration Payments",
     "toc": [
-      { "id": "overview", "level": 2, "text": "1. Overview of Payment Verification" },
-      { "id": "manual-transfer", "level": 2, "text": "2. Manual Bank Transfer Verification" },
-      { "id": "gateway-verification", "level": 2, "text": "3. Automatic Gateway Verification" },
-      { "id": "approve-reject", "level": 2, "text": "4. Approving or Rejecting Transactions" },
-      { "id": "reconciliation", "level": 2, "text": "5. Bulk Payment Reconciliation" }
-    ],
-    "content": "<p>When archers or club managers register for a tournament, their registrations remain in a <em>Pending Payment</em> status until their transaction is verified and approved. Panitia/organizers can monitor and validate all inbound registration fees through the <strong>Payments &amp; Transactions</strong> module.</p>\n\n<h2 id=\"overview\">1. Overview of Payment Verification</h2>\n<p>Archeris supports two primary payment workflows:</p>\n<ul>\n  <li><strong>Direct Manual Transfer:</strong> Participants upload payment receipts (slip transfer bank, QRIS screenshot). Organizers review the receipt image and mark the transaction as paid.</li>\n  <li><strong>Automated Payment Gateway:</strong> In supported regions, payments made via online gateways (Midtrans, PayPal, Virtual Account) are verified and confirmed automatically via instant webhooks.</li>\n</ul>\n\n<h2 id=\"manual-transfer\">2. Manual Bank Transfer Verification</h2>\n<p>To inspect and confirm manual bank transfer submissions:</p>\n<ol>\n  <li>Go to <strong>Organizer Dashboard &gt; Tournaments &gt; Select Event &gt; Payments</strong>.</li>\n  <li>Filter the transaction list by <strong>Status: Pending Verification</strong>.</li>\n  <li>Click on any transaction row to view the transaction details modal.</li>\n  <li>Inspect the uploaded receipt image, bank reference number, transfer timestamp, and nominal amount against your bank account statement.</li>\n</ol>\n\n<h2 id=\"gateway-verification\">3. Automatic Gateway Verification</h2>\n<p>For automated gateway transactions, the status updates in real time to <strong>Paid / Completed</strong> as soon as the participant completes checkout. The system automatically releases the participant's official tournament bib number and assigns their category quota slot.</p>\n\n<h2 id=\"approve-reject\">4. Approving or Rejecting Transactions</h2>\n<p>When reviewing a pending manual payment:</p>\n<ul>\n  <li><strong>Approve (Confirm Payment):</strong> Click <strong>Approve Payment</strong>. The transaction status switches to <em>Paid</em>, the participant's registration is confirmed, and a confirmation email is dispatched with the tournament entry voucher.</li>\n  <li><strong>Reject (Invalid Receipt / Nominal Mismatch):</strong> Click <strong>Reject Payment</strong>. Enter a brief explanation for the participant (e.g., <em>\"Transfer amount did not match registration fee, please re-upload valid proof\"</em>). The participant can re-upload a corrected receipt from their portal.</li>\n</ul>\n\n<h2 id=\"reconciliation\">5. Bulk Payment Reconciliation</h2>\n<p>Organizers managing large multi-category championships can export payment reports into <strong>Excel (XLSX)</strong> or <strong>CSV</strong> format for bookkeeping and financial audits. The export includes transaction UUIDs, archer names, club affiliations, registered categories, amounts paid, and approval timestamps.</p>"
+      {
+        "id": "overview",
+        "level": 2,
+        "text": "1. Overview of Payment Verification"
+      },
+      {
+        "id": "manual-transfer",
+        "level": 2,
+        "text": "2. Manual Bank Transfer Verification"
+      },
+      {
+        "id": "gateway-verification",
+        "level": 2,
+        "text": "3. Automatic Gateway Verification"
+      },
+      {
+        "id": "approve-reject",
+        "level": 2,
+        "text": "4. Approving or Rejecting Transactions"
+      }
+    ]
   },
+  "icon": "ph:receipt-bold",
   "id": {
-    "title": "Verifikasi Pembayaran Pendaftaran",
+    "content": "<p>Ketika pemanah mendaftar ke turnamen, status pendaftaran mereka dimulai sebagai <em>Menunggu Pembayaran</em> hingga transaksi diverifikasi. Bergantung pada metode pembayaran yang dipilih — gateway otomatis atau transfer bank manual — verifikasi bisa terjadi secara instan atau memerlukan tinjauan manual dari Anda. Panduan ini menjelaskan kedua alur tersebut agar Anda tahu persis apa yang harus dilakukan untuk setiap jenis pembayaran.</p>\n\n<h2 id=\"overview\">1. Gambaran Umum Verifikasi Pembayaran</h2>\n<p>Archeris mendukung dua mekanisme pembayaran:</p>\n<ul>\n  <li><strong>Transfer Manual Rekening Panitia:</strong> Peserta mengunggah foto bukti transfer bank atau struk QRIS. Anda memeriksa gambar dan menandai transaksi sebagai lunas.</li>\n  <li><strong>Payment Gateway Otomatis:</strong> Pembayaran via Mayar (QRIS, Virtual Account, e-wallet) atau PayPal diverifikasi otomatis lewat webhook real-time — tidak ada tindakan yang perlu Anda lakukan.</li>\n</ul>\n<img src=\"/docs/fireshot-capture-024---payment-verification---archeris-dashboard---[localhost]-1790176993.png\" alt=\"Halaman Payments turnamen menampilkan daftar transaksi dengan badge status: Lunas, Menunggu Verifikasi, dan Pending\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n<p>Anda bisa mengakses semua transaksi pembayaran untuk satu turnamen melalui <strong>Dashboard Organizer &gt; Turnamen &gt; [Turnamen Anda] &gt; Payments</strong>.</p>\n\n<h2 id=\"manual-transfer\">2. Verifikasi Transfer Bank Manual</h2>\n<p>Langkah-langkah memeriksa dan mengonfirmasi bukti transfer manual:</p>\n<ol>\n  <li>Buka menu <strong>Dashboard Organizer &gt; Turnamen &gt; [Pilih Turnamen] &gt; Payments</strong>.</li>\n  <li>Filter daftar transaksi dengan status <strong>Menunggu Verifikasi (Awaiting Verification)</strong>.</li>\n  <li>Klik baris transaksi untuk membuka tampilan detail transaksi.</li>\n  <li>Periksa gambar bukti transfer, nomor referensi bank, waktu transfer, dan nominal dengan mutasi rekening resmi turnamen Anda.</li>\n</ol>\n<p>Periksa nominal transfer secara teliti dengan total invoice sebelum menyetujui. Pembayaran kurang atau nominal tidak sesuai adalah alasan paling umum untuk penolakan.</p>\n\n<h2 id=\"gateway-verification\">3. Verifikasi Gateway Otomatis</h2>\n<p>Untuk pembayaran via Mayar (QRIS, Virtual Account, GoPay, OVO, Dana, ShopeePay, atau kartu) dan PayPal, status langsung berubah menjadi <strong>Lunas (Paid)</strong> secara real-time begitu peserta menyelesaikan checkout. Sistem otomatis mengamankan slot pendaftaran yang terkonfirmasi dan mengalokasikan kuota kategori peserta. Anda tidak perlu melakukan tindakan apa pun untuk transaksi-transaksi ini.</p>\n\n<h2 id=\"approve-reject\">4. Menyetujui atau Menolak Transaksi</h2>\n<p>Saat memproses pembayaran manual yang menunggu verifikasi, Anda punya dua pilihan:</p>\n<ul>\n  <li><strong>Setujui (Approve):</strong> Klik <strong>Setujui Pembayaran</strong>. Status transaksi berubah menjadi <em>Lunas</em>, pendaftaran peserta terkonfirmasi aktif, dan notifikasi konfirmasi otomatis dikirimkan ke mereka.</li>\n  <li><strong>Tolak (Reject):</strong> Klik <strong>Tolak Pembayaran</strong> dan masukkan alasan singkat (contoh: <em>\"Nominal transfer kurang dari total tagihan — silakan unggah ulang bukti yang sesuai\"</em>). Peserta bisa mengunggah ulang bukti dari dashboard akun mereka.</li>\n</ul>\n<img src=\"/docs/fireshot-capture-026---tagihan-trx-tt1-20260923-0015---archeris-dashboard---localhost-1790177356.png\" alt=\"Tampilan detail transaksi menampilkan gambar bukti pembayaran, tombol Setujui dan Tolak, serta ringkasan transaksi\" class=\"w-full rounded-2xl border border-gray-200 shadow-sm my-6\" />\n<p>Selalu tulis alasan penolakan yang jelas — peserta tidak bisa melihat rekening koran Anda, jadi pesan yang spesifik membantu mereka memahami apa yang salah dan apa yang perlu diperbaiki.</p>",
     "excerpt": "Pelajari cara panitia memeriksa bukti transfer peserta, memvalidasi transaksi gateway, mengonfirmasi slot pendaftaran atlet, dan mengelola status pembayaran.",
+    "title": "Verifikasi Pembayaran Pendaftaran",
     "toc": [
-      { "id": "overview", "level": 2, "text": "1. Gambaran Umum Verifikasi Pembayaran" },
-      { "id": "manual-transfer", "level": 2, "text": "2. Verifikasi Transfer Bank Manual" },
-      { "id": "gateway-verification", "level": 2, "text": "3. Verifikasi Gateway Otomatis" },
-      { "id": "approve-reject", "level": 2, "text": "4. Menyetujui atau Menolak Transaksi" },
-      { "id": "reconciliation", "level": 2, "text": "5. Rekonsiliasi Pembayaran Massal" }
-    ],
-    "content": "<p>Ketika pemanah atau manajer klub mendaftar ke turnamen, status pendaftaran mereka berstatus <em>Menunggu Pembayaran (Pending)</em> hingga bukti transfer atau transaksi diverifikasi oleh panitia. Panitia dapat memantau dan memvalidasi seluruh biaya pendaftaran melalui menu <strong>Pembayaran &amp; Transaksi</strong>.</p>\n\n<h2 id=\"overview\">1. Gambaran Umum Verifikasi Pembayaran</h2>\n<p>Sistem Archeris mendukung dua mekanisme alur pembayaran:</p>\n<ul>\n  <li><strong>Transfer Manual Rekening Panitia:</strong> Peserta mengunggah foto bukti transfer bank atau struk QRIS. Panitia memeriksa kesesuaian mutasi rekening dan memvalidasi pembayaran secara manual.</li>\n  <li><strong>Payment Gateway Otomatis:</strong> Untuk metode pembayaran digital (Virtual Account, E-Wallet, Kartu Kredit), sistem memverifikasi transaksi secara otomatis via *webhook real-time* seketika pembayaran berhasil.</li>\n</ul>\n\n<h2 id=\"manual-transfer\">2. Verifikasi Transfer Bank Manual</h2>\n<p>Tahapan memeriksa dan mengonfirmasi bukti transfer manual:</p>\n<ol>\n  <li>Buka menu <strong>Dashboard Organizer &gt; Turnamen &gt; Pilih Event &gt; Pembayaran (Payments)</strong>.</li>\n  <li>Gunakan filter status <strong>Menunggu Verifikasi (Pending)</strong>.</li>\n  <li>Klik baris transaksi untuk membuka modal rincian pembayaran.</li>\n  <li>Periksa gambar bukti transfer, nomor referensi bank, waktu transfer, dan jumlah nominal pembayaran dengan mutasi rekening resmi turnamen.</li>\n</ol>\n\n<h2 id=\"gateway-verification\">3. Verifikasi Gateway Otomatis</h2>\n<p>Pada transaksi via payment gateway otomatis, status pembayaran langsung berubah menjadi <strong>Lunas (Paid)</strong> tanpa memerlukan verifikasi manual panitia. Sistem secara otomatis mengamankan kuota kategori lomba dan menerbitkan nomor peserta.</p>\n\n<h2 id=\"approve-reject\">4. Menyetujui atau Menolak Transaksi</h2>\n<p>Saat memproses pembayaran manual:</p>\n<ul>\n  <li><strong>Setujui (Konfirmasi Pembayaran):</strong> Klik tombol <strong>Setujui Pembayaran</strong>. Status transaksi berubah menjadi <em>Lunas</em>, slot peserta terkonfirmasi aktif, dan email konfirmasi otomatis dikirimkan ke peserta.</li>\n  <li><strong>Tolak (Bukti Tidak Valid / Nominal Kurang):</strong> Klik <strong>Tolak Pembayaran</strong> dan cantumkan alasan penolakan (contoh: <em>\"Nominal transfer kurang dari total tagihan, silakan unggah ulang bukti yang sesuai\"</em>). Peserta dapat mengunggah ulang bukti pembayaran yang benar melalui akun mereka.</li>\n</ul>\n\n<h2 id=\"reconciliation\">5. Rekonsiliasi Pembayaran Massal</h2>\n<p>Untuk turnamen berskala besar dengan ratusan peserta, panitia dapat mengekspor rekapitulasi data pembayaran ke dalam format <strong>Excel (XLSX)</strong> atau <strong>CSV</strong> untuk mempermudah audit pembukuan keuangan dan rekonsiliasi kas panitia.</p>"
-  }
+      {
+        "id": "overview",
+        "level": 2,
+        "text": "1. Gambaran Umum Verifikasi Pembayaran"
+      },
+      {
+        "id": "manual-transfer",
+        "level": 2,
+        "text": "2. Verifikasi Transfer Bank Manual"
+      },
+      {
+        "id": "gateway-verification",
+        "level": 2,
+        "text": "3. Verifikasi Gateway Otomatis"
+      },
+      {
+        "id": "approve-reject",
+        "level": 2,
+        "text": "4. Menyetujui atau Menolak Transaksi"
+      }
+    ]
+  },
+  "order": 6,
+  "readTime": "4 min",
+  "slug": "tournament-payment-verification",
+  "updated_at": "2026-09-23T15:31:56.028Z"
 }

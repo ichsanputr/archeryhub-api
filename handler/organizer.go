@@ -159,7 +159,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		offset := (page - 1) * limit
 
 		var totalEvents int
-		db.Get(&totalEvents, "SELECT COUNT(*) FROM tournaments WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')", org.UUID)
+		db.Get(&totalEvents, "SELECT COUNT(*) FROM tournaments WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed', 'active')", org.UUID)
 
 		var tournaments []struct {
 			UUID      string  `db:"uuid" json:"id"`
@@ -174,7 +174,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		db.Select(&tournaments, `
 			SELECT uuid, name, slug, start_date, end_date, venue, status, logo_url
 			FROM tournaments
-			WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed')
+			WHERE organizer_id = ? AND status IN ('published', 'ongoing', 'completed', 'active')
 			ORDER BY start_date DESC
 			LIMIT ? OFFSET ?
 		`, org.UUID, limit, offset)
@@ -218,7 +218,8 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"created_at":           org.CreatedAt,
 				"updated_at":           org.UpdatedAt,
 			},
-			"tournaments":       tournaments,
+			"tournaments":  tournaments,
+			"events":       tournaments,
 			"total_events": totalEvents,
 			"clubs":        []interface{}{},
 		}

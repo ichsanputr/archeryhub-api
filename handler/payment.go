@@ -1796,7 +1796,7 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Verify payment method is manual
-		if transaction.PaymentMethod == nil || *transaction.PaymentMethod != "manual" {
+		if transaction.PaymentMethod == nil || (*transaction.PaymentMethod != "manual" && *transaction.PaymentMethod != "manual_transfer") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Verifikasi hanya untuk pembayaran manual"})
 			return
 		}

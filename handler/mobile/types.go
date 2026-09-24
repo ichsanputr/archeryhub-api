@@ -87,13 +87,22 @@ type MobileEventGatewayRegistrationRequest struct {
 
 // MobileRegisterEventRequest represents the unified payload for event registration from mobile app.
 type MobileRegisterEventRequest struct {
-	EventID            string   `json:"event_id" binding:"required"`
-	AthleteID          string   `json:"athlete_id"`
-	EventCategoryID    string   `json:"event_category_id"`
-	EventCategoryIDs   []string `json:"event_category_ids"`
-	PaymentType        string   `json:"payment_type"` // "online" or "manual"
-	PaymentMethod      string   `json:"payment_method"`
-	RegistrationSource string   `json:"registration_source"`
+	EventID            string                              `json:"event_id" binding:"required"`
+	AthleteID          string                              `json:"athlete_id"`
+	EventCategoryID    string                              `json:"event_category_id"`
+	EventCategoryIDs   []string                            `json:"event_category_ids"`
+	PaymentType        string                              `json:"payment_type"` // "online" or "manual"
+	PaymentMethod      string                              `json:"payment_method"`
+	PaymentAmount      float64                             `json:"payment_amount"`
+	PaymentProofURL    string                              `json:"payment_proof_url"`
+	SenderName         string                              `json:"sender_name"`
+	RegistrationMode   string                              `json:"registration_mode"` // "captain_team" | "club_delegation"
+	ClubName           string                              `json:"club_name"`
+	ClubID             *string                             `json:"club_id,omitempty"`
+	DelegationAthletes []models.DelegationAthleteInput     `json:"delegation_athletes"`
+	DelegationTeams    []models.DelegationTeamBookingInput `json:"delegation_teams"`
+	TeamRegistrations  []models.TeamRegistrationInput      `json:"team_registrations"`
+	RegistrationSource string                              `json:"registration_source"`
 }
 
 // MobileSellerRegisterRequest represents the registration payload for a new seller.
@@ -455,6 +464,7 @@ type MobileMyEventItem struct {
 type MobileRegisterEventResponse struct {
 	Message              string   `json:"message"`
 	RegistrationID       string   `json:"registration_id"`
+	ParticipantIDs       []string `json:"participant_ids,omitempty"`
 	RegisteredCategories []string `json:"registered_categories"`
 	PaymentStatus        string   `json:"payment_status"`
 	TotalFee             float64  `json:"total_fee"`

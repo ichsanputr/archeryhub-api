@@ -6,12 +6,12 @@
   "readTime": "4 min",
   "en": {
     "title": "Scorekeeper Mobile Login",
-    "excerpt": "Walkthrough of scorekeeper authentication on mobile devices, lane selection, and device connection checks.",
+    "excerpt": "Walkthrough of scorekeeper authentication on the Archeris mobile app: entering the 5-character access code, selecting assigned target butts, and verifying connection before scoring begins.",
     "toc": [
       {
         "id": "portal-access",
         "level": 2,
-        "text": "1. Accessing the Mobile Portal"
+        "text": "1. Accessing the Mobile App"
       },
       {
         "id": "authentication-step",
@@ -26,19 +26,19 @@
       {
         "id": "network-check",
         "level": 2,
-        "text": "4. Connection Indicator & PWA Installation"
+        "text": "4. Connection Check & First End"
       }
     ],
-    "content": "<h2 id=\"portal-access\">1. Accessing the Mobile Portal</h2>\n<p>Scorekeepers open any standard mobile web browser (Chrome, Safari, Firefox, Edge) on a smartphone or tablet and navigate to <code>archeris.net/scorekeeper/login</code>.</p>\n\n<h2 id=\"authentication-step\">2. Entering the 5-Character Code</h2>\n<p>Type the assigned 5-character code into the large-format input box. The system automatically converts letters to uppercase and validates the code against the active tournament registry.</p>\n\n<h2 id=\"target-selection\">3. Selecting Assigned Target Butts</h2>\n<p>Upon successful code validation, the screen displays the assigned target butt (e.g., <em>Target Butt 12</em>) along with athlete names in positions 12A, 12B, 12C, and 12D. Confirm the names match the archers present at the target.</p>\n\n<h2 id=\"network-check\">4. Connection Indicator & PWA Installation</h2>\n<p>The top status bar displays a green connection dot indicating live server synchronization. Scorekeepers can tap <strong>Add to Home Screen</strong> to run Archeris as a full-screen standalone application without browser URL bars.</p>"
+    "content": "<p>Before the first qualification end begins, every field scorekeeper needs to log in to the Archeris mobile app using the 5-character access code provided by the tournament organizer. This process takes under 30 seconds — designed so that even a volunteer who has never used the app before can be ready at their target butt before the Director of Shooting gives the first shooting command.</p>\n\n<h2 id=\"portal-access\">1. Accessing the Mobile App</h2>\n<p>Download and open the <strong>Archeris mobile app</strong> on your smartphone or tablet. On the home screen, tap <strong>Scorekeeper Mode</strong> to go directly to the scorekeeper login page. You do not need to create an account or enter an email address — the access code is the only credential you need. Make sure your device has a working internet connection before tapping Scorekeeper Mode — the app needs to reach the tournament server to validate your code and load the target assignments.</p>\n\n<h2 id=\"authentication-step\">2. Entering the 5-Character Code</h2>\n<p>Type the assigned 5-character code into the large input boxes on the login screen. The app automatically converts all letters to uppercase and validates the code against the active tournament registry. If the code is correct, you will be taken straight to the target selection screen. If it fails, double-check the code with your tournament organizer — codes are case-insensitive but must match exactly.</p>\n<p>Your code remains valid for the entire duration of the tournament. You do not need to re-enter it every session — simply reopen the app and you will still be logged in. If a code stops working mid-tournament, the organizer may have toggled it to Inactive — contact them to re-enable access.</p>\n\n<h2 id=\"target-selection\">3. Selecting Assigned Target Butts</h2>\n<p>After successful code validation, the app displays the assigned target butt (e.g., <em>Target Butt 12</em>) along with the athlete names in positions 12A, 12B, 12C, and 12D. Before starting to enter scores, confirm that the names on screen match the archers physically standing at that target — if there is a mismatch, contact the tournament director to reassign the target allocation.</p>\n\n<h2 id=\"network-check\">4. Connection Check &amp; First End</h2>\n<p>The top status bar displays a green connection indicator when the app is synced live with the tournament server. Once you see green, the app is ready. Tap any archer name to open their scoring screen and begin entering arrow values for End 1. If the indicator is yellow or red, check your Wi-Fi or mobile data connection before proceeding — scores entered offline may not sync correctly.</p>"
   },
   "id": {
     "title": "Login Mobile Petugas Skor",
-    "excerpt": "Panduan autentikasi petugas skor di perangkat smartphone/tablet, pemilihan bantalan target, dan pengecekan koneksi lapangan.",
+    "excerpt": "Panduan autentikasi petugas skor di aplikasi mobile Archeris: memasukkan kode akses 5 karakter, memilih bantalan yang ditugaskan, dan memverifikasi koneksi sebelum scoring dimulai.",
     "toc": [
       {
         "id": "portal-access",
         "level": 2,
-        "text": "1. Mengakses Portal Mobile Scorekeeper"
+        "text": "1. Membuka Aplikasi Mobile"
       },
       {
         "id": "authentication-step",
@@ -53,9 +53,9 @@
       {
         "id": "network-check",
         "level": 2,
-        "text": "4. Indikator Koneksi & Mode Layar Penuh"
+        "text": "4. Cek Koneksi & Rambahan Pertama"
       }
     ],
-    "content": "<h2 id=\"portal-access\">1. Mengakses Portal Mobile Scorekeeper</h2>\n<p>Petugas skor dapat membuka browser di smartphone atau tablet (Chrome, Safari, dsb) lalu menuju alamat <code>archeris.net/scorekeeper/login</code> atau membuka aplikasi mobile Archeris.</p>\n\n<h2 id=\"authentication-step\">2. Memasukkan Kode 5 Karakter</h2>\n<p>Ketikkan kode akses 5 karakter yang telah diberikan panitia. Sistem secara otomatis memformat huruf menjadi kapital dan memvalidasi ke database turnamen.</p>\n\n<h2 id=\"target-selection\">3. Memilih Bantalan Target yang Ditugaskan</h2>\n<p>Setelah kode terverifikasi, layar akan menampilkan nomor bantalan (contoh: <em>Bantalan 12</em>) beserta nama-nama atlet di posisi 12A, 12B, 12C, dan 12D. Pastikan nama atlet sesuai dengan yang berdiri di garis tembak.</p>\n\n<h2 id=\"network-check\">4. Indikator Koneksi & Mode Layar Penuh</h2>\n<p>Indikator hijau di bagian atas menandakan koneksi sinkronisasi data ke server berjalan lancar. Petugas dapat memilih <em>Tambahkan ke Layar Utama (Add to Home Screen)</em> untuk pengalaman scoring layar penuh.</p>"
+    "content": "<p>Sebelum rambahan kualifikasi pertama dimulai, setiap petugas skor lapangan perlu login ke aplikasi mobile Archeris menggunakan kode akses 5 karakter yang diberikan panitia. Proses ini memakan waktu kurang dari 30 detik — dirancang agar bahkan relawan yang belum pernah menggunakan aplikasinya pun bisa siap di bantalan sebelum wasit memberikan aba-aba tembak pertama.</p>\n\n<h2 id=\"portal-access\">1. Membuka Aplikasi Mobile</h2>\n<p>Unduh dan buka <strong>aplikasi mobile Archeris</strong> di smartphone atau tablet Anda. Di layar utama, ketuk <strong>Mode Scorekeeper</strong> untuk langsung masuk ke halaman login petugas skor. Anda tidak perlu membuat akun atau memasukkan alamat email — kode akses adalah satu-satunya kredensial yang diperlukan. Pastikan perangkat Anda terhubung ke internet sebelum mengetuk Mode Scorekeeper — aplikasi perlu menjangkau server turnamen untuk memvalidasi kode dan memuat alokasi bantalan.</p>\n\n<h2 id=\"authentication-step\">2. Memasukkan Kode 5 Karakter</h2>\n<p>Ketikkan kode akses 5 karakter yang diberikan ke kotak input besar di layar login. Aplikasi otomatis mengubah semua huruf menjadi kapital dan memvalidasi kode terhadap registri turnamen aktif. Jika kode benar, Anda langsung diarahkan ke layar pemilihan bantalan. Jika gagal, periksa kembali kode bersama panitia — kode tidak peka huruf besar/kecil namun harus cocok persis.</p>\n<p>Kode Anda tetap berlaku selama turnamen berlangsung — tidak perlu memasukkannya ulang setiap sesi, cukup buka kembali aplikasi dan Anda masih dalam keadaan login. Jika kode tiba-tiba tidak berfungsi di tengah turnamen, kemungkinan panitia mengubah statusnya menjadi Nonaktif — hubungi mereka untuk mengaktifkan kembali akses.</p>\n\n<h2 id=\"target-selection\">3. Memilih Bantalan Target yang Ditugaskan</h2>\n<p>Setelah kode terverifikasi, aplikasi menampilkan bantalan yang ditugaskan (contoh: <em>Bantalan 12</em>) beserta nama-nama atlet di posisi 12A, 12B, 12C, dan 12D. Sebelum mulai menginput skor, konfirmasi bahwa nama di layar sesuai dengan pemanah yang berdiri di bantalan tersebut — jika ada ketidakcocokan, hubungi direktur pertandingan untuk menyesuaikan alokasi bantalan.</p>\n\n<h2 id=\"network-check\">4. Cek Koneksi &amp; Rambahan Pertama</h2>\n<p>Indikator status di bagian atas menampilkan tanda hijau saat aplikasi tersinkronisasi langsung dengan server turnamen. Setelah melihat hijau, aplikasi siap digunakan. Ketuk nama atlet mana saja untuk membuka layar scoring mereka dan mulai memasukkan nilai anak panah di Rambahan 1. Jika indikator berwarna kuning atau merah, periksa koneksi Wi-Fi atau data seluler Anda sebelum melanjutkan — skor yang dimasukkan dalam kondisi offline mungkin tidak tersinkronisasi dengan benar.</p>"
   }
 }

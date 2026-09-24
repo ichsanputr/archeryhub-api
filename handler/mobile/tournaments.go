@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MobileListEvents handles listing tournaments for mobile
@@ -529,6 +530,16 @@ func MobileGetEventGallery(db *sqlx.DB) gin.HandlerFunc {
 // @Param request body MobileRegisterEventRequest true "Registration Details"
 // @Success 200 {object} MobileRegisterEventResponse
 // @Router /mobile/archer/tournaments/register [post]
+// MobileRegisterEvent handles unified archer registration from mobile app
+// @Summary Register for Event (Unified)
+// @Description Register the authenticated archer for an event (handles both manual and gateway, self and club delegation)
+// @Tags Mobile - Archer
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param request body MobileRegisterEventRequest true "Registration Details"
+// @Success 200 {object} MobileRegisterEventResponse
+// @Router /mobile/archer/tournaments/register [post]
 func MobileRegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileRegisterEventRequest
@@ -537,80 +548,53 @@ func MobileRegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		internalReq := mobileRegistrationInternal{
-			EventID:          req.EventID,
-			AthleteID:        req.AthleteID,
-			EventCategoryID:  req.EventCategoryID,
-			EventCategoryIDs: req.EventCategoryIDs,
-			PaymentMethod:    req.PaymentMethod,
-			PaymentType:      "gateway",
-		}
-
-		processMobileRegistration(c, db, internalReq)
+		processMobileRegistration(c, db, req)
 	}
-}
-
-
-type mobileRegistrationInternal struct {
-	EventID          string
-	AthleteID        string
-	EventCategoryID  string
-	EventCategoryIDs []string
-	PaymentAmount    float64
-	PaymentMethod    string
-	PaymentType      string
 }
 
 // processMobileRegistration contains the core logic for mobile event registration
-func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrationInternal) {
-	// Re-use logic from RegisterParticipant but adapted for mobile responses and requirements
+func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEventRequest) {
 	// 1. Resolve Event
 	var event struct {
-		UUID        string  `db:"uuid"`
-		OrganizerID string  `db:"organizer_id"`
-		EntryFee    float64 `db:"entry_fee"`
+		UUID                 string     `db:"uuid"`
+		OrganizerID          string     `db:"organizer_id"`
+		EntryFee             float64    `db:"entry_fee"`
+		Status               string     `db:"status"`
+		RegistrationDeadline *time.Time `db:"registration_deadline"`
+		QuotaMaxParticipants *int       `db:"quota_max_participants"`
 	}
-	err := db.Get(&event, `SELECT uuid, organizer_id, COALESCE(entry_fee, 0.0) as entry_fee FROM tournaments WHERE uuid = ? OR slug = ?`, req.EventID, req.EventID)
+	err := db.Get(&event, `SELECT uuid, organizer_id, COALESCE(entry_fee, 0.0) as entry_fee, status, registration_deadline, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, req.EventID, req.EventID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 		return
 	}
 
-	// 2. Resolve Archer
-	userID := c.GetString("user_id")
-	var archerUUID string
-	if req.AthleteID != "" {
-		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
-	} else {
-		err = db.Get(&archerUUID, "SELECT uuid FROM archers WHERE uuid = ?", userID)
+	actualEventID := event.UUID
+
+	// Check registration deadline
+	if event.RegistrationDeadline != nil && time.Now().After(*event.RegistrationDeadline) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Pendaftaran untuk turnamen ini telah ditutup",
+			"code":  "registration_closed",
+		})
+		return
 	}
-	
-	if err != nil {
+
+	// 2. Resolve Authenticated Archer / Captain
+	userID := c.GetString("user_id")
+	var captainArcherUUID string
+	if req.AthleteID != "" {
+		_ = db.Get(&captainArcherUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
+	}
+	if captainArcherUUID == "" {
+		_ = db.Get(&captainArcherUUID, "SELECT uuid FROM archers WHERE uuid = ?", userID)
+	}
+	if captainArcherUUID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Profil pemanah tidak ditemukan atau tidak valid"})
 		return
 	}
 
-	// 3. Combine Categories
-	allCategoryIDs := []string{}
-	if req.EventCategoryID != "" {
-		allCategoryIDs = append(allCategoryIDs, req.EventCategoryID)
-	}
-	for _, catID := range req.EventCategoryIDs {
-		if catID != "" {
-			exists := false
-			for _, e := range allCategoryIDs {
-				if e == catID { exists = true; break }
-			}
-			if !exists { allCategoryIDs = append(allCategoryIDs, catID) }
-		}
-	}
-
-	if len(allCategoryIDs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Pilih setidaknya satu kategori"})
-		return
-	}
-
-	// 4. Transaction
+	// 3. Transaction
 	tx, err := db.Beginx()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
@@ -620,59 +604,383 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 
 	registrationDate := time.Now()
 	paymentStatus := "unpaid"
-
-	var firstRegID string
-	registeredCats := []string{}
-
-	for i, catID := range allCategoryIDs {
-		// Check duplicate
-		var exists bool
-		_ = tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND category_id = ? AND payment_status != 'cancelled')", event.UUID, archerUUID, catID)
-		if exists { continue }
-
-		// Check category quota capacity and fee
-		var catInfo struct {
-			Quota        int     `db:"quota"`
-			Fee          float64 `db:"fee"`
-			CurrentCount int     `db:"current_count"`
-		}
-		qErr := tx.Get(&catInfo, `
-			SELECT 
-				COALESCE(ec.quota, 0) as quota,
-				COALESCE(ec.fee, 0.0) as fee,
-				(SELECT COUNT(*) FROM tournament_participants WHERE category_id = ec.uuid AND payment_status != 'cancelled') as current_count
-			FROM tournament_categories ec WHERE ec.uuid = ? FOR UPDATE
-		`, catID)
-		if qErr == nil && catInfo.Quota > 0 && catInfo.CurrentCount >= catInfo.Quota {
-			c.JSON(http.StatusConflict, gin.H{"error": "Kuota pendaftaran untuk kategori ini telah penuh"})
-			return
-		}
-
-		catFee := event.EntryFee
-		if catInfo.Fee > 0 {
-			catFee = catInfo.Fee
-		}
-
-		regUUID := uuid.New().String()
-		if i == 0 { firstRegID = regUUID }
-
-		_, err = tx.Exec(`
-			INSERT INTO tournament_participants (
-				uuid, tournament_id, archer_id, category_id, 
-				registration_date, payment_status, payment_amount,
-				registration_source
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, regUUID, event.UUID, archerUUID, catID, registrationDate, paymentStatus, catFee, "self_register")
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan ke kategori: " + catID})
-			return
-		}
-		registeredCats = append(registeredCats, catID)
+	registrationMode := req.RegistrationMode
+	if registrationMode == "" {
+		registrationMode = "captain_team"
 	}
 
-	if len(registeredCats) == 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "Anda sudah terdaftar di semua kategori pilihan"})
+	allCreatedParticipantUUIDs := []string{}
+	registeredCats := []string{}
+	var calculatedTotalFee float64 = 0
+
+	type CategoryMeta struct {
+		UUID            string  `db:"uuid"`
+		TournamentID    string  `db:"tournament_id"`
+		MaxParticipants *int    `db:"max_participants"`
+		Fee             float64 `db:"fee"`
+		GenderCode      string  `db:"gender_code"`
+		AgeCode         string  `db:"age_code"`
+	}
+
+	getCatMeta := func(catUUID string) (*CategoryMeta, error) {
+		var meta CategoryMeta
+		err := tx.Get(&meta, `
+			SELECT tc.uuid, tc.tournament_id, tc.max_participants, COALESCE(tc.fee, 0.0) as fee,
+			       COALESCE(rgd.code, 'mixed') as gender_code,
+			       COALESCE(rag.code, 'umum') as age_code
+			FROM tournament_categories tc
+			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			WHERE tc.uuid = ? AND tc.tournament_id = ?
+		`, catUUID, actualEventID)
+		if err != nil {
+			return nil, err
+		}
+		return &meta, nil
+	}
+
+	checkQuota := func(meta *CategoryMeta) bool {
+		if meta.MaxParticipants == nil || *meta.MaxParticipants <= 0 {
+			return true
+		}
+		var currentCount int
+		_ = tx.Get(&currentCount, `
+			SELECT COUNT(*) FROM tournament_participants 
+			WHERE tournament_id = ? AND category_id = ? AND payment_status != 'cancelled'
+		`, actualEventID, meta.UUID)
+		return currentCount < *meta.MaxParticipants
+	}
+
+	if registrationMode == "captain_team" {
+		// ─────────────────────────────────────────────────────────────────────
+		// MODE 1: CAPTAIN & TEAM REGISTRATION
+		// ─────────────────────────────────────────────────────────────────────
+		allCategoryIDs := []string{}
+		if strings.TrimSpace(req.EventCategoryID) != "" {
+			allCategoryIDs = append(allCategoryIDs, strings.TrimSpace(req.EventCategoryID))
+		}
+		for _, catID := range req.EventCategoryIDs {
+			trimmed := strings.TrimSpace(catID)
+			if trimmed != "" {
+				exists := false
+				for _, e := range allCategoryIDs {
+					if e == trimmed {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					allCategoryIDs = append(allCategoryIDs, trimmed)
+				}
+			}
+		}
+
+		// Register captain for individual categories
+		for _, catID := range allCategoryIDs {
+			catMeta, errCat := getCatMeta(catID)
+			if errCat == nil && catMeta != nil {
+				if !checkQuota(catMeta) {
+					c.JSON(http.StatusConflict, gin.H{
+						"error":       "Kuota untuk kategori ini sudah penuh",
+						"code":        "quota_exceeded",
+						"category_id": catMeta.UUID,
+					})
+					return
+				}
+			}
+
+			catFee := event.EntryFee
+			if catMeta != nil && catMeta.Fee > 0 {
+				catFee = catMeta.Fee
+			}
+
+			var existingUUID string
+			_ = tx.Get(&existingUUID, `
+				SELECT uuid FROM tournament_participants 
+				WHERE tournament_id = ? AND archer_id = ? AND category_id = ? AND payment_status != 'cancelled'
+				LIMIT 1
+			`, actualEventID, captainArcherUUID, catID)
+
+			if existingUUID != "" {
+				allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, existingUUID)
+				registeredCats = append(registeredCats, catID)
+				continue
+			}
+
+			partUUID := uuid.New().String()
+			_, err = tx.Exec(`
+				INSERT INTO tournament_participants (
+					uuid, tournament_id, archer_id, category_id, 
+					registration_date, payment_status, payment_amount,
+					registration_source
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`, partUUID, actualEventID, captainArcherUUID, catID, registrationDate, paymentStatus, catFee, "self_register")
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan peserta", "details": err.Error()})
+				return
+			}
+
+			allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, partUUID)
+			registeredCats = append(registeredCats, catID)
+			calculatedTotalFee += catFee
+		}
+
+		// Process Team Registrations
+		for _, teamInput := range req.TeamRegistrations {
+			if teamInput.CategoryID == "" {
+				continue
+			}
+
+			catMeta, _ := getCatMeta(teamInput.CategoryID)
+			teamFee := event.EntryFee
+			if catMeta != nil && catMeta.Fee > 0 {
+				teamFee = catMeta.Fee
+			}
+
+			teamUUID := uuid.New().String()
+			teamName := teamInput.TeamName
+			if strings.TrimSpace(teamName) == "" {
+				teamName = "Tim " + captainArcherUUID[:6]
+			}
+
+			_, err = tx.Exec(`
+				INSERT INTO teams (uuid, tournament_id, event_id, category_id, team_name, status)
+				VALUES (?, ?, ?, ?, ?, 'active')
+			`, teamUUID, actualEventID, teamInput.CategoryID, teamInput.CategoryID, teamName)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat tim", "details": err.Error()})
+				return
+			}
+			calculatedTotalFee += teamFee
+
+			for orderIdx, member := range teamInput.Members {
+				var memberPartUUID string
+				if member.ParticipantID != nil && *member.ParticipantID != "" {
+					memberPartUUID = *member.ParticipantID
+				} else {
+					var memberArcherUUID string
+					if member.ArcherID != "" {
+						_ = tx.Get(&memberArcherUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ? LIMIT 1", member.ArcherID, member.ArcherID)
+					}
+					if memberArcherUUID == "" && member.FullName != "" {
+						memberArcherUUID = uuid.New().String()
+						gender := member.Gender
+						if gender == "" {
+							gender = "male"
+						}
+						_, _ = tx.Exec(`
+							INSERT INTO archers (uuid, full_name, gender, status, is_verified)
+							VALUES (?, ?, ?, 'active', 0)
+						`, memberArcherUUID, member.FullName, gender)
+					}
+					if memberArcherUUID == "" {
+						memberArcherUUID = captainArcherUUID
+					}
+
+					// Find participant row
+					_ = tx.Get(&memberPartUUID, `
+						SELECT uuid FROM tournament_participants 
+						WHERE tournament_id = ? AND archer_id = ? AND (category_id = ? OR category_id = ?) AND payment_status != 'cancelled'
+						LIMIT 1
+					`, actualEventID, memberArcherUUID, teamInput.CategoryID, teamInput.CategoryID)
+
+					if memberPartUUID == "" {
+						memberPartUUID = uuid.New().String()
+						memberFee := event.EntryFee
+						_, err = tx.Exec(`
+							INSERT INTO tournament_participants (
+								uuid, tournament_id, archer_id, category_id,
+								registration_date, payment_status, payment_amount,
+								registration_source
+							) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+						`, memberPartUUID, actualEventID, memberArcherUUID, teamInput.CategoryID, registrationDate, paymentStatus, memberFee, "self_register")
+						if err == nil {
+							allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, memberPartUUID)
+							if member.NeedsIndividualRegistration {
+								calculatedTotalFee += memberFee
+							}
+						}
+					}
+				}
+
+				if memberPartUUID != "" {
+					tmUUID := uuid.New().String()
+					_, _ = tx.Exec(`
+						INSERT INTO team_members (uuid, team_id, participant_id, member_order)
+						VALUES (?, ?, ?, ?)
+					`, tmUUID, teamUUID, memberPartUUID, orderIdx+1)
+				}
+			}
+		}
+
+	} else {
+		// ─────────────────────────────────────────────────────────────────────
+		// MODE 2: CLUB DELEGATION REGISTRATION
+		// ─────────────────────────────────────────────────────────────────────
+		for _, ath := range req.DelegationAthletes {
+			var athArcherUUID string
+			if ath.ArcherID != "" {
+				_ = tx.Get(&athArcherUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ? LIMIT 1", ath.ArcherID, ath.ArcherID)
+			}
+			if athArcherUUID == "" && strings.TrimSpace(ath.Email) != "" {
+				_ = tx.Get(&athArcherUUID, "SELECT uuid FROM archers WHERE email = ? LIMIT 1", strings.ToLower(strings.TrimSpace(ath.Email)))
+			}
+			if athArcherUUID == "" && ath.FullName != "" {
+				athArcherUUID = uuid.New().String()
+				gender := ath.Gender
+				if gender == "" {
+					gender = "male"
+				}
+
+				defaultPass := "Archeris123!"
+				hashedPass, _ := bcrypt.GenerateFromPassword([]byte(defaultPass), bcrypt.DefaultCost)
+				username := utils.CleanUsername(ath.FullName)
+				if username == "" {
+					username = "archer"
+				}
+				var uExists bool
+				_ = tx.Get(&uExists, "SELECT EXISTS(SELECT 1 FROM archers WHERE username = ?)", username)
+				if uExists {
+					username = fmt.Sprintf("%s-%s", username, uuid.New().String()[:6])
+				}
+
+				var emailVal *string
+				if strings.TrimSpace(ath.Email) != "" {
+					e := strings.ToLower(strings.TrimSpace(ath.Email))
+					emailVal = &e
+				}
+				var phoneVal *string
+				if strings.TrimSpace(ath.Phone) != "" {
+					p := strings.TrimSpace(ath.Phone)
+					phoneVal = &p
+				}
+				var dobVal *string
+				if strings.TrimSpace(ath.DateOfBirth) != "" {
+					d := strings.TrimSpace(ath.DateOfBirth)
+					dobVal = &d
+				}
+
+				var clubIDVal *string
+				if ath.ClubID != nil && *ath.ClubID != "" {
+					clubIDVal = ath.ClubID
+				} else if req.ClubID != nil && *req.ClubID != "" {
+					clubIDVal = req.ClubID
+				} else if ath.ClubName != nil && strings.TrimSpace(*ath.ClubName) != "" {
+					cleanClubName := strings.TrimSpace(*ath.ClubName)
+					var existingClubID string
+					if err := tx.Get(&existingClubID, "SELECT uuid FROM clubs WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1", cleanClubName); err == nil {
+						clubIDVal = &existingClubID
+					} else {
+						newClubUUID := uuid.New().String()
+						clubSlug := utils.CleanSlug(cleanClubName)
+						if clubSlug == "" {
+							clubSlug = "club-" + uuid.New().String()[:6]
+						}
+						_, _ = tx.Exec("INSERT INTO clubs (uuid, name, slug, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())", newClubUUID, cleanClubName, clubSlug)
+						clubIDVal = &newClubUUID
+					}
+				}
+
+				_, _ = tx.Exec(`
+					INSERT INTO archers (
+						uuid, username, email, phone, date_of_birth, password, 
+						full_name, gender, club_id, status, is_verified, created_at, updated_at
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, NOW(), NOW())
+				`, athArcherUUID, username, emailVal, phoneVal, dobVal, string(hashedPass), ath.FullName, gender, clubIDVal)
+			}
+
+			if athArcherUUID == "" {
+				continue
+			}
+
+			for _, catID := range ath.CategoryIDs {
+				trimmed := strings.TrimSpace(catID)
+				if trimmed == "" {
+					continue
+				}
+
+				catMeta, errCat := getCatMeta(trimmed)
+				if errCat == nil && catMeta != nil {
+					if !checkQuota(catMeta) {
+						c.JSON(http.StatusConflict, gin.H{
+							"error":       fmt.Sprintf("Kuota untuk kategori pilihan atlet %s sudah penuh", ath.FullName),
+							"code":        "quota_exceeded",
+							"category_id": catMeta.UUID,
+						})
+						return
+					}
+				}
+
+				catFee := event.EntryFee
+				if catMeta != nil && catMeta.Fee > 0 {
+					catFee = catMeta.Fee
+				}
+
+				var existingUUID string
+				_ = tx.Get(&existingUUID, `
+					SELECT uuid FROM tournament_participants 
+					WHERE tournament_id = ? AND archer_id = ? AND category_id = ? AND payment_status != 'cancelled'
+					LIMIT 1
+				`, actualEventID, athArcherUUID, trimmed)
+
+				if existingUUID != "" {
+					allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, existingUUID)
+					continue
+				}
+
+				partUUID := uuid.New().String()
+				_, err = tx.Exec(`
+					INSERT INTO tournament_participants (
+						uuid, tournament_id, archer_id, category_id,
+						registration_date, payment_status, payment_amount,
+						registration_source
+					) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`, partUUID, actualEventID, athArcherUUID, trimmed, registrationDate, paymentStatus, catFee, "invited")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan atlet delegasi", "details": err.Error()})
+					return
+				}
+				allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, partUUID)
+				registeredCats = append(registeredCats, trimmed)
+				calculatedTotalFee += catFee
+			}
+		}
+
+		// Process Delegation Teams
+		for _, teamBooking := range req.DelegationTeams {
+			if teamBooking.CategoryID == "" || teamBooking.Count <= 0 {
+				continue
+			}
+
+			catMeta, _ := getCatMeta(teamBooking.CategoryID)
+			teamFee := event.EntryFee
+			if catMeta != nil && catMeta.Fee > 0 {
+				teamFee = catMeta.Fee
+			}
+
+			for i := 0; i < teamBooking.Count; i++ {
+				teamUUID := uuid.New().String()
+				teamName := teamBooking.TeamName
+				if strings.TrimSpace(teamName) == "" {
+					teamName = fmt.Sprintf("Tim %s %d", req.ClubName, i+1)
+				}
+
+				_, err = tx.Exec(`
+					INSERT INTO teams (uuid, tournament_id, event_id, category_id, team_name, status)
+					VALUES (?, ?, ?, ?, ?, 'active')
+				`, teamUUID, actualEventID, teamBooking.CategoryID, teamBooking.CategoryID, teamName)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat reservasi tim", "details": err.Error()})
+					return
+				}
+				calculatedTotalFee += teamFee
+			}
+		}
+	}
+
+	if len(allCreatedParticipantUUIDs) == 0 && len(req.DelegationTeams) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada atlet atau tim yang didaftarkan"})
 		return
 	}
 
@@ -681,12 +989,22 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 		return
 	}
 
+	firstRegID := ""
+	if len(allCreatedParticipantUUIDs) > 0 {
+		firstRegID = allCreatedParticipantUUIDs[0]
+	} else {
+		firstRegID = uuid.New().String()
+	}
+
+	totalAmount := calculatedTotalFee
+	if req.PaymentAmount > 0 {
+		totalAmount = req.PaymentAmount
+	}
+
 	var checkoutURL *string
 	var vaNumber *string
 	var qrURL *string
 	var gatewayReference *string
-
-	totalAmount := float64(len(registeredCats)) * event.EntryFee
 
 	if req.PaymentMethod != "" && totalAmount > 0 {
 		var archer struct {
@@ -694,7 +1012,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 			Email    *string `db:"email"`
 			Phone    *string `db:"phone"`
 		}
-		_ = db.Get(&archer, "SELECT full_name, email, phone FROM archers WHERE uuid = ?", archerUUID)
+		_ = db.Get(&archer, "SELECT full_name, email, phone FROM archers WHERE uuid = ?", captainArcherUUID)
 
 		customerName := archer.FullName
 		customerEmail := utils.StringValue(archer.Email, "user@archeris.net")
@@ -727,7 +1045,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 					UUID:             transactionID,
 					Reference:        merchantRef,
 					GatewayReference: &orderID,
-					UserID:           archerUUID,
+					UserID:           captainArcherUUID,
 					EventID:          &event.UUID,
 					RegistrationID:   &firstRegID,
 					Amount:           totalAmount,
@@ -753,31 +1071,20 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				`
 				_, err = db.NamedExec(query, transaction)
 				if err == nil {
-					_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE event_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
+					for _, pID := range allCreatedParticipantUUIDs {
+						_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE uuid = ?", transactionID, pID)
+					}
 					gatewayReference = &orderID
 					checkoutURL = &checkoutURLVal
 					paymentStatus = "pending"
-
-					c.JSON(http.StatusOK, MobileRegisterEventResponse{
-						Message:              "Pendaftaran berhasil",
-						RegistrationID:       firstRegID,
-						RegisteredCategories: registeredCats,
-						PaymentStatus:        paymentStatus,
-						TotalFee:             totalAmount,
-						CheckoutURL:          checkoutURL,
-						VANumber:             vaNumber,
-						QRURL:                qrURL,
-						GatewayReference:     gatewayReference,
-					})
-					return
 				}
 			}
-		} else if req.PaymentMethod == "manual" {
+		} else if req.PaymentMethod == "manual" || req.PaymentType == "manual" {
 			expiredAt := time.Now().Add(7 * 24 * time.Hour)
 			transaction := models.PaymentTransaction{
 				UUID:           transactionID,
 				Reference:      merchantRef,
-				UserID:         archerUUID,
+				UserID:         captainArcherUUID,
 				EventID:        &event.UUID,
 				RegistrationID: &firstRegID,
 				Amount:         totalAmount,
@@ -802,23 +1109,12 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 			`
 			_, err = db.NamedExec(query, transaction)
 			if err == nil {
-				_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'manual' WHERE event_id = ? AND archer_id = ?", transactionID, event.UUID, archerUUID)
+				for _, pID := range allCreatedParticipantUUIDs {
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'manual' WHERE uuid = ?", transactionID, pID)
+				}
 				paymentStatus = "pending"
 				refVal := merchantRef
 				gatewayReference = &refVal
-
-				c.JSON(http.StatusOK, MobileRegisterEventResponse{
-					Message:              "Pendaftaran berhasil",
-					RegistrationID:       firstRegID,
-					RegisteredCategories: registeredCats,
-					PaymentStatus:        paymentStatus,
-					TotalFee:             totalAmount,
-					CheckoutURL:          nil,
-					VANumber:             nil,
-					QRURL:                nil,
-					GatewayReference:     gatewayReference,
-				})
-				return
 			}
 		} else {
 			// Mayar gateway
@@ -845,7 +1141,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 					UUID:             transactionID,
 					Reference:        merchantRef,
 					GatewayReference: &mayarTxID,
-					UserID:           archerUUID,
+					UserID:           captainArcherUUID,
 					EventID:          &event.UUID,
 					RegistrationID:   &firstRegID,
 					Amount:           totalAmount,
@@ -871,24 +1167,13 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 				`
 				_, err = db.NamedExec(query, transaction)
 				if err == nil {
-					_, _ = db.Exec("UPDATE event_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE event_id = ? AND archer_id = ?", transactionID, req.PaymentMethod, event.UUID, archerUUID)
+					for _, pID := range allCreatedParticipantUUIDs {
+						_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE uuid = ?", transactionID, req.PaymentMethod, pID)
+					}
 					qrURL = transaction.QRURL
 					gatewayReference = &mayarTxID
 					checkoutURL = &checkoutURLVal
 					paymentStatus = "pending"
-
-					c.JSON(http.StatusOK, MobileRegisterEventResponse{
-						Message:              "Pendaftaran berhasil",
-						RegistrationID:       firstRegID,
-						RegisteredCategories: registeredCats,
-						PaymentStatus:        paymentStatus,
-						TotalFee:             totalAmount,
-						CheckoutURL:          checkoutURL,
-						VANumber:             vaNumber,
-						QRURL:                qrURL,
-						GatewayReference:     gatewayReference,
-					})
-					return
 				}
 			}
 		}
@@ -897,6 +1182,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req mobileRegistrati
 	c.JSON(http.StatusOK, MobileRegisterEventResponse{
 		Message:              "Pendaftaran berhasil",
 		RegistrationID:       firstRegID,
+		ParticipantIDs:       allCreatedParticipantUUIDs,
 		RegisteredCategories: registeredCats,
 		PaymentStatus:        paymentStatus,
 		TotalFee:             totalAmount,

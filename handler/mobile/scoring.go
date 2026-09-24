@@ -3,7 +3,10 @@ package mobile
 import (
 	"Archeris-api/utils"
 	"database/sql"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -87,11 +90,30 @@ type MatchRow struct {
 func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Query("code")
-		if code == "" {
+		rawCode := strings.TrimSpace(code)
+		if rawCode == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "kode wajib diisi"})
 			return
 		}
+		upperCode := strings.ToUpper(rawCode)
 
+		// Extract digits if any (e.g. "1" -> 1, "1A" -> 1, "001TGT" -> 1)
+		digits := ""
+		for _, ch := range upperCode {
+			if ch >= '0' && ch <= '9' {
+				digits += string(ch)
+			} else if digits != "" {
+				break
+			}
+		}
+		boardNum := 0
+		if digits != "" {
+			boardNum, _ = strconv.Atoi(digits)
+		}
+
+		tgtCode := fmt.Sprintf("%03dTGT", boardNum)
+		jfrCode := fmt.Sprintf("%03dJFR", boardNum)
+		paddedTarget := fmt.Sprintf("%03d", boardNum)
 
 		var board BoardInfo
 		err := db.Get(&board, `
@@ -102,12 +124,17 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 			FROM target_board_qualification tbq
 			JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
 			JOIN tournaments e ON qs.tournament_uuid = e.uuid
+			LEFT JOIN qualification_target_assignments qta ON qta.target_board_id = tbq.uuid
+			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
 			WHERE tbq.code = ?
-			   OR CAST(tbq.board_number AS CHAR) = ?
-			   OR CONCAT(CAST(tbq.board_number AS CHAR), 'A') = ?
-			   OR tbq.code = CONCAT(LPAD(?, 3, '0'), 'JFR')
+			   OR tbq.code = ?
+			   OR tbq.code = ?
+			   OR (? > 0 AND tbq.board_number = ?)
+			   OR et.target_name = ?
+			   OR et.target_name = ?
+			ORDER BY tbq.board_number ASC
 			LIMIT 1
-		`, code, code, code, code)
+		`, upperCode, tgtCode, jfrCode, boardNum, boardNum, upperCode, paddedTarget)
 
 		if err == nil {
 			// --- Handle Qualification Board ---
@@ -178,12 +205,16 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 			JOIN elimination_brackets eb ON tbe.bracket_uuid = eb.uuid
 			JOIN tournaments e ON eb.tournament_uuid = e.uuid
 			LEFT JOIN tournament_categories ec ON tbe.category_uuid = ec.uuid
+			LEFT JOIN tournament_targets et ON et.board_number = tbe.board_number
 			WHERE tbe.code = ?
-			   OR CAST(tbe.board_number AS CHAR) = ?
-			   OR CONCAT(CAST(tbe.board_number AS CHAR), 'A') = ?
-			   OR tbe.code = CONCAT(LPAD(?, 3, '0'), 'JFR')
+			   OR tbe.code = ?
+			   OR tbe.code = ?
+			   OR (? > 0 AND tbe.board_number = ?)
+			   OR et.target_name = ?
+			   OR et.target_name = ?
+			ORDER BY tbe.board_number ASC
 			LIMIT 1
-		`, code, code, code, code)
+		`, upperCode, tgtCode, jfrCode, boardNum, boardNum, upperCode, paddedTarget)
 
 		if err == nil {
 			// Fetch matches on this elimination board
