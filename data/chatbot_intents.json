@@ -1,4 +1,4 @@
-﻿[
+[
   {
     "name": "greeting",
     "examples": [
@@ -8,68 +8,233 @@
       "hey",
       "selamat pagi",
       "permisi",
-      "hello admin"
+      "hello admin",
+      "assalamualaikum"
     ],
-    "answer": "Halo! Saya asisten Archeris. Saya bisa bantu soal event, pendaftaran, hasil skor, organisasi, pembayaran, dan paket membership."
+    "examples_en": [
+      "hi",
+      "hello",
+      "hey",
+      "good morning",
+      "good afternoon",
+      "hello support",
+      "greetings"
+    ],
+    "answer": "Halo! Saya asisten Customer Service Archeris. Saya siap membantu Anda seputar jadwal turnamen, scoring digital, aturan World Archery, profil atlet, pendaftaran, e-sertifikat, dan paket penyelenggara. Ada yang bisa saya bantu?",
+    "answer_en": "Hello! I am the Archeris Customer Support assistant. I can assist you with tournament schedules, live digital scoring, World Archery rules, archer profiles, registration, e-certificates, and organizer packages. How can I help you today?"
+  },
+  {
+    "name": "about_archeris",
+    "examples": [
+      "apa itu archeris",
+      "tentang archeris",
+      "fitur archeris",
+      "fungsi archeris",
+      "archeris sistem apa",
+      "keunggulan archeris",
+      "platform archeris"
+    ],
+    "examples_en": [
+      "what is archeris",
+      "about archeris",
+      "archeris features",
+      "how does archeris work",
+      "tell me about archeris",
+      "archeris platform"
+    ],
+    "answer": "Archeris adalah platform manajemen turnamen panahan dan sistem scoring digital modern berbasis web. Archeris menggantikan pencatatan kertas konvensional dengan input skor smartphone di garis tembak, pemeringkatan kualifikasi otomatis, bagan eliminasi World Archery, tiket QR, dan penerbitan e-sertifikat resmi.",
+    "answer_en": "Archeris is a modern web-based archery tournament management and live digital scoring platform. It replaces paper scorecards with shooting line smartphone scoring, automated qualification rankings, World Archery elimination brackets, QR attendance ticketing, and verified digital certificates."
+  },
+  {
+    "name": "archeris_vs_ianseo",
+    "examples": [
+      "archeris vs ianseo",
+      "beda archeris dengan ianseo",
+      "kelebihan dibanding ianseo",
+      "mengapa archeris lebih baik dari ianseo",
+      "perbandingan ianseo"
+    ],
+    "examples_en": [
+      "archeris vs ianseo",
+      "difference between archeris and ianseo",
+      "why choose archeris over ianseo",
+      "ianseo alternative",
+      "compare archeris and ianseo"
+    ],
+    "answer": "Dibandingkan IanSEO, Archeris 100% berbasis cloud dan web responsive tanpa perlu instalasi software desktop, server lokal, atau konfigurasi database manual yang rumit. Archeris juga menyediakan pembayaran online otomatis, tiket QR absensi peserta, portal atlet dengan verifikasi e-sertifikat, dan antarmuka ramah smartphone yang siap pakai dalam hitungan menit.",
+    "answer_en": "Compared to IanSEO, Archeris is 100% cloud & web-native with zero local software installations, manual servers, or complex DB setups. Archeris features automated online entry fee collection, digital QR check-in passes, public archer portfolios with verified QR certificates, and a mobile-friendly keypad ready to score in minutes."
+  },
+  {
+    "name": "world_archery_rules",
+    "examples": [
+      "aturan world archery",
+      "standar panahan",
+      "sistem set point",
+      "scoring kumulatif",
+      "aturan shoot off",
+      "penilaian x dan 10",
+      "peraturan target face"
+    ],
+    "examples_en": [
+      "world archery rules",
+      "archery scoring rules",
+      "set system vs cumulative",
+      "shoot off rules",
+      "target face scoring",
+      "how is score calculated in archery"
+    ],
+    "answer": "Archeris sepenuhnya mematuhi standar resmi World Archery: mendukung nilai anak panah X, 10, 9 hingga M (Miss). Pada babak eliminasi Recurve & Barebow menggunakan Set System (2 poin per set menang, 1 poin seri, target 6 poin). Pada Compound menggunakan Cumulative Score (total 15 panah dari 5 seri). Jika seri, sistem mendukung 1-arrow shoot-off penentu kemenangan.",
+    "answer_en": "Archeris strictly complies with official World Archery regulations: supporting arrow values X, 10, 9 down to M (Miss). In elimination matches, Recurve and Barebow use the Set System (2 set points for a win, 1 for tie, first to 6 points). Compound uses Cumulative Score (total of 15 arrows over 5 ends). Ties are resolved through 1-arrow shoot-offs with closest-to-center measurement."
+  },
+  {
+    "name": "scoring_methods",
+    "examples": [
+      "cara scoring",
+      "scoring digital",
+      "input nilai panahan",
+      "bagaimana cara input skor",
+      "cara nilai seri",
+      "tombol papan skor",
+      "koreksi nilai panah"
+    ],
+    "examples_en": [
+      "how to score",
+      "digital scoring",
+      "how to enter arrow scores",
+      "scorekeeper keypad",
+      "confirm end score",
+      "arrow score correction"
+    ],
+    "answer": "Scoring di Archeris sangat mudah: scorekeeper membuka nomor bantalan pada smartphone, memasukkan nilai per anak panah (X, 10-1, M) menggunakan keypad warna interaktif, lalu menekan 'Konfirmasi Seri'. Total nilai, jumlah 10, dan X dihitung otomatis secara instan. Jika ada koreksi, panitia atau juri dapat memperbarui nilai lewat panel administrasi.",
+    "answer_en": "Scoring on Archeris is effortless: scorekeepers open their assigned target lane on their smartphone, tap arrow values (X, 10-1, M) on the color-coded keypad, and press 'Confirm End'. Running totals, 10s, and Xs are tabulated automatically. Authorized judges and organizers can adjust scores with a full audit log if disputes arise."
   },
   {
     "name": "scoring_offline",
     "examples": [
       "scoring offline",
       "apakah bisa turnamen offline",
-      "input skor offline",
-      "pakai scoring saat lomba offline",
-      "penilaian tanpa internet",
+      "input skor tanpa internet",
+      "lapangan tidak ada sinyal",
+      "penilaian tanpa wifi",
       "scorecard offline"
     ],
-    "answer": "Bisa. Archeris mendukung scoring digital untuk lomba offline. Scorekeeper dapat input skor per end, lalu hasil akan tersinkron saat koneksi stabil."
+    "examples_en": [
+      "offline scoring",
+      "score without internet",
+      "spotty wifi on field",
+      "offline archery scoring",
+      "can i score offline"
+    ],
+    "answer": "Ya, Archeris dirancang khusus untuk kondisi lapangan terbuka. PWA (Progressive Web App) Archeris menyimpan data skor di perangkat lokal saat koneksi internet lemah atau terputus, lalu secara otomatis menyinkronkan seluruh nilai ke server pusat saat perangkat kembali online.",
+    "answer_en": "Yes! Archeris is specifically engineered for outdoor tournament environments. Its progressive architecture caches scores locally on device storage during connection drops, automatically syncing all arrow data to the central leaderboard as soon as connectivity resumes."
   },
   {
-    "name": "pembayaran_event",
+    "name": "scorekeeper_guide",
     "examples": [
-      "metode pembayaran",
-      "bayar event",
-      "pembayaran pendaftaran",
-      "bisa qris atau ewallet",
-      "pembayaran pending",
-      "status pembayaran belum masuk"
+      "tugas scorekeeper",
+      "cara jadi scorekeeper",
+      "login scorekeeper",
+      "akses penjaga skor",
+      "atur bantalan scorekeeper",
+      "panel juri skor"
     ],
-    "answer": "Pembayaran event mendukung Transfer Bank, E-Wallet, dan QRIS. Status pendaftaran biasanya terupdate otomatis setelah pembayaran sukses. Jika masih pending, cek detail invoice di halaman pendaftaran event."
+    "examples_en": [
+      "scorekeeper duties",
+      "how to be a scorekeeper",
+      "scorekeeper login",
+      "target butt assignment",
+      "scorekeeper access"
+    ],
+    "answer": "Scorekeeper ditugaskan oleh penyelenggara turnamen. Penyelenggara menambahkan akun scorekeeper dan membagikan jatah nomor bantalan (misal Bantalan 1-4). Scorekeeper cukup login dengan kredensial yang diberikan untuk langsung mengakses target tembak dan mencatat skor atlet.",
+    "answer_en": "Scorekeepers are assigned by tournament organizers. In the organizer dashboard, admins assign scorekeepers to specific target butt ranges (e.g. Lanes 1 to 4). Scorekeepers log in with their credentials to immediately view target lists and enter live scores."
   },
   {
-    "name": "keamanan_data",
+    "name": "qualification_rounds",
     "examples": [
-      "data aman",
-      "keamanan data atlet",
-      "apakah data terenkripsi",
-      "privasi data",
-      "akun saya aman"
+      "babak kualifikasi",
+      "sesi kualifikasi",
+      "total seri kualifikasi",
+      "kualifikasi 720",
+      "aturan jarak kualifikasi",
+      "ranking kualifikasi"
     ],
-    "answer": "Kami menerapkan kontrol keamanan untuk melindungi data pengguna dan atlet. Gunakan juga password kuat serta jangan bagikan OTP/kode verifikasi kepada siapa pun."
+    "examples_en": [
+      "qualification rounds",
+      "qualification session",
+      "720 round",
+      "qualification ranking",
+      "arrows per end in qualification"
+    ],
+    "answer": "Babak kualifikasi di Archeris mendukung format standar (seperti 2 sesi x 36 anak panah = 720 Round, atau format kustom). Skor dari setiap seri diakumulasikan untuk menentukan peringkat pemeringkatan (seeding) otomatis yang menjadi dasar bagan babak eliminasi.",
+    "answer_en": "Qualification rounds in Archeris support standard international formats (such as 2 sessions x 36 arrows = 720 Round, or custom club configurations). Scores from every end are tabulated in real time to establish division seedings for the elimination brackets."
   },
   {
-    "name": "bantuan_teknis",
+    "name": "elimination_brackets",
     "examples": [
-      "butuh bantuan teknis",
-      "error aplikasi",
-      "kendala teknis",
-      "hubungi support",
-      "website error",
-      "ga bisa submit"
+      "bagan eliminasi",
+      "bracket turnamen",
+      "babak aduan",
+      "cara buat bracket",
+      "1/16 1/8 semifinal",
+      "perebutan medali perunggu emas"
     ],
-    "answer": "Jika ada kendala teknis, kirim detail masalah (halaman, waktu kejadian, dan screenshot) lewat halaman Kontak atau email admin@archeris.net agar tim bisa bantu lebih cepat."
+    "examples_en": [
+      "elimination brackets",
+      "match play tree",
+      "how brackets work",
+      "bracket seeding",
+      "semifinal and medal matches",
+      "elimination tree generation"
+    ],
+    "answer": "Setelah babak kualifikasi selesai, Archeris menghasilkan bagan eliminasi otomatis sesuai peringkat kualifikasi (1/32, 1/16, 1/8, Perempat Final, Semifinal, Perunggu, dan Emas). Pemenang setiap match otomatis maju ke babak berikutnya hingga perebutan podium juara.",
+    "answer_en": "Once qualification scores are finalized, Archeris automatically generates seeded elimination brackets (1/32, 1/16, 1/8, Quarterfinals, Semifinals, Bronze, and Gold medal matches). Match winners automatically advance through the bracket up to the podium finals."
   },
   {
-    "name": "event_schedule",
+    "name": "tournament_creation",
     "examples": [
-      "jadwal event",
-      "schedule pertandingan",
-      "kapan lomba",
-      "event terdekat",
-      "lomba minggu ini",
-      "kalender event"
+      "cara buat turnamen",
+      "bikin event baru",
+      "setup turnamen panahan",
+      "tambah kategori lomba",
+      "atur kuota peserta",
+      "publikasi event"
     ],
-    "answer": "Cek jadwal di menu Event untuk melihat event aktif, tanggal, lokasi, dan status pendaftaran. Kirim nama event bila ingin saya bantu arahkan langkah selanjutnya."
+    "examples_en": [
+      "how to create tournament",
+      "create new event",
+      "organizer tournament setup",
+      "add division categories",
+      "set participant quotas",
+      "publish tournament"
+    ],
+    "answer": "Untuk membuat turnamen: Masuk ke Dashboard Penyelenggara > Turnamen > Buat Turnamen. Masukkan judul, tanggal, lokasi, deskripsi, dan flyer. Tambahkan kategori lomba (seperti Recurve 70m, Compound 50m, Barebow 20m), atur kuota serta biaya pendaftaran, lalu klik Publikasikan.",
+    "answer_en": "To create a tournament: Navigate to Organizer Dashboard > Tournaments > Create Tournament. Enter event title, dates, venue, and banner. Configure division categories (e.g. Recurve 70m, Compound 50m, Barebow U-15), set participant quotas and entry fees, and publish your public registration page."
+  },
+  {
+    "name": "pricing_packages",
+    "examples": [
+      "paket harga",
+      "harga langganan",
+      "biaya membership",
+      "paket eo",
+      "starter free",
+      "standard eo",
+      "elite eo",
+      "kuota turnamen",
+      "beli paket penyelenggara"
+    ],
+    "examples_en": [
+      "pricing plans",
+      "subscription cost",
+      "organizer packages",
+      "free starter plan",
+      "standard eo price",
+      "elite eo price",
+      "tournament quota pricing",
+      "how much is archeris"
+    ],
+    "answer": "Archeris menyediakan paket fleksibel: 1) Starter Free (Gratis 1 kuota turnamen maks 50 peserta untuk uji coba), 2) Standard EO (Promo Rp 24.999 / $1.50 per turnamen hingga 200 peserta), dan 3) Elite EO (Promo Rp 39.999 / $3.50 per turnamen peserta tak terbatas). Kuota yang dibeli tersimpan di saldo organisasi dan tidak memiliki batas kedaluwarsa.",
+    "answer_en": "Archeris offers transparent, flexible pricing: 1) Starter Free (1 free tournament quota up to 50 participants for testing), 2) Standard EO (Promo Rp 24,999 / $1.50 per event up to 200 archers), and 3) Elite EO (Promo Rp 39,999 / $3.50 per event with unlimited participants). Quotas stored in your balance never expire."
   },
   {
     "name": "registration_help",
@@ -81,12 +246,38 @@
       "daftar peserta",
       "join event",
       "saya mau ikut lomba",
-      "cara mendaftar turnamen",
-      "langkah-langkah registrasi",
-      "pendaftaran dibuka kapan",
-      "biaya daftar berapa"
+      "cara mendaftar turnamen"
     ],
-    "answer": "Untuk daftar event: buka detail event yang diinginkan, pilih kategori lomba, isi data peserta (seperti nama dan asal klub/instansi), lalu lanjutkan ke pembayaran. Setelah pembayaran diverifikasi, Anda akan terdaftar secara resmi dan bisa melihat detail pendaftaran di menu 'Pendaftaran Saya'."
+    "examples_en": [
+      "how to register",
+      "tournament registration",
+      "sign up for event",
+      "join competition",
+      "how to enter tournament",
+      "athlete registration help"
+    ],
+    "answer": "Untuk mendaftar lomba: Buka menu Turnamen, pilih event yang ingin diikuti, klik 'Daftar Sekarang', pilih divisi kategori lomba (misal Recurve Men), pilih/isi data atlet dan klub, lalu selesaikan pembayaran. Setelah berhasil, Anda akan menerima e-tiket dengan QR absensi.",
+    "answer_en": "To register for an event: Browse the Tournaments directory, select your desired competition, click 'Register Now', choose your division category (e.g. Recurve Men), verify your archer profile and club, and complete online checkout. Once confirmed, you will receive an official digital e-ticket with QR check-in pass."
+  },
+  {
+    "name": "eticket_qr_checkin",
+    "examples": [
+      "tiket lomba",
+      "e-tiket peserta",
+      "qr code absensi",
+      "cara check in turnamen",
+      "scan tiket kehadiran",
+      "bukti pendaftaran saya"
+    ],
+    "examples_en": [
+      "e-ticket",
+      "qr attendance pass",
+      "how to check in at venue",
+      "participant qr ticket",
+      "registration pass"
+    ],
+    "answer": "Setiap pendaftaran yang telah lunas otomatis mendapatkan E-Tiket Digital dilengkapi QR Code verifikasi. Saat tiba di lokasi turnamen, atlet cukup menunjukkan QR Code ini pada smartphone ke panitia meja registrasi untuk absensi instan dan pengambilan nomor dada / ID card.",
+    "answer_en": "Every confirmed tournament registration automatically generates a verified Digital E-Ticket with a unique QR Code. Upon arriving at the competition venue, archers present this QR code on their smartphone to the desk committee for instant check-in and bib number collection."
   },
   {
     "name": "score_tracking",
@@ -102,95 +293,199 @@
       "lihat papan skor",
       "leaderboard sementara"
     ],
-    "answer": "Hasil skor dan leaderboard tersedia secara real-time di halaman 'Result' pada tiap event. Anda bisa memantau ranking kualifikasi per sesi dan melihat perkembangan bracket eliminasi hingga babak final pertandingan."
-  },
-  {
-    "name": "event_discovery",
-    "examples": [
-      "cari event",
-      "event berdasarkan kota",
-      "event panahan jakarta",
-      "temukan turnamen",
-      "filter event"
+    "examples_en": [
+      "check score",
+      "view results",
+      "live leaderboard",
+      "qualification standings",
+      "elimination match results",
+      "tournament rankings"
     ],
-    "answer": "Gunakan halaman Event untuk mencari turnamen berdasarkan kota, tanggal, atau penyelenggara. Buka detail event untuk melihat kategori dan ketentuan pendaftaran."
+    "answer": "Hasil skor dan leaderboard tersedia secara real-time di halaman detail event menu 'Result'. Anda bisa memfilter ranking kualifikasi per kategori, melihat rincian anak panah per seri, serta memantau perkembangan bagan eliminasi hingga perebutan medali.",
+    "answer_en": "Live scores and standings are updated in real time under the 'Results' tab of each tournament page. You can filter qualification leaderboards by division, inspect arrow-by-arrow end totals, and track live elimination brackets."
   },
   {
-    "name": "membership_package",
+    "name": "certificates_pdf",
     "examples": [
-      "paket membership",
-      "langganan organisasi",
-      "upgrade paket",
-      "perpanjang paket",
-      "fitur paket",
-      "mau tanya soal package",
-      "harga langganan",
-      "biaya membership",
-      "paket pro",
-      "apa itu paket penyelenggara",
-      "keuntungan langganan",
-      "cara beli paket"
+      "download sertifikat",
+      "e-sertifikat panahan",
+      "cetak sertifikat turnamen",
+      "verifikasi qr sertifikat",
+      "buku hasil pdf",
+      "result book pdf"
     ],
-    "answer": "Archeris menyediakan berbagai pilihan Paket Membership (Event Management) untuk organisasi penyelenggara. Fitur utamanya meliputi pendaftaran online terintegrasi, sistem iuran/pembayaran otomatis, hingga dashboard statistik event yang lengkap. Anda bisa cek detail harga dan fitur di menu 'Subscription' pada dashboard organisasi Anda."
+    "examples_en": [
+      "download certificate",
+      "e-certificate",
+      "qr verified certificate",
+      "print archer certificate",
+      "pdf result book",
+      "official results pdf"
+    ],
+    "answer": "Atlet dapat mengunduh E-Sertifikat resmi beresolusi tinggi langsung dari Dashboard Atlet > Sertifikat atau profil publik. Setiap sertifikat dilengkapi QR Code verifikasi unik yang dapat dipindai untuk membuktikan keaslian prestasi. Penyelenggara juga dapat mencetak Buku Hasil (Result Book) resmi dalam format PDF.",
+    "answer_en": "Archers can download high-resolution official E-Certificates directly from Archer Dashboard > Certificates or their public profile. Each certificate features a tamper-proof QR verification code. Organizers can also generate comprehensive official PDF Result Books."
   },
   {
-    "name": "invoice_help",
+    "name": "payment_methods",
+    "examples": [
+      "metode pembayaran",
+      "cara bayar",
+      "bayar pakai apa saja",
+      "bisa qris",
+      "transfer virtual account",
+      "pembayaran kartu kredit paypal"
+    ],
+    "examples_en": [
+      "payment methods",
+      "how to pay",
+      "supported payments",
+      "qris payment",
+      "virtual account transfer",
+      "credit card paypal payment"
+    ],
+    "answer": "Archeris mendukung berbagai metode pembayaran online instan: QRIS (GoPay, OVO, Dana, ShopeePay, BCA dsb), Virtual Account bank nasional (BCA, Mandiri, BNI, BRI, Permata), Kartu Kredit/Debit, dan PayPal untuk atlet atau penyelenggara internasional.",
+    "answer_en": "Archeris supports comprehensive automated instant payment methods: QRIS (e-wallets & banking apps), National Bank Virtual Accounts (BCA, Mandiri, BNI, BRI, Permata), Credit/Debit Cards, and PayPal for international participants."
+  },
+  {
+    "name": "invoice_receipts",
     "examples": [
       "lihat invoice",
       "download invoice",
       "tagihan pendaftaran",
       "invoice pembayaran",
       "bukti bayar",
-      "di mana nota",
-      "minta kuitansi",
-      "invoice pending",
-      "cek tagihan saya"
+      "kuitansi transaksi",
+      "minta nota pdf"
     ],
-    "answer": "Invoice dan status pembayaran dapat dilihat pada menu 'Pendaftaran Saya' atau detail order. Jika status sudah 'Paid', Anda bisa membuka halaman invoice tersebut dan menekan tombol 'Download PDF' untuk mengunduh bukti bayar resmi."
+    "examples_en": [
+      "view invoice",
+      "download invoice",
+      "payment receipt",
+      "official billing receipt",
+      "transaction invoice pdf"
+    ],
+    "answer": "Invoice dan bukti pembayaran resmi dapat diakses di menu Dashboard > Pembayaran / Pendaftaran. Setelah status 'Paid', Anda dapat menekan tombol 'Download PDF' untuk mengunduh kuitansi resmi.",
+    "answer_en": "Official invoices and payment receipts are available in your Dashboard under Payments / My Registrations. Once marked as 'Paid', click 'Download PDF' to save your official tax/billing receipt."
   },
   {
-    "name": "notification_help",
+    "name": "archer_profile",
     "examples": [
-      "notifikasi event",
-      "kenapa tidak ada notifikasi",
-      "pengumuman lomba",
-      "notifikasi pembayaran",
-      "notif hasil"
+      "profil atlet",
+      "edit profil pemanah",
+      "biodata atlet",
+      "tambah prestasi",
+      "link profil publik",
+      "portofolio memanah"
     ],
-    "answer": "Notifikasi terkait pendaftaran, pembayaran, and update event tersedia di menu notifikasi akun. Pastikan Anda sudah login and koneksi internet stabil."
+    "examples_en": [
+      "archer profile",
+      "edit athlete bio",
+      "add achievements",
+      "public profile link",
+      "equipment specifications",
+      "archer portfolio"
+    ],
+    "answer": "Anda dapat mengelola profil lengkap pemanah di Dashboard Atlet > Profil: memperbarui foto avatar, foto banner, biografi diri, spesifikasi busur/alat, asal klub, tautan media sosial, serta menyematkan sorotan prestasi kejuaraan.",
+    "answer_en": "You can manage your complete archer portfolio in Archer Dashboard > Profile: update profile avatar, banner, athlete bio, bow equipment specifications, club affiliation, social links, and pin featured championship achievements."
   },
   {
-    "name": "login_account_help",
+    "name": "club_contingent",
+    "examples": [
+      "daftar klub",
+      "daftarkan klub baru",
+      "asal kontingen",
+      "klub panahan",
+      "manajemen klub"
+    ],
+    "examples_en": [
+      "club registration",
+      "archery club",
+      "contingent affiliation",
+      "create new club",
+      "club management"
+    ],
+    "answer": "Atlet dapat memilih klub yang sudah terdaftar atau menambahkan nama klub baru secara langsung saat memperbarui profil atau mendaftar turnamen. Klub akan tercantum di papan peringkat dan statistik resmi turnamen.",
+    "answer_en": "Archers can select from registered archery clubs or submit a new club affiliation when updating their profile or registering for events. Club origin is displayed across leaderboards, bracket cards, and tournament statistics."
+  },
+  {
+    "name": "account_security",
     "examples": [
       "lupa password",
       "tidak bisa login",
       "reset password",
       "akun terkunci",
-      "verifikasi email"
+      "verifikasi email",
+      "login google"
     ],
-    "answer": "Jika tidak bisa login, gunakan fitur Lupa Password di halaman masuk. Cek email untuk tautan reset, lalu coba login kembali setelah password diperbarui."
+    "examples_en": [
+      "forgot password",
+      "cannot login",
+      "reset password",
+      "account recovery",
+      "google login",
+      "email verification"
+    ],
+    "answer": "Jika lupa kata sandi, klik 'Lupa Password' pada halaman login dan masukkan email Anda untuk menerima instruksi reset. Anda juga bisa masuk secara instan menggunakan tombol 'Login with Google'.",
+    "answer_en": "If you forgot your password, click 'Forgot Password' on the login page and submit your registered email to receive reset instructions. You can also sign in instantly using 'Continue with Google'."
   },
   {
-    "name": "scorekeeper_help",
+    "name": "bantuan_teknis",
     "examples": [
-      "cara jadi scorekeeper",
-      "input skor per end",
-      "panel scorekeeper",
-      "akses scorekeeper",
-      "penjaga skor"
+      "butuh bantuan teknis",
+      "error aplikasi",
+      "kendala teknis",
+      "website error",
+      "ga bisa submit",
+      "bug scoring"
     ],
-    "answer": "Fitur scorekeeper tersedia pada event yang mengaktifkan scoring digital. Gunakan akun yang diberi akses oleh penyelenggara untuk input skor per end secara real-time."
+    "examples_en": [
+      "technical support",
+      "app error",
+      "website issue",
+      "cannot submit score",
+      "bug report",
+      "system glitch"
+    ],
+    "answer": "Jika mengalami kendala teknis atau error sistem, silakan muat ulang halaman (refresh) atau periksa koneksi internet. Jika kendala berlanjut, hubungi tim support melalui halaman Kontak atau email ke admin@archeris.net disertai tangkapan layar (screenshot).",
+    "answer_en": "If you encounter technical issues or errors, try refreshing the page and verifying your connection. If the issue persists, reach out via our Contact page or email admin@archeris.net with error details and screenshots for fast resolution."
   },
   {
     "name": "contact_support",
     "examples": [
       "kontak admin",
-      "hubungi Archeris",
+      "hubungi archeris",
       "customer service",
       "email support",
-      "butuh bantuan cepat"
+      "whatsapp admin",
+      "call center archeris"
     ],
-    "answer": "Anda bisa hubungi tim Archeris lewat halaman Kontak atau email admin@archeris.net. Sertakan nama event/akun and kendala agar penanganan lebih cepat."
+    "examples_en": [
+      "contact support",
+      "contact archeris",
+      "customer service email",
+      "support hotline",
+      "reach out to admin"
+    ],
+    "answer": "Anda dapat menghubungi tim Archeris melalui: 1) Halaman Kontak di website, 2) Email: admin@archeris.net, atau 3) Telepon: +62 21 575 8888 (Senin-Jumat 09:00 - 17:00 WIB). Tim kami siap mendampingi turnamen Anda!",
+    "answer_en": "You can reach the Archeris team via: 1) Website Contact form, 2) Email: admin@archeris.net, or 3) Phone: +62 21 575 8888 (Mon-Fri 09:00 - 17:00 WIB). We are always happy to support your tournament operations!"
+  },
+  {
+    "name": "refund_policy",
+    "examples": [
+      "kebijakan refund",
+      "batal ikut lomba",
+      "pengembalian uang pendaftaran",
+      "refund event",
+      "turnamen dibatalkan"
+    ],
+    "examples_en": [
+      "refund policy",
+      "cancel registration",
+      "get money back",
+      "event cancellation refund",
+      "refund terms"
+    ],
+    "answer": "Kebijakan pengembalian dana (refund) untuk pendaftaran turnamen diatur langsung oleh Penyelenggara Turnamen (EO) masing-masing sesuai ketentuan di petunjuk teknis (Juknis). Jika turnamen dibatalkan resmi oleh EO, proses refund akan dikoordinasikan oleh panitia penyelenggara.",
+    "answer_en": "Refund policies for tournament entry fees are governed directly by the respective Tournament Organizer (EO) as stated in the event technical handbook. If an event is officially cancelled by the organizer, refund disbursement will be coordinated accordingly."
   }
 ]
-

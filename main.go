@@ -383,6 +383,7 @@ func main() {
 				tournaments.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
 				tournaments.GET("/:id/results/elimination", handler.GetPublicEliminationResults(db))
 				tournaments.POST("/:id/verify-roster", handler.VerifyTournamentRoster(db))
+				tournaments.POST("/:id/subscribe", middleware.OptionalAuthMiddleware(), mobilehandler.MobileSubscribeOrganizer(db))
 
 				// Protected Event routes (require authentication)
 				protected := tournaments.Group("")
@@ -738,6 +739,7 @@ func main() {
 				auth.POST("/archer/login", mobilehandler.MobileArcherLogin(db))
 				auth.POST("/organizer/login", mobilehandler.MobileOrganizationLogin(db))
 				auth.POST("/archer/register", mobilehandler.MobileArcherRegister(db))
+				auth.POST("/organizer/register", mobilehandler.MobileOrganizationRegister(db))
 				auth.POST("/google/login", mobilehandler.MobileGoogleLogin(db))
 				auth.POST("/forgot-password", mobilehandler.MobileForgotPassword(db))
 				auth.POST("/verify-otp", mobilehandler.MobileVerifyOTP(db))
@@ -748,42 +750,23 @@ func main() {
 
 			// 2. Events & Tournaments (public)
 			mobile.GET("/tournaments", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db))
-			mobile.GET("/events", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db))
-			mobile.GET("/tournaments/history", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db)) // Alias/Filter trigger
-			mobile.GET("/events/history", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db))
-			mobile.GET("/tournaments/:slug", mobilehandler.MobileGetEventDetail(db))
-			mobile.GET("/events/:slug", mobilehandler.MobileGetEventDetail(db))
+			mobile.GET("/tournaments/history", middleware.RateLimit(60, 1*time.Minute), mobilehandler.MobileListEvents(db))
+			mobile.GET("/tournaments/:slug", middleware.OptionalAuthMiddleware(), mobilehandler.MobileGetEventDetail(db))
 			mobile.GET("/tournaments/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
-			mobile.GET("/events/:slug/participants", mobilehandler.MobileGetEventParticipants(db))
 			mobile.GET("/tournaments/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))
-			mobile.GET("/events/:slug/schedule", mobilehandler.MobileGetEventSchedule(db))
 			mobile.GET("/tournaments/:slug/categories", mobilehandler.MobileGetEventCategories(db))
-			mobile.GET("/events/:slug/categories", mobilehandler.MobileGetEventCategories(db))
 			mobile.GET("/tournaments/:slug/gallery", mobilehandler.MobileGetEventGallery(db))
-			mobile.GET("/events/:slug/gallery", mobilehandler.MobileGetEventGallery(db))
 			mobile.GET("/tournaments/:slug/faq", mobilehandler.MobileGetEventFAQ(db))
-			mobile.GET("/events/:slug/faq", mobilehandler.MobileGetEventFAQ(db))
 			mobile.GET("/tournaments/:slug/registration-fee", mobilehandler.MobileGetEventRegistrationFees(db))
-			mobile.GET("/events/:slug/registration-fee", mobilehandler.MobileGetEventRegistrationFees(db))
 			mobile.GET("/tournaments/:slug/rewards", mobilehandler.MobileGetEventRewards(db))
-			mobile.GET("/events/:slug/rewards", mobilehandler.MobileGetEventRewards(db))
 			mobile.GET("/tournaments/:slug/location", mobilehandler.MobileGetEventLocation(db))
-			mobile.GET("/events/:slug/location", mobilehandler.MobileGetEventLocation(db))
 			mobile.GET("/tournaments/:slug/results/qualification", handler.GetPublicQualificationResults(db))
-			mobile.GET("/events/:slug/results/qualification", handler.GetPublicQualificationResults(db))
 			mobile.GET("/tournaments/:slug/results/elimination", handler.GetPublicEliminationResults(db))
-			mobile.GET("/events/:slug/results/elimination", handler.GetPublicEliminationResults(db))
 			mobile.GET("/tournaments/:slug/results/files", handler.GetEventResultFiles(db))
-			mobile.GET("/events/:slug/results/files", handler.GetEventResultFiles(db))
+			mobile.POST("/tournaments/:slug/subscribe", middleware.OptionalAuthMiddleware(), mobilehandler.MobileSubscribeOrganizer(db))
 
 			mobile.GET("/clubs", mobilehandler.MobileListClubs(db))
 
-			// 2d. Chatbot (public)
-			chatbot := mobile.Group("/chatbot")
-			{
-				chatbot.GET("/intents", mobilehandler.MobileChatbotIntents())
-				chatbot.POST("/message", mobilehandler.MobileChatbotMessage())
-			}
 
 			mobile.GET("/results/recent", mobilehandler.MobileRecentResults(db))
 			mobile.GET("/payment/channels", handler.GetPaymentChannels(db))
@@ -812,90 +795,76 @@ func main() {
 
 				mobileArcher.GET("/payments/:reference", mobilehandler.MobileGetPaymentDetail(db))
 				mobileArcher.GET("/tournaments", mobilehandler.MobileGetMyEvents(db))
-				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
 				mobileArcher.GET("/tournaments/payments", mobilehandler.MobileArcherGetEventPayments(db))
-				mobileArcher.GET("/events/payments", mobilehandler.MobileArcherGetEventPayments(db))
 				mobileArcher.GET("/tournaments/payments/:slug", mobilehandler.MobileArcherGetEventPaymentsByEvent(db))
-				mobileArcher.GET("/events/payments/:slug", mobilehandler.MobileArcherGetEventPaymentsByEvent(db))
 				mobileArcher.GET("/tournaments/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
-				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
 				mobileArcher.GET("/tournaments/:id/performance", mobilehandler.MobileArcherGetEventPerformance(db))
-				mobileArcher.GET("/events/:id/performance", mobilehandler.MobileArcherGetEventPerformance(db))
 				mobileArcher.GET("/tournaments/:id/registration", mobilehandler.MobileGetMyRegistration(db))
-				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
 				mobileArcher.GET("/tournaments/:id/qr", mobilehandler.MobileGetEventQRCode(db))
-				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
 				mobileArcher.POST("/tournaments/register", mobilehandler.MobileRegisterEvent(db))
-				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterEvent(db))
 				mobileArcher.DELETE("/tournaments/registrations/:registration_id", mobilehandler.MobileCancelRegistration(db))
+
+				// Alias /events routes for archer
+				mobileArcher.GET("/events", mobilehandler.MobileGetMyEvents(db))
+				mobileArcher.GET("/events/payments", mobilehandler.MobileArcherGetEventPayments(db))
+				mobileArcher.GET("/events/payments/:slug", mobilehandler.MobileArcherGetEventPaymentsByEvent(db))
+				mobileArcher.GET("/events/:id/detail", mobilehandler.MobileArcherGetEventDetail(db))
+				mobileArcher.GET("/events/:id/performance", mobilehandler.MobileArcherGetEventPerformance(db))
+				mobileArcher.GET("/events/:id/registration", mobilehandler.MobileGetMyRegistration(db))
+				mobileArcher.GET("/events/:id/qr", mobilehandler.MobileGetEventQRCode(db))
+				mobileArcher.POST("/events/register", mobilehandler.MobileRegisterEvent(db))
 				mobileArcher.DELETE("/events/registrations/:registration_id", mobilehandler.MobileCancelRegistration(db))
+
 				mobileArcher.DELETE("/payments/:identifier/cancel", mobilehandler.MobileCancelPayment(db))
-			}
-
-			registerOrgRoutes := func(g *gin.RouterGroup) {
-				g.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
-				g.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
-				g.PATCH("/me", mobilehandler.MobileUpdateOrganizationMe(db))
-				g.GET("/tournaments", mobilehandler.MobileGetOrganizationEvents(db))
-				g.GET("/events", mobilehandler.MobileGetOrganizationEvents(db))
-				g.GET("/tournaments/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
-				g.GET("/events/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
-				g.GET("/tournaments/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
-				g.GET("/events/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
-				g.DELETE("/tournaments/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
-				g.DELETE("/events/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
-				g.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
-				g.GET("/scan/history", mobilehandler.MobileGetScanHistory(db))
-				g.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
-
-				// Broadcasts
-				g.GET("/tournaments/:id/broadcasts", mobilehandler.MobileGetEventBroadcasts(db))
-				g.GET("/events/:id/broadcasts", mobilehandler.MobileGetEventBroadcasts(db))
-				g.GET("/tournaments/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
-				g.GET("/events/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
-				g.POST("/tournaments/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
-				g.POST("/events/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
-
-				// Check-in & Search
-				g.GET("/tournaments/:id/checkin-summary", mobilehandler.MobileGetCheckinSummary(db))
-				g.GET("/events/:id/checkin-summary", mobilehandler.MobileGetCheckinSummary(db))
-				g.POST("/tournaments/:id/participants/:participantId/manual-checkin", mobilehandler.MobileManualCheckin(db))
-				g.POST("/events/:id/participants/:participantId/manual-checkin", mobilehandler.MobileManualCheckin(db))
-				g.GET("/search-global", mobilehandler.MobileGlobalSearch(db))
-
-				// Broadcast Extras
-				g.POST("/tournaments/:id/broadcasts/reminder-unpaid", mobilehandler.MobileBroadcastReminderUnpaid(db))
-				g.POST("/events/:id/broadcasts/reminder-unpaid", mobilehandler.MobileBroadcastReminderUnpaid(db))
-
-				// Payments & Invoices
-				g.GET("/tournaments/:id/payments", mobilehandler.MobileGetEventPayments(db))
-				g.GET("/events/:id/payments", mobilehandler.MobileGetEventPayments(db))
-				g.GET("/payments/:transactionId/invoice", mobilehandler.MobileGetInvoiceDetail(db))
-				g.POST("/payments/:transactionId/manual-approve", mobilehandler.MobileManualApprovePayment(db))
-				g.POST("/payments/:transactionId/refund", mobilehandler.MobileRefundPayment(db))
-
-				// Notifications
-				g.GET("/notifications", mobilehandler.MobileGetOrganizerNotifications(db))
-				g.PUT("/notifications/mark-read", mobilehandler.MobileMarkAllOrganizerNotificationsRead(db))
-
-				// Finance
-				g.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))
-				g.GET("/finance/balance", mobilehandler.MobileGetOrganizationWallet(db))
-				g.GET("/finance/bank-accounts", mobilehandler.MobileGetOrganizationBankAccounts(db))
-				g.POST("/finance/bank-accounts", mobilehandler.MobileAddOrganizationBankAccount(db))
-				g.PUT("/finance/bank-accounts/:id", mobilehandler.MobileUpdateOrganizationBankAccount(db))
-				g.DELETE("/finance/bank-accounts/:id", mobilehandler.MobileDeleteOrganizationBankAccount(db))
-				g.POST("/finance/withdraw", mobilehandler.MobileCreateWithdrawal(db))
-				g.GET("/finance/withdrawals", handler.GetWithdrawals(db))
 			}
 
 			mobileOrganizer := mobile.Group("/organizer")
 			mobileOrganizer.Use(middleware.AuthMiddleware())
-			registerOrgRoutes(mobileOrganizer)
+			{
+				mobileOrganizer.GET("/me", mobilehandler.MobileGetOrganizationMe(db))
+				mobileOrganizer.PUT("/me", mobilehandler.MobileUpdateOrganizationMe(db))
+				mobileOrganizer.PATCH("/me", mobilehandler.MobileUpdateOrganizationMe(db))
+				mobileOrganizer.GET("/tournaments", mobilehandler.MobileGetOrganizationEvents(db))
+				mobileOrganizer.GET("/tournaments/:id/participants", mobilehandler.MobileGetOrganizationEventParticipants(db))
+				mobileOrganizer.GET("/tournaments/:id/participants/:user_id", mobilehandler.MobileGetOrganizationParticipantDetail(db))
+				mobileOrganizer.DELETE("/tournaments/:id/participants/:user_id", mobilehandler.MobileOrganizationKickParticipant(db))
+				mobileOrganizer.POST("/scan-registration", mobilehandler.MobileOrganizationScanRegistration(db))
+				mobileOrganizer.GET("/scan/history", mobilehandler.MobileGetScanHistory(db))
+				mobileOrganizer.GET("/dashboard", mobilehandler.MobileGetOrganizationDashboard(db))
 
-			mobileOrganization := mobile.Group("/organization")
-			mobileOrganization.Use(middleware.AuthMiddleware())
-			registerOrgRoutes(mobileOrganization)
+				// Broadcasts
+				mobileOrganizer.GET("/tournaments/:id/broadcasts", mobilehandler.MobileGetEventBroadcasts(db))
+				mobileOrganizer.GET("/tournaments/:id/broadcasts/:broadcast_id", mobilehandler.MobileGetBroadcastDetail(db))
+				mobileOrganizer.POST("/tournaments/:id/broadcasts", mobilehandler.MobileCreateBroadcast(db))
+
+				// Check-in & Search
+				mobileOrganizer.GET("/tournaments/:id/checkin-summary", mobilehandler.MobileGetCheckinSummary(db))
+				mobileOrganizer.POST("/tournaments/:id/participants/:participantId/manual-checkin", mobilehandler.MobileManualCheckin(db))
+				mobileOrganizer.GET("/search-global", mobilehandler.MobileGlobalSearch(db))
+
+				// Broadcast Extras
+				mobileOrganizer.POST("/tournaments/:id/broadcasts/reminder-unpaid", mobilehandler.MobileBroadcastReminderUnpaid(db))
+
+				// Payments & Invoices
+				mobileOrganizer.GET("/tournaments/:id/payments", mobilehandler.MobileGetEventPayments(db))
+				mobileOrganizer.GET("/payments/:transactionId/invoice", mobilehandler.MobileGetInvoiceDetail(db))
+				mobileOrganizer.POST("/payments/:transactionId/manual-approve", mobilehandler.MobileManualApprovePayment(db))
+				mobileOrganizer.POST("/payments/:transactionId/refund", mobilehandler.MobileRefundPayment(db))
+
+				// Notifications
+				mobileOrganizer.GET("/notifications", mobilehandler.MobileGetOrganizerNotifications(db))
+				mobileOrganizer.PUT("/notifications/mark-read", mobilehandler.MobileMarkAllOrganizerNotificationsRead(db))
+
+				// Finance
+				mobileOrganizer.GET("/finance/earnings", mobilehandler.MobileGetOrganizationEarnings(db))
+				mobileOrganizer.GET("/finance/balance", mobilehandler.MobileGetOrganizationWallet(db))
+				mobileOrganizer.GET("/finance/bank-accounts", mobilehandler.MobileGetOrganizationBankAccounts(db))
+				mobileOrganizer.POST("/finance/bank-accounts", mobilehandler.MobileAddOrganizationBankAccount(db))
+				mobileOrganizer.PUT("/finance/bank-accounts/:id", mobilehandler.MobileUpdateOrganizationBankAccount(db))
+				mobileOrganizer.DELETE("/finance/bank-accounts/:id", mobilehandler.MobileDeleteOrganizationBankAccount(db))
+				mobileOrganizer.POST("/finance/withdraw", mobilehandler.MobileCreateWithdrawal(db))
+				mobileOrganizer.GET("/finance/withdrawals", handler.GetWithdrawals(db))
+			}
 
 			// 4. Qualification Scoring
 			qual := mobile.Group("/qualification")
@@ -904,8 +873,6 @@ func main() {
 				qual.GET("/scoring/cards", handler.GetScoringCards(db))
 				qual.GET("/scoring/targets", handler.GetScoringTargets(db))
 				qual.POST("/scoring/scores/:assignmentId", handler.UpdateQualificationScore(db))
-				qual.PUT("/scoring/arrow", mobilehandler.MobileEditArrowScoreAudit(db))
-				qual.POST("/scoring/scores/:assignmentId/submit-final", mobilehandler.MobileSubmitFinalScoresheet(db))
 			}
 
 			// 5. Elimination Scoring
@@ -914,9 +881,6 @@ func main() {
 			{
 				elim.GET("/scoring/cards", handler.GetScoringCards(db))
 				elim.POST("/scoring/matches/:matchId/score", handler.UpdateMatchScore(db))
-				elim.POST("/scoring/matches/:matchId/finish", handler.FinishMatch(db))
-				elim.POST("/scoring/matches/:matchId/end", handler.EndMatch(db))
-				elim.POST("/scoring/matches/:matchId/reset", handler.ResetMatch(db))
 			}
 
 			// 6. Scorekeeper dedicated endpoints

@@ -11,7 +11,8 @@ import (
 
 type MobileBroadcastItem struct {
 	UUID         string    `json:"uuid" db:"uuid"`
-	EventID      string    `json:"event_id" db:"event_id"`
+	TournamentID string    `json:"tournament_id" db:"tournament_id"`
+	EventID      string    `json:"event_id" db:"-"`
 	OrganizerID  string    `json:"organizer_id" db:"organizer_id"`
 	Title        string    `json:"title" db:"title"`
 	Message      string    `json:"message" db:"message"`
@@ -42,13 +43,18 @@ func MobileGetEventBroadcasts(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		eventID := c.Param("id")
+		var actualTournamentUUID string
+		_ = db.Get(&actualTournamentUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if actualTournamentUUID == "" {
+			actualTournamentUUID = eventID
+		}
 
 		var broadcasts []MobileBroadcastItem
-		query := `SELECT uuid, event_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at 
+		query := `SELECT uuid, tournament_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at 
 		          FROM broadcasts 
 		          WHERE tournament_id = ? AND organizer_id = ? 
 		          ORDER BY created_at DESC`
-		err := db.Select(&broadcasts, query, eventID, organizationUUID)
+		err := db.Select(&broadcasts, query, actualTournamentUUID, organizationUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar broadcast", "details": err.Error()})
 			return
@@ -56,6 +62,9 @@ func MobileGetEventBroadcasts(db *sqlx.DB) gin.HandlerFunc {
 
 		if broadcasts == nil {
 			broadcasts = []MobileBroadcastItem{}
+		}
+		for i := range broadcasts {
+			broadcasts[i].EventID = broadcasts[i].TournamentID
 		}
 
 		c.JSON(http.StatusOK, broadcasts)
@@ -76,16 +85,23 @@ func MobileGetBroadcastDetail(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 		broadcastID := c.Param("broadcast_id")
 
+		var actualTournamentUUID string
+		_ = db.Get(&actualTournamentUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if actualTournamentUUID == "" {
+			actualTournamentUUID = eventID
+		}
+
 		var broadcast MobileBroadcastItem
-		query := `SELECT uuid, event_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at 
+		query := `SELECT uuid, tournament_id, organizer_id, title, message, target_type, target_id, target_label, sent_count, created_at 
 		          FROM broadcasts 
 		          WHERE uuid = ? AND tournament_id = ? AND organizer_id = ? 
 		          LIMIT 1`
-		err := db.Get(&broadcast, query, broadcastID, eventID, organizationUUID)
+		err := db.Get(&broadcast, query, broadcastID, actualTournamentUUID, organizationUUID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Detail broadcast tidak ditemukan"})
 			return
 		}
+		broadcast.EventID = broadcast.TournamentID
 
 		c.JSON(http.StatusOK, broadcast)
 	}
@@ -103,6 +119,11 @@ func MobileCreateBroadcast(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		eventID := c.Param("id")
+		var actualTournamentUUID string
+		_ = db.Get(&actualTournamentUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if actualTournamentUUID == "" {
+			actualTournamentUUID = eventID
+		}
 
 		var req CreateBroadcastRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -114,16 +135,16 @@ func MobileCreateBroadcast(db *sqlx.DB) gin.HandlerFunc {
 		var archerIDs []string
 		if req.TargetType == "category" && req.TargetID != nil {
 			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND category_id = ? AND archer_id IS NOT NULL`
-			_ = db.Select(&archerIDs, query, eventID, *req.TargetID)
+			_ = db.Select(&archerIDs, query, actualTournamentUUID, *req.TargetID)
 		} else if req.TargetType == "paid" {
 			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status = 'settlement' OR payment_status = 'paid' OR payment_status = 'Lunas') AND archer_id IS NOT NULL`
-			_ = db.Select(&archerIDs, query, eventID)
+			_ = db.Select(&archerIDs, query, actualTournamentUUID)
 		} else if req.TargetType == "unpaid" {
 			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status IS NULL OR payment_status = 'unpaid' OR payment_status = 'Menunggu') AND archer_id IS NOT NULL`
-			_ = db.Select(&archerIDs, query, eventID)
+			_ = db.Select(&archerIDs, query, actualTournamentUUID)
 		} else {
 			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND archer_id IS NOT NULL`
-			_ = db.Select(&archerIDs, query, eventID)
+			_ = db.Select(&archerIDs, query, actualTournamentUUID)
 		}
 
 		sentCount := len(archerIDs)

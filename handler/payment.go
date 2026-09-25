@@ -924,10 +924,40 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
 			LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
 			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
-			WHERE (tp.payment_id = ? AND tp.payment_id != '') OR (tp.uuid = ? AND tp.uuid != '')
+			WHERE (tp.payment_id = ? AND tp.payment_id != '') 
+			   OR (tp.payment_id = ? AND tp.payment_id != '') 
+			   OR (tp.uuid = ? AND tp.uuid != '')
 			ORDER BY tp.created_at ASC
 		`
-		_ = db.Select(&participants, partQuery, transaction.UUID, transaction.RegistrationID)
+		_ = db.Select(&participants, partQuery, transaction.UUID, transaction.Reference, transaction.RegistrationID)
+		if len(participants) == 0 && transaction.EventID != nil && transaction.UserID != "" {
+			fallbackPartQuery := `
+				SELECT 
+					tp.uuid,
+					tp.archer_id,
+					COALESCE(a.full_name, 'Peserta') as athlete_name,
+					a.gender,
+					COALESCE(c.name, '') as club_name,
+					tp.category_id,
+					COALESCE(tc.category_name_custom, CONCAT_WS(' ', rbt.name, rag.name, rgd.name), '') as category_name,
+					COALESCE(rbt.name, '') as division_name,
+					COALESCE(rag.name, '') as age_group_name,
+					tp.payment_amount,
+					tp.payment_status,
+					tp.last_reregistration_at,
+					tp.qr_raw
+				FROM tournament_participants tp
+				LEFT JOIN archers a ON tp.archer_id = a.uuid
+				LEFT JOIN clubs c ON a.club_id = c.uuid
+				LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+				LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+				LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
+				LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+				WHERE tp.tournament_id = ? AND tp.archer_id = ?
+				ORDER BY tp.created_at ASC
+			`
+			_ = db.Select(&participants, fallbackPartQuery, *transaction.EventID, transaction.UserID)
+		}
 		if participants == nil {
 			participants = []ParticipantItem{}
 		}
@@ -2241,6 +2271,8 @@ func CancelPaymentTransaction(db *sqlx.DB) gin.HandlerFunc {
 			UUID           string  `db:"uuid"`
 			UserID         string  `db:"user_id"`
 			Status         string  `db:"status"`
+			PaymentMethod  string  `db:"payment_method"`
+			ProofURL       *string `db:"proof_url"`
 			TournamentID   *string `db:"tournament_id"`
 			RegistrationID *string `db:"registration_id"`
 			OrganizerID    *string `db:"organizer_id"`
@@ -2248,7 +2280,7 @@ func CancelPaymentTransaction(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				pt.uuid, pt.user_id, pt.status, pt.tournament_id, pt.registration_id,
+				pt.uuid, pt.user_id, pt.status, COALESCE(pt.payment_method, '') AS payment_method, pt.proof_url, pt.tournament_id, pt.registration_id,
 				e.organizer_id
 			FROM payment_transactions pt
 			LEFT JOIN tournaments e ON pt.tournament_id = e.uuid
@@ -2268,6 +2300,11 @@ func CancelPaymentTransaction(db *sqlx.DB) gin.HandlerFunc {
 
 		if !isOwner && !isOrganizer && !isAdmin {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki wewenang untuk membatalkan transaksi ini"})
+			return
+		}
+
+		if isOwner && !isOrganizer && !isAdmin && (tx.PaymentMethod == "manual" || (tx.ProofURL != nil && *tx.ProofURL != "")) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Tagihan transfer manual tidak dapat dibatalkan. Silakan hubungi penyelenggara event jika ingin melakukan perubahan."})
 			return
 		}
 

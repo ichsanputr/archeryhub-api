@@ -242,6 +242,29 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 
 // ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ Archer Auth ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡ÃŽâ€œÃƒÂ¶Ãƒâ€¡
 
+func formatBindError(err error) string {
+	if err == nil {
+		return ""
+	}
+	errStr := err.Error()
+	if strings.Contains(errStr, "'Password'") {
+		if strings.Contains(errStr, "min") {
+			return "Password minimal harus 6 karakter"
+		}
+		return "Password wajib diisi"
+	}
+	if strings.Contains(errStr, "'Email'") {
+		return "Email wajib diisi dengan format email yang valid"
+	}
+	if strings.Contains(errStr, "'FullName'") || strings.Contains(errStr, "'Name'") {
+		return "Nama lengkap wajib diisi"
+	}
+	if strings.Contains(errStr, "'Code'") {
+		return "Kode wajib diisi"
+	}
+	return "Format data yang dikirimkan tidak valid"
+}
+
 // MobileArcherLogin godoc
 // MobileArcherLogin handles archer login for mobile
 // @Summary Archer Login
@@ -257,7 +280,7 @@ func MobileArcherLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": formatBindError(err)})
 			return
 		}
 
@@ -287,7 +310,7 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req mobileEmailPasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": formatBindError(err)})
 			return
 		}
 
@@ -298,36 +321,6 @@ func MobileOrganizationLogin(db *sqlx.DB) gin.HandlerFunc {
 			req,
 			"organizer",
 			"organizer",
-		)
-	}
-}
-
-// MobileSellerLogin godoc
-// MobileSellerLogin handles seller login for mobile
-// @Summary Seller Login
-// @Description Login for seller accounts
-// @Tags Mobile - Seller
-// @Accept json
-// @Produce json
-// @Param request body mobileEmailPasswordRequest true "Login Credentials"
-// @Success 200 {object} MobileLoginResponse
-// @Failure 401 {object} map[string]interface{}
-// @Router /mobile/auth/seller/login [post]
-func MobileSellerLogin(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req mobileEmailPasswordRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		handleMobileEmailPasswordLogin(
-			c,
-			db,
-			`SELECT uuid, uuid as id, slug as username, email, COALESCE(password,'') as password, store_name as full_name, avatar_url, COALESCE(status,'') as status, token_version FROM sellers WHERE email = ?`,
-			req,
-			"seller",
-			"seller",
 		)
 	}
 }
@@ -347,7 +340,7 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req MobileArcherRegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": formatBindError(err)})
 			return
 		}
 
@@ -360,10 +353,8 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 		db.Get(&exists, `SELECT EXISTS(
 			SELECT 1 FROM archers WHERE email = ?
 			UNION ALL
-			SELECT 1 FROM sellers WHERE email = ?
-			UNION ALL
 			SELECT 1 FROM organizers WHERE email = ?
-		)`, req.Email, req.Email, req.Email)
+		)`, req.Email, req.Email)
 		if exists {
 			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar", "code": "email_exists"})
 			return
@@ -371,17 +362,13 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 
 		userID := uuid.New().String()
 
-		var lastID string
-		_ = db.Get(&lastID, "SELECT id FROM archers WHERE id LIKE 'ARC-%' ORDER BY id DESC LIMIT 1")
-		nextIDNum := 1
-		if lastID != "" {
-			parts := strings.Split(lastID, "-")
-			if len(parts) == 2 {
-				fmt.Sscanf(parts[1], "%d", &nextIDNum)
-				nextIDNum++
-			}
-		}
-		athleteID := fmt.Sprintf("ARC-%04d", nextIDNum)
+		var maxID int
+		_ = db.Get(&maxID, `
+			SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(id, '-', -1) AS UNSIGNED)), 0)
+			FROM archers 
+			WHERE id LIKE 'ARC-%'
+		`)
+		athleteID := fmt.Sprintf("ARC-%04d", maxID+1)
 
 		username := utils.CleanUsername(req.FullName)
 		if username == "" {
@@ -439,6 +426,97 @@ func MobileArcherRegister(db *sqlx.DB) gin.HandlerFunc {
 				AvatarURL: avatarURL,
 				Role:      "archer",
 				UserType:  "archer",
+			},
+		})
+	}
+}
+
+// MobileOrganizationRegister godoc
+// MobileOrganizationRegister handles organizer registration for mobile
+// @Summary Organizer Registration
+// @Description Register a new organizer account
+// @Tags Mobile - Organizer
+// @Accept json
+// @Produce json
+// @Param request body MobileOrganizerRegisterRequest true "Organizer Registration Details"
+// @Success 201 {object} MobileLoginResponse
+// @Failure 400 {object} map[string]interface{}
+// @Router /mobile/auth/organizer/register [post]
+func MobileOrganizationRegister(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req MobileOrganizerRegisterRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": formatBindError(err)})
+			return
+		}
+
+		name := strings.TrimSpace(req.Name)
+		if name == "" {
+			name = strings.TrimSpace(req.OrganizationName)
+		}
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nama organisasi wajib diisi", "code": "name_required"})
+			return
+		}
+
+		phone := strings.TrimSpace(req.Phone)
+		if phone == "" {
+			phone = strings.TrimSpace(req.WhatsAppNo)
+		}
+
+		var exists bool
+		db.Get(&exists, `SELECT EXISTS(
+			SELECT 1 FROM archers WHERE email = ?
+			UNION ALL
+			SELECT 1 FROM organizers WHERE email = ?
+		)`, req.Email, req.Email)
+		if exists {
+			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar", "code": "email_exists"})
+			return
+		}
+
+		orgUUID := uuid.New().String()
+		slug := utils.CleanUsername(name)
+		if slug == "" {
+			slug = "organizer"
+		}
+		slug = slug + "-" + orgUUID[:8]
+
+		avatarURL := utils.DiceBearAvatar(name)
+
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kata sandi"})
+			return
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO organizers (uuid, user_id, name, slug, email, password, avatar_url, whatsapp_no, status, is_verified, token_version, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, 1, NOW(), NOW())
+		`, orgUUID, orgUUID, name, slug, req.Email, string(hashedPassword), avatarURL, phone)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun organisasi: " + err.Error()})
+			return
+		}
+
+		token, err := generateJWT(orgUUID, req.Email, "organizer", "organizer", name, avatarURL, orgUUID, 1)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, MobileLoginResponse{
+			Token:     token,
+			IsNewUser: true,
+			User: MobileUser{
+				UUID:      orgUUID,
+				ID:        orgUUID,
+				Username:  slug,
+				FullName:  name,
+				Email:     req.Email,
+				AvatarURL: avatarURL,
+				Role:      "organizer",
+				UserType:  "organizer",
 			},
 		})
 	}

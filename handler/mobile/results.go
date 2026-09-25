@@ -30,7 +30,7 @@ func MobileRecentResults(db *sqlx.DB) gin.HandlerFunc {
 			EndDate *string `db:"end_date"`
 		}
 		err := db.Select(&recentEvents, `
-			SELECT uuid, name, slug, end_date
+			SELECT uuid, name, slug, CAST(COALESCE(DATE_FORMAT(end_date, '%Y-%m-%d'), '') AS CHAR) as end_date
 			FROM tournaments
 			WHERE end_date < NOW() AND end_date > DATE_SUB(NOW(), INTERVAL 30 DAY)
 			AND status IN ('published', 'active')

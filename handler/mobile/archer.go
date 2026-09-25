@@ -612,10 +612,14 @@ func MobileArcherGetEventPerformance(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileArcherGetCertificates returns certificates earned by the archer
 func MobileArcherGetCertificates(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetString("user_id")
+		var archerUUID string
+		_ = db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? LIMIT 1`, userID, userID)
+		if archerUUID == "" {
+			archerUUID = userID
+		}
 
 		type CertificateItem struct {
 			ID            string `json:"id" db:"id"`
@@ -628,24 +632,43 @@ func MobileArcherGetCertificates(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var certs []CertificateItem
-		apiBase := utils.GetAPIBaseURL()
 		err := db.Select(&certs, `
 			SELECT 
-				ep.uuid as id,
-				CONCAT('Sertifikat Partisipasi - ', e.name) as title,
+				ac.uuid as id,
+				CONCAT('Sertifikat - ', e.name) as title,
 				e.name as event_name,
-				COALESCE(cat.name, 'Kategori Umum') as category,
-				DATE_FORMAT(ep.registration_date, '%d %b %Y') as issue_date,
-				COALESCE(ep.certificate_url, CONCAT(?, '/api/certificates/', ep.uuid, '/pdf')) as pdf_url,
-				CONCAT('CERT-', UPPER(SUBSTRING(ep.uuid, 1, 8))) as certificate_no
-			FROM tournament_participants ep
-			JOIN tournaments e ON ep.tournament_id = e.uuid
-			LEFT JOIN tournament_categories cat ON ep.event_category_id = cat.uuid
-			WHERE ep.archer_id = ? AND ep.payment_status IN ('paid', 'lunas', 'settlement', 'completed', 'confirmed')
-			ORDER BY ep.registration_date DESC
-		`, apiBase, userID)
+				COALESCE(cat.category_name_custom, 'Kategori Umum') as category,
+				CAST(COALESCE(DATE_FORMAT(ac.issue_date, '%d %b %Y'), '') AS CHAR) as issue_date,
+				ac.pdf_url,
+				ac.certificate_no
+			FROM archer_certificates ac
+			JOIN tournaments e ON ac.tournament_id = e.uuid
+			LEFT JOIN tournament_participants ep ON ac.registration_id = ep.uuid
+			LEFT JOIN tournament_categories cat ON ep.category_id = cat.uuid
+			WHERE ac.archer_id = ? OR ac.archer_id = ?
+			ORDER BY ac.created_at DESC
+		`, archerUUID, userID)
 
-		if err != nil || certs == nil {
+		if err != nil || len(certs) == 0 {
+			apiBase := utils.GetAPIBaseURL()
+			_ = db.Select(&certs, `
+				SELECT 
+					ep.uuid as id,
+					CONCAT('Sertifikat Partisipasi - ', e.name) as title,
+					e.name as event_name,
+					COALESCE(cat.category_name_custom, 'Kategori Umum') as category,
+					CAST(COALESCE(DATE_FORMAT(ep.registration_date, '%d %b %Y'), '') AS CHAR) as issue_date,
+					COALESCE(ep.certificate_url, CONCAT(?, '/api/certificates/', ep.uuid, '/pdf')) as pdf_url,
+					CONCAT('CERT-', UPPER(SUBSTRING(ep.uuid, 1, 8))) as certificate_no
+				FROM tournament_participants ep
+				JOIN tournaments e ON ep.tournament_id = e.uuid
+				LEFT JOIN tournament_categories cat ON ep.category_id = cat.uuid
+				WHERE (ep.archer_id = ? OR ep.archer_id = ?) AND ep.payment_status IN ('paid', 'lunas', 'settlement', 'completed', 'confirmed')
+				ORDER BY ep.registration_date DESC
+			`, apiBase, archerUUID, userID)
+		}
+
+		if certs == nil {
 			certs = []CertificateItem{}
 		}
 

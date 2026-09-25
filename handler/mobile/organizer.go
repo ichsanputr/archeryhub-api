@@ -127,10 +127,10 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				t.uuid, e.name, t.amount, t.status, t.paid_at, t.created_at,
-				a.full_name as archer_name,
+				COALESCE(a.full_name, '') as archer_name,
 				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name
 			FROM payment_transactions t
-			JOIN tournaments e ON t.event_id = e.uuid
+			JOIN tournaments e ON t.tournament_id = e.uuid
 			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
@@ -155,7 +155,7 @@ func MobileGetOrganizationEarnings(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Get(&total, `
 			SELECT COUNT(*) 
 			FROM payment_transactions t 
-			JOIN tournaments e ON t.event_id = e.uuid 
+			JOIN tournaments e ON t.tournament_id = e.uuid 
 			WHERE e.organizer_id = ? AND t.registration_id IS NOT NULL
 		`, userID)
 

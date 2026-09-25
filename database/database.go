@@ -116,6 +116,23 @@ func InitDB() (*sqlx.DB, error) {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`)
 
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS organizer_subscribers (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			user_id VARCHAR(64) NULL,
+			email VARCHAR(255) NOT NULL,
+			organizer_id VARCHAR(64) NULL,
+			organizer_name VARCHAR(255) NULL,
+			tournament_slug VARCHAR(255) NULL,
+			is_active TINYINT(1) DEFAULT 1,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			UNIQUE KEY uq_email_organizer (email, organizer_name),
+			INDEX idx_email (email),
+			INDEX idx_organizer (organizer_name)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
 	return db, nil
 }
 

@@ -3,6 +3,7 @@ package utils
 import (
 	"Archeris-api/models"
 	"encoding/json"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -23,8 +24,9 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 	}
 
 	event.Currency = "IDR"
-	// Check tournament's own page_settings first
-	if event.Event.PageSettings != nil && *event.Event.PageSettings != "" {
+	if event.Event.Currency != "" {
+		event.Currency = event.Event.Currency
+	} else if event.Event.PageSettings != nil && *event.Event.PageSettings != "" {
 		var ps struct {
 			Currency string `json:"currency"`
 		}
@@ -157,7 +159,7 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 
 	gallery := []models.EventImage{}
 	_ = db.Select(&gallery, `
-		SELECT uuid, tournament_id as event_id, url, caption, alt_text, display_order, is_primary, created_at
+		SELECT uuid, tournament_id, url, caption, alt_text, display_order, is_primary, created_at
 		FROM tournament_images
 		WHERE tournament_id = ?
 		ORDER BY display_order, created_at
@@ -176,7 +178,17 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 			NULLIF(COALESCE(et.name, ''), '') as event_type_name,
 			NULLIF(COALESCE(gd.name, ''), '') as gender_division_name,
 			COUNT(tp.uuid) as participant_count,
-			COALESCE(t.entry_fee, 0.00) as fee
+			COALESCE(
+				NULLIF(ec.fee, 0.00),
+				CASE 
+					WHEN t.fee_mode = 'per_type' AND LOWER(COALESCE(et.name, '')) LIKE '%mixed%' THEN NULLIF(t.fee_mixed_team, 0.00)
+					WHEN t.fee_mode = 'per_type' AND (LOWER(COALESCE(et.name, '')) LIKE '%team%' OR LOWER(COALESCE(et.name, '')) LIKE '%beregu%') THEN NULLIF(t.fee_team, 0.00)
+					WHEN t.fee_mode = 'per_type' THEN NULLIF(t.fee_individual, 0.00)
+					ELSE NULLIF(t.entry_fee, 0.00)
+				END,
+				t.entry_fee,
+				0.00
+			) as fee
 		FROM tournament_categories ec
 		JOIN tournaments t ON ec.tournament_id = t.uuid
 		LEFT JOIN tournament_participants tp ON tp.category_id = ec.uuid
@@ -185,9 +197,47 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 		LEFT JOIN ref_tournament_types et ON ec.tournament_type_uuid = et.uuid
 		LEFT JOIN ref_gender_divisions gd ON ec.gender_division_uuid = gd.uuid
 		WHERE ec.tournament_id = ?
-		GROUP BY ec.uuid, bt.name, ec.category_name_custom, ag.name, et.name, gd.name, t.entry_fee
+		GROUP BY ec.uuid, bt.name, ec.category_name_custom, ag.name, et.name, gd.name, ec.fee, t.fee_mode, t.fee_individual, t.fee_team, t.fee_mixed_team, t.entry_fee
 		ORDER BY participant_count DESC, ec.created_at ASC
 	`, event.UUID)
+
+	// Fallback check: if category fee is 0 but page_settings has fee_per_category or fee_per_type
+	if event.Event.PageSettings != nil && *event.Event.PageSettings != "" {
+		var ps struct {
+			FeeMode        string             `json:"fee_mode"`
+			FeePerType     map[string]float64 `json:"fee_per_type"`
+			FeePerCategory map[string]float64 `json:"fee_per_category"`
+		}
+		if errJson := json.Unmarshal([]byte(*event.Event.PageSettings), &ps); errJson == nil {
+			for i := range competitionCategories {
+				catID := competitionCategories[i].CategoryID
+				if (competitionCategories[i].Fee == nil || *competitionCategories[i].Fee == 0) {
+					if ps.FeeMode == "per_category" && ps.FeePerCategory != nil {
+						if feeVal, ok := ps.FeePerCategory[catID]; ok && feeVal > 0 {
+							feeCopy := feeVal
+							competitionCategories[i].Fee = &feeCopy
+						}
+					} else if ps.FeeMode == "per_type" && ps.FeePerType != nil {
+						eventTypeName := ""
+						if competitionCategories[i].EventTypeName != nil {
+							eventTypeName = *competitionCategories[i].EventTypeName
+						}
+						typeKey := "individual"
+						if strings.Contains(strings.ToLower(eventTypeName), "mixed") {
+							typeKey = "mixed_team"
+						} else if strings.Contains(strings.ToLower(eventTypeName), "team") || strings.Contains(strings.ToLower(eventTypeName), "beregu") {
+							typeKey = "team"
+						}
+						if feeVal, ok := ps.FeePerType[typeKey]; ok && feeVal > 0 {
+							feeCopy := feeVal
+							competitionCategories[i].Fee = &feeCopy
+						}
+					}
+				}
+			}
+		}
+	}
+
 	event.CompetitionCategories = competitionCategories
 
 	// Parse JSON fields

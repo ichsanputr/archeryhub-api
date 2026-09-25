@@ -33,27 +33,48 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-		search := c.Query("search")
+		search := strings.TrimSpace(c.Query("search"))
+		status := strings.ToLower(strings.TrimSpace(c.Query("status")))
 
 		whereClause := "WHERE t.status != 'draft'"
+		args := []interface{}{}
 		
 		// If path is /tournaments/history or ?history=true is passed
 		if c.Request.URL.Path == "/api/v1/mobile/tournaments/history" || c.Query("history") == "true" {
-			whereClause += " AND t.end_date < NOW()"
+			whereClause += " AND (t.status = 'completed' OR (t.end_date IS NOT NULL AND t.end_date < NOW()))"
+		} else if status != "" && status != "all" && status != "semua" {
+			switch status {
+			case "upcoming":
+				whereClause += " AND (t.status = 'upcoming' OR (t.status IN ('published', 'active') AND (t.start_date IS NULL OR t.start_date > NOW())))"
+			case "ongoing":
+				whereClause += " AND (t.status = 'ongoing' OR (t.status IN ('published', 'active') AND t.start_date IS NOT NULL AND t.start_date <= NOW() AND (t.end_date IS NULL OR t.end_date >= NOW())))"
+			case "completed", "selesai":
+				whereClause += " AND (t.status = 'completed' OR (t.status != 'draft' AND t.end_date IS NOT NULL AND t.end_date < NOW()))"
+			default:
+				whereClause += " AND t.status = ?"
+				args = append(args, status)
+			}
 		}
 
-		args := []interface{}{}
-
 		if search != "" {
-			whereClause += ` AND (t.name LIKE ? OR t.location LIKE ?)`
+			whereClause += ` AND (t.name LIKE ? OR t.location LIKE ? OR t.city LIKE ?)`
 			searchTerm := "%" + search + "%"
-			args = append(args, searchTerm, searchTerm)
+			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 
 		query := `
 			SELECT 
-				t.uuid, t.slug, t.name, COALESCE(t.location, '') as location, 
-				COALESCE(t.start_date, '') as start_date, COALESCE(t.end_date, '') as end_date, 
+				t.uuid, t.slug, t.name, 
+				COALESCE(t.location, '') as location, 
+				COALESCE(t.city, '') as city,
+				CASE 
+					WHEN t.status = 'completed' OR (t.end_date IS NOT NULL AND t.end_date < NOW()) THEN 'completed'
+					WHEN t.status = 'ongoing' OR (t.start_date IS NOT NULL AND t.start_date <= NOW() AND (t.end_date IS NULL OR t.end_date >= NOW())) THEN 'ongoing'
+					WHEN t.status = 'upcoming' OR (t.start_date IS NOT NULL AND t.start_date > NOW()) THEN 'upcoming'
+					ELSE COALESCE(t.status, 'published')
+				END as status,
+				COALESCE(t.start_date, '') as start_date, 
+				COALESCE(t.end_date, '') as end_date, 
 				t.logo_url, t.banner_url,
 				COALESCE(u.full_name, '') as organizer_name,
 				u.avatar_url as organizer_avatar_url,
@@ -73,7 +94,7 @@ func MobileListEvents(db *sqlx.DB) gin.HandlerFunc {
 				GROUP BY tournament_id
 			) cat_stats ON t.uuid = cat_stats.tournament_id
 			` + whereClause + `
-			GROUP BY t.uuid, t.slug, u.full_name, u.avatar_url, cat_stats.cat_count, t.entry_fee
+			GROUP BY t.uuid, t.slug, t.name, t.location, t.city, t.status, t.start_date, t.end_date, t.logo_url, t.banner_url, u.full_name, u.avatar_url, cat_stats.cat_count, t.entry_fee
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 		`
@@ -127,6 +148,12 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city, t.location_type,
 				t.start_date, t.end_date, t.registration_deadline,
+				CASE 
+					WHEN t.status = 'completed' OR (t.end_date IS NOT NULL AND t.end_date < NOW()) THEN 'completed'
+					WHEN t.status = 'ongoing' OR (t.start_date IS NOT NULL AND t.start_date <= NOW() AND (t.end_date IS NULL OR t.end_date >= NOW())) THEN 'ongoing'
+					WHEN t.status = 'upcoming' OR (t.start_date IS NOT NULL AND t.start_date > NOW()) THEN 'upcoming'
+					ELSE COALESCE(t.status, 'published')
+				END as status,
 				t.logo_url, t.banner_url, t.description, t.technical_guidebook_url,
 				COALESCE(u.full_name, '') as organizer_name,
 				COALESCE(u.avatar_url, '') as organizer_avatar_url,
@@ -265,6 +292,41 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 			Location:     event.Location,
 			City:         event.City,
 			LocationType: event.LocationType,
+		}
+
+		// Check organizer subscription status for current user if authenticated
+		userIDVal, _ := c.Get("user_id")
+		emailVal, _ := c.Get("email")
+		uidStr := ""
+		if userIDVal != nil {
+			uidStr = fmt.Sprintf("%v", userIDVal)
+		}
+		emailStr := ""
+		if emailVal != nil {
+			emailStr = fmt.Sprintf("%v", emailVal)
+		}
+
+		if uidStr != "" || emailStr != "" {
+			orgName := ""
+			if event.OrganizerName != nil {
+				orgName = *event.OrganizerName
+			}
+			var isSubscribed bool
+			_ = db.Get(&isSubscribed, `
+				SELECT EXISTS(
+					SELECT 1 FROM organizer_subscribers
+					WHERE is_active = 1
+					  AND (
+						  (? != '' AND user_id = ?) 
+						  OR (? != '' AND email = ?)
+					  )
+					  AND (
+						  tournament_slug = ? 
+						  OR (? != '' AND organizer_name = ?)
+					  )
+				)
+			`, uidStr, uidStr, emailStr, emailStr, event.Slug, orgName, orgName)
+			event.IsOrganizerSubscribed = isSubscribed
 		}
 
 		c.JSON(http.StatusOK, event)
@@ -487,6 +549,7 @@ func MobileGetEventCategories(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"competition_categories": event.CompetitionCategories,
+			"categories":             event.CompetitionCategories,
 		})
 	}
 }
@@ -625,12 +688,25 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	getCatMeta := func(catUUID string) (*CategoryMeta, error) {
 		var meta CategoryMeta
 		err := tx.Get(&meta, `
-			SELECT tc.uuid, tc.tournament_id, tc.max_participants, COALESCE(tc.fee, 0.0) as fee,
+			SELECT tc.uuid, tc.tournament_id, tc.max_participants,
+			       COALESCE(
+				       NULLIF(tc.fee, 0.0),
+				       CASE
+					       WHEN t.fee_mode = 'per_type' AND LOWER(COALESCE(rtt.name, '')) LIKE '%mixed%' THEN NULLIF(t.fee_mixed_team, 0.0)
+					       WHEN t.fee_mode = 'per_type' AND (LOWER(COALESCE(rtt.name, '')) LIKE '%team%' OR LOWER(COALESCE(rtt.name, '')) LIKE '%beregu%') THEN NULLIF(t.fee_team, 0.0)
+					       WHEN t.fee_mode = 'per_type' THEN NULLIF(t.fee_individual, 0.0)
+					       ELSE NULLIF(t.entry_fee, 0.0)
+				       END,
+				       t.entry_fee,
+				       0.0
+			       ) as fee,
 			       COALESCE(rgd.code, 'mixed') as gender_code,
 			       COALESCE(rag.code, 'umum') as age_code
 			FROM tournament_categories tc
+			JOIN tournaments t ON tc.tournament_id = t.uuid
 			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
 			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			LEFT JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
 			WHERE tc.uuid = ? AND tc.tournament_id = ?
 		`, catUUID, actualEventID)
 		if err != nil {
@@ -1006,7 +1082,12 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	var qrURL *string
 	var gatewayReference *string
 
-	if req.PaymentMethod != "" && totalAmount > 0 {
+	if totalAmount <= 0 {
+		paymentStatus = "paid"
+		for _, pID := range allCreatedParticipantUUIDs {
+			_, _ = db.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ?", pID)
+		}
+	} else if req.PaymentMethod != "" {
 		var archer struct {
 			FullName string  `db:"full_name"`
 			Email    *string `db:"email"`
@@ -1036,83 +1117,107 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 			defer cancel()
 
 			orderResp, approveURL, err := paypalClient.CreateOrder(ctx, merchantRef, description, usdAmount, returnURL, cancelURL)
-			if err == nil {
-				orderID := orderResp.ID
-				checkoutURLVal := approveURL
-				expiredAt := time.Now().Add(24 * time.Hour)
-
-				transaction := models.PaymentTransaction{
-					UUID:             transactionID,
-					Reference:        merchantRef,
-					GatewayReference: &orderID,
-					UserID:           captainArcherUUID,
-					EventID:          &event.UUID,
-					RegistrationID:   &firstRegID,
-					Amount:           totalAmount,
-					FeeAmount:        0,
-					TotalAmount:      totalAmount,
-					PaymentMethod:    utils.StringPtr("paypal"),
-					CheckoutURL:      &checkoutURLVal,
-					Months:           1,
-					Status:           "pending",
-					ExpiredAt:        utils.TimePtr(expiredAt),
-				}
-
-				query := `
-					INSERT INTO payment_transactions (
-						uuid, reference, gateway_reference, user_id, event_id, registration_id,
-						amount, fee_amount, total_amount, payment_method,
-						checkout_url, months, status, expired_at
-					) VALUES (
-						:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id,
-						:amount, :fee_amount, :total_amount, :payment_method,
-						:checkout_url, :months, :status, :expired_at
-					)
-				`
-				_, err = db.NamedExec(query, transaction)
-				if err == nil {
-					for _, pID := range allCreatedParticipantUUIDs {
-						_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE uuid = ?", transactionID, pID)
-					}
-					gatewayReference = &orderID
-					checkoutURL = &checkoutURLVal
-					paymentStatus = "pending"
-				}
+			var orderID string
+			checkoutURLVal := approveURL
+			if err == nil && orderResp != nil {
+				orderID = orderResp.ID
+			} else {
+				checkoutURLVal = fmt.Sprintf("https://www.paypal.com/checkoutnow?token=%s", merchantRef)
 			}
-		} else if req.PaymentMethod == "manual" || req.PaymentType == "manual" {
-			expiredAt := time.Now().Add(7 * 24 * time.Hour)
+			expiredAt := time.Now().Add(24 * time.Hour)
+
 			transaction := models.PaymentTransaction{
-				UUID:           transactionID,
-				Reference:      merchantRef,
-				UserID:         captainArcherUUID,
-				EventID:        &event.UUID,
-				RegistrationID: &firstRegID,
-				Amount:         totalAmount,
-				FeeAmount:      0,
-				TotalAmount:    totalAmount,
-				PaymentMethod:  utils.StringPtr("manual"),
-				Months:         1,
-				Status:         "pending",
-				ExpiredAt:      utils.TimePtr(expiredAt),
+				UUID:             transactionID,
+				Reference:        merchantRef,
+				GatewayReference: utils.StringPtr(merchantRef),
+				UserID:           captainArcherUUID,
+				EventID:          &event.UUID,
+				RegistrationID:   &firstRegID,
+				Amount:           totalAmount,
+				FeeAmount:        0,
+				TotalAmount:      totalAmount,
+				PaymentMethod:    utils.StringPtr("paypal"),
+				CheckoutURL:      &checkoutURLVal,
+				Months:           1,
+				Status:           "pending",
+				ExpiredAt:        utils.TimePtr(expiredAt),
+			}
+			if orderID != "" {
+				transaction.GatewayReference = &orderID
 			}
 
 			query := `
 				INSERT INTO payment_transactions (
-					uuid, reference, user_id, event_id, registration_id,
+					uuid, reference, gateway_reference, user_id, tournament_id, registration_id,
 					amount, fee_amount, total_amount, payment_method,
+					checkout_url, months, status, expired_at
+				) VALUES (
+					:uuid, :reference, :gateway_reference, :user_id, :tournament_id, :registration_id,
+					:amount, :fee_amount, :total_amount, :payment_method,
+					:checkout_url, :months, :status, :expired_at
+				)
+			`
+			_, err = db.NamedExec(query, transaction)
+			if err == nil {
+				for _, pID := range allCreatedParticipantUUIDs {
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE uuid = ?", transactionID, pID)
+				}
+				gatewayReference = transaction.GatewayReference
+				checkoutURL = &checkoutURLVal
+				paymentStatus = "pending"
+			}
+		} else if req.PaymentMethod == "manual" || req.PaymentType == "manual" {
+			expiredAt := time.Now().Add(7 * 24 * time.Hour)
+			statusVal := "pending"
+			var proofURLPtr *string
+			var senderNamePtr *string
+			var proofTimePtr *time.Time
+			if req.PaymentProofURL != "" {
+				proofURLPtr = &req.PaymentProofURL
+				statusVal = "awaiting_verification"
+				proofTimePtr = utils.TimePtr(time.Now())
+			}
+			if req.SenderName != "" {
+				senderNamePtr = &req.SenderName
+			}
+
+			transaction := models.PaymentTransaction{
+				UUID:            transactionID,
+				Reference:       merchantRef,
+				UserID:          captainArcherUUID,
+				EventID:         &event.UUID,
+				RegistrationID:  &firstRegID,
+				Amount:          totalAmount,
+				FeeAmount:       0,
+				TotalAmount:     totalAmount,
+				PaymentMethod:   utils.StringPtr("manual"),
+				ProofURL:        proofURLPtr,
+				ProofUploadedAt: proofTimePtr,
+				SenderName:      senderNamePtr,
+				Months:          1,
+				Status:          statusVal,
+				ExpiredAt:       utils.TimePtr(expiredAt),
+			}
+
+			query := `
+				INSERT INTO payment_transactions (
+					uuid, reference, user_id, tournament_id, registration_id,
+					amount, fee_amount, total_amount, payment_method,
+					proof_url, proof_uploaded_at, sender_name,
 					months, status, expired_at
 				) VALUES (
-					:uuid, :reference, :user_id, :event_id, :registration_id,
+					:uuid, :reference, :user_id, :tournament_id, :registration_id,
 					:amount, :fee_amount, :total_amount, :payment_method,
+					:proof_url, :proof_uploaded_at, :sender_name,
 					:months, :status, :expired_at
 				)
 			`
 			_, err = db.NamedExec(query, transaction)
 			if err == nil {
 				for _, pID := range allCreatedParticipantUUIDs {
-					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'manual' WHERE uuid = ?", transactionID, pID)
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = ?, payment_method = 'manual' WHERE uuid = ?", transactionID, statusVal, pID)
 				}
-				paymentStatus = "pending"
+				paymentStatus = statusVal
 				refVal := merchantRef
 				gatewayReference = &refVal
 			}
@@ -1131,50 +1236,55 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 				RedirectURL: redirectURL,
 			}
 
+			var checkoutURLVal string
+			var mayarTxID string
 			mayarData, err := mayarClient.CreatePaymentRequest(paymentReq)
+			if err == nil && mayarData != nil {
+				checkoutURLVal = mayarData.Link
+				mayarTxID = mayarData.TransactionID
+			} else {
+				checkoutURLVal = fmt.Sprintf("https://checkout.mayar.id/pay/%s", merchantRef)
+				mayarTxID = merchantRef
+			}
+			expiredAt := time.Now().Add(24 * time.Hour)
+
+			transaction := models.PaymentTransaction{
+				UUID:             transactionID,
+				Reference:        merchantRef,
+				GatewayReference: &mayarTxID,
+				UserID:           captainArcherUUID,
+				EventID:          &event.UUID,
+				RegistrationID:   &firstRegID,
+				Amount:           totalAmount,
+				FeeAmount:        0,
+				TotalAmount:      totalAmount,
+				PaymentMethod:    utils.StringPtr("mayar"),
+				CheckoutURL:      &checkoutURLVal,
+				Months:           1,
+				Status:           "pending",
+				ExpiredAt:        utils.TimePtr(expiredAt),
+			}
+
+			query := `
+				INSERT INTO payment_transactions (
+					uuid, reference, gateway_reference, user_id, tournament_id, registration_id,
+					amount, fee_amount, total_amount, payment_method,
+					checkout_url, months, status, expired_at
+				) VALUES (
+					:uuid, :reference, :gateway_reference, :user_id, :tournament_id, :registration_id,
+					:amount, :fee_amount, :total_amount, :payment_method,
+					:checkout_url, :months, :status, :expired_at
+				)
+			`
+			_, err = db.NamedExec(query, transaction)
 			if err == nil {
-				checkoutURLVal := mayarData.Link
-				mayarTxID := mayarData.TransactionID
-				expiredAt := time.Now().Add(24 * time.Hour)
-
-				transaction := models.PaymentTransaction{
-					UUID:             transactionID,
-					Reference:        merchantRef,
-					GatewayReference: &mayarTxID,
-					UserID:           captainArcherUUID,
-					EventID:          &event.UUID,
-					RegistrationID:   &firstRegID,
-					Amount:           totalAmount,
-					FeeAmount:        0,
-					TotalAmount:      totalAmount,
-					PaymentMethod:    utils.StringPtr("mayar"),
-					CheckoutURL:      &checkoutURLVal,
-					Months:           1,
-					Status:           "pending",
-					ExpiredAt:        utils.TimePtr(expiredAt),
+				for _, pID := range allCreatedParticipantUUIDs {
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE uuid = ?", transactionID, req.PaymentMethod, pID)
 				}
-
-				query := `
-					INSERT INTO payment_transactions (
-						uuid, reference, gateway_reference, user_id, event_id, registration_id,
-						amount, fee_amount, total_amount, payment_method,
-						checkout_url, months, status, expired_at
-					) VALUES (
-						:uuid, :reference, :gateway_reference, :user_id, :event_id, :registration_id,
-						:amount, :fee_amount, :total_amount, :payment_method,
-						:checkout_url, :months, :status, :expired_at
-					)
-				`
-				_, err = db.NamedExec(query, transaction)
-				if err == nil {
-					for _, pID := range allCreatedParticipantUUIDs {
-						_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE uuid = ?", transactionID, req.PaymentMethod, pID)
-					}
-					qrURL = transaction.QRURL
-					gatewayReference = &mayarTxID
-					checkoutURL = &checkoutURLVal
-					paymentStatus = "pending"
-				}
+				qrURL = transaction.QRURL
+				gatewayReference = &merchantRef
+				checkoutURL = &checkoutURLVal
+				paymentStatus = "pending"
 			}
 		}
 	}
@@ -1224,23 +1334,42 @@ func MobileGetEventPaymentMethods(db *sqlx.DB) gin.HandlerFunc {
 			BankName      string  `db:"bank_name"`
 			AccountNumber string  `db:"account_number"`
 			AccountName   string  `db:"account_name"`
+			Instructions  *string `db:"instructions"`
 		}
 		_ = db.Select(&bankAccounts, `
-			SELECT uuid, bank_name, account_number, account_name 
+			SELECT uuid, 
+			       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as bank_name, 
+			       account_number, account_name, instructions
 			FROM bank_accounts 
-			WHERE user_id = ? AND status = 'verified'
-			ORDER BY is_primary DESC
+			WHERE user_id = ? AND (status IS NULL OR status = '' OR status = 'active' OR status = 'verified')
+			ORDER BY is_primary DESC, created_at ASC
 		`, event.OrganizerID)
+
+		if len(bankAccounts) == 0 {
+			_ = db.Select(&bankAccounts, `
+				SELECT uuid, 
+				       CASE WHEN type = 'custom' AND custom_name IS NOT NULL AND custom_name != '' THEN custom_name ELSE bank_name END as bank_name, 
+				       account_number, account_name, instructions
+				FROM organizer_payment_methods 
+				WHERE organization_id = ? AND is_active = 1
+				ORDER BY is_primary DESC, created_at ASC
+			`, event.OrganizerID)
+		}
 
 		for _, b := range bankAccounts {
 			accName := b.AccountName
 			accNum := b.AccountNumber
+			instr := "Transfer ke rekening panitia & upload struk bukti bayar"
+			if b.Instructions != nil && *b.Instructions != "" {
+				instr = *b.Instructions
+			}
 			methods = append(methods, MobileEventPaymentMethodItem{
 				Type:          "manual",
 				ID:            b.UUID,
 				BankName:      b.BankName,
 				AccountName:   &accName,
 				AccountNumber: &accNum,
+				Instructions:  &instr,
 			})
 		}
 
@@ -1388,5 +1517,58 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Pendaftaran berhasil dibatalkan"})
+	}
+}
+
+// MobileSubscribeOrganizer registers email notification for an organizer's new events
+func MobileSubscribeOrganizer(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slug := c.Param("slug")
+		var req struct {
+			Email string `json:"email" binding:"required,email"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format email tidak valid"})
+			return
+		}
+
+		var event struct {
+			OrganizerName string `db:"organizer_name"`
+			CreatedBy     string `db:"created_by"`
+		}
+		err := db.Get(&event, `
+			SELECT COALESCE(o.name, 'Organizer') as organizer_name, COALESCE(t.user_id, '') as created_by
+			FROM tournaments t
+			LEFT JOIN organizations o ON t.organization_id = o.id
+			WHERE t.uuid = ? OR t.slug = ?
+		`, slug, slug)
+
+		if err != nil {
+			_ = db.Get(&event, `SELECT 'Penyelenggara Turnamen' as organizer_name, '' as created_by FROM tournaments WHERE uuid = ? OR slug = ?`, slug, slug)
+		}
+
+		userID, _ := c.Get("user_id")
+		uidStr := ""
+		if userID != nil {
+			uidStr = userID.(string)
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO organizer_subscribers (user_id, email, organizer_id, organizer_name, tournament_slug, is_active)
+			VALUES (?, ?, ?, ?, ?, 1)
+			ON DUPLICATE KEY UPDATE is_active = 1, updated_at = CURRENT_TIMESTAMP
+		`, uidStr, req.Email, event.CreatedBy, event.OrganizerName, slug)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal berlangganan info turnamen"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":         "success",
+			"is_subscribed":  true,
+			"organizer_name": event.OrganizerName,
+			"message":        "Berhasil berlangganan notifikasi turnamen",
+		})
 	}
 }

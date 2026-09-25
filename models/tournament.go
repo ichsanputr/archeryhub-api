@@ -87,6 +87,15 @@ type Event struct {
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at" swaggertype:"string" format:"date-time" example:"2026-03-12T13:10:00Z"`
 	TotalPrize            float64    `json:"total_prize" db:"total_prize" example:"50000000"`
 	TechnicalGuidebookURL *string    `json:"technical_guidebook_url" db:"technical_guidebook_url" example:"https://cdn.archeris.net/media/technical-guidebook-jkt-open-2026.pdf"`
+	RegistrationStart     *time.Time `json:"registration_start" db:"registration_start" swaggertype:"string" format:"date-time"`
+	FeeMode               string     `json:"fee_mode" db:"fee_mode"`
+	FeeIndividual         float64    `json:"fee_individual" db:"fee_individual"`
+	FeeTeam               float64    `json:"fee_team" db:"fee_team"`
+	FeeMixedTeam          float64    `json:"fee_mixed_team" db:"fee_mixed_team"`
+	Currency              string     `json:"currency" db:"currency"`
+	CountryCode           string     `json:"country_code" db:"country_code"`
+	EnableManualPayment   bool       `json:"enable_manual_payment" db:"enable_manual_payment"`
+	ResultsType           string     `json:"results_type" db:"results_type"`
 	PageSettings          *string    `json:"page_settings_raw" db:"page_settings"`
 	FAQ                   *string    `json:"faq_raw" db:"faq"`
 	WhatsAppNumber        *string    `json:"whatsapp_number" db:"whatsapp_number"`

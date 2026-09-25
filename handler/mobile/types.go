@@ -68,6 +68,16 @@ type MobileArcherRegisterRequest struct {
 	BowType     string `json:"bow_type" example:"recurve"`
 }
 
+// MobileOrganizerRegisterRequest represents the registration payload for a new organizer.
+type MobileOrganizerRegisterRequest struct {
+	Email            string `json:"email" binding:"required,email" example:"organizer@example.com"`
+	Password         string `json:"password" binding:"required,min=6" example:"securepassword123"`
+	Name             string `json:"name" example:"Archeris EO"`
+	OrganizationName string `json:"organization_name" example:"Archeris EO"`
+	Phone            string `json:"phone" example:"081234567890"`
+	WhatsAppNo       string `json:"whatsapp_no" example:"081234567890"`
+}
+
 // MobileEventManualRegistrationRequest represents the payload for manual event registration.
 type MobileEventManualRegistrationRequest struct {
 	EventCategoryID  string   `json:"event_category_id" example:"cat-recurve-adult-putra"`
@@ -192,6 +202,8 @@ type MobileEvent struct {
 	Slug               string  `db:"slug" json:"slug"`
 	Name               string  `db:"name" json:"name"`
 	Location           string  `db:"location" json:"location"`
+	City               string  `db:"city" json:"city"`
+	Status             string  `db:"status" json:"status"`
 	StartDate          string  `db:"start_date" json:"start_date"`
 	EndDate            string  `db:"end_date" json:"end_date"`
 	LogoURL            *string `db:"logo_url" json:"logo_url"`
@@ -210,8 +222,9 @@ type MobileEventDetail struct {
 	OrganizerAvatarURL *string                    `db:"organizer_avatar_url" json:"organizer_avatar_url"`
 	OrganizerSlug      *string                    `db:"organizer_slug" json:"organizer_slug"`
 	OrganizerPhone     *string                    `db:"organizer_phone" json:"organizer_phone"`
-	ParticipantCount   int                        `db:"participant_count" json:"participant_count"`
-	LocationDetail     models.EventLocationDetail `db:"-" json:"location_detail"`
+	ParticipantCount      int                        `db:"participant_count" json:"participant_count"`
+	IsOrganizerSubscribed bool                       `db:"-" json:"is_organizer_subscribed"`
+	LocationDetail        models.EventLocationDetail `db:"-" json:"location_detail"`
 }
 
 // MobileEventsResponse represents the list of tournaments for mobile.
@@ -551,27 +564,27 @@ type MobileOrganizationEventsResponse struct {
 
 // MobileOrganizationParticipantItem represents one participant row with QR info.
 type MobileOrganizationParticipantItem struct {
-	ID                 string  `json:"id" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
-	ArcherID           *string `json:"archer_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
-	AthleteCode        *string `json:"athlete_code" example:"ARC-0042"`
-	Username           *string `json:"username" example:"rizky-pratama"`
-	FullName           string  `json:"full_name" example:"Rizky Pratama"`
-	Email              string  `json:"email" example:"rizky@example.com"`
-	City               *string `json:"city" example:"Jakarta"`
-	ClubID             *string `json:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
-	ClubName           *string `json:"club_name" example:"Archeris Club Jakarta"`
-	EventID            string  `json:"event_id" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
-	CategoryID         string  `json:"category_id" example:"cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"`
-	DivisionName       string  `json:"division_name" example:"Recurve"`
-	CategoryName       string  `json:"category_name" example:"Umum"`
-	EventTypeName      *string `json:"event_type_name" example:"Individual"`
-	GenderDivisionName *string `json:"gender_division_name" example:"Putra"`
-	TargetName         *string `json:"target_name" example:"A-12"`
-	QRRaw              *string `json:"qr_raw" example:"EVT2026-ARC-0001"`
+	ID                 string  `json:"id" db:"id" example:"par-6f0bf699-d807-4ad4-a50d-5d60f7f7ad5d"`
+	ArcherID           *string `json:"archer_id" db:"archer_id" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
+	AthleteCode        *string `json:"athlete_code" db:"athlete_code" example:"ARC-0042"`
+	Username           *string `json:"username" db:"username" example:"rizky-pratama"`
+	FullName           string  `json:"full_name" db:"full_name" example:"Rizky Pratama"`
+	Email              string  `json:"email" db:"email" example:"rizky@example.com"`
+	City               *string `json:"city" db:"city" example:"Jakarta"`
+	ClubID             *string `json:"club_id" db:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
+	ClubName           *string `json:"club_name" db:"club_name" example:"Archeris Club Jakarta"`
+	EventID            string  `json:"event_id" db:"event_id" example:"evt-8f3c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	CategoryID         string  `json:"category_id" db:"category_id" example:"cat-44f67d53-032f-428f-a8f2-8db5672a7a9d"`
+	DivisionName       string  `json:"division_name" db:"division_name" example:"Recurve"`
+	CategoryName       string  `json:"category_name" db:"category_name" example:"Umum"`
+	EventTypeName      *string `json:"event_type_name" db:"event_type_name" example:"Individual"`
+	GenderDivisionName *string `json:"gender_division_name" db:"gender_division_name" example:"Putra"`
+	TargetName         *string `json:"target_name" db:"target_name" example:"A-12"`
+	QRRaw              *string `json:"qr_raw" db:"qr_raw" example:"EVT2026-ARC-0001"`
 	QRCodeDataURL      *string `json:"qr_code_data_url" db:"-" example:"data:image/png;base64,iVBORw0KGgoAAA..."`
-	AvatarURL          *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
-	RegistrationDate   string  `json:"registration_date" example:"2026-05-01T09:30:00Z"`
-	PaymentStatus      string  `json:"payment_status" example:"lunas"`
+	AvatarURL          *string `json:"avatar_url" db:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
+	RegistrationDate   string  `json:"registration_date" db:"registration_date" example:"2026-05-01T09:30:00Z"`
+	PaymentStatus      string  `json:"payment_status" db:"payment_status" example:"lunas"`
 	LastReregistrationAt *string `json:"last_reregistration_at,omitempty" db:"last_reregistration_at"`
 	IsCheckedIn        bool    `json:"is_checked_in" db:"is_checked_in"`
 }

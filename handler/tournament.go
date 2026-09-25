@@ -13,6 +13,7 @@ import (
 	"Archeris-api/utils"
 
 	"encoding/csv"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -731,6 +732,158 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data event", "details": err.Error()})
 			return
+		}
+
+		// Normalize and persist relational fields from page_settings
+		if req.PageSettings != nil && *req.PageSettings != "" {
+			var ps struct {
+				FeeMode               string                 `json:"fee_mode"`
+				FeePerType            map[string]float64     `json:"fee_per_type"`
+				FeePerCategory        map[string]float64     `json:"fee_per_category"`
+				Currency              string                 `json:"currency"`
+				CountryCode           string                 `json:"country_code"`
+				EnableManualPayment   *bool                  `json:"enable_manual_payment"`
+				ResultsType           string                 `json:"results_type"`
+				RegistrationStart     *string                `json:"registration_start"`
+				Sections              map[string]bool        `json:"sections"`
+				PaymentMethods        []string               `json:"payment_methods"`
+				LocationAccessibility []string               `json:"location_accessibility"`
+				Prizes                map[string]interface{} `json:"prizes"`
+				TechnicalGuidebooks   []struct {
+					Title string `json:"title"`
+					URL   string `json:"url"`
+				} `json:"technical_guidebooks"`
+				Results []struct {
+					Title string `json:"title"`
+					URL   string `json:"url"`
+				} `json:"results"`
+			}
+			if errJson := json.Unmarshal([]byte(*req.PageSettings), &ps); errJson == nil {
+				// 1. Update tournaments relational columns
+				updateTournQuery := "UPDATE tournaments SET updated_at = NOW()"
+				var updateTournArgs []interface{}
+
+				if ps.FeeMode != "" {
+					updateTournQuery += ", fee_mode = ?"
+					updateTournArgs = append(updateTournArgs, ps.FeeMode)
+				}
+				if ps.FeePerType != nil {
+					if indVal, ok := ps.FeePerType["individual"]; ok {
+						updateTournQuery += ", fee_individual = ?"
+						updateTournArgs = append(updateTournArgs, indVal)
+					}
+					if teamVal, ok := ps.FeePerType["team"]; ok {
+						updateTournQuery += ", fee_team = ?"
+						updateTournArgs = append(updateTournArgs, teamVal)
+					}
+					if mixVal, ok := ps.FeePerType["mixed_team"]; ok {
+						updateTournQuery += ", fee_mixed_team = ?"
+						updateTournArgs = append(updateTournArgs, mixVal)
+					}
+				}
+				if ps.Currency != "" {
+					updateTournQuery += ", currency = ?"
+					updateTournArgs = append(updateTournArgs, ps.Currency)
+				}
+				if ps.CountryCode != "" {
+					updateTournQuery += ", country_code = ?"
+					updateTournArgs = append(updateTournArgs, ps.CountryCode)
+				}
+				if ps.EnableManualPayment != nil {
+					updateTournQuery += ", enable_manual_payment = ?"
+					updateTournArgs = append(updateTournArgs, *ps.EnableManualPayment)
+				}
+				if ps.ResultsType != "" {
+					updateTournQuery += ", results_type = ?"
+					updateTournArgs = append(updateTournArgs, ps.ResultsType)
+				}
+				if ps.RegistrationStart != nil && *ps.RegistrationStart != "" {
+					parsedStart, errParse := time.Parse(time.RFC3339, *ps.RegistrationStart)
+					if errParse == nil {
+						updateTournQuery += ", registration_start = ?"
+						updateTournArgs = append(updateTournArgs, parsedStart)
+					}
+				}
+				updateTournQuery += " WHERE uuid = ?"
+				updateTournArgs = append(updateTournArgs, id)
+				_, _ = db.Exec(updateTournQuery, updateTournArgs...)
+
+				// 2. Update category fees if per_category
+				if ps.FeePerCategory != nil {
+					for catUUID, feeVal := range ps.FeePerCategory {
+						_, _ = db.Exec("UPDATE tournament_categories SET fee = ? WHERE uuid = ? AND tournament_id = ?", feeVal, catUUID, id)
+					}
+				}
+
+				// 3. Upsert tournament_page_sections
+				if ps.Sections != nil {
+					showAbout := ps.Sections["about"]
+					showDivisions := ps.Sections["divisions"]
+					showFees := ps.Sections["fees"]
+					showPaymentMethods := ps.Sections["payment_methods"]
+					showPrizes := ps.Sections["prizes"]
+					showSchedule := ps.Sections["schedule"]
+					showLocation := ps.Sections["location"]
+					showFAQ := ps.Sections["faq"]
+
+					_, _ = db.Exec(`
+						INSERT INTO tournament_page_sections (
+							tournament_id, show_about, show_divisions, show_fees, show_payment_methods,
+							show_prizes, show_schedule, show_location, show_faq
+						) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+						ON DUPLICATE KEY UPDATE
+							show_about = VALUES(show_about),
+							show_divisions = VALUES(show_divisions),
+							show_fees = VALUES(show_fees),
+							show_payment_methods = VALUES(show_payment_methods),
+							show_prizes = VALUES(show_prizes),
+							show_schedule = VALUES(show_schedule),
+							show_location = VALUES(show_location),
+							show_faq = VALUES(show_faq)
+					`, id, showAbout, showDivisions, showFees, showPaymentMethods, showPrizes, showSchedule, showLocation, showFAQ)
+				}
+
+				// 4. Update tournament_selected_payment_methods
+				if ps.PaymentMethods != nil {
+					_, _ = db.Exec("DELETE FROM tournament_selected_payment_methods WHERE tournament_id = ?", id)
+					for _, pmID := range ps.PaymentMethods {
+						if strings.TrimSpace(pmID) != "" {
+							_, _ = db.Exec("INSERT INTO tournament_selected_payment_methods (uuid, tournament_id, payment_method_id) VALUES (UUID(), ?, ?)", id, strings.TrimSpace(pmID))
+						}
+					}
+				}
+
+				// 5. Update tournament_facilities
+				if ps.LocationAccessibility != nil {
+					_, _ = db.Exec("DELETE FROM tournament_facilities WHERE tournament_id = ?", id)
+					for _, fac := range ps.LocationAccessibility {
+						if strings.TrimSpace(fac) != "" {
+							_, _ = db.Exec("INSERT INTO tournament_facilities (uuid, tournament_id, facility_name) VALUES (UUID(), ?, ?)", id, strings.TrimSpace(fac))
+						}
+					}
+				}
+
+				// 6. Update tournament_documents
+				_, _ = db.Exec("DELETE FROM tournament_documents WHERE tournament_id = ?", id)
+				for _, gb := range ps.TechnicalGuidebooks {
+					if gb.URL != "" {
+						title := gb.Title
+						if title == "" {
+							title = "Petunjuk Teknis"
+						}
+						_, _ = db.Exec("INSERT INTO tournament_documents (uuid, tournament_id, doc_type, title, file_url) VALUES (UUID(), ?, 'guidebook', ?, ?)", id, title, gb.URL)
+					}
+				}
+				for _, res := range ps.Results {
+					if res.URL != "" {
+						title := res.Title
+						if title == "" {
+							title = "Hasil Pertandingan"
+						}
+						_, _ = db.Exec("INSERT INTO tournament_documents (uuid, tournament_id, doc_type, title, file_url) VALUES (UUID(), ?, 'result', ?, ?)", id, title, res.URL)
+					}
+				}
+			}
 		}
 
 		// Link uploaded media files to tournament

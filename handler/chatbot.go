@@ -1,4 +1,4 @@
-﻿package handler
+package handler
 
 import (
 	"encoding/json"
@@ -14,43 +14,14 @@ import (
 )
 
 type Intent struct {
-	Name     string   `json:"name"`
-	Examples []string `json:"examples"`
-	Answer   string   `json:"answer"`
+	Name        string   `json:"name"`
+	Examples    []string `json:"examples"`
+	ExamplesEn  []string `json:"examples_en,omitempty"`
+	Answer      string   `json:"answer"`
+	AnswerEn    string   `json:"answer_en,omitempty"`
 }
 
-var chatbotIntents = []Intent{
-	{
-		Name:     "greeting",
-		Examples: []string{"hai", "halo", "pagi", "hey"},
-		Answer:   "Halo! Mau tanya apa?",
-	},
-	{
-		Name:     "event_discovery",
-		Examples: []string{"cari event", "event terdekat", "turnamen panahan"},
-		Answer:   "Kamu bisa cek daftar event di menu Event lalu gunakan filter kota atau tanggal.",
-	},
-	{
-		Name:     "membership_package",
-		Examples: []string{"paket membership", "perpanjang paket", "fitur langganan"},
-		Answer:   "Info paket ada di dashboard subscription, termasuk status aktif dan tanggal berakhir.",
-	},
-	{
-		Name:     "tournament_schedules",
-		Examples: []string{"jadwal event", "schedule pertandingan", "kapan lomba"},
-		Answer:   "Kamu bisa cek jadwal event di menu Event. Kalau mau, kirim nama event yang ingin dicek.",
-	},
-	{
-		Name:     "registration_help",
-		Examples: []string{"cara daftar", "registrasi event", "bantu pendaftaran"},
-		Answer:   "Untuk pendaftaran, buka detail event lalu klik Daftar. Kalau ada error, kirimkan nama event dan screenshot ya.",
-	},
-	{
-		Name:     "score_tracking",
-		Examples: []string{"cek skor", "lihat hasil", "track score"},
-		Answer:   "Untuk cek skor, buka hasil event lalu pilih kategori. Kamu juga bisa kirim nama event biar aku bantu arahkan.",
-	},
-}
+var chatbotIntents = []Intent{}
 
 var loadIntentsOnce sync.Once
 
@@ -59,12 +30,13 @@ func loadChatbotIntentsFromFile() {
 		candidatePaths := []string{
 			filepath.Join("data", "chatbot_intents.json"),
 			filepath.Join("api", "data", "chatbot_intents.json"),
+			filepath.Join("..", "api", "data", "chatbot_intents.json"),
 		}
 
 		var fileBytes []byte
 		for _, path := range candidatePaths {
 			b, err := os.ReadFile(path)
-			if err == nil {
+			if err == nil && len(b) > 0 {
 				fileBytes = b
 				break
 			}
@@ -78,11 +50,9 @@ func loadChatbotIntentsFromFile() {
 		if err := json.Unmarshal(fileBytes, &loaded); err != nil {
 			return
 		}
-		if len(loaded) == 0 {
-			return
+		if len(loaded) > 0 {
+			chatbotIntents = loaded
 		}
-
-		chatbotIntents = loaded
 	})
 }
 
@@ -124,40 +94,124 @@ func jaccardScore(a, b map[string]struct{}) float64 {
 	return float64(intersect) / float64(union)
 }
 
-func bestIntent(message string) (Intent, float64) {
+// detectLanguage checks if a message is primarily English based on English tokens/keywords
+func detectLanguage(message string, explicitLang string) string {
+	explicitLang = strings.ToLower(strings.TrimSpace(explicitLang))
+	if explicitLang == "en" || explicitLang == "en-us" || explicitLang == "en-gb" {
+		return "en"
+	}
+	if explicitLang == "id" || explicitLang == "id-id" {
+		return "id"
+	}
+
+	norm := normalizeText(message)
+	tokens := strings.Fields(norm)
+	if len(tokens) == 0 {
+		return "id"
+	}
+
+	englishKeywords := map[string]bool{
+		"what": true, "how": true, "why": true, "when": true, "where": true,
+		"who": true, "can": true, "could": true, "would": true, "should": true,
+		"is": true, "are": true, "the": true, "and": true, "for": true,
+		"with": true, "to": true, "in": true, "of": true, "about": true,
+		"tournament": true, "tournaments": true, "scoring": true, "score": true,
+		"archer": true, "archers": true, "archery": true, "arrow": true,
+		"arrows": true, "round": true, "rules": true, "package": true,
+		"pricing": true, "price": true, "register": true, "registration": true,
+		"certificate": true, "certificates": true, "ticket": true, "tickets": true,
+		"hello": true, "hi": true, "hey": true, "thanks": true, "thank": true,
+		"help": true, "support": true, "organizer": true, "organizers": true,
+	}
+
+	indonesianKeywords := map[string]bool{
+		"apa": true, "bagaimana": true, "kenapa": true, "kapan": true, "di": true,
+		"siapa": true, "bisa": true, "apakah": true, "ini": true, "itu": true,
+		"dan": true, "untuk": true, "dengan": true, "ke": true, "dari": true,
+		"soal": true, "tentang": true, "turnamen": true, "lomba": true, "panahan": true,
+		"skor": true, "pemanah": true, "atlet": true, "anak": true, "panah": true,
+		"aturan": true, "paket": true, "harga": true, "biaya": true, "daftar": true,
+		"pendaftaran": true, "sertifikat": true, "tiket": true, "halo": true,
+		"hai": true, "makasih": true, "terima": true, "kasih": true, "tolong": true,
+		"bantuan": true, "penyelenggara": true, "panitia": true, "gimana": true,
+	}
+
+	enCount := 0
+	idCount := 0
+
+	for _, t := range tokens {
+		if englishKeywords[t] {
+			enCount++
+		}
+		if indonesianKeywords[t] {
+			idCount++
+		}
+	}
+
+	if enCount > idCount {
+		return "en"
+	}
+	return "id"
+}
+
+func bestIntent(message string, lang string) (Intent, float64, string) {
 	normalizedMessage := normalizeText(message)
 	messageTokens := toTokenSet(normalizedMessage)
 
 	bestScore := 0.0
 	best := Intent{}
+	matchedLang := lang
 
 	for _, intent := range chatbotIntents {
-		intentScore := 0.0
+		// Test Indonesian examples
 		for _, ex := range intent.Examples {
 			normalizedExample := normalizeText(ex)
 			exampleTokens := toTokenSet(normalizedExample)
 			score := jaccardScore(messageTokens, exampleTokens)
 
 			if normalizedExample != "" && strings.Contains(normalizedMessage, normalizedExample) {
-				score += 0.35
+				score += 0.40
 			}
 
-			if score > intentScore {
-				intentScore = score
+			if score > bestScore {
+				bestScore = score
+				best = intent
+				if lang == "" {
+					matchedLang = "id"
+				}
 			}
 		}
 
-		if intentScore > bestScore {
-			bestScore = intentScore
-			best = intent
+		// Test English examples
+		for _, ex := range intent.ExamplesEn {
+			normalizedExample := normalizeText(ex)
+			exampleTokens := toTokenSet(normalizedExample)
+			score := jaccardScore(messageTokens, exampleTokens)
+
+			if normalizedExample != "" && strings.Contains(normalizedMessage, normalizedExample) {
+				score += 0.40
+			}
+
+			if score > bestScore {
+				bestScore = score
+				best = intent
+				if lang == "" {
+					matchedLang = "en"
+				}
+			}
 		}
 	}
 
-	return best, bestScore
+	return best, bestScore, matchedLang
 }
 
-func recommendedQuickActions() []string {
-	actions := []string{"Cek Jadwal Event", "Bantuan Pendaftaran", "Lihat Hasil Skor"}
+func recommendedQuickActions(lang string) []string {
+	if lang == "en" {
+		actions := []string{"Tournament Schedule", "Registration Help", "Live Scoring & Leaderboard", "Organizer Packages"}
+		sort.Strings(actions)
+		return actions
+	}
+	actions := []string{"Cek Jadwal Turnamen", "Bantuan Pendaftaran", "Lihat Hasil Skor", "Paket Penyelenggara"}
 	sort.Strings(actions)
 	return actions
 }
@@ -168,6 +222,7 @@ func ChatbotMessage() gin.HandlerFunc {
 
 		var req struct {
 			Message string `json:"message" binding:"required"`
+			Lang    string `json:"lang"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -175,22 +230,45 @@ func ChatbotMessage() gin.HandlerFunc {
 			return
 		}
 
-		intent, confidence := bestIntent(req.Message)
-		if intent.Name == "" || confidence < 0.18 {
+		queryLang := c.Query("lang")
+		if queryLang != "" && req.Lang == "" {
+			req.Lang = queryLang
+		}
+
+		lang := detectLanguage(req.Message, req.Lang)
+
+		intent, confidence, matchedLang := bestIntent(req.Message, lang)
+		if matchedLang != "" {
+			lang = matchedLang
+		}
+
+		if intent.Name == "" || confidence < 0.16 {
+			fallbackAnswer := "Halo! Saya asisten Archeris. Saya bisa membantu Anda seputar jadwal turnamen, scoring digital, aturan World Archery, profil atlet, e-sertifikat, pendaftaran peserta, dan paket EO."
+			if lang == "en" {
+				fallbackAnswer = "Hello! I am the Archeris AI Assistant. I can assist you with tournament discovery, live digital scoring, World Archery rules, athlete profiles, certificates, registration, and organizer packages. How can I help you today?"
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"intent":        "fallback",
 				"confidence":    confidence,
-				"answer":        "Aku siap bantu customer service Archeris. Kamu bisa tanya tentang jadwal event, pendaftaran, hasil, atau membership.",
-				"quick_actions": recommendedQuickActions(),
+				"lang":          lang,
+				"answer":        fallbackAnswer,
+				"quick_actions": recommendedQuickActions(lang),
 			})
 			return
+		}
+
+		answer := intent.Answer
+		if lang == "en" && intent.AnswerEn != "" {
+			answer = intent.AnswerEn
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"intent":        intent.Name,
 			"confidence":    confidence,
-			"answer":        intent.Answer,
-			"quick_actions": recommendedQuickActions(),
+			"lang":          lang,
+			"answer":        answer,
+			"quick_actions": recommendedQuickActions(lang),
 		})
 	}
 }
@@ -201,4 +279,3 @@ func ChatbotIntents() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"intents": chatbotIntents})
 	}
 }
-
