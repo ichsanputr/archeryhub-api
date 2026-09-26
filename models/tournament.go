@@ -196,6 +196,7 @@ type CreateEventRequest struct {
 	NumDistances          *int                      `json:"num_distances"`
 	NumSessions           *int                      `json:"num_sessions"`
 	EntryFee              float64                   `json:"entry_fee"`
+	RegistrationStart     *FlexibleTime             `json:"registration_start"`
 	RegistrationDeadline  FlexibleTime              `json:"registration_deadline"`
 	Status                string                    `json:"status"`
 	Divisions             []string                  `json:"divisions"`
@@ -362,6 +363,9 @@ type TeamMemberRegistrationInput struct {
 	ClubID                      *string `json:"club_id,omitempty"`
 	IsCaptain                   bool    `json:"is_captain"`
 	NeedsIndividualRegistration bool    `json:"needs_individual_registration"`
+	PayIndividualFee            bool    `json:"pay_individual_fee"`
+	Email                       string  `json:"email,omitempty"`
+	Role                        string  `json:"role,omitempty"`
 }
 
 // TeamRegistrationInput represents a team being registered by a captain

@@ -81,8 +81,8 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 				u.country as organizer_country,
 				COUNT(DISTINCT tp2.archer_id) as participant_count,
 				COUNT(DISTINCT te.uuid) as event_count,
-				tp.payment_status,
-				tp.uuid as participant_uuid
+				COALESCE(MAX(tp.payment_status), '') as payment_status,
+				COALESCE(MAX(tp.uuid), '') as participant_uuid
 			FROM tournaments t
 			LEFT JOIN (
 				SELECT uuid as id, name as full_name, email, slug, avatar_url, whatsapp_no as phone, country FROM organizers
@@ -93,7 +93,7 @@ func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN tournament_participants tp2 ON t.uuid = tp2.tournament_id
 			LEFT JOIN tournament_categories te ON t.uuid = te.tournament_id
 			` + whereClause + `
-			GROUP BY t.uuid, tp.payment_status, tp.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.phone, u.country
+			GROUP BY t.uuid, u.full_name, u.email, u.slug, u.avatar_url, u.phone, u.country
 			ORDER BY t.start_date DESC
 			LIMIT ? OFFSET ?
 			`
@@ -375,7 +375,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Handle dates: if zero time, use nil (NULL in DB)
-		var startDate, endDate, regDeadline interface{}
+		var startDate, endDate, regDeadline, regStart interface{}
 		if !req.StartDate.IsZero() {
 			startDate = req.StartDate.Time
 		}
@@ -384,6 +384,11 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 		if !req.RegistrationDeadline.IsZero() {
 			regDeadline = req.RegistrationDeadline.Time
+		}
+		if req.RegistrationStart != nil && !req.RegistrationStart.IsZero() {
+			regStart = req.RegistrationStart.Time
+		} else {
+			regStart = now
 		}
 
 		// Process Quota Type & Limits inside transaction
@@ -484,7 +489,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			INSERT INTO tournaments (
 				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
-				start_date, end_date, registration_deadline,
+				start_date, end_date, registration_start, registration_deadline,
 				description, banner_url, logo_url, location_type, num_distances, num_sessions, 
 				entry_fee, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url, page_settings, faq,
@@ -492,7 +497,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				visibility
 			) VALUES (
 				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -514,7 +519,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 		_, err = tx.Exec(query,
 			eventUUID, req.Code, req.Name, req.ShortName, finalSlug, req.Venue, gmapsLinkClean,
 			req.Location, req.City,
-			startDate, endDate, regDeadline,
+			startDate, endDate, regStart, regDeadline,
 			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), locationType, req.NumDistances, req.NumSessions,
 			req.EntryFee,
 			status, userID, now, now,
@@ -1413,7 +1418,17 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					"registration_date":      r.RegistrationDate,
 					"last_reregistration_at": r.LastReregistrationAt,
 				}
-				g.CategoryList = append(g.CategoryList, catItem)
+
+				alreadyInList := false
+				for _, existingCat := range g.CategoryList {
+					if existingCat["category_id"] == r.CategoryID {
+						alreadyInList = true
+						break
+					}
+				}
+				if !alreadyInList {
+					g.CategoryList = append(g.CategoryList, catItem)
+				}
 			}
 
 			sortBy := strings.ToLower(c.DefaultQuery("sort_by", "name"))
@@ -1765,24 +1780,32 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 		fmt.Printf("[DEBUG] Fetching participant for event %s (ID: %s), participant %s\n", eventID, actualEventID, participantID)
 
 		type ParticipantRow struct {
-			ID                          string   `db:"id" json:"id"`
-			AthleteCode                 *string  `db:"athlete_code" json:"athlete_code"`
-			ArcherID                    *string  `db:"archer_id" json:"archer_id"`
-			FullName                    string   `db:"full_name" json:"full_name"`
-			Username                    *string  `db:"username" json:"username"`
-			Email                       string   `db:"email" json:"email"`
-			City                        *string  `db:"city" json:"city"`
-			ClubID                      *string  `db:"club_id" json:"club_id"`
-			ClubName                    *string  `db:"club_name" json:"club_name"`
-			EventID                     string   `db:"event_id" json:"event_id"`
-			TournamentID                *string  `db:"tournament_id" json:"tournament_id"`
-			CategoryID                  string   `db:"category_id" json:"category_id"`
-			DivisionName                string   `db:"division_name" json:"division_name"`
-			CategoryName                string   `db:"category_name" json:"category_name"`
-			EventTypeName               *string  `db:"event_type_name" json:"event_type_name"`
-			GenderDivisionName          *string  `db:"gender_division_name" json:"gender_division_name"`
-			TargetName                  *string  `db:"target_name" json:"target_name"`
-			QRRaw                       *string  `db:"qr_raw" json:"qr_raw"`
+			ID                          string     `db:"id" json:"id"`
+			AthleteCode                 *string    `db:"athlete_code" json:"athlete_code"`
+			ArcherID                    *string    `db:"archer_id" json:"archer_id"`
+			FullName                    string     `db:"full_name" json:"full_name"`
+			Username                    *string    `db:"username" json:"username"`
+			Email                       string     `db:"email" json:"email"`
+			Phone                       *string    `db:"phone" json:"phone"`
+			Gender                      *string    `db:"gender" json:"gender"`
+			BirthDate                   *time.Time `db:"birth_date" json:"birth_date"`
+			DateOfBirth                 *time.Time `db:"date_of_birth" json:"date_of_birth"`
+			BowType                     *string    `db:"bow_type" json:"bow_type"`
+			HandDominance               *string    `db:"hand_dominance" json:"hand_dominance"`
+			Address                     *string    `db:"address" json:"address"`
+			EmergencyContactName        *string    `db:"emergency_contact_name" json:"emergency_contact_name"`
+			City                        *string    `db:"city" json:"city"`
+			ClubID                      *string    `db:"club_id" json:"club_id"`
+			ClubName                    *string    `db:"club_name" json:"club_name"`
+			EventID                     string     `db:"event_id" json:"event_id"`
+			TournamentID                *string    `db:"tournament_id" json:"tournament_id"`
+			CategoryID                  string     `db:"category_id" json:"category_id"`
+			DivisionName                string     `db:"division_name" json:"division_name"`
+			CategoryName                string     `db:"category_name" json:"category_name"`
+			EventTypeName               *string    `db:"event_type_name" json:"event_type_name"`
+			GenderDivisionName          *string    `db:"gender_division_name" json:"gender_division_name"`
+			TargetName                  *string    `db:"target_name" json:"target_name"`
+			QRRaw                       *string    `db:"qr_raw" json:"qr_raw"`
 			PaymentStatus               string     `db:"payment_status" json:"payment_status"`
 			AvatarURL                   *string    `db:"avatar_url" json:"avatar_url"`
 			PaymentAmount               float64    `db:"payment_amount" json:"payment_amount"`
@@ -1817,7 +1840,15 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				a.username as username,
 				a.full_name as full_name,
 				COALESCE(a.email, '') as email,
-				'' as city,
+				COALESCE(a.phone, '') as phone,
+				a.gender as gender,
+				COALESCE(a.birth_date, a.date_of_birth) as birth_date,
+				a.date_of_birth as date_of_birth,
+				a.bow_type as bow_type,
+				a.hand_dominance as hand_dominance,
+				a.address as address,
+				a.emergency_contact_name as emergency_contact_name,
+				COALESCE(a.city, '') as city,
 				a.club_id as club_id,
 				a.avatar_url as avatar_url,
 				COALESCE(cl.name, '') as club_name,
@@ -1854,7 +1885,11 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				)
 				LIMIT 1
 			)
-			ORDER BY tp.qr_raw IS NULL ASC, tp.created_at ASC
+			ORDER BY 
+				(tp.payment_status = 'paid') DESC,
+				(tp.payment_status IN ('pending', 'menunggu_acc', 'unpaid')) DESC,
+				tp.qr_raw IS NULL ASC,
+				tp.created_at DESC
 		`, actualEventID, actualEventID, participantID, participantID, participantID, participantID, participantID)
 
 		if err != nil || len(rows) == 0 {
@@ -1889,7 +1924,12 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			Transactions:     []models.PaymentTransaction{},
 		}
 
+		seenCategories := make(map[string]bool)
 		for _, r := range rows {
+			if seenCategories[r.CategoryID] {
+				continue
+			}
+			seenCategories[r.CategoryID] = true
 			isLocked := r.HasScores || r.InElimination
 			catItem := map[string]interface{}{
 				"participant_id":       r.ID,
@@ -2793,12 +2833,16 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			UUID                 string     `db:"uuid"`
 			OrganizerID          string     `db:"organizer_id"`
 			EntryFee             float64    `db:"entry_fee"`
+			FeeMode              string     `db:"fee_mode"`
+			FeeIndividual        float64    `db:"fee_individual"`
+			FeeTeam              float64    `db:"fee_team"`
+			FeeMixedTeam         float64    `db:"fee_mixed_team"`
 			Status               string     `db:"status"`
 			RegistrationDeadline *time.Time `db:"registration_deadline"`
 			StartDate            *time.Time `db:"start_date"`
 			QuotaMaxParticipants *int       `db:"quota_max_participants"`
 		}
-		err := db.Get(&event, `SELECT uuid, organizer_id, entry_fee, status, registration_deadline, start_date, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&event, `SELECT uuid, organizer_id, entry_fee, fee_mode, fee_individual, fee_team, fee_mixed_team, status, registration_deadline, start_date, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -2877,20 +2921,25 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		// Category metadata and eligibility helpers
 		type CategoryMeta struct {
-			UUID            string `db:"uuid"`
-			TournamentID    string `db:"tournament_id"`
-			MaxParticipants *int   `db:"max_participants"`
-			GenderCode      string `db:"gender_code"`
-			AgeCode         string `db:"age_code"`
+			UUID            string  `db:"uuid"`
+			TournamentID    string  `db:"tournament_id"`
+			MaxParticipants *int    `db:"max_participants"`
+			Fee             float64 `db:"fee"`
+			TypeCode        string  `db:"type_code"`
+			GenderCode      string  `db:"gender_code"`
+			AgeCode         string  `db:"age_code"`
 		}
 
 		getCatMeta := func(catUUID string) (*CategoryMeta, error) {
 			var meta CategoryMeta
 			err := tx.Get(&meta, `
 				SELECT tc.uuid, tc.tournament_id, tc.max_participants,
+				       COALESCE(tc.fee, 0) as fee,
+				       COALESCE(rtt.code, 'individual') as type_code,
 				       COALESCE(rgd.code, 'mixed') as gender_code,
 				       COALESCE(rag.code, 'umum') as age_code
 				FROM tournament_categories tc
+				LEFT JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
 				LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
 				LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
 				WHERE tc.uuid = ? AND tc.tournament_id = ?
@@ -2899,6 +2948,55 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				return nil, err
 			}
 			return &meta, nil
+		}
+
+		calculateCategoryFee := func(catMeta *CategoryMeta) float64 {
+			if catMeta == nil {
+				if event.EntryFee > 0 {
+					return event.EntryFee
+				}
+				if event.FeeIndividual > 0 {
+					return event.FeeIndividual
+				}
+				return 0
+			}
+
+			if event.FeeMode == "per_category" {
+				if catMeta.Fee > 0 {
+					return catMeta.Fee
+				}
+				if event.EntryFee > 0 {
+					return event.EntryFee
+				}
+				if event.FeeIndividual > 0 {
+					return event.FeeIndividual
+				}
+				return 0
+			}
+
+			// Default: fee_mode == "per_type"
+			switch catMeta.TypeCode {
+			case "team":
+				if event.FeeTeam > 0 {
+					return event.FeeTeam
+				}
+			case "mixed_team":
+				if event.FeeMixedTeam > 0 {
+					return event.FeeMixedTeam
+				}
+			default: // individual
+				if event.FeeIndividual > 0 {
+					return event.FeeIndividual
+				}
+			}
+
+			if catMeta.Fee > 0 {
+				return catMeta.Fee
+			}
+			if event.EntryFee > 0 {
+				return event.EntryFee
+			}
+			return 0
 		}
 
 		validateEligibility := func(catMeta *CategoryMeta, archerGender string, archerDOB *time.Time) (string, string) {
@@ -2930,6 +3028,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		var allCreatedParticipantUUIDs []string
 		var createdTeamUUIDs []string
 		registeredCategoryIDs := []string{}
+		totalCalculatedRegistrationFee := 0.0
 
 		// ─────────────────────────────────────────────────────────────────────────
 		// MODE 1: INDIVIDUAL OR CAPTAIN REGISTRATION
@@ -3007,7 +3106,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				}
 
 				partUUID := uuid.New().String()
-				partFee := event.EntryFee // Server-side calculation, immune to client tampering
+				partFee := calculateCategoryFee(catMeta)
+				totalCalculatedRegistrationFee += partFee
+
 				_, err = tx.Exec(`
 					INSERT INTO tournament_participants (
 						uuid, tournament_id, archer_id, category_id, 
@@ -3060,6 +3161,10 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 					return
 				}
 				createdTeamUUIDs = append(createdTeamUUIDs, teamUUID)
+
+				teamCatMeta, _ := getCatMeta(teamInput.CategoryID)
+				teamCatFee := calculateCategoryFee(teamCatMeta)
+				totalCalculatedRegistrationFee += teamCatFee
 
 				// Process Team Members
 				for orderIdx, member := range teamInput.Members {
@@ -3115,13 +3220,21 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 						if memberPartUUID == "" {
 							// Create participant row for this member
 							memberPartUUID = uuid.New().String()
+							memberCatMeta, _ := getCatMeta(indivCatID)
+							memberPartFee := calculateCategoryFee(memberCatMeta)
+							if !member.PayIndividualFee {
+								memberPartFee = 0
+							} else {
+								totalCalculatedRegistrationFee += memberPartFee
+							}
+
 							_, err = tx.Exec(`
 								INSERT INTO tournament_participants (
 									uuid, tournament_id, archer_id, category_id,
 									registration_date, payment_status, payment_amount,
 									registration_source
 								) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-							`, memberPartUUID, actualEventID, memberArcherUUID, indivCatID, registrationDate, paymentStatus, event.EntryFee, "self_register")
+							`, memberPartUUID, actualEventID, memberArcherUUID, indivCatID, registrationDate, paymentStatus, memberPartFee, "self_register")
 							if err != nil {
 								c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan anggota tim", "details": err.Error()})
 								return
@@ -3284,7 +3397,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 					}
 
 					partUUID := uuid.New().String()
-					partFee := event.EntryFee // Server-side calculation, immune to client tampering
+					partFee := calculateCategoryFee(catMeta)
+					totalCalculatedRegistrationFee += partFee
+
 					_, err = tx.Exec(`
 						INSERT INTO tournament_participants (
 							uuid, tournament_id, archer_id, category_id,
@@ -3307,6 +3422,9 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 				if count <= 0 {
 					count = 1
 				}
+				teamCatMeta, _ := getCatMeta(tBooking.CategoryID)
+				teamFee := calculateCategoryFee(teamCatMeta)
+
 				for k := 0; k < count; k++ {
 					teamUUID := uuid.New().String()
 					tName := tBooking.TeamName
@@ -3322,6 +3440,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 					`, teamUUID, actualEventID, tBooking.CategoryID, tBooking.CategoryID, tName)
 					if err == nil {
 						createdTeamUUIDs = append(createdTeamUUIDs, teamUUID)
+						totalCalculatedRegistrationFee += teamFee
 					}
 				}
 			}
@@ -3341,7 +3460,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		var freeTxReference string
 		var freeTxUUID string
-		if event.EntryFee <= 0 && req.PaymentAmount <= 0 {
+		isFreeEvent := totalCalculatedRegistrationFee <= 0 && req.PaymentAmount <= 0 && event.EntryFee <= 0 && event.FeeIndividual <= 0
+		if isFreeEvent {
 			freeTxUUID = uuid.New().String()
 			freeTxReference = fmt.Sprintf("PAY-FREE-%s", strings.ToUpper(uuid.New().String()[:8]))
 			payingUserID := ""

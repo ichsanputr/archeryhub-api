@@ -26,7 +26,7 @@ func MobileGetPaymentDetail(db *sqlx.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 
 		var transaction models.PaymentTransaction
-		err := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE reference = ? AND user_id = ?`, reference, fmt.Sprintf("%v", userID))
+		err := db.Get(&transaction, `SELECT * FROM payment_transactions WHERE (reference = ? OR gateway_reference = ? OR uuid = ?) AND user_id = ? LIMIT 1`, reference, reference, reference, fmt.Sprintf("%v", userID))
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
 			return

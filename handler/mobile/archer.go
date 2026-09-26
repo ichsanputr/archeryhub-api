@@ -71,7 +71,7 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN payment_transactions pt ON pt.registration_id = ep.uuid AND pt.status = 'pending'
-			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status != 'cancelled'
+			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status NOT IN ('cancelled', 'failed', 'expired', 'batal')
 			ORDER BY ep.registration_date DESC
 		`, eventUUID, archerUUID)
 		if err != nil {

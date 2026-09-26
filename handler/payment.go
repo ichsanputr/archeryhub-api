@@ -302,15 +302,32 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				EventID       string  `db:"event_id"`
 				ArcherID      string  `db:"archer_id"`
 				PaymentAmount float64 `db:"payment_amount"`
+				CatFee        float64 `db:"cat_fee"`
+				FeeMode       string  `db:"fee_mode"`
+				FeeIndividual float64 `db:"fee_individual"`
+				FeeTeam       float64 `db:"fee_team"`
+				FeeMixedTeam  float64 `db:"fee_mixed_team"`
+				EntryFee      float64 `db:"entry_fee"`
+				TypeCode      string  `db:"type_code"`
 				FullName      string  `db:"full_name"`
 				Email         *string `db:"email"`
 				Phone         *string `db:"phone"`
 			}
 			queryReg, argsReg, errIn := sqlx.In(`
 				SELECT ep.uuid, ep.tournament_id as event_id, ep.archer_id, ep.payment_amount,
+				       COALESCE(tc.fee, 0) as cat_fee,
+				       COALESCE(t.fee_mode, 'per_type') as fee_mode,
+				       COALESCE(t.fee_individual, 0) as fee_individual,
+				       COALESCE(t.fee_team, 0) as fee_team,
+				       COALESCE(t.fee_mixed_team, 0) as fee_mixed_team,
+				       COALESCE(t.entry_fee, 0) as entry_fee,
+				       COALESCE(rtt.code, 'individual') as type_code,
 				       COALESCE(a.full_name, 'Peserta Panahan') as full_name, a.email, a.phone
 				FROM tournament_participants ep
 				LEFT JOIN archers a ON ep.archer_id = a.uuid OR ep.archer_id = a.id
+				LEFT JOIN tournament_categories tc ON ep.category_id = tc.uuid
+				LEFT JOIN tournaments t ON ep.tournament_id = t.uuid
+				LEFT JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
 				WHERE ep.uuid IN (?)
 			`, allRegIDs)
 			if errIn != nil {
@@ -327,7 +344,43 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 			totalParticipantAmount := 0.0
 			for _, r := range regs {
-				totalParticipantAmount += r.PaymentAmount
+				itemFee := r.PaymentAmount
+				if itemFee <= 0 {
+					if r.FeeMode == "per_category" {
+						if r.CatFee > 0 {
+							itemFee = r.CatFee
+						} else if r.EntryFee > 0 {
+							itemFee = r.EntryFee
+						} else if r.FeeIndividual > 0 {
+							itemFee = r.FeeIndividual
+						}
+					} else {
+						switch r.TypeCode {
+						case "team":
+							if r.FeeTeam > 0 {
+								itemFee = r.FeeTeam
+							}
+						case "mixed_team":
+							if r.FeeMixedTeam > 0 {
+								itemFee = r.FeeMixedTeam
+							}
+						default:
+							if r.FeeIndividual > 0 {
+								itemFee = r.FeeIndividual
+							}
+						}
+						if itemFee <= 0 && r.CatFee > 0 {
+							itemFee = r.CatFee
+						}
+						if itemFee <= 0 && r.EntryFee > 0 {
+							itemFee = r.EntryFee
+						}
+					}
+					if itemFee > 0 {
+						_, _ = db.Exec("UPDATE tournament_participants SET payment_amount = ? WHERE uuid = ?", itemFee, r.UUID)
+					}
+				}
+				totalParticipantAmount += itemFee
 			}
 
 			firstReg := regs[0]
@@ -1038,6 +1091,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			"status":               transaction.Status,
 			"paid_at":              transaction.PaidAt,
 			"created_at":           transaction.CreatedAt,
+			"updated_at":           transaction.UpdatedAt,
 			"expired_at":           transaction.ExpiredAt,
 			"proof_url":            transaction.ProofURL,
 			"proof_uploaded_at":    transaction.ProofUploadedAt,
@@ -1569,11 +1623,28 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 				EventID       string  `db:"event_id"`
 				ArcherID      string  `db:"archer_id"`
 				PaymentAmount float64 `db:"payment_amount"`
+				CatFee        float64 `db:"cat_fee"`
+				FeeMode       string  `db:"fee_mode"`
+				FeeIndividual float64 `db:"fee_individual"`
+				FeeTeam       float64 `db:"fee_team"`
+				FeeMixedTeam  float64 `db:"fee_mixed_team"`
+				EntryFee      float64 `db:"entry_fee"`
+				TypeCode      string  `db:"type_code"`
 			}
 			var regs []ParticipantReg
 			qIn, argsIn, errIn := sqlx.In(`
-				SELECT ep.uuid, ep.tournament_id as event_id, ep.archer_id, ep.payment_amount
+				SELECT ep.uuid, ep.tournament_id as event_id, ep.archer_id, ep.payment_amount,
+				       COALESCE(tc.fee, 0) as cat_fee,
+				       COALESCE(t.fee_mode, 'per_type') as fee_mode,
+				       COALESCE(t.fee_individual, 0) as fee_individual,
+				       COALESCE(t.fee_team, 0) as fee_team,
+				       COALESCE(t.fee_mixed_team, 0) as fee_mixed_team,
+				       COALESCE(t.entry_fee, 0) as entry_fee,
+				       COALESCE(rtt.code, 'individual') as type_code
 				FROM tournament_participants ep
+				LEFT JOIN tournament_categories tc ON ep.category_id = tc.uuid
+				LEFT JOIN tournaments t ON ep.tournament_id = t.uuid
+				LEFT JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
 				WHERE ep.uuid IN (?)
 			`, allRegIDs)
 			if errIn == nil {
@@ -1584,7 +1655,46 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 			if len(regs) > 0 {
 				totalParticipantAmount := 0.0
 				for _, r := range regs {
-					totalParticipantAmount += r.PaymentAmount
+					itemFee := r.PaymentAmount
+					if itemFee <= 0 {
+						if r.FeeMode == "per_category" {
+							if r.CatFee > 0 {
+								itemFee = r.CatFee
+							} else if r.EntryFee > 0 {
+								itemFee = r.EntryFee
+							} else if r.FeeIndividual > 0 {
+								itemFee = r.FeeIndividual
+							}
+						} else {
+							switch r.TypeCode {
+							case "team":
+								if r.FeeTeam > 0 {
+									itemFee = r.FeeTeam
+								}
+							case "mixed_team":
+								if r.FeeMixedTeam > 0 {
+									itemFee = r.FeeMixedTeam
+								}
+							default:
+								if r.FeeIndividual > 0 {
+									itemFee = r.FeeIndividual
+								}
+							}
+							if itemFee <= 0 && r.CatFee > 0 {
+								itemFee = r.CatFee
+							}
+							if itemFee <= 0 && r.EntryFee > 0 {
+								itemFee = r.EntryFee
+							}
+						}
+						if itemFee > 0 {
+							_, _ = db.Exec("UPDATE tournament_participants SET payment_amount = ? WHERE uuid = ?", itemFee, r.UUID)
+						}
+					}
+					totalParticipantAmount += itemFee
+				}
+				if totalParticipantAmount <= 0 && req.Amount > 0 {
+					totalParticipantAmount = req.Amount
 				}
 				amount = int(totalParticipantAmount)
 				registrationID = &regs[0].UUID
@@ -2343,7 +2453,7 @@ func CancelPaymentTransaction(db *sqlx.DB) gin.HandlerFunc {
 		}
 		_, err = dbTx.Exec(`
 			UPDATE tournament_participants 
-			SET payment_status = 'unpaid', payment_id = NULL, updated_at = ? 
+			SET payment_status = 'cancelled', payment_id = NULL, updated_at = ? 
 			WHERE (payment_id = ? OR uuid = ?) AND payment_status NOT IN ('paid', 'lunas')
 		`, now, tx.UUID, regID)
 		if err != nil {

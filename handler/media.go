@@ -57,10 +57,10 @@ func UploadMedia(db *sqlx.DB) gin.HandlerFunc {
 		}
 		defer file.Close()
 
-		// Validate file size (max 10MB)
-		const maxSize = 10 * 1024 * 1024
+		// Validate file size (max 20MB)
+		const maxSize = 20 * 1024 * 1024
 		if header.Size > maxSize {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "File too large. Maximum size is 10MB.", "max_size_mb": 10})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File too large. Maximum size is 20MB.", "max_size_mb": 20})
 			return
 		}
 
