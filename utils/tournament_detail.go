@@ -15,12 +15,11 @@ func PopulateEventDetailExtras(db *sqlx.DB, event *models.EventWithDetails) {
 	}
 
 	event.LocationDetail = models.EventLocationDetail{
-		Venue:        event.Venue,
-		Address:      event.Address,
-		GmapLink:     event.GmapLink,
-		Location:     event.Location,
-		City:         event.City,
-		LocationType: event.LocationType,
+		Venue:    event.Venue,
+		Address:  event.Address,
+		GmapLink: event.GmapLink,
+		Location: event.Location,
+		City:     event.City,
 	}
 
 	event.Currency = "IDR"

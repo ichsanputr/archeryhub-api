@@ -279,9 +279,9 @@ func main() {
 
 	// 8. Sessions & Target Butts
 	_, _ = db.Exec(`
-		INSERT INTO qualification_sessions (uuid, tournament_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end, is_locked) VALUES
-		('session-soac-qual-1', 't-soac-2026-full', 'SOAC-SESI-1', '2026-09-20', 'Kualifikasi Sesi 1 (Pagi)', '2026-09-20 08:00:00', '2026-09-20 12:00:00', 6, 6, 1),
-		('session-soac-qual-2', 't-soac-2026-full', 'SOAC-SESI-2', '2026-09-20', 'Kualifikasi Sesi 2 (Siang)', '2026-09-20 13:30:00', '2026-09-20 17:30:00', 6, 6, 1)
+		INSERT INTO qualification_sessions (uuid, tournament_uuid, session_code, name, total_ends, arrows_per_end, is_locked) VALUES
+		('session-soac-qual-1', 't-soac-2026-full', 'SOAC-SESI-1', 'Kualifikasi Sesi 1 (Pagi)', 6, 6, 1),
+		('session-soac-qual-2', 't-soac-2026-full', 'SOAC-SESI-2', 'Kualifikasi Sesi 2 (Siang)', 6, 6, 1)
 		ON DUPLICATE KEY UPDATE is_locked=VALUES(is_locked);
 	`)
 

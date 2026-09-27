@@ -214,6 +214,9 @@ func RootGetDoc(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid documentation slug"})
 			return
 		}
+		if baseSlug == "what-is-archers" {
+			baseSlug = "what-is-archeris"
+		}
 
 		filePath := filepath.Join("data/docs", baseSlug+".json")
 		data, err := os.ReadFile(filePath)

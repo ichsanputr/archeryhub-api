@@ -1,0 +1,71 @@
+{
+  "slug": "organizer-profile",
+  "icon": "ph:buildings-bold",
+  "category": "accounts",
+  "order": 2,
+  "readTime": "5 min",
+  "en": {
+    "title": "Organizer Profile Setup",
+    "excerpt": "A step-by-step guide to setting up your archery club or tournament organizer profile: identity, logo, contact info, bank account for payouts, and public showcase page.",
+    "toc": [
+      {
+        "id": "cara-mengakses",
+        "level": 2,
+        "text": "1. How to Access Your Organizer Profile"
+      },
+      {
+        "id": "informasi-umum",
+        "level": 2,
+        "text": "2. Filling in General Information & Club Identity"
+      },
+      {
+        "id": "kontak-sosial-lokasi",
+        "level": 2,
+        "text": "3. Contact, Social Media, and Training Location"
+      },
+      {
+        "id": "rekening-bank",
+        "level": 2,
+        "text": "4. Adding a Bank Account for Revenue Payouts"
+      },
+      {
+        "id": "halaman-publik",
+        "level": 2,
+        "text": "5. Your Public Organizer Page"
+      }
+    ],
+    "content": "<p>Your organizer profile on Archeris is the official page that represents your tournament committee. When archers visit your tournament registration page, they see your organization's name and logo on the event page, digital scoreboards, and official e-certificates. Filling out your profile completely makes your tournaments look professional and trustworthy.</p>\n\n<h2 id=\"cara-mengakses\">1. How to Access Your Organizer Profile</h2>\n<p>After signing up and logging in as an organizer, go to <strong>Organizer Dashboard &gt; Organization Profile</strong> from the navigation sidebar. On this page, you can manage all your organization details across several tabs.</p>\n<p>The profile page is divided into tabs, with each tab handling a different aspect of your organization data. Start with the <strong>General Information</strong> tab to set your core identity.</p>\n\n<h2 id=\"informasi-umum\">2. Filling in General Information &amp; Club Identity</h2>\n<p>The <strong>General Information</strong> tab holds the primary data about your organization:</p>\n<ul>\n  <li><strong>Organization Name:</strong> The official name of your club, academy, or committee (for example: \"Archeris Club Jakarta\").</li>\n  <li><strong>Web Slug:</strong> A unique link for your organization's public page. For example, choosing <code>archeris-jakarta</code> makes your public page accessible at <code>archeris.net/organizer/archeris-jakarta</code>.</li>\n  <li><strong>Description:</strong> Write a short introduction about your organization, club history, training programs, or tournament hosting experience.</li>\n  <li><strong>Official Email:</strong> An email address for official inquiries and system notifications.</li>\n  <li><strong>Phone / WhatsApp Number:</strong> A contact number participants can reach out to if they have questions about your tournament.</li>\n</ul>\n<p>Once you have filled in all the fields, click <strong>Save Changes</strong> in the top-right corner.</p>\n\n<h2 id=\"kontak-sosial-lokasi\">3. Contact, Social Media, and Training Location</h2>\n<p>You can also add extra details that help participants connect with your organization:</p>\n<ul>\n  <li><strong>Social Media:</strong> Link your official Instagram or Facebook accounts so participants can follow your event announcements.</li>\n  <li><strong>Full Address:</strong> Enter your club secretariat or shooting range address so visiting archers can locate the venue easily.</li>\n</ul>\n\n<h2 id=\"rekening-bank\">4. Adding a Bank Account for Revenue Payouts</h2>\n<p>When participants pay tournament registration fees, funds are handled according to the payment method chosen. For automated online payments (QRIS, Virtual Accounts, or PayPal), funds accumulate in your Archeris wallet and can be withdrawn anytime. For manual bank transfers, archers transfer directly to the bank account you configure in tournament settings. To enable payouts, register your bank account under the <strong>Bank Account</strong> tab:</p>\n<ol>\n  <li>Open the <strong>Bank Account</strong> tab on your Organization Profile page.</li>\n  <li>Select your bank from the available list.</li>\n  <li>Enter the account number and account holder name <strong>exactly as registered with your bank</strong> for payout verification.</li>\n  <li>Click save. This account is used whenever you request a payout withdrawal.</li>\n</ol>\n\n<h2 id=\"halaman-publik\">5. Your Public Organizer Page</h2>\n<p>Once your profile is saved, your organization receives a dedicated public showcase page. Visitors can view:</p>\n<ul>\n  <li>Your logo, organization name, and bio</li>\n  <li>A list of active and upcoming tournaments you host</li>\n  <li>Contact channels and social media links</li>\n</ul>\n<p>You can share this public page link with archers, clubs, and event sponsors.</p>"
+  },
+  "id": {
+    "title": "Pengaturan Profil Penyelenggara",
+    "excerpt": "Panduan langkah demi langkah untuk mengatur profil klub panahan atau panitia turnamen: identitas, logo, kontak, rekening bank pencairan dana, dan halaman publik organisasi.",
+    "toc": [
+      {
+        "id": "cara-mengakses",
+        "level": 2,
+        "text": "1. Cara Mengakses Profil Penyelenggara"
+      },
+      {
+        "id": "informasi-umum",
+        "level": 2,
+        "text": "2. Mengisi Informasi Umum dan Identitas Klub"
+      },
+      {
+        "id": "kontak-sosial-lokasi",
+        "level": 2,
+        "text": "3. Kontak, Media Sosial, dan Lokasi Latihan"
+      },
+      {
+        "id": "rekening-bank",
+        "level": 2,
+        "text": "4. Menambahkan Rekening Bank untuk Penerimaan Dana"
+      },
+      {
+        "id": "halaman-publik",
+        "level": 2,
+        "text": "5. Halaman Publik Penyelenggara"
+      }
+    ],
+    "content": "<p>Profil penyelenggara di Archeris adalah halaman resmi yang mewakili klub atau panitia pelaksana turnamen. Saat atlet membuka halaman pendaftaran turnamen Anda, nama dan logo ini yang akan mereka lihat, mulai dari halaman event, papan skor digital, hingga e-sertifikat yang diterbitkan. Mengisi profil dengan lengkap membuat turnamen Anda terlihat lebih profesional dan terpercaya.</p>\n\n<h2 id=\"cara-mengakses\">1. Cara Mengakses Profil Penyelenggara</h2>\n<p>Setelah mendaftar dan login sebagai penyelenggara (organizer), buka menu <strong>Dashboard Organizer &gt; Profil Organisasi</strong> dari sidebar navigasi. Di halaman ini Anda bisa mengatur semua data organisasi dalam beberapa tab yang rapi.</p>\n<p>Halaman profil dibagi dalam beberapa tab. Mulailah dari tab <strong>Informasi Umum</strong> untuk melengkapi identitas dasar klub atau organisasi Anda.</p>\n\n<h2 id=\"informasi-umum\">2. Mengisi Informasi Umum dan Identitas Klub</h2>\n<p>Tab <strong>Informasi Umum</strong> berisi data utama organisasi Anda:</p>\n<ul>\n  <li><strong>Nama Organisasi:</strong> Nama resmi klub, akademi, atau panitia Anda (contoh: \"Archeris Club Jakarta\").</li>\n  <li><strong>Slug Alamat Web:</strong> Tautan unik untuk halaman publik organisasi Anda. Contoh: <code>archeris-jakarta</code> sehingga halaman publik bisa diakses di <code>archeris.net/organizer/archeris-jakarta</code>.</li>\n  <li><strong>Deskripsi:</strong> Ceritakan secara singkat tentang organisasi Anda, sejarah klub, program latihan, atau pengalaman menyelenggarakan turnamen.</li>\n  <li><strong>Email Resmi:</strong> Alamat email untuk komunikasi resmi dan notifikasi sistem.</li>\n  <li><strong>Nomor Telepon / WhatsApp:</strong> Nomor yang bisa dihubungi peserta jika ada pertanyaan tentang turnamen Anda.</li>\n</ul>\n<p>Setelah mengisi semua data, klik <strong>Simpan Perubahan</strong> di pojok kanan atas halaman.</p>\n\n<h2 id=\"kontak-sosial-lokasi\">3. Kontak, Media Sosial, dan Lokasi Latihan</h2>\n<p>Selain data utama, Anda juga bisa menambahkan informasi tambahan yang membantu peserta mengenal organisasi Anda lebih dekat:</p>\n<ul>\n  <li><strong>Media Sosial:</strong> Hubungkan akun Instagram atau media sosial resmi klub agar peserta bisa mengikuti update terbaru.</li>\n  <li><strong>Alamat Lengkap:</strong> Isi alamat sekretariat atau lokasi lapangan latihan agar peserta dari luar kota tahu posisi organisasi Anda.</li>\n</ul>\n\n<h2 id=\"rekening-bank\">4. Menambahkan Rekening Bank untuk Penerimaan Dana</h2>\n<p>Ketika peserta membayar biaya pendaftaran turnamen, alur dananya tergantung metode pembayaran yang dipilih. Untuk pembayaran online otomatis (QRIS, Virtual Account, atau PayPal), dana masuk ke dompet sistem Archeris dan bisa dicairkan kapan saja via menu Keuangan. Untuk transfer bank manual, atlet mentransfer langsung ke rekening yang Anda daftarkan di pengaturan turnamen. Agar rekening siap menerima pencairan dana, tambahkan data rekening di tab <strong>Rekening Bank</strong>:</p>\n<ol>\n  <li>Buka tab <strong>Rekening Bank</strong> pada halaman Profil Organisasi.</li>\n  <li>Pilih nama bank dari daftar yang tersedia.</li>\n  <li>Masukkan nomor rekening dan nama pemilik rekening <strong>sesuai dengan buku tabungan</strong> agar verifikasi pencairan dana berjalan lancar.</li>\n  <li>Klik simpan. Rekening ini akan digunakan saat Anda melakukan penarikan dana dari menu Keuangan.</li>\n</ol>\n\n<h2 id=\"halaman-publik\">5. Halaman Publik Penyelenggara</h2>\n<p>Setelah profil diisi, organisasi Anda akan memiliki halaman publik yang bisa diakses oleh siapa saja. Di halaman ini pengunjung bisa melihat:</p>\n<ul>\n  <li>Logo, nama, dan deskripsi organisasi</li>\n  <li>Daftar turnamen yang sedang atau akan diselenggarakan</li>\n  <li>Informasi kontak dan media sosial</li>\n</ul>\n<p>Anda bisa membagikan tautan halaman publik ini kepada peserta, klub lain, atau sponsor turnamen.</p>"
+  }
+}

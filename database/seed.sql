@@ -219,9 +219,9 @@ VALUES
 -- 12. INSERT QUALIFICATION SESSION (for Latber - past event)
 -- ============================================================
 
-INSERT IGNORE INTO qualification_sessions (uuid, event_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end, created_at)
+INSERT IGNORE INTO qualification_sessions (uuid, event_uuid, session_code, name, total_ends, arrows_per_end, created_at)
 VALUES
-  ('qs-0001', '9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f', 'LATBER-Q-01', DATE_SUB(CURDATE(), INTERVAL 30 DAY), 'Sesi Kualifikasi Pagi', DATE_SUB(NOW(), INTERVAL 30 DAY), DATE_SUB(NOW(), INTERVAL 29 DAY), 6, 6, DATE_SUB(NOW(), INTERVAL 30 DAY));
+  ('qs-0001', '9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f', 'LATBER-Q-01', 'Sesi Kualifikasi Pagi', 6, 6, DATE_SUB(NOW(), INTERVAL 30 DAY));
 
 INSERT IGNORE INTO qualification_session_categories (session_uuid, category_uuid)
 VALUES

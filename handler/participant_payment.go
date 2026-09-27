@@ -316,7 +316,7 @@ func ApproveParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 			UPDATE payment_transactions 
 			SET status = 'paid', updated_at = NOW(), paid_at = COALESCE(paid_at, NOW()) 
 			WHERE (registration_id = ? OR (tournament_id = ? AND user_id = ?)) 
-			  AND status IN ('pending', 'awaiting_verification', 'unpaid')
+			  AND status IN ('pending', 'awaiting_verification')
 		`, participantID, pInfo.EventID, pInfo.ArcherID)
 
 		// Get categories

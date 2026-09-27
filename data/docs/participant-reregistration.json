@@ -1,0 +1,71 @@
+{
+  "slug": "participant-reregistration",
+  "icon": "ph:qr-code-bold",
+  "category": "tournaments",
+  "order": 10,
+  "readTime": "5 min",
+  "en": {
+    "title": "Participant Re-registration",
+    "excerpt": "How on-site re-registration works in Archeris: archers present their QR pass at the venue, organizers scan or manually mark attendance, with support for batch check-in by club.",
+    "toc": [
+      {
+        "id": "what-is-reregistration",
+        "level": 2,
+        "text": "1. What Is Re-registration?"
+      },
+      {
+        "id": "archer-qr-pass",
+        "level": 2,
+        "text": "2. The Archer's QR Check-in Pass"
+      },
+      {
+        "id": "organizer-qr-scan",
+        "level": 2,
+        "text": "3. Organizer: Scanning QR Codes"
+      },
+      {
+        "id": "organizer-manual",
+        "level": 2,
+        "text": "4. Organizer: Manual & Batch Check-in"
+      },
+      {
+        "id": "tracking-status",
+        "level": 2,
+        "text": "5. Tracking Attendance Status"
+      }
+    ],
+    "content": "<p>In Archeris, <strong>re-registration</strong> (registrasi ulang) is the official on-site attendance confirmation that takes place on competition day. When an archer arrives at the venue, they present their digital QR check-in pass, and the organizer scans it to confirm their physical presence. This step is separate from initial online registration and payment.</p>\n\n<h2 id=\"what-is-reregistration\">1. What Is Re-registration?</h2>\n<p>Re-registration answers one simple question: <em>\"Has this registered, paid archer actually arrived at the venue?\"</em> The system records the exact check-in timestamp, which helps tournament operations in several ways:</p>\n<ul>\n  <li><strong>Attendance Verification:</strong> Confirms which paid participants are physically present before the qualification round begins.</li>\n  <li><strong>Scoring Readiness:</strong> Target line assignments and scorekeeper sessions are finalized based on confirmed arrivals, preventing empty target slots.</li>\n  <li><strong>Reports &amp; Analytics:</strong> Organizers can monitor check-in rates in real time and see which clubs have arrived.</li>\n</ul>\n<p>Re-registration does not involve submitting new registration data or additional fees. It is strictly an on-site attendance gate.</p>\n\n<h2 id=\"archer-qr-pass\">2. The Archer's QR Check-in Pass</h2>\n<p>Every archer whose payment status is <strong>paid (Lunas)</strong> automatically receives a QR check-in pass in their dashboard under <strong>My Dashboard &gt; Tournaments &gt; [Tournament Name] &gt; My Registration</strong>.</p>\n<p>The QR pass section includes:</p>\n<ul>\n  <li>A scannable QR code tied to the athlete's registration record.</li>\n  <li>The athlete code (such as <code>ARC-A1B2C3</code>) displayed below the QR for manual reference.</li>\n  <li>A <strong>Ready to Compete</strong> status badge confirming the pass is active.</li>\n</ul>\n<p>If payment is still pending, the QR pass remains locked until payment is verified.</p>\n\n<h2 id=\"organizer-qr-scan\">3. Organizer: Scanning QR Codes</h2>\n<p>The primary check-in method is QR scanning, available through both the <strong>Archeris organizer mobile app</strong> and the <strong>web dashboard</strong>.</p>\n\n<h3>Via Mobile App (Recommended on the Field)</h3>\n<ol>\n  <li>Open the Archeris organizer app and go to the <strong>Check-in</strong> tab.</li>\n  <li>Point the camera at the archer's QR pass displayed on their phone.</li>\n  <li>A confirmation card appears with the archer's name, club, and category.</li>\n  <li>The system immediately records the check-in and updates the archer's status to <strong>Checked In</strong>.</li>\n</ol>\n\n<h3>Via Web Dashboard</h3>\n<ol>\n  <li>Go to <strong>Organizer Dashboard &gt; Tournaments &gt; [Tournament] &gt; Participants</strong>.</li>\n  <li>Find the archer in the participants table.</li>\n  <li>Click the button in the <strong>Re-registration</strong> column to mark the athlete as checked in.</li>\n  <li>Clicking the button again toggles the status back if needed.</li>\n</ol>\n\n<h2 id=\"organizer-manual\">4. Organizer: Manual &amp; Batch Check-in</h2>\n<p>When scanning QR codes individually is not practical, Archeris provides quick batch check-in options:</p>\n<ul>\n  <li><strong>Manual Individual Check-in:</strong> Click the toggle button in the participants table to mark any paid participant as present without scanning.</li>\n  <li><strong>Batch Check-in by Club:</strong> Click <strong>Check-in Kolektif</strong> in the page header, select a club or contingent from the dropdown, and confirm. All paid athletes from that contingent are marked present in one click.</li>\n</ul>\n\n<h2 id=\"tracking-status\">5. Tracking Attendance Status</h2>\n<p>The participants table provides a dedicated <strong>Re-registration</strong> column showing each athlete's check-in status at a glance. You can also filter the list:</p>\n<ul>\n  <li><strong>Already Checked In:</strong> Displays all participants who have completed re-registration.</li>\n  <li><strong>Not Yet Checked In:</strong> Displays participants who have paid but have not yet arrived at the venue.</li>\n</ul>\n<p>The <strong>Reports &gt; Attendance</strong> section provides an aggregated arrival timeline and club-by-club attendance rates for the tournament committee.</p>"
+  },
+  "id": {
+    "title": "Registrasi Ulang Peserta",
+    "excerpt": "Cara kerja registrasi ulang di Archeris: atlet menunjukkan QR pass di lokasi, panitia scan atau tandai kehadiran manual, dengan dukungan check-in kolektif per kontingen.",
+    "toc": [
+      {
+        "id": "what-is-reregistration",
+        "level": 2,
+        "text": "1. Apa Itu Registrasi Ulang?"
+      },
+      {
+        "id": "archer-qr-pass",
+        "level": 2,
+        "text": "2. QR Check-in Pass Milik Atlet"
+      },
+      {
+        "id": "organizer-qr-scan",
+        "level": 2,
+        "text": "3. Panitia: Scan QR Code Atlet"
+      },
+      {
+        "id": "organizer-manual",
+        "level": 2,
+        "text": "4. Panitia: Check-in Manual & Kolektif"
+      },
+      {
+        "id": "tracking-status",
+        "level": 2,
+        "text": "5. Memantau Status Kehadiran Peserta"
+      }
+    ],
+    "content": "<p>Di Archeris, <strong>registrasi ulang</strong> adalah konfirmasi kehadiran fisik peserta yang dilakukan langsung di lokasi turnamen pada hari pertandingan. Saat tiba di venue, atlet menunjukkan tiket QR pass digital mereka, lalu panitia memindai kode tersebut untuk memvalidasi kehadiran. Proses ini terpisah dari pendaftaran online dan pembayaran.</p>\n\n<h2 id=\"what-is-reregistration\">1. Apa Itu Registrasi Ulang?</h2>\n<p>Registrasi ulang menjawab satu pertanyaan penting: <em>\"Apakah atlet yang sudah mendaftar dan lunas ini benar-benar sudah hadir di lapangan?\"</em> Sistem mencatat waktu kehadiran secara akurat untuk mempermudah operasional panitia:</p>\n<ul>\n  <li><strong>Validasi Kehadiran Fisik:</strong> Memastikan atlet yang bertanding memang sudah tiba sebelum sesi kualifikasi dimulai.</li>\n  <li><strong>Kesiapan Lapangan &amp; Skoring:</strong> Nomor bantalan sasaran dan sesi scorekeeper dapat difinalisasi dengan akurat tanpa ada bantalan kosong.</li>\n  <li><strong>Laporan Kehadiran Real-Time:</strong> Panitia dapat melihat persentase kehadiran dan memantau kontingen mana saja yang sudah tiba di lokasi.</li>\n</ul>\n<p>Registrasi ulang tidak membutuhkan pengisian formulir ulang atau biaya tambahan. Ini murni merupakan gerbang presensi kehadiran di venue.</p>\n\n<h2 id=\"archer-qr-pass\">2. QR Check-in Pass Milik Atlet</h2>\n<p>Setiap atlet yang status pembayarannya <strong>Lunas</strong> otomatis menerima tiket QR check-in pass. Atlet dapat membuka tiket ini melalui web atau aplikasi Archeris di menu <strong>Dashboard Saya &gt; Turnamen &gt; [Nama Turnamen] &gt; Pendaftaran Saya</strong>.</p>\n<p>Tampilan QR pass memuat:</p>\n<ul>\n  <li>Kode QR unik yang terhubung langsung ke data pendaftaran atlet.</li>\n  <li>Kode atlet (seperti <code>ARC-A1B2C3</code>) yang tertera di bawah QR untuk referensi manual jika kamera bermasalah.</li>\n  <li>Badge status <strong>Siap Bertanding</strong> yang menandakan tiket aktif dan siap dipindai.</li>\n</ul>\n<p>Jika pembayaran masih pending, tiket QR akan terkunci hingga pembayaran diverifikasi lunas.</p>\n\n<h2 id=\"organizer-qr-scan\">3. Panitia: Scan QR Code Atlet</h2>\n<p>Metode registrasi ulang utama adalah pemindaian QR code melalui <strong>aplikasi mobile organizer Archeris</strong> maupun <strong>web dashboard</strong>.</p>\n\n<h3>Via Aplikasi Mobile (Direkomendasikan di Meja Panitia)</h3>\n<ol>\n  <li>Buka aplikasi organizer Archeris dan masuk ke menu <strong>Check-in</strong>.</li>\n  <li>Arahkan kamera ponsel ke QR pass yang ditunjukkan oleh atlet.</li>\n  <li>Layar menampilkan konfirmasi data nama, klub, dan kategori lomba atlet.</li>\n  <li>Sistem otomatis memperbarui status atlet menjadi <strong>Sudah Check-in</strong>.</li>\n</ol>\n\n<h3>Via Web Dashboard</h3>\n<ol>\n  <li>Buka <strong>Dashboard Organizer &gt; Turnamen &gt; [Turnamen] &gt; Peserta</strong>.</li>\n  <li>Temukan nama atlet pada tabel peserta.</li>\n  <li>Klik tombol pada kolom <strong>Registrasi Ulang</strong> untuk mengubah status menjadi sudah hadir.</li>\n  <li>Klik tombol kembali jika ingin membatalkan status kehadiran.</li>\n</ol>\n\n<h2 id=\"organizer-manual\">4. Panitia: Check-in Manual &amp; Kolektif</h2>\n<p>Untuk mempermudah verifikasi saat rombongan besar datang bersamaan, Archeris menyediakan opsi check-in cepat:</p>\n<ul>\n  <li><strong>Check-in Manual Perorangan:</strong> Panitia cukup mengeklik tombol toggle di baris nama peserta pada tabel tanpa perlu scan kamera.</li>\n  <li><strong>Check-in Kolektif per Kontingen:</strong> Klik tombol <strong>Check-in Kolektif</strong> di bagian atas halaman peserta, pilih nama klub atau kontingen dari daftar, lalu konfirmasi. Seluruh atlet berstatus lunas dari klub tersebut langsung ditandai hadir sekaligus.</li>\n</ul>\n\n<h2 id=\"tracking-status\">5. Memantau Status Kehadiran Peserta</h2>\n<p>Tabel peserta menyediakan kolom status <strong>Registrasi Ulang</strong> untuk melihat kehadiran setiap atlet secara sekilas. Panitia juga dapat menggunakan filter pencarian:</p>\n<ul>\n  <li><strong>Sudah Registrasi Ulang:</strong> Menampilkan hanya atlet yang sudah hadir di venue.</li>\n  <li><strong>Belum Registrasi Ulang:</strong> Menampilkan atlet yang sudah lunas tetapi belum melakukan konfirmasi kehadiran di meja panitia.</li>\n</ul>\n<p>Pada menu <strong>Laporan &gt; Kehadiran</strong>, panitia juga bisa melihat grafik alur kedatangan dan rekapitulasi kehadiran per klub secara lengkap.</p>"
+  }
+}

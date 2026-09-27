@@ -328,7 +328,7 @@ func MobileGetSessionBoards(db *sqlx.DB) gin.HandlerFunc {
 
 		var session SessionInfo
 		err := db.Get(&session, `
-			SELECT qs.uuid, qs.name, qs.tournament_uuid, e.name as event_name, qs.total_ends, qs.arrows_per_end
+			SELECT qs.uuid, qs.name, qs.tournament_uuid as event_uuid, e.name as event_name, qs.total_ends, qs.arrows_per_end
 			FROM qualification_sessions qs
 			JOIN tournaments e ON qs.tournament_uuid = e.uuid
 			WHERE qs.uuid = ?

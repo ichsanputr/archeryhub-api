@@ -363,9 +363,9 @@ VALUES
 -- STEP 11: QUALIFICATION SESSION for Latber (T3)
 -- ============================================================
 
-INSERT IGNORE INTO qualification_sessions (uuid, tournament_uuid, session_code, session_date, name, start_time, end_time, total_ends, arrows_per_end, is_locked, created_at, updated_at)
+INSERT IGNORE INTO qualification_sessions (uuid, tournament_uuid, session_code, name, total_ends, arrows_per_end, is_locked, created_at, updated_at)
 VALUES
-  ('qsess-lat-01', 'tourn-latber-sac-2026', 'LAT-Q-01', DATE_SUB(CURDATE(), INTERVAL 67 DAY), 'Sesi Kualifikasi Pagi', DATE_SUB(NOW(), INTERVAL 67 DAY), DATE_SUB(NOW(), INTERVAL 66 DAY), 6, 6, 1, DATE_SUB(NOW(), INTERVAL 70 DAY), NOW());
+  ('qsess-lat-01', 'tourn-latber-sac-2026', 'LAT-Q-01', 'Sesi Kualifikasi Pagi', 6, 6, 1, DATE_SUB(NOW(), INTERVAL 70 DAY), NOW());
 
 INSERT IGNORE INTO qualification_session_categories (session_uuid, category_uuid)
 VALUES

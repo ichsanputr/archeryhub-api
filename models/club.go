@@ -4,7 +4,7 @@ import "time"
 
 type Club struct {
 	UUID         string    `json:"uuid" db:"uuid"`
-	Slug         string    `json:"slug" db:"slug"`
+	Slug         *string   `json:"slug" db:"slug"`
 	Name         string    `json:"name" db:"name"`
 	LogoURL      *string   `json:"logo_url" db:"logo_url"`
 	City         *string   `json:"city" db:"city"`

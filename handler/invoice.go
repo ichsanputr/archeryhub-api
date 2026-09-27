@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -12,6 +13,28 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/jung-kurt/gofpdf"
 )
+
+func formatInvoiceMoney(amount float64, currency string) string {
+	if strings.ToUpper(currency) == "USD" {
+		return fmt.Sprintf("$ %.2f", amount)
+	}
+	intVal := int64(amount)
+	sign := ""
+	if intVal < 0 {
+		sign = "-"
+		intVal = -intVal
+	}
+	s := fmt.Sprintf("%d", intVal)
+	var res []byte
+	n := len(s)
+	for i, c := range []byte(s) {
+		if i > 0 && (n-i)%3 == 0 {
+			res = append(res, '.')
+		}
+		res = append(res, c)
+	}
+	return fmt.Sprintf("%sRp %s", sign, string(res))
+}
 
 func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -36,9 +59,9 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 				t.*,
 				CASE 
 					WHEN t.subscription_plan_id IS NOT NULL THEN p.name
-					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi: ', a.full_name)
-					WHEN t.tournament_id IS NOT NULL THEN CONCAT('Platform Fee: ', e.name)
-					ELSE 'Transaksi Archeris'
+					WHEN t.registration_id IS NOT NULL THEN CONCAT('Registrasi Turnamen: ', a.full_name)
+					WHEN t.tournament_id IS NOT NULL THEN CONCAT('Turnamen: ', e.name)
+					ELSE 'Transaksi Layanan Archeris'
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
@@ -130,85 +153,8 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Create PDF
-		pdf := gofpdf.New("P", "mm", "A4", "")
-		pdf.AddPage()
-
-		// --- Header Section ---
-		pdf.SetFillColor(15, 23, 42) // Navy
-		pdf.Rect(0, 0, 210, 60, "F")
-
-		// Logo / Title
-		pdf.SetTextColor(217, 255, 0) // Neon Primary
-		pdf.SetFont("Arial", "B", 24)
-		pdf.Text(20, 25, "archeris.net")
-		
-		pdf.SetTextColor(255, 255, 255)
-		pdf.SetFont("Arial", "", 10)
-		pdf.Text(20, 32, "PT. Archeris Teknologi Indonesia")
-		pdf.Text(20, 37, "Official Payment Receipt")
-
-		// Invoice Title
-		pdf.SetFont("Arial", "B", 34)
-		pdf.Text(120, 35, "INVOICE")
-
-		// --- Info Section ---
-		pdf.SetY(70)
-		pdf.SetX(20)
-		pdf.SetTextColor(100, 116, 139) // Gray
-		pdf.SetFont("Arial", "B", 8)
-		pdf.CellFormat(90, 5, "DITAGIHKAN KEPADA:", "", 0, "L", false, 0, "")
-		pdf.CellFormat(90, 5, "DETAIL TRANSAKSI:", "", 1, "R", false, 0, "")
-
-		pdf.SetX(20)
-		pdf.SetTextColor(15, 23, 42) // Navy
-		pdf.SetFont("Arial", "B", 12)
-		pdf.CellFormat(90, 7, t.UserName, "", 0, "L", false, 0, "")
-		pdf.SetFont("Arial", "B", 10)
-		pdf.CellFormat(90, 7, "ID: "+t.Reference, "", 1, "R", false, 0, "")
-
-		pdf.SetX(20)
-		pdf.SetTextColor(100, 116, 139)
-		pdf.SetFont("Arial", "", 10)
-		pdf.CellFormat(90, 5, t.UserEmail, "", 0, "L", false, 0, "")
-		pdf.CellFormat(90, 5, "Tanggal: "+t.PaidAt.Format("02 Jan 2006"), "", 1, "R", false, 0, "")
-
-		pdf.SetX(20)
-		pdf.CellFormat(90, 5, "", "", 0, "L", false, 0, "")
-		pdf.CellFormat(90, 5, "Metode: "+*t.PaymentMethod, "", 1, "R", false, 0, "")
-
-		// --- Table Section ---
-		pdf.SetY(110)
-		pdf.SetX(20)
-		pdf.SetFillColor(241, 245, 249) // Slate 50
-		pdf.SetTextColor(100, 116, 139)
-		pdf.SetFont("Arial", "B", 8)
-		pdf.CellFormat(100, 10, " DESKRIPSI LAYANAN", "B", 0, "L", true, 0, "")
-		pdf.CellFormat(20, 10, "QTY", "B", 0, "C", true, 0, "")
-		pdf.CellFormat(25, 10, "HARGA", "B", 0, "R", true, 0, "")
-		pdf.CellFormat(25, 10, "TOTAL ", "B", 1, "R", true, 0, "")
-
-		type InvoiceParticipant struct {
-			AthleteName  string  `db:"athlete_name"`
-			CategoryName string  `db:"category_name"`
-			Amount       float64 `db:"payment_amount"`
-		}
-		var participants []InvoiceParticipant
-		_ = db.Select(&participants, `
-			SELECT 
-				COALESCE(a.full_name, 'Peserta') as athlete_name,
-				COALESCE(CONCAT(rbt.name, ' ', rag.name, ' ', rgd.name), tc.category_name_custom, tc.name, '') as category_name,
-				tp.payment_amount
-			FROM tournament_participants tp
-			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
-			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
-			LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
-			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
-			WHERE (tp.payment_id = ? AND tp.payment_id != '') OR (tp.uuid = ? AND tp.uuid != '')
-			ORDER BY tp.created_at ASC
-		`, t.UUID, t.RegistrationID)
-
+		// Determine currency and free state
+		isFree := (t.TotalAmount == 0 && t.Amount == 0) || (t.PaymentMethod != nil && (strings.ToLower(*t.PaymentMethod) == "free" || strings.ToLower(*t.PaymentMethod) == "free_registration"))
 		currency := "IDR"
 		if t.PaymentMethod != nil && strings.ToLower(*t.PaymentMethod) == "paypal" {
 			currency = "USD"
@@ -222,72 +168,396 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		currencyPrefix := "Rp "
-		amountFormat := "%.0f"
-		if currency == "USD" {
-			currencyPrefix = "$ "
-			amountFormat = "%.2f"
+		// Format payment method display
+		methodStr := "Pendaftaran Gratis (Free)"
+		if !isFree {
+			if t.PaymentMethod != nil && *t.PaymentMethod != "" {
+				m := strings.ToLower(*t.PaymentMethod)
+				switch m {
+				case "manual", "manual_transfer", "bank_transfer":
+					methodStr = "Transfer Bank (Manual)"
+				case "mayar":
+					methodStr = "Mayar (QRIS / VA / E-Wallet)"
+				case "paypal":
+					methodStr = "PayPal"
+				default:
+					methodStr = *t.PaymentMethod
+				}
+			} else {
+				methodStr = "Transfer Bank"
+			}
 		}
 
-		if len(participants) > 1 {
-			for _, p := range participants {
-				pdf.SetX(20)
-				pdf.SetTextColor(15, 23, 42)
-				pdf.SetFont("Arial", "B", 9)
-				pDesc := fmt.Sprintf("%s (%s)", p.AthleteName, p.CategoryName)
-				if len(pDesc) > 48 {
-					pDesc = pDesc[:45] + "..."
+		// Dates
+		var paidTime time.Time
+		if t.PaidAt != nil {
+			paidTime = *t.PaidAt
+		} else {
+			paidTime = t.CreatedAt
+		}
+		paidDateFormatted := paidTime.Format("02 Jan 2006, 15:04 WIB")
+		issueDateFormatted := t.CreatedAt.Format("02 Jan 2006")
+
+		// Query detailed participants if any
+		type InvoiceParticipant struct {
+			AthleteName  string  `db:"athlete_name"`
+			ClubName     string  `db:"club_name"`
+			CategoryName string  `db:"category_name"`
+			Amount       float64 `db:"payment_amount"`
+		}
+		var participants []InvoiceParticipant
+		regID := ""
+		if t.RegistrationID != nil {
+			regID = *t.RegistrationID
+		}
+		_ = db.Select(&participants, `
+			SELECT 
+				COALESCE(a.full_name, 'Peserta') as athlete_name,
+				COALESCE(c.name, '') as club_name,
+				COALESCE(tc.category_name_custom, CONCAT_WS(' ', rbt.name, rag.name, rgd.name), '') as category_name,
+				tp.payment_amount
+			FROM tournament_participants tp
+			LEFT JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
+			LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
+			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
+			WHERE (tp.payment_id = ? AND tp.payment_id != '') OR (tp.uuid = ? AND tp.uuid != '')
+			ORDER BY tp.created_at ASC
+		`, t.UUID, regID)
+
+		// Create Clean Black and White PDF
+		pdf := gofpdf.New("P", "mm", "A4", "")
+		pdf.SetMargins(15, 12, 15)
+		pdf.SetAutoPageBreak(true, 15)
+		pdf.AddPage()
+
+		// Locate Logo
+		logoPaths := []string{
+			"public/logo.png",
+			"api/public/logo.png",
+			"../public/logo.png",
+			"../api/public/logo.png",
+		}
+		var validLogoPath string
+		for _, lp := range logoPaths {
+			if _, err := os.Stat(lp); err == nil {
+				validLogoPath = lp
+				break
+			}
+		}
+
+		// --- 1. HEADER SECTION (Left: Logo + Company Info | Right: INVOICE + Details) ---
+		if validLogoPath != "" {
+			opt := gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true}
+			// Logo positioned cleanly on the left (Width: 16mm)
+			pdf.ImageOptions(validLogoPath, 15, 12, 16, 0, false, opt, 0, "")
+
+			// Company Info positioned beside the logo at X=34 (Zero Overlap)
+			pdf.SetFont("Arial", "B", 13)
+			pdf.SetTextColor(15, 23, 42) // Black / Dark Slate
+			pdf.SetXY(34, 12)
+			pdf.CellFormat(75, 5, "ARCHERIS", "", 1, "L", false, 0, "")
+
+			pdf.SetFont("Arial", "", 8)
+			pdf.SetTextColor(100, 116, 139) // Slate Gray
+			pdf.SetXY(34, 17.5)
+			pdf.CellFormat(75, 4, "PT Archeris Teknologi Indonesia", "", 1, "L", false, 0, "")
+			pdf.SetXY(34, 21.5)
+			pdf.CellFormat(75, 4, "Tournament & Scoring Management System", "", 1, "L", false, 0, "")
+			pdf.SetXY(34, 25.5)
+			pdf.CellFormat(75, 4, "www.archeris.net  |  support@archeris.net", "", 1, "L", false, 0, "")
+		} else {
+			pdf.SetFont("Arial", "B", 16)
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetXY(15, 12)
+			pdf.CellFormat(90, 6, "ARCHERIS", "", 1, "L", false, 0, "")
+
+			pdf.SetFont("Arial", "", 8)
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetXY(15, 18)
+			pdf.CellFormat(90, 4, "PT Archeris Teknologi Indonesia", "", 1, "L", false, 0, "")
+			pdf.SetXY(15, 22)
+			pdf.CellFormat(90, 4, "Tournament & Scoring Management System", "", 1, "L", false, 0, "")
+			pdf.SetXY(15, 26)
+			pdf.CellFormat(90, 4, "www.archeris.net  |  support@archeris.net", "", 1, "L", false, 0, "")
+		}
+
+		// Right Header: INVOICE Title & Info
+		pdf.SetFont("Arial", "B", 20)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetXY(110, 11)
+		pdf.CellFormat(85, 7, "INVOICE", "", 1, "R", false, 0, "")
+
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetTextColor(71, 85, 105)
+		pdf.SetXY(110, 18.5)
+		pdf.CellFormat(85, 4.5, fmt.Sprintf("NO: %s", t.Reference), "", 1, "R", false, 0, "")
+
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetXY(110, 23.5)
+		pdf.CellFormat(85, 4, fmt.Sprintf("Waktu Transaksi: %s", paidDateFormatted), "", 1, "R", false, 0, "")
+
+		// Status Badge (Clean Box)
+		statusBadge := "LUNAS / PAID"
+		if isFree {
+			statusBadge = "GRATIS / FREE"
+		}
+		pdf.SetXY(142, 29)
+		pdf.SetFillColor(241, 245, 249) // Slate 100
+		pdf.SetDrawColor(203, 213, 225) // Slate 300
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetFont("Arial", "B", 7.5)
+		pdf.CellFormat(53, 6, "STATUS: "+statusBadge, "1", 1, "C", true, 0, "")
+
+		// --- 2. DIVIDER LINE ---
+		pdf.SetDrawColor(226, 232, 240) // Slate 200
+		pdf.SetLineWidth(0.3)
+		pdf.Line(15, 38, 195, 38)
+
+		// --- 3. BILLING & EVENT DETAILS (2 Bordered Cards) ---
+		cardY := 42.0
+		cardH := 25.0
+
+		// Left Card: Bill To
+		pdf.SetFillColor(248, 250, 252) // Slate 50
+		pdf.SetDrawColor(226, 232, 240) // Slate 200
+		pdf.SetLineWidth(0.2)
+		pdf.Rect(15, cardY, 87, cardH, "FD")
+
+		pdf.SetXY(18, cardY+2.5)
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "B", 7)
+		pdf.CellFormat(81, 3.5, "DITAGIHKAN KEPADA (BILL TO):", "", 1, "L", false, 0, "")
+
+		userName := t.UserName
+		if userName == "" {
+			userName = "Pendaftar"
+		}
+		pdf.SetXY(18, cardY+6.5)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetFont("Arial", "B", 9.5)
+		pdf.CellFormat(81, 4.5, userName, "", 1, "L", false, 0, "")
+
+		pdf.SetXY(18, cardY+11.5)
+		pdf.SetTextColor(71, 85, 105)
+		pdf.SetFont("Arial", "", 8)
+		pdf.CellFormat(81, 4, t.UserEmail, "", 1, "L", false, 0, "")
+
+		extraUser := "Peserta Terverifikasi"
+		if t.AthleteName != nil && *t.AthleteName != "" && *t.AthleteName != userName {
+			extraUser = fmt.Sprintf("Nama Atlet: %s", *t.AthleteName)
+		}
+		pdf.SetXY(18, cardY+16)
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "", 7.5)
+		pdf.CellFormat(81, 4, extraUser, "", 1, "L", false, 0, "")
+
+		// Right Card: Event & Payment Info
+		pdf.Rect(108, cardY, 87, cardH, "FD")
+
+		pdf.SetXY(111, cardY+2.5)
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "B", 7)
+		pdf.CellFormat(81, 3.5, "INFORMASI KEGIATAN & TRANSAKSI:", "", 1, "L", false, 0, "")
+
+		eventName := "Transaksi Layanan Archeris"
+		if t.EventName != nil && *t.EventName != "" {
+			eventName = *t.EventName
+		} else if t.PlanName != nil && *t.PlanName != "" {
+			eventName = *t.PlanName
+		}
+		pdf.SetXY(111, cardY+6.5)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetFont("Arial", "B", 9)
+		pdf.CellFormat(81, 4.5, eventName, "", 1, "L", false, 0, "")
+
+		pdf.SetXY(111, cardY+11.5)
+		pdf.SetTextColor(71, 85, 105)
+		pdf.SetFont("Arial", "", 8)
+		pdf.CellFormat(81, 4, fmt.Sprintf("Metode: %s", methodStr), "", 1, "L", false, 0, "")
+
+		pdf.SetXY(111, cardY+16)
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "", 7.5)
+		pdf.CellFormat(81, 4, fmt.Sprintf("Tanggal Terbit: %s", issueDateFormatted), "", 1, "L", false, 0, "")
+
+		// --- 4. ITEMS TABLE ---
+		tableY := 71.0
+		pdf.SetY(tableY)
+		pdf.SetX(15)
+		pdf.SetFillColor(241, 245, 249) // Slate 100
+		pdf.SetDrawColor(203, 213, 225) // Slate 300
+		pdf.SetTextColor(51, 65, 85)   // Slate 700
+		pdf.SetFont("Arial", "B", 7.5)
+		pdf.SetLineWidth(0.2)
+
+		// Table Headers: Total = 10 + 85 + 45 + 15 + 25 = 180mm
+		pdf.CellFormat(10, 7.5, "NO", "TB", 0, "C", true, 0, "")
+		pdf.CellFormat(85, 7.5, " DESKRIPSI LAYANAN / ITEM", "TB", 0, "L", true, 0, "")
+		pdf.CellFormat(45, 7.5, "KATEGORI / DIVISI", "TB", 0, "L", true, 0, "")
+		pdf.CellFormat(15, 7.5, "QTY", "TB", 0, "C", true, 0, "")
+		pdf.CellFormat(25, 7.5, "TOTAL ", "TB", 1, "R", true, 0, "")
+
+		pdf.SetDrawColor(226, 232, 240) // Slate 200
+		pdf.SetTextColor(15, 23, 42)
+
+		if len(participants) > 0 {
+			for idx, p := range participants {
+				pdf.SetX(15)
+				pdf.SetFont("Arial", "", 8)
+				pdf.CellFormat(10, 8, fmt.Sprintf("%d", idx+1), "B", 0, "C", false, 0, "")
+
+				pDesc := p.AthleteName
+				if p.ClubName != "" {
+					pDesc = fmt.Sprintf("%s (%s)", p.AthleteName, p.ClubName)
 				}
-				pdf.CellFormat(100, 10, " "+pDesc, "B", 0, "L", false, 0, "")
-				pdf.CellFormat(20, 10, "1", "B", 0, "C", false, 0, "")
-				pdf.CellFormat(25, 10, fmt.Sprintf(amountFormat, p.Amount), "B", 0, "R", false, 0, "")
-				pdf.CellFormat(25, 10, fmt.Sprintf(amountFormat, p.Amount), "B", 1, "R", false, 0, "")
+				if len(pDesc) > 45 {
+					pDesc = pDesc[:42] + "..."
+				}
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(85, 8, " "+pDesc, "B", 0, "L", false, 0, "")
+
+				pCat := p.CategoryName
+				if pCat == "" {
+					pCat = "-"
+				}
+				if len(pCat) > 24 {
+					pCat = pCat[:21] + "..."
+				}
+				pdf.SetFont("Arial", "", 7.5)
+				pdf.CellFormat(45, 8, pCat, "B", 0, "L", false, 0, "")
+
+				pdf.CellFormat(15, 8, "1", "B", 0, "C", false, 0, "")
+
+				amtStr := formatInvoiceMoney(p.Amount, currency)
+				if isFree || p.Amount == 0 {
+					amtStr = "Gratis"
+				}
+				pdf.SetFont("Arial", "B", 8)
+				pdf.CellFormat(25, 8, amtStr+" ", "B", 1, "R", false, 0, "")
 			}
 		} else {
 			desc := t.Description
-			qty := "1 Item"
+			qty := "1"
 			unitPrice := t.Amount
-			if t.SubscriptionPlanID != nil {
+			if t.SubscriptionPlanID != nil && t.Months > 0 {
 				qty = fmt.Sprintf("%d Bln", t.Months)
-				unitPrice = t.Amount / float64(t.Months)
 			}
 
-			pdf.CellFormat(100, 15, " "+desc, "", 0, "L", false, 0, "")
-			pdf.CellFormat(20, 15, qty, "", 0, "C", false, 0, "")
-			pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, unitPrice), "", 0, "R", false, 0, "")
-			pdf.CellFormat(25, 15, fmt.Sprintf(amountFormat, t.Amount), "", 1, "R", false, 0, "")
+			catStr := "-"
+			if t.Division != nil && t.Category != nil {
+				catStr = fmt.Sprintf("%s %s", *t.Division, *t.Category)
+			} else if t.PlanName != nil {
+				catStr = *t.PlanName
+			}
+
+			pdf.SetX(15)
+			pdf.SetFont("Arial", "", 8)
+			pdf.CellFormat(10, 8.5, "1", "B", 0, "C", false, 0, "")
+			pdf.SetFont("Arial", "B", 8)
+			pdf.CellFormat(85, 8.5, " "+desc, "B", 0, "L", false, 0, "")
+			pdf.SetFont("Arial", "", 7.5)
+			pdf.CellFormat(45, 8.5, catStr, "B", 0, "L", false, 0, "")
+			pdf.CellFormat(15, 8.5, qty, "B", 0, "C", false, 0, "")
+
+			amtStr := formatInvoiceMoney(unitPrice, currency)
+			if isFree || unitPrice == 0 {
+				amtStr = "Gratis"
+			}
+			pdf.SetFont("Arial", "B", 8)
+			pdf.CellFormat(25, 8.5, amtStr+" ", "B", 1, "R", false, 0, "")
 		}
 
-		// --- Summary Section ---
-		summaryY := pdf.GetY() + 10
-		if summaryY < 180 {
-			summaryY = 180
+		// --- 5. SUMMARY & NOTES SECTION ---
+		summaryY := pdf.GetY() + 6
+		if summaryY < 120 {
+			summaryY = 120
 		}
+
+		// Left: Official Verification Note Box (X = 15, Width = 95mm)
 		pdf.SetY(summaryY)
-		pdf.Line(20, summaryY-5, 190, summaryY-5)
-		
-		pdf.SetX(120)
-		pdf.SetFont("Arial", "", 10)
-		pdf.CellFormat(40, 10, "Subtotal", "", 0, "L", false, 0, "")
-		pdf.CellFormat(30, 10, fmt.Sprintf("%s"+amountFormat, currencyPrefix, t.Amount), "", 1, "R", false, 0, "")
+		pdf.SetX(15)
+		pdf.SetFillColor(248, 250, 252) // Slate 50
+		pdf.SetDrawColor(226, 232, 240) // Slate 200
+		pdf.SetLineWidth(0.2)
+		pdf.Rect(15, summaryY, 95, 32, "FD")
+
+		pdf.SetXY(18, summaryY+3)
+		pdf.SetTextColor(51, 65, 85)
+		pdf.SetFont("Arial", "B", 7)
+		pdf.CellFormat(89, 3.5, "CATATAN TRANSAKSI & PENDAFTARAN:", "", 1, "L", false, 0, "")
+
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "", 7)
+		pdf.SetXY(18, summaryY+7.5)
+		pdf.CellFormat(89, 3.5, "- Transaksi telah terverifikasi resmi dalam sistem Archeris.", "", 1, "L", false, 0, "")
+		pdf.SetXY(18, summaryY+11.5)
+		pdf.CellFormat(89, 3.5, "- Data peserta telah tercatat aktif pada daftar turnamen.", "", 1, "L", false, 0, "")
+		pdf.SetXY(18, summaryY+15.5)
+		pdf.CellFormat(89, 3.5, "- Dokumen ini merupakan bukti pendaftaran yang sah.", "", 1, "L", false, 0, "")
+		pdf.SetXY(18, summaryY+19.5)
+		pdf.CellFormat(89, 3.5, "- Bantuan teknis & pertanyaan: support@archeris.net", "", 1, "L", false, 0, "")
+
+		// Right: Financial Calculation (X = 120, Width = 75mm)
+		pdf.SetY(summaryY)
+		pdf.SetDrawColor(226, 232, 240)
 
 		pdf.SetX(120)
-		pdf.CellFormat(40, 10, "Pajak / Admin", "", 0, "L", false, 0, "")
-		pdf.CellFormat(30, 10, fmt.Sprintf("%s"+amountFormat, currencyPrefix, 0.0), "", 1, "R", false, 0, "")
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "", 8.5)
+		pdf.CellFormat(40, 5.5, "Subtotal", "", 0, "L", false, 0, "")
+		subtotalStr := formatInvoiceMoney(t.Amount, currency)
+		if isFree || t.Amount == 0 {
+			subtotalStr = "Rp 0"
+		}
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetFont("Arial", "B", 8.5)
+		pdf.CellFormat(35, 5.5, subtotalStr, "", 1, "R", false, 0, "")
 
+		if t.FeeAmount > 0 {
+			pdf.SetX(120)
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "", 8.5)
+			pdf.CellFormat(40, 5, "Biaya Layanan", "", 0, "L", false, 0, "")
+			pdf.SetTextColor(15, 23, 42)
+			pdf.SetFont("Arial", "B", 8.5)
+			pdf.CellFormat(35, 5, formatInvoiceMoney(t.FeeAmount, currency), "", 1, "R", false, 0, "")
+		}
+
+		// Total Box (Bordered, Sleek Black/Slate)
+		totalY := pdf.GetY() + 2
+		pdf.SetY(totalY)
 		pdf.SetX(120)
-		pdf.SetFillColor(15, 23, 42)
-		pdf.SetTextColor(255, 255, 255)
-		pdf.SetFont("Arial", "B", 12)
-		pdf.CellFormat(40, 12, " TOTAL", "", 0, "L", true, 0, "")
-		pdf.SetTextColor(217, 255, 0)
-		pdf.CellFormat(30, 12, fmt.Sprintf("%s"+amountFormat+" ", currencyPrefix, t.TotalAmount), "", 1, "R", true, 0, "")
+		pdf.SetFillColor(241, 245, 249) // Slate 100
+		pdf.SetDrawColor(15, 23, 42)    // Dark Navy / Black Border
+		pdf.SetLineWidth(0.3)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetFont("Arial", "B", 8.5)
+		pdf.CellFormat(38, 8.5, " TOTAL LUNAS", "LTB", 0, "L", true, 0, "")
 
-		// --- Footer ---
-		pdf.SetY(260)
-		pdf.SetTextColor(148, 163, 184)
-		pdf.SetFont("Arial", "B", 8)
-		pdf.CellFormat(170, 10, "TERIMA KASIH TELAH MENGGUNAKAN LAYANAN archeris.net", "", 0, "C", false, 0, "")
+		totalAmountStr := formatInvoiceMoney(t.TotalAmount, currency)
+		if isFree || t.TotalAmount == 0 {
+			totalAmountStr = "Rp 0 (GRATIS)"
+		}
+		pdf.SetFont("Arial", "B", 9.5)
+		pdf.CellFormat(37, 8.5, totalAmountStr+" ", "RTB", 1, "R", true, 0, "")
+
+		// --- 6. FOOTER ---
+		pdf.SetY(275)
+		pdf.SetDrawColor(226, 232, 240)
+		pdf.SetLineWidth(0.2)
+		pdf.Line(15, 275, 195, 275)
+
+		pdf.SetY(277)
+		pdf.SetX(15)
+		pdf.SetTextColor(148, 163, 184) // Slate 400
+		pdf.SetFont("Arial", "", 7)
+		printTimestamp := time.Now().Format("02 Jan 2006, 15:04:05 WIB")
+		pdf.CellFormat(90, 4, fmt.Sprintf("Diterbitkan otomatis pada: %s", printTimestamp), "", 0, "L", false, 0, "")
+		pdf.CellFormat(90, 4, "Archeris Tournament Management System  |  archeris.net", "", 1, "R", false, 0, "")
 
 		// Output to browser
 		download := c.Query("download")
@@ -297,12 +567,10 @@ func GenerateInvoicePDF(db *sqlx.DB) gin.HandlerFunc {
 		}
 		c.Header("Content-Type", "application/pdf")
 		c.Header("Content-Disposition", fmt.Sprintf("%s; filename=Invoice-%s.pdf", disposition, t.Reference))
-		
+
 		err = pdf.Output(c.Writer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
 		}
 	}
 }
-
-

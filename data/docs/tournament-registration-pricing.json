@@ -2,9 +2,9 @@
   "slug": "tournament-registration-pricing",
   "icon": "ph:currency-circle-dollar-bold",
   "category": "tournaments",
-  "order": 5,
+  "order": 4,
   "readTime": "4 min",
-  "updated_at": "2026-09-24T05:09:19Z",
+  "updated_at": "2026-09-26T12:27:41.463Z",
   "en": {
     "title": "Setting Registration Fees",
     "excerpt": "How to set registration prices for your tournament: flat fee, per-category pricing, per-type pricing, and how the system calculates participant invoices.",

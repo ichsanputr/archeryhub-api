@@ -26,7 +26,7 @@ type MobileBroadcastItem struct {
 type CreateBroadcastRequest struct {
 	Title       string  `json:"title" binding:"required"`
 	Message     string  `json:"message" binding:"required"`
-	TargetType  string  `json:"target_type" binding:"required"` // 'all', 'paid', 'unpaid', 'category'
+	TargetType  string  `json:"target_type" binding:"required"` // 'all', 'paid', 'pending', 'category'
 	TargetID    *string `json:"target_id"`
 	TargetLabel *string `json:"target_label"`
 }
@@ -139,8 +139,8 @@ func MobileCreateBroadcast(db *sqlx.DB) gin.HandlerFunc {
 		} else if req.TargetType == "paid" {
 			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status = 'settlement' OR payment_status = 'paid' OR payment_status = 'Lunas') AND archer_id IS NOT NULL`
 			_ = db.Select(&archerIDs, query, actualTournamentUUID)
-		} else if req.TargetType == "unpaid" {
-			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status IS NULL OR payment_status = 'unpaid' OR payment_status = 'Menunggu') AND archer_id IS NOT NULL`
+		} else if req.TargetType == "pending" {
+			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND (payment_status = 'pending' OR payment_status = 'Menunggu') AND archer_id IS NOT NULL`
 			_ = db.Select(&archerIDs, query, actualTournamentUUID)
 		} else {
 			query := `SELECT DISTINCT archer_id FROM tournament_participants WHERE tournament_id = ? AND archer_id IS NOT NULL`

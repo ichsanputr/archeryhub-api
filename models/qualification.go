@@ -4,17 +4,14 @@ import "time"
 
 // QualificationSession represents a scoring session for an event
 type QualificationSession struct {
-	UUID         string     `json:"id" db:"uuid"`
-	EventUUID    string     `json:"event_id" db:"tournament_uuid"`
-	SessionCode  string     `json:"session_code" db:"session_code"`
-	SessionDate  *string    `json:"session_date" db:"session_date"`
-	Name         string     `json:"name" db:"name"`
-	StartTime    *time.Time `json:"start_time" db:"start_time"`
-	EndTime      *time.Time `json:"end_time" db:"end_time"`
-	TotalEnds    int        `json:"total_ends" db:"total_ends"`
-	ArrowsPerEnd int        `json:"arrows_per_end" db:"arrows_per_end"`
-	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
+	UUID         string    `json:"id" db:"uuid"`
+	EventUUID    string    `json:"event_id" db:"tournament_uuid"`
+	SessionCode  string    `json:"session_code" db:"session_code"`
+	Name         string    `json:"name" db:"name"`
+	TotalEnds    int       `json:"total_ends" db:"total_ends"`
+	ArrowsPerEnd int       `json:"arrows_per_end" db:"arrows_per_end"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // QualificationAssignment maps a participant to a target in a session

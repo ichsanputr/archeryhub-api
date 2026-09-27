@@ -1648,11 +1648,11 @@ func GetQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
 // ─────────────────────────────────────────────────────────────────────────────
 
 type TeamQualArcher struct {
-	Name       string
-	Bib        string
-	TotalScore int
-	Total10    int
-	TotalX     int
+	Name        string
+	AthleteCode string
+	TotalScore  int
+	Total10     int
+	TotalX      int
 }
 
 type TeamQualGroup struct {
@@ -1733,11 +1733,11 @@ func GetTeamQualificationResultsPrintout(db *sqlx.DB) gin.HandlerFunc {
 				catOrder = append(catOrder, r.CategoryName)
 			}
 			catMap[r.CategoryName][r.ClubName] = append(catMap[r.CategoryName][r.ClubName], TeamQualArcher{
-				Name:       r.AthleteName,
-				Bib:        r.AthleteCode.String,
-				TotalScore: r.TotalScore,
-				Total10:    r.Total10,
-				TotalX:     r.TotalX,
+				Name:        r.AthleteName,
+				AthleteCode: r.AthleteCode.String,
+				TotalScore:  r.TotalScore,
+				Total10:     r.Total10,
+				TotalX:      r.TotalX,
 			})
 		}
 
@@ -2391,7 +2391,7 @@ func GetMedalStandingsPrintout(db *sqlx.DB) gin.HandlerFunc {
 
 type FinalRankRow struct {
 	Rank        int
-	Bib         string
+	AthleteCode string
 	AthleteName string
 	ClubName    string
 	QualScore   int
@@ -2421,7 +2421,7 @@ func GetFinalRankingsPrintout(db *sqlx.DB) gin.HandlerFunc {
 		type FinalRankRawData struct {
 			CategoryID   string         `db:"category_id"`
 			CategoryName string         `db:"category_name"`
-			Bib          sql.NullString `db:"athlete_code"`
+			AthleteCode  sql.NullString `db:"athlete_code"`
 			AthleteName  string         `db:"athlete_name"`
 			ClubName     string         `db:"club_name"`
 			QualScore    int            `db:"qual_score"`

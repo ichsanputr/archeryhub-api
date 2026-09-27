@@ -554,6 +554,35 @@ func CreateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Validation: Ensure all qualification sessions for this category are locked
+		var totalSessions int
+		var unlockedSessions int
+		_ = db.Get(&totalSessions, `
+			SELECT COUNT(*)
+			FROM qualification_session_categories qsc
+			JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+			WHERE qsc.category_uuid = ? AND qs.tournament_uuid = ?
+		`, req.CategoryID, eventUUID)
+
+		if totalSessions > 0 {
+			_ = db.Get(&unlockedSessions, `
+				SELECT COUNT(*)
+				FROM qualification_session_categories qsc
+				JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+				WHERE qsc.category_uuid = ? AND qs.tournament_uuid = ?
+				  AND (COALESCE(qs.is_locked, 0) = 0 OR COALESCE(qsc.is_locked, 0) = 0)
+			`, req.CategoryID, eventUUID)
+
+			if unlockedSessions > 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":             "Semua sesi kualifikasi untuk kategori ini harus dikunci (locked) terlebih dahulu sebelum membuat bracket eliminasi.",
+					"code":              "qualification_sessions_not_locked",
+					"unlocked_sessions": unlockedSessions,
+				})
+				return
+			}
+		}
+
 		// Count participants with qualification scores and auto-calculate bracket size (smallest power of 2 >= count)
 		var participantCount int
 		if req.BracketType == "individual" {
@@ -933,6 +962,35 @@ func GenerateBracket(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Validation: Ensure all qualification sessions for this category are locked
+		var totalSessions int
+		var unlockedSessions int
+		_ = db.Get(&totalSessions, `
+			SELECT COUNT(*)
+			FROM qualification_session_categories qsc
+			JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+			WHERE qsc.category_uuid = ? AND qs.tournament_uuid = ?
+		`, bracket.CategoryUUID, bracket.EventUUID)
+
+		if totalSessions > 0 {
+			_ = db.Get(&unlockedSessions, `
+				SELECT COUNT(*)
+				FROM qualification_session_categories qsc
+				JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+				WHERE qsc.category_uuid = ? AND qs.tournament_uuid = ?
+				  AND (COALESCE(qs.is_locked, 0) = 0 OR COALESCE(qsc.is_locked, 0) = 0)
+			`, bracket.CategoryUUID, bracket.EventUUID)
+
+			if unlockedSessions > 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":             "Semua sesi kualifikasi untuk kategori ini harus dikunci (locked) terlebih dahulu sebelum meng-generate bracket eliminasi.",
+					"code":              "qualification_sessions_not_locked",
+					"unlocked_sessions": unlockedSessions,
+				})
+				return
+			}
+		}
+
 		tx, err := db.Beginx()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
@@ -1294,10 +1352,33 @@ func GetBracketSizeRecommendation(db *sqlx.DB) gin.HandlerFunc {
 			byes = bracketSize - effectiveCount
 		}
 
+		// Check qualification sessions lock status for this category
+		var totalSessions int
+		var unlockedSessions int
+		_ = db.Get(&totalSessions, `
+			SELECT COUNT(*)
+			FROM qualification_session_categories qsc
+			JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+			WHERE qsc.category_uuid = ? AND qs.tournament_uuid = ?
+		`, categoryID, eventUUID)
+
+		if totalSessions > 0 {
+			_ = db.Get(&unlockedSessions, `
+				SELECT COUNT(*)
+				FROM qualification_session_categories qsc
+				JOIN qualification_sessions qs ON qsc.session_uuid = qs.uuid
+				WHERE qsc.category_uuid = ? AND qs.tournament_uuid = ?
+				  AND (COALESCE(qs.is_locked, 0) = 0 OR COALESCE(qsc.is_locked, 0) = 0)
+			`, categoryID, eventUUID)
+		}
+
 		resp := gin.H{
-			"participant_count": effectiveCount,
-			"max_bracket_size":  bracketSize,
-			"byes":              byes,
+			"participant_count":      effectiveCount,
+			"max_bracket_size":       bracketSize,
+			"byes":                   byes,
+			"total_qual_sessions":    totalSessions,
+			"unlocked_qual_sessions": unlockedSessions,
+			"is_qual_locked":         (totalSessions > 0 && unlockedSessions == 0),
 		}
 		if bracketType != "individual" {
 			resp["synced_teams"] = syncedTeams
@@ -2388,6 +2469,19 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Check if bracket is locked
+		var isLocked bool
+		_ = db.Get(&isLocked, `
+			SELECT COALESCE(eb.is_locked, 0) 
+			FROM elimination_matches em
+			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
+			WHERE em.uuid = ?
+		`, matchID)
+		if isLocked {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Braket eliminasi telah dikunci oleh panitia/wasit. Perubahan skor tidak diperbolehkan."})
+			return
+		}
+
 		// Calculate scores from regular ends (excluding shoot-off end 99)
 		type EndScore struct {
 			Side     string `db:"side"`
@@ -2766,6 +2860,19 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Get(&match, `SELECT uuid, bracket_uuid, round_no, match_no, winner_entry_uuid, status, entry_a_uuid, entry_b_uuid FROM elimination_matches WHERE uuid = ?`, matchID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Match not found"})
+			return
+		}
+
+		// Check if bracket is locked
+		var isLocked bool
+		_ = db.Get(&isLocked, `
+			SELECT COALESCE(eb.is_locked, 0) 
+			FROM elimination_matches em
+			JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid
+			WHERE em.uuid = ?
+		`, matchID)
+		if isLocked {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Braket eliminasi telah dikunci oleh panitia/wasit. Perubahan atau reset match tidak diperbolehkan."})
 			return
 		}
 

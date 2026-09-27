@@ -336,7 +336,6 @@ func main() {
 				tournaments.GET("/:id/participants/me", middleware.AuthMiddleware(), handler.GetMyEventRegistration(db))
 				tournaments.DELETE("/:id/participants/me", middleware.AuthMiddleware(), handler.UnregisterFromEvent(db))
 				tournaments.PUT("/:id/participants/:participantId", middleware.AuthMiddleware(), middleware.RequireActivePlan(db), handler.UpdateEventParticipant(db))
-				tournaments.DELETE("/:id/participants/:participantId", middleware.AuthMiddleware(), handler.DeleteEventParticipant(db))
 				tournaments.DELETE("/participants/:participantId", middleware.AuthMiddleware(), handler.CancelParticipantRegistration(db))
 				tournaments.POST("/participants/:participantId/payment", middleware.AuthMiddleware(), handler.CreateParticipantPayment(db))
 				tournaments.GET("/:id/teams", handler.GetEventTeams(db))
@@ -379,6 +378,10 @@ func main() {
 				tournaments.GET("/:id/targets/:target_id", handler.GetTargetDetails(db))
 				tournaments.GET("/:id/my-target", middleware.AuthMiddleware(), handler.GetMyEventTarget(db))
 
+				// Custom registration fields (Form Builder / Data Archer)
+				tournaments.GET("/:id/custom-fields", handler.GetTournamentCustomFields(db))
+				tournaments.GET("/:id/custom-fields/public", handler.GetPublicTournamentCustomFields(db))
+
 				// Public Results endpoints
 				tournaments.GET("/:id/results/qualification", handler.GetPublicQualificationResults(db))
 				tournaments.GET("/:id/results/elimination", handler.GetPublicEliminationResults(db))
@@ -395,6 +398,12 @@ func main() {
 					protected.DELETE("/:id", middleware.RequireActivePlan(db), handler.DeleteEvent(db))
 					protected.POST("/:id/publish", middleware.RequireActivePlan(db), handler.PublishEvent(db))
 					protected.GET("/:id/participants/export", middleware.RequireActivePlan(db), handler.ExportParticipantsCSV(db))
+
+					// Custom registration fields management (Visual Form Builder / Data Archer)
+					protected.POST("/:id/custom-fields", handler.CreateTournamentCustomField(db))
+					protected.PUT("/:id/custom-fields/reorder", handler.ReorderTournamentCustomFields(db))
+					protected.PUT("/:id/custom-fields/:fieldId", handler.UpdateTournamentCustomField(db))
+					protected.DELETE("/:id/custom-fields/:fieldId", handler.DeleteTournamentCustomField(db))
 					protected.POST("/:id/categories", middleware.RequireActivePlan(db), handler.CreateEventCategory(db))
 					protected.POST("/:id/categories/batch", middleware.RequireActivePlan(db), handler.CreateEventCategories(db))
 					protected.GET("/:id/categories/:categoryId", handler.GetEventCategoryDetails(db))
@@ -497,6 +506,7 @@ func main() {
 			qualSessions.POST("/auto-assign", middleware.RequireActivePlan(db), handler.AutoAssignParticipants(db))
 			qualSessions.POST("/reset-assignments", middleware.RequireActivePlan(db), handler.ResetSessionAssignments(db))
 			qualSessions.POST("/swap-assignments", middleware.RequireActivePlan(db), handler.SwapTargetAssignments(db))
+			qualSessions.POST("/lock", middleware.RequireActivePlan(db), handler.ToggleLockQualificationSession(db))
 		}
 
 		qualAssignments := api.Group("/qualification/assignments/:assignmentId")
@@ -1019,12 +1029,12 @@ func main() {
 			// Public media access
 			media.GET("/:filename", handler.GetMedia(db))
 			r.GET("/api/v1/media/:filename", handler.GetMedia(db))
+			media.POST("/upload", middleware.OptionalAuthMiddleware(), handler.UploadMedia(db))
 
 			// Protected media routes
 			protectedMedia := media.Group("")
 			protectedMedia.Use(middleware.AuthMiddleware())
 			{
-				protectedMedia.POST("/upload", handler.UploadMedia(db))
 				protectedMedia.GET("", handler.ListMedia(db))
 				protectedMedia.DELETE("/:id", handler.DeleteMedia(db))
 			}

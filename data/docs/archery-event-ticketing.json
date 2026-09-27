@@ -1,0 +1,61 @@
+{
+  "slug": "archery-event-ticketing",
+  "icon": "ph:ticket-bold",
+  "category": "about",
+  "readTime": "4 min",
+  "order": 2,
+  "en": {
+    "title": "Archery Event Ticketing",
+    "excerpt": "A flexible ticketing and registration platform for archery events: configure category quotas, accept automated online payments, and check in archers on-site with digital QR passes.",
+    "toc": [
+      {
+        "id": "solusi-registrasi",
+        "level": 2,
+        "text": "1. Archery-Specific Registration"
+      },
+      {
+        "id": "fleksibilitas-skoring",
+        "level": 2,
+        "text": "2. Flexible Options: Ticketing Only or Full Scoring"
+      },
+      {
+        "id": "pembayaran-dan-checkin",
+        "level": 2,
+        "text": "3. Automated Payments & On-Site QR Check-in"
+      },
+      {
+        "id": "rekap-data-peserta",
+        "level": 2,
+        "text": "4. Instant Roster Export & Financial Reports"
+      }
+    ],
+    "content": "<p>Archeris is built to give tournament organizers and clubs a straightforward way to manage archery event ticketing and registration. You can publish online registrations, set quota limits per bow category, accept automatic payments, and check in archers quickly on tournament day.</p>\n\n<h2 id=\"solusi-registrasi\">1. Archery-Specific Registration</h2>\n<p>Organizing an archery competition involves specific requirements such as multiple bow divisions, age brackets, shooting distances, and strict target butt capacities. Archeris lets you configure all these parameters upfront so your shooting field never exceeds safety and space limits.</p>\n<p>Individual athletes or parents can register in minutes using saved profile details, while club coaches and team managers can register an entire contingent of athletes across different divisions in a single submission.</p>\n\n<h2 id=\"fleksibilitas-skoring\">2. Flexible Options: Ticketing Only or Full Scoring</h2>\n<p>One of the biggest strengths of Archeris is its modular flexibility. You are never locked into using every feature if you only need the registration engine:</p>\n<ul>\n  <li><strong>Ticketing Only:</strong> Use Archeris exclusively to open registrations, collect participant data, process entry payments, and manage on-site attendance without using the scoring module.</li>\n  <li><strong>Manual Result Upload:</strong> If you record scores using your own method on the field, you can still upload the final results file to Archeris so archers can look up their outcomes.</li>\n  <li><strong>Integrated System Scoring:</strong> If you want an all-in-one digital experience, enable the built-in Archeris scoring engine for real-time mobile scoring at the target butt and instant elimination brackets.</li>\n</ul>\n<p>You can choose your preferred scoring format directly in the tournament settings dashboard according to what suits your event best.</p>\n\n<h2 id=\"pembayaran-dan-checkin\">3. Automated Payments &amp; On-Site QR Check-in</h2>\n<p>Athletes can complete their registrations using secure payment channels like QRIS, Virtual Accounts, and PayPal for international entrants. Payments are verified in real time, so organizers do not have to spend time manually checking bank mutations or receipts.</p>\n<p>Once payment is confirmed, each archer receives a digital competition pass with a unique QR code in their dashboard. On match day, reception staff simply scan this QR code to verify attendance and issue competition bibs.</p>\n\n<h2 id=\"rekap-data-peserta\">4. Instant Roster Export &amp; Financial Reports</h2>\n<p>All participant and revenue information is organized in your organizer dashboard. You can track incoming funds in real time and export the verified roster to Excel or CSV with one click, making it easy to prepare technical handbooks, athlete badges, and field logistics.</p>"
+  },
+  "id": {
+    "title": "Ticketing Turnamen Panahan",
+    "excerpt": "Solusi ticketing turnamen panahan yang fleksibel: buka pendaftaran kategori, atur kuota bantalan, terima pembayaran online otomatis, hingga check-in peserta di venue.",
+    "toc": [
+      {
+        "id": "solusi-registrasi",
+        "level": 2,
+        "text": "1. Solusi Praktis Registrasi Panahan"
+      },
+      {
+        "id": "fleksibilitas-skoring",
+        "level": 2,
+        "text": "2. Fleksibel: Bisa untuk Tiket Saja atau Lengkap dengan Skoring"
+      },
+      {
+        "id": "pembayaran-dan-checkin",
+        "level": 2,
+        "text": "3. Pembayaran Otomatis & Check-in QR di Venue"
+      },
+      {
+        "id": "rekap-data-peserta",
+        "level": 2,
+        "text": "4. Rekap Data & Laporan Peserta Instan"
+      }
+    ],
+    "content": "<p>Archeris dirancang untuk memudahkan penyelenggara acara (EO) maupun klub mengelola tiket dan pendaftaran turnamen panahan. Anda bisa membuka registrasi online, membagi kuota per kategori divisi busur, menerima pembayaran otomatis, sampai memindai tiket atlet saat tiba di lapangan.</p>\n\n<h2 id=\"solusi-registrasi\">1. Solusi Praktis Registrasi Panahan</h2>\n<p>Pendaftaran turnamen panahan biasanya cukup rumit karena melibatkan banyak divisi busur, kelompok usia, dan batas kapasitas bantalan sasaran. Lewat Archeris, panitia bisa langsung mengatur kategori lomba dengan batas kuota yang jelas agar lapangan tidak kelebihan kapasitas.</p>\n<p>Pemanah atau orang tua bisa mendaftar secara mandiri dalam hitungan menit, sementara pelatih atau ofisial klub bisa mendaftarkan seluruh kontingen atlet sekaligus dalam satu kali proses pendaftaran.</p>\n\n<h2 id=\"fleksibilitas-skoring\">2. Fleksibel: Bisa untuk Tiket Saja atau Lengkap dengan Skoring</h2>\n<p>Salah satu keunggulan utama Archeris adalah fleksibilitasnya. Penyelenggara turnamen tidak diwajibkan memakai seluruh fitur jika hanya membutuhkan sistem pendaftaran:</p>\n<ul>\n  <li><strong>Hanya Ticketing:</strong> Anda cukup memakai Archeris untuk membuka pendaftaran, mengumpulkan data atlet, menerima pembayaran tiket, dan mengelola kehadiran peserta di hari lomba.</li>\n  <li><strong>Upload Hasil Manual:</strong> Jika skoring di lapangan dicatat memakai cara Anda sendiri, Anda tetap bisa mengunggah rekap hasil akhir lomba ke platform agar atlet dapat melihat skor mereka.</li>\n  <li><strong>Sistem Skoring Lengkap:</strong> Jika ingin serba otomatis, Anda tinggal mengaktifkan modul skoring bawaan Archeris untuk pencatatan nilai rambahan di bantalan sasaran hingga pembuatan bagan eliminasi.</li>\n</ul>\n<p>Pilihan format skoring ini bisa ditentukan langsung dari dashboard turnamen Anda kapan saja sesuai kebutuhan event.</p>\n\n<h2 id=\"pembayaran-dan-checkin\">3. Pembayaran Otomatis &amp; Check-in QR di Venue</h2>\n<p>Peserta dapat membayar biaya pendaftaran dengan berbagai metode instan seperti QRIS, Virtual Account bank, maupun PayPal untuk atlet internasional. Status pembayaran langsung terverifikasi otomatis sehingga panitia tidak perlu repot mengecek bukti transfer secara manual.</p>\n<p>Setelah pembayaran selesai, atlet langsung mendapatkan tiket digital berisikan kode QR unik di dashboard mereka. Di hari pertandingan, petugas meja panitia cukup memindai kode QR tersebut untuk verifikasi kehadiran dan pembagian nomor dada (BIB).</p>\n\n<h2 id=\"rekap-data-peserta\">4. Rekap Data &amp; Laporan Peserta Instan</h2>\n<p>Seluruh data pendaftar tercatat rapi di dashboard panitia. Anda bisa melihat total pemasukan secara transparan dan mengunduh data daftar peserta (roster) ke format Excel atau CSV dalam satu klik untuk keperluan buku panduan teknis maupun persiapan konsumsi dan medali.</p>"
+  }
+}

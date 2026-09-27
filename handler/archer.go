@@ -122,7 +122,6 @@ func GetArcherByID(db *sqlx.DB) gin.HandlerFunc {
 				a.uuid, COALESCE(a.id, '') as id, a.username, a.full_name, a.date_of_birth,
 				a.gender, a.email, a.phone, a.avatar_url, a.banner_url, a.address,
 				a.city, a.country,
-				a.hand_dominance,
 				a.bio, a.status, a.created_at, a.updated_at,
 				a.bow_type,
 				a.social_instagram, a.social_tiktok, a.social_whatsapp,
@@ -286,8 +285,24 @@ func GetMyArcherEvents(db *sqlx.DB) gin.HandlerFunc {
 				o.avatar_url as organizer_avatar_url,
 				COUNT(DISTINCT ep2.uuid) as participant_count,
 				COUNT(DISTINCT ec.uuid) as event_count,
-				MAX(ep.payment_status) as payment_status,
-				CASE WHEN MAX(ep.payment_status) IN ('paid', 'lunas') THEN 'registered' ELSE 'pending' END as participant_status,
+				CASE 
+					WHEN SUM(CASE WHEN ep.payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END) > 0 THEN 'paid'
+					WHEN SUM(CASE WHEN ep.payment_status = 'awaiting_verification' THEN 1 ELSE 0 END) > 0 THEN 'awaiting_verification'
+					WHEN SUM(CASE WHEN ep.payment_status = 'pending' THEN 1 ELSE 0 END) > 0 THEN 'pending'
+					WHEN SUM(CASE WHEN ep.payment_status = 'rejected' THEN 1 ELSE 0 END) > 0 THEN 'rejected'
+					WHEN SUM(CASE WHEN ep.payment_status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) > 0 THEN 'cancelled'
+					WHEN SUM(CASE WHEN ep.payment_status = 'expired' THEN 1 ELSE 0 END) > 0 THEN 'expired'
+					ELSE COALESCE(MAX(ep.payment_status), 'pending')
+				END as payment_status,
+				CASE 
+					WHEN SUM(CASE WHEN ep.payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END) > 0 THEN 'registered'
+					WHEN SUM(CASE WHEN ep.payment_status = 'awaiting_verification' THEN 1 ELSE 0 END) > 0 THEN 'awaiting_verification'
+					WHEN SUM(CASE WHEN ep.payment_status = 'pending' THEN 1 ELSE 0 END) > 0 THEN 'pending'
+					WHEN SUM(CASE WHEN ep.payment_status = 'rejected' THEN 1 ELSE 0 END) > 0 THEN 'rejected'
+					WHEN SUM(CASE WHEN ep.payment_status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) > 0 THEN 'cancelled'
+					WHEN SUM(CASE WHEN ep.payment_status = 'expired' THEN 1 ELSE 0 END) > 0 THEN 'expired'
+					ELSE 'pending' 
+				END as participant_status,
 				MAX(ep.uuid) as participant_uuid,
 				MAX(ep.qr_raw) as qr_raw
 			FROM tournaments e
@@ -616,10 +631,6 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 		if req.BowType != nil {
 			query += ", bow_type = ?"
 			args = append(args, *req.BowType)
-		}
-		if req.HandDominance != nil {
-			query += ", hand_dominance = ?"
-			args = append(args, *req.HandDominance)
 		}
 		if req.EmergencyContactName != nil {
 			query += ", emergency_contact_name = ?"
@@ -955,7 +966,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			Nickname              *string `json:"nickname" db:"nickname"`
 			DateOfBirth           *string `json:"date_of_birth" db:"date_of_birth"`
 			Gender                string  `json:"gender" db:"gender"`
-			HandDominance         *string `json:"hand_dominance" db:"hand_dominance"`
 			Phone                 *string `json:"phone" db:"phone"`
 			EmergencyContactName  *string `json:"emergency_contact_name" db:"emergency_contact_name"`
 			Address               *string `json:"address" db:"address"`
@@ -988,7 +998,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 		SELECT a.uuid, COALESCE(a.id, '') as id, a.username, a.email, a.avatar_url, a.banner_url,
 		       COALESCE(a.full_name, '') as full_name, a.nickname, a.date_of_birth, 
 		       COALESCE(a.gender, 'male') as gender,
-		       COALESCE(a.hand_dominance, 'right') as hand_dominance,
 		       a.phone, a.emergency_contact_name,
 		       a.address, a.city, a.country, 
 		       COALESCE(a.bow_type, 'recurve') as bow_type,
@@ -1018,7 +1027,6 @@ func GetArcherProfile(db *sqlx.DB) gin.HandlerFunc {
 			"nickname":                archer.Nickname,
 			"date_of_birth":           archer.DateOfBirth,
 			"gender":                  archer.Gender,
-			"hand_dominance":          archer.HandDominance,
 			"phone":                   archer.Phone,
 			"emergency_contact_name":  archer.EmergencyContactName,
 			"address":                 archer.Address,

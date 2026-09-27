@@ -39,14 +39,14 @@ func GetClubs(db *sqlx.DB) gin.HandlerFunc {
 		// Get data
 		var clubs []models.Club
 		query := fmt.Sprintf(`
-			SELECT uuid, slug, name, logo_url, city, created_at, updated_at
+			SELECT uuid, COALESCE(slug, '') as slug, name, logo_url, city, created_at, updated_at
 			FROM clubs %s ORDER BY name ASC LIMIT ? OFFSET ?
 		`, whereClause)
 		queryArgs := append(args, limit, offset)
 
 		err = db.Select(&clubs, query, queryArgs...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data klub"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data klub", "details": err.Error()})
 			return
 		}
 

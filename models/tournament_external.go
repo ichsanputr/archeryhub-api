@@ -72,7 +72,6 @@ type TournamentExternalAthlete struct {
 	TournamentID int64     `json:"tournament_id" db:"tournament_id"`
 	CategoryID   *int64    `json:"category_id" db:"category_id"`
 	CategoryName *string   `json:"category_name" db:"category_name"`
-	BIB          *string   `json:"bib" db:"bib"`
 	Name         string    `json:"name" db:"name"`
 	ClubCode     *string   `json:"club_code" db:"club_code"`
 	ClubName     *string   `json:"club_name" db:"club_name"`
@@ -90,7 +89,6 @@ type TournamentExternalQualification struct {
 	CategoryName string  `json:"category_name" db:"category_name"`
 	Rank         int     `json:"rank" db:"rank"`
 	TargetLane   *string `json:"target_lane" db:"target_lane"`
-	BIB          *string `json:"bib" db:"bib"`
 	AthleteName  string  `json:"athlete_name" db:"athlete_name"`
 	ClubCode     *string `json:"club_code" db:"club_code"`
 	ClubName     *string `json:"club_name" db:"club_name"`

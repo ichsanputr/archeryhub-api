@@ -490,13 +490,13 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			INSERT INTO tournaments (
 				uuid, code, name, short_name, slug, venue, gmaps_link, location, city, 
 				start_date, end_date, registration_start, registration_deadline,
-				description, banner_url, logo_url, location_type, num_distances, num_sessions, 
+				description, banner_url, logo_url, num_distances, num_sessions, 
 				entry_fee, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url, page_settings, faq,
 				quota_type, quota_max_participants, quota_max_categories, quota_max_scorekeepers, quota_max_media_mb,
 				visibility
 			) VALUES (
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?
 			)
 		`
@@ -508,19 +508,13 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			status = "active"
 		}
 
-		// Use location_type if provided, otherwise fallback to type for backward compatibility
-		locationType := req.LocationType
-		if locationType == nil && req.Type != nil {
-			locationType = req.Type
-		}
-
 		gmapsLinkClean := utils.NormalizeGmapsEmbed(req.GmapLink)
 
 		_, err = tx.Exec(query,
 			eventUUID, req.Code, req.Name, req.ShortName, finalSlug, req.Venue, gmapsLinkClean,
 			req.Location, req.City,
 			startDate, endDate, regStart, regDeadline,
-			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), locationType, req.NumDistances, req.NumSessions,
+			req.Description, utils.ExtractFilename(models.FromPtr(req.BannerURL)), utils.ExtractFilename(models.FromPtr(req.LogoURL)), req.NumDistances, req.NumSessions,
 			req.EntryFee,
 			status, userID, now, now,
 			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
@@ -712,14 +706,6 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 		if req.FAQ != nil {
 			query += ", faq = ?"
 			args = append(args, models.ToJSON(req.FAQ))
-		}
-		if req.LocationType != nil {
-			query += ", location_type = ?"
-			args = append(args, *req.LocationType)
-		} else if req.Type != nil {
-			// Backward compatibility: if location_type not provided but type is, use type
-			query += ", location_type = ?"
-			args = append(args, *req.Type)
 		}
 		if req.Visibility != nil {
 			vis := "external"
@@ -1224,9 +1210,11 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				if pLower == "terbayar" || pLower == "paid" || pLower == "lunas" || pLower == "verified" {
 					whereClause += " AND tp.payment_status IN ('paid', 'lunas')"
 				} else if pLower == "pending" || pLower == "menunggu" || pLower == "menunggu_acc" {
-					whereClause += " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc', 'unpaid', 'awaiting_verification')"
-				} else if pLower == "unpaid" || pLower == "belum_bayar" {
-					whereClause += " AND tp.payment_status IN ('unpaid', 'pending', 'menunggu_acc')"
+					whereClause += " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc', 'awaiting_verification')"
+				} else if pLower == "expired" || pLower == "kadaluarsa" || pLower == "kedaluwarsa" {
+					whereClause += " AND tp.payment_status = 'expired'"
+				} else if pLower == "cancelled" || pLower == "canceled" || pLower == "batal" {
+					whereClause += " AND tp.payment_status IN ('cancelled', 'canceled')"
 				} else {
 					whereClause += " AND tp.payment_status = ?"
 					args = append(args, paymentStatus)
@@ -1525,7 +1513,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 			var verifiedCount, pendingCount int
 			verifiedQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM tournament_participants tp " + statusWhere + " AND tp.payment_status IN ('paid', 'lunas')"
-			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM tournament_participants tp " + statusWhere + " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc', 'unpaid', 'awaiting_verification')"
+			pendingQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM tournament_participants tp " + statusWhere + " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc', 'awaiting_verification')"
 			_ = db.Get(&verifiedCount, verifiedQuery, statusArgs...)
 			_ = db.Get(&pendingCount, pendingQuery, statusArgs...)
 
@@ -1597,9 +1585,11 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			if pLower == "terbayar" || pLower == "paid" || pLower == "lunas" || pLower == "verified" {
 				whereClause += " AND tp.payment_status IN ('paid', 'lunas')"
 			} else if pLower == "pending" || pLower == "menunggu" || pLower == "menunggu_acc" {
-				whereClause += " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc', 'unpaid', 'awaiting_verification')"
-			} else if pLower == "unpaid" || pLower == "belum_bayar" {
-				whereClause += " AND tp.payment_status IN ('unpaid', 'pending', 'menunggu_acc')"
+				whereClause += " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc', 'awaiting_verification')"
+			} else if pLower == "expired" || pLower == "kadaluarsa" || pLower == "kedaluwarsa" {
+				whereClause += " AND tp.payment_status = 'expired'"
+			} else if pLower == "cancelled" || pLower == "canceled" || pLower == "batal" {
+				whereClause += " AND tp.payment_status IN ('cancelled', 'canceled')"
 			} else {
 				whereClause += " AND tp.payment_status = ?"
 				args = append(args, paymentStatus)
@@ -1791,7 +1781,6 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			BirthDate                   *time.Time `db:"birth_date" json:"birth_date"`
 			DateOfBirth                 *time.Time `db:"date_of_birth" json:"date_of_birth"`
 			BowType                     *string    `db:"bow_type" json:"bow_type"`
-			HandDominance               *string    `db:"hand_dominance" json:"hand_dominance"`
 			Address                     *string    `db:"address" json:"address"`
 			EmergencyContactName        *string    `db:"emergency_contact_name" json:"emergency_contact_name"`
 			City                        *string    `db:"city" json:"city"`
@@ -1821,10 +1810,11 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 		type ParticipantResponse struct {
 			ParticipantRow
-			Categories       []map[string]interface{}    `json:"categories"`
-			PaymentProofURLs []string                    `json:"payment_proof_urls"`
-			Transaction      *models.PaymentTransaction  `json:"transaction"`
-			Transactions     []models.PaymentTransaction `json:"transactions"`
+			Categories       []map[string]interface{}        `json:"categories"`
+			PaymentProofURLs []string                        `json:"payment_proof_urls"`
+			Transaction      *models.PaymentTransaction      `json:"transaction"`
+			Transactions     []models.PaymentTransaction     `json:"transactions"`
+			CustomFields     []models.CustomFieldValueDetail `json:"custom_fields"`
 		}
 
 		var rows []ParticipantRow
@@ -1845,7 +1835,6 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(a.birth_date, a.date_of_birth) as birth_date,
 				a.date_of_birth as date_of_birth,
 				a.bow_type as bow_type,
-				a.hand_dominance as hand_dominance,
 				a.address as address,
 				a.emergency_contact_name as emergency_contact_name,
 				COALESCE(a.city, '') as city,
@@ -1887,7 +1876,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			)
 			ORDER BY 
 				(tp.payment_status = 'paid') DESC,
-				(tp.payment_status IN ('pending', 'menunggu_acc', 'unpaid')) DESC,
+				(tp.payment_status IN ('pending', 'menunggu_acc')) DESC,
 				tp.qr_raw IS NULL ASC,
 				tp.created_at DESC
 		`, actualEventID, actualEventID, participantID, participantID, participantID, participantID, participantID)
@@ -1986,6 +1975,12 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
+		if cFields, errCF := GetParticipantCustomFieldValues(db, first.ID); errCF == nil {
+			resp.CustomFields = cFields
+		} else {
+			resp.CustomFields = []models.CustomFieldValueDetail{}
+		}
+
 		c.JSON(http.StatusOK, resp)
 	}
 }
@@ -2069,6 +2064,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			Targets             []TargetAssignmentInfo     `json:"targets"`
 			Transaction         *models.PaymentTransaction `json:"transaction"`
 			PaymentMethodManual *string                    `json:"payment_method_manual"`
+			CustomFields        []models.CustomFieldValueDetail `json:"custom_fields,omitempty"`
 		}
 
 		type Row struct {
@@ -2093,8 +2089,8 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			ClubName            *string `db:"club_name"`
 		}
 
-		var rows []Row
-		err := db.Select(&rows, `
+		var allRows []Row
+		err := db.Select(&allRows, `
 			SELECT 
 				tp.uuid as id, tp.target_name, tp.back_number, tp.category_id,
 				tp.payment_status, tp.payment_amount, tp.registration_date,
@@ -2118,16 +2114,29 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 				OR tp.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
 				OR tp.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
 			)
-			ORDER BY tp.created_at ASC
+			ORDER BY tp.created_at DESC
 		`, actualEventID, actualEventID, actualEventID, archerID, userID, userID, userID, userEmail, userID, userID, userEmail)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil registrasi", "details": err.Error()})
 			return
 		}
-		if len(rows) == 0 {
+		if len(allRows) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registrasi tidak ditemukan untuk event ini"})
 			return
+		}
+
+		// Separate active (non-cancelled) registrations from cancelled registrations
+		var rows []Row
+		for _, r := range allRows {
+			st := strings.ToLower(strings.TrimSpace(r.PaymentStatus))
+			if st != "cancelled" && st != "canceled" && st != "expired" && st != "failed" {
+				rows = append(rows, r)
+			}
+		}
+		// If no active registration exists, take allRows (which are all cancelled)
+		if len(rows) == 0 {
+			rows = allRows
 		}
 
 		firstRow := rows[0]
@@ -2150,8 +2159,46 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 			Targets:     []TargetAssignmentInfo{},
 		}
 
-		// Combined status logic
-		resp.PaymentStatus = firstRow.PaymentStatus
+		// Combined status logic across current rows
+		overallStatus := "pending"
+		hasPaid := false
+		hasAwaiting := false
+		hasPending := false
+		hasRejected := false
+		allCancelled := true
+
+		for _, r := range rows {
+			st := strings.ToLower(strings.TrimSpace(r.PaymentStatus))
+			if st == "paid" || st == "lunas" || st == "registered" || st == "success" || st == "completed" {
+				hasPaid = true
+				allCancelled = false
+			} else if st == "awaiting_verification" || st == "menunggu_verifikasi" {
+				hasAwaiting = true
+				allCancelled = false
+			} else if st == "pending" || st == "menunggu_acc" || st == "menunggu acc" {
+				hasPending = true
+				allCancelled = false
+			} else if st == "rejected" || st == "ditolak" {
+				hasRejected = true
+				allCancelled = false
+			} else if st != "cancelled" && st != "canceled" && st != "expired" && st != "failed" {
+				allCancelled = false
+			}
+		}
+
+		if hasPaid {
+			overallStatus = "paid"
+		} else if hasAwaiting {
+			overallStatus = "awaiting_verification"
+		} else if hasPending {
+			overallStatus = "pending"
+		} else if hasRejected {
+			overallStatus = "rejected"
+		} else if allCancelled {
+			overallStatus = "cancelled"
+		}
+
+		resp.PaymentStatus = overallStatus
 
 		participantIDs := make([]string, 0, len(rows))
 		for _, row := range rows {
@@ -2186,9 +2233,9 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(REGEXP_SUBSTR(tt.target_name, '[A-Za-z]+$'), '') as target_position,
 					COALESCE(tt.target_name, tp.target_name, '-') as target_name,
 					COALESCE(qs.name, 'Sesi Kualifikasi') as session_name,
-					DATE_FORMAT(qs.session_date, '%Y-%m-%d') as session_date,
-					DATE_FORMAT(qs.start_time, '%H:%i') as start_time,
-					DATE_FORMAT(qs.end_time, '%H:%i') as end_time,
+					NULL as session_date,
+					NULL as start_time,
+					NULL as end_time,
 					tp.category_id,
 					COALESCE(te.category_name_custom, CONCAT(COALESCE(d.name, ''), ' ', COALESCE(c.name, ''))) as category_name,
 					COALESCE(d.name, '') as division_name,
@@ -2203,7 +2250,7 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN ref_bow_types d ON te.division_uuid = d.uuid
 				LEFT JOIN ref_age_groups c ON te.category_uuid = c.uuid
 				WHERE qta.participant_uuid IN (?)
-				ORDER BY qs.session_date ASC, qs.start_time ASC, tt.board_number ASC
+				ORDER BY qs.created_at ASC, tt.board_number ASC
 			`, participantIDs)
 			if errIn == nil {
 				queryQTA = db.Rebind(queryQTA)
@@ -2374,13 +2421,28 @@ func GetMyEventRegistration(db *sqlx.DB) gin.HandlerFunc {
 				OR (tournament_id = ? AND user_id = ?)
 				OR registration_id = ?
 			)
-			ORDER BY created_at DESC LIMIT 1
+			ORDER BY CASE WHEN status NOT IN ('cancelled', 'canceled', 'expired', 'failed') THEN 0 ELSE 1 END ASC, created_at DESC LIMIT 1
 		`, actualEventID, archerID, actualEventID, archerID, actualEventID, userID, firstRow.ID)
 		if errTx == nil {
 			enrichPaymentTransaction(db, &transaction)
 			resp.Transaction = &transaction
 			if transaction.ProofURL != nil && *transaction.ProofURL != "" {
 				resp.PaymentProofURLs = []string{*transaction.ProofURL}
+			}
+		}
+
+		if len(rows) > 0 {
+			seenCF := make(map[string]bool)
+			for _, r := range rows {
+				cfValues, errCF := GetParticipantCustomFieldValues(db, r.ID)
+				if errCF == nil {
+					for _, cf := range cfValues {
+						if !seenCF[cf.FieldUUID] {
+							seenCF[cf.FieldUUID] = true
+							resp.CustomFields = append(resp.CustomFields, cf)
+						}
+					}
+				}
 			}
 		}
 
@@ -2820,6 +2882,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			TeamRegistrations  []models.TeamRegistrationInput       `json:"team_registrations"`
 			DelegationAthletes []models.DelegationAthleteInput      `json:"delegation_athletes"`
 			DelegationTeams    []models.DelegationTeamBookingInput  `json:"delegation_teams"`
+			CustomFields       map[string]interface{}               `json:"custom_fields"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -2898,9 +2961,13 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Determine payment status
-		paymentStatus := "unpaid"
-		if req.PaymentStatus != "" && isPrivileged {
-			paymentStatus = req.PaymentStatus
+		paymentStatus := "pending"
+		if isPrivileged {
+			if req.PaymentStatus != "" {
+				paymentStatus = req.PaymentStatus
+			} else {
+				paymentStatus = "paid"
+			}
 		}
 
 		registrationSource := "self_register"
@@ -3124,6 +3191,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 				allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, partUUID)
 				registeredCategoryIDs = append(registeredCategoryIDs, catID)
+				_ = SaveParticipantCustomFields(tx, actualEventID, partUUID, req.CustomFields)
 			}
 
 			// Handle Team Registrations for Captain Mode
@@ -3413,6 +3481,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 					}
 					allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, partUUID)
 					registeredCategoryIDs = append(registeredCategoryIDs, trimmed)
+					_ = SaveParticipantCustomFields(tx, actualEventID, partUUID, ath.CustomFields)
 				}
 			}
 
@@ -3463,7 +3532,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		isFreeEvent := totalCalculatedRegistrationFee <= 0 && req.PaymentAmount <= 0 && event.EntryFee <= 0 && event.FeeIndividual <= 0
 		if isFreeEvent {
 			freeTxUUID = uuid.New().String()
-			freeTxReference = fmt.Sprintf("PAY-FREE-%s", strings.ToUpper(uuid.New().String()[:8]))
+			freeTxReference = fmt.Sprintf("PAY-%s", strings.ToUpper(uuid.New().String()[:8]))
 			payingUserID := ""
 			if userID != nil {
 				payingUserID = fmt.Sprintf("%v", userID)
@@ -3517,11 +3586,13 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var req struct {
-			AthleteIDs         []string `json:"athlete_ids" binding:"required"`
-			EventCategoryIDs   []string `json:"event_category_ids" binding:"required"`
-			PaymentAmount      float64  `json:"payment_amount"`
-			PaymentStatus      string   `json:"payment_status"`
-			RegistrationSource string   `json:"registration_source"`
+			AthleteIDs         []string                          `json:"athlete_ids" binding:"required"`
+			EventCategoryIDs   []string                          `json:"event_category_ids" binding:"required"`
+			PaymentAmount      float64                           `json:"payment_amount"`
+			PaymentStatus      string                            `json:"payment_status"`
+			RegistrationSource string                            `json:"registration_source"`
+			CustomFields       map[string]interface{}            `json:"custom_fields"`
+			ArcherCustomFields map[string]map[string]interface{} `json:"archer_custom_fields"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -3554,7 +3625,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		isPrivileged := userRole == "admin" || userRole == "superadmin" || (userRole == "organizer" && (orgID == nil || fmt.Sprintf("%v", orgID) == event.OrganizerID || event.OrganizerID == ""))
 
-		paymentStatus := "unpaid"
+		paymentStatus := "pending"
 		registrationSource := "self_register"
 
 		if isPrivileged {
@@ -3849,6 +3920,15 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 					return
 				}
 
+				// Save custom field values if provided
+				cfMap := req.CustomFields
+				if req.ArcherCustomFields != nil && req.ArcherCustomFields[archerUUID] != nil {
+					cfMap = req.ArcherCustomFields[archerUUID]
+				}
+				if len(cfMap) > 0 {
+					_ = SaveParticipantCustomFields(tx, actualEventID, participantUUID, cfMap)
+				}
+
 				utils.LogActivity(tx, fmt.Sprintf("%v", userID), actualEventID, "participant_registered", "event_participant", participantUUID, "Batch registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
 				registeredCount++
 				currentTotalParticipants++
@@ -3977,7 +4057,7 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 
 		// Check if manual payment is already approved or gateway already paid
 		var payStatus string
-		_ = db.Get(&payStatus, "SELECT COALESCE(payment_status,'unpaid') FROM tournament_participants WHERE uuid = ?", participantID)
+		_ = db.Get(&payStatus, "SELECT COALESCE(payment_status,'pending') FROM tournament_participants WHERE uuid = ?", participantID)
 		if payStatus == "paid" || payStatus == "lunas" {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Pembayaran sudah dikonfirmasi. Tidak dapat membatalkan pendaftaran.",
@@ -4002,142 +4082,6 @@ func CancelParticipantRegistration(db *sqlx.DB) gin.HandlerFunc {
 		`, participantID, participantID)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Pendaftaran berhasil dibatalkan"})
-	}
-}
-
-// DeleteEventParticipant allows an admin to remove a participant from an event
-func DeleteEventParticipant(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		eventID := c.Param("id")
-		participantID := c.Param("participantId")
-
-		// Resolve event slug to UUID
-		var actualEventID string
-		err := db.Get(&actualEventID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
-			return
-		}
-
-		// Resolve participant (support UUID, Username, or Athlete Code)
-		var pInfo struct {
-			UUID     string `db:"uuid"`
-			ArcherID string `db:"archer_id"`
-			FullName string `db:"full_name"`
-		}
-
-		err = db.Get(&pInfo, `
-			SELECT tp.uuid, tp.archer_id, a.full_name FROM tournament_participants tp
-			LEFT JOIN archers a ON tp.archer_id = a.uuid
-			WHERE tp.tournament_id = ? AND (tp.uuid = ? OR a.username = ? OR a.id = ?)
-			LIMIT 1
-		`, actualEventID, participantID, participantID, participantID)
-
-		if err != nil {
-			fmt.Printf("[DEBUG] Delete lookup failed for Event: %s, ID: %s. Error: %v\n", actualEventID, participantID, err)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Participant not found", "details": err.Error()})
-			return
-		}
-
-		archerID := pInfo.ArcherID
-
-		// Check if participant can be kicked
-		var participantCheck struct {
-			PaymentStatus string `db:"payment_status"`
-			ReregisteredAt *time.Time `db:"last_reregistration_at"`
-		}
-		err = db.Get(&participantCheck, "SELECT COALESCE(payment_status,'unpaid') as payment_status, last_reregistration_at FROM tournament_participants WHERE uuid = ?", pInfo.UUID)
-		if err == nil {
-			if participantCheck.PaymentStatus == "paid" || participantCheck.PaymentStatus == "lunas" {
-				c.JSON(http.StatusForbidden, gin.H{
-					"error": "Peserta tidak dapat dikeluarkan karena pembayaran sudah lunas. Tambahkan refund terlebih dahulu.",
-					"code": "participant_paid",
-				})
-				return
-			}
-			if participantCheck.ReregisteredAt != nil {
-				c.JSON(http.StatusForbidden, gin.H{
-					"error": "Peserta tidak dapat dikeluarkan karena sudah melakukan registrasi ulang.",
-					"code": "participant_reregistered",
-				})
-				return
-			}
-		}
-
-		fmt.Printf("[DEBUG] Found participant to delete: %s (Archer: %s) - removing ALL registrations for this archer in event\n", pInfo.FullName, archerID)
-
-		// Check if this archer (any of their participant rows) is in any elimination match
-		var inMatch bool
-		err = db.Get(&inMatch, `
-			SELECT EXISTS(
-				SELECT 1 FROM elimination_matches em
-				JOIN elimination_entries ee ON (em.entry_a_uuid = ee.uuid OR em.entry_b_uuid = ee.uuid)
-				WHERE ee.participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
-			)
-		`, archerID, actualEventID)
-
-		if err == nil && inMatch {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Tidak dapat mengeluarkan peserta: Peserta sudah terdaftar dalam babak eliminasi. Silakan hapus mereka dari bracket eliminasi terlebih dahulu.",
-			})
-			return
-		}
-
-		// Start transaction for cleanup
-		tx, err := db.Beginx()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
-			return
-		}
-		defer tx.Rollback()
-
-		// 1. Cleanup qualification data for ALL participant rows of this archer in this event
-		// Arrows first (child table)
-		tx.Exec(`
-			DELETE FROM qualification_arrow_scores 
-			WHERE end_score_uuid IN (
-				SELECT uuid FROM qualification_end_scores 
-				WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
-			)
-		`, archerID, actualEventID)
-
-		// End scores
-		tx.Exec(`
-			DELETE FROM qualification_end_scores 
-			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
-		`, archerID, actualEventID)
-
-		// 2. Delete qualification target assignments
-		tx.Exec(`
-			DELETE FROM qualification_target_assignments 
-			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
-		`, archerID, actualEventID)
-
-		// 3. Cleanup elimination entries if any
-		tx.Exec(`
-			DELETE FROM elimination_entries 
-			WHERE participant_uuid IN (SELECT uuid FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?)
-		`, archerID, actualEventID)
-
-		// 4. Delete ALL tournament_participants for this archer in this event (handles multi-category registrations)
-		_, err = tx.Exec("DELETE FROM tournament_participants WHERE archer_id = ? AND tournament_id = ?", archerID, actualEventID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete participant", "details": err.Error()})
-			return
-		}
-
-		if err := tx.Commit(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit deletion"})
-			return
-		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		if userID != nil {
-			utils.LogActivity(db, userID.(string), actualEventID, "participant_kicked", "event", actualEventID, "Kicked participant: "+archerID, c.ClientIP(), c.Request.UserAgent())
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Peserta berhasil dikeluarkan dari event"})
 	}
 }
 
@@ -4443,9 +4387,9 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					WHERE ((tournament_id = ? AND user_id = ?) 
 					   OR registration_id = ? 
 					   OR uuid IN (SELECT payment_id FROM tournament_participants WHERE tournament_id = ? AND archer_id = ? AND payment_id IS NOT NULL))
-					  AND status IN ('pending', 'awaiting_verification', 'unpaid')
+					  AND status IN ('pending', 'awaiting_verification')
 				`, actualEventID, *pInfo.ArcherID, actualParticipantID, actualEventID, *pInfo.ArcherID)
-			} else if statusVal == "pending" || statusVal == "unpaid" {
+			} else if statusVal == "pending" {
 				_, _ = tx.Exec(`
 					UPDATE payment_transactions 
 					SET status = 'pending', updated_at = NOW() 
@@ -5709,6 +5653,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			Categories         string  `db:"categories"`
 			TotalScore         int     `db:"total_score"`
 			TotalX             int     `db:"total_x"`
+			ParticipantUUIDs   string  `db:"participant_uuids"`
 		}
 
 		var participants []Participant
@@ -5733,7 +5678,8 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 					SEPARATOR '; '
 				) as categories,
 				COALESCE(SUM(scores.total_score), 0) as total_score,
-				COALESCE(SUM(scores.total_x), 0) as total_x
+				COALESCE(SUM(scores.total_x), 0) as total_x,
+				GROUP_CONCAT(DISTINCT tp.uuid SEPARATOR ',') as participant_uuids
 			FROM tournament_participants tp
 			JOIN archers a ON tp.archer_id = a.uuid
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
@@ -5755,6 +5701,38 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch participants", "details": err.Error()})
 			return
+		}
+
+		// Fetch active custom fields for this tournament
+		var customFields []models.TournamentCustomField
+		_ = db.Select(&customFields, `
+			SELECT uuid, field_key, label_id, label_en, field_type, display_order 
+			FROM tournament_custom_fields 
+			WHERE tournament_uuid = ? AND is_active = 1 
+			ORDER BY display_order ASC, id ASC
+		`, event.UUID)
+
+		type CustomValRow struct {
+			ParticipantUUID string `db:"participant_uuid"`
+			FieldUUID       string `db:"field_uuid"`
+			FieldValue      string `db:"field_value"`
+		}
+		var customVals []CustomValRow
+		if len(customFields) > 0 {
+			_ = db.Select(&customVals, `
+				SELECT pcfv.participant_uuid, pcfv.field_uuid, pcfv.field_value
+				FROM participant_custom_field_values pcfv
+				JOIN tournament_participants tp ON pcfv.participant_uuid = tp.uuid
+				WHERE tp.tournament_id = ?
+			`, event.UUID)
+		}
+
+		customValMap := make(map[string]map[string]string)
+		for _, cv := range customVals {
+			if _, exists := customValMap[cv.ParticipantUUID]; !exists {
+				customValMap[cv.ParticipantUUID] = make(map[string]string)
+			}
+			customValMap[cv.ParticipantUUID][cv.FieldUUID] = cv.FieldValue
 		}
 
 		// Set response headers
@@ -5786,12 +5764,12 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			switch s {
 			case "lunas", "paid":
 				return "Paid"
-			case "menunggu", "menunggu acc", "pending":
+			case "menunggu", "menunggu acc", "pending", "awaiting_verification":
 				return "Pending"
-			case "unpaid", "belum_lunas":
-				return "Unpaid"
 			case "expired":
 				return "Expired"
+			case "cancelled", "canceled":
+				return "Cancelled"
 			default:
 				return capitalizeWords(s)
 			}
@@ -5812,7 +5790,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Write header
-		writer.Write([]string{
+		headers := []string{
 			"No",
 			"Kode Atlet",
 			"Nama Peserta",
@@ -5826,10 +5804,18 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			"Kategori",
 			"Total Skor",
 			"Total X",
-		})
+		}
+		for _, cf := range customFields {
+			label := cf.LabelID
+			if label == "" {
+				label = cf.FieldKey
+			}
+			headers = append(headers, label)
+		}
+		writer.Write(headers)
 
 		for i, p := range participants {
-			writer.Write([]string{
+			row := []string{
 				strconv.Itoa(i + 1),
 				func(s *string) string {
 					if s == nil {
@@ -5848,7 +5834,25 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				capitalizeWords(p.Categories),
 				strconv.Itoa(p.TotalScore),
 				strconv.Itoa(p.TotalX),
-			})
+			}
+
+			// Append custom fields
+			for _, cf := range customFields {
+				val := ""
+				pUUIDs := strings.Split(p.ParticipantUUIDs, ",")
+				for _, pUUID := range pUUIDs {
+					pUUID = strings.TrimSpace(pUUID)
+					if fVals, ok := customValMap[pUUID]; ok {
+						if v, found := fVals[cf.UUID]; found && v != "" {
+							val = v
+							break
+						}
+					}
+				}
+				row = append(row, val)
+			}
+
+			writer.Write(row)
 		}
 	}
 }
@@ -6455,7 +6459,7 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			if err == sql.ErrNoRows {
 				participantUUID = uuid.New().String()
 				paymentStatus := strings.ToLower(getValue("payment_status"))
-				if paymentStatus == "" {
+				if paymentStatus != "cancelled" && paymentStatus != "pending" && paymentStatus != "expired" && paymentStatus != "paid" {
 					paymentStatus = "paid"
 				}
 				amountStr := getValue("payment_amount")

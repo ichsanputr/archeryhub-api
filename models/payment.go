@@ -136,7 +136,7 @@ type EventRegistration struct {
 	EntryFee           float64    `json:"entry_fee" db:"entry_fee"`
 	AdminFee           float64    `json:"admin_fee" db:"admin_fee"`
 	TotalFee           float64    `json:"total_fee" db:"total_fee"`
-	PaymentStatus      string     `json:"payment_status" db:"payment_status"` // unpaid, pending, paid, refunded
+	PaymentStatus      string     `json:"payment_status" db:"payment_status"` // cancelled, pending, expired, paid
 	PaymentID          *string    `json:"payment_id" db:"payment_id"`
 	RegistrationNumber *string    `json:"registration_number" db:"registration_number"`
 	Status             string     `json:"status" db:"status"` // pending, approved, rejected, cancelled

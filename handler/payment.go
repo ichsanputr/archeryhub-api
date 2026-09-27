@@ -89,7 +89,7 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 			EntryFee:           entryFee,
 			AdminFee:           adminFee,
 			TotalFee:           totalFee,
-			PaymentStatus:      "unpaid",
+			PaymentStatus:      "pending",
 			RegistrationNumber: &regNumber,
 			Status:             "pending",
 		}
@@ -409,12 +409,10 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 
 		var transaction models.PaymentTransaction
 		transactionID := uuid.New().String()
-		merchantRef := fmt.Sprintf("PAY-SUB-%s", strings.ToUpper(uuid.New().String()[:8]))
+		merchantRef := fmt.Sprintf("PAY-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 		if req.Method == "manual" {
 			// Handle manual payment - redirect to CreateManualPayment logic
-			merchantRef = fmt.Sprintf("PAY-MANUAL-%s", strings.ToUpper(uuid.New().String()[:8]))
-
 			transaction = models.PaymentTransaction{
 				UUID:               transactionID,
 				Reference:          merchantRef,
@@ -428,7 +426,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 				PaymentMethod:      utils.StringPtr("manual"),
 				Months:             req.Months,
 				Status:             "pending",
-				ExpiredAt:          utils.TimePtr(time.Now().Add(7 * 24 * time.Hour)), // 7 days for manual payment
+				ExpiredAt:          nil, // Manual payments have no expiration deadline
 			}
 		} else {
 			appURL := os.Getenv("APP_URL")
@@ -516,6 +514,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 			} else {
 				mayarClient := utils.NewMayarClient()
 				redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
+				expiryTime := time.Now().Add(24 * time.Hour)
 
 				paymentReq := utils.MayarPaymentReq{
 					Name:        fmt.Sprintf("Payment %s", merchantRef),
@@ -523,6 +522,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 					Email:       customerEmail,
 					Mobile:      customerPhone,
 					Description: description,
+					ExpiredAt:   expiryTime.Format(time.RFC3339),
 					RedirectURL: redirectURL,
 				}
 
@@ -550,7 +550,7 @@ func CreatePayment(db *sqlx.DB) gin.HandlerFunc {
 					CheckoutURL:        &checkoutURL,
 					Months:             req.Months,
 					Status:             "pending",
-					ExpiredAt:          utils.TimePtr(time.Now().Add(24 * time.Hour)),
+					ExpiredAt:          &expiryTime,
 				}
 			}
 		}
@@ -830,15 +830,16 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(ec.category_name_custom, rag.name) as category
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
-			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid
+			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid OR t.uuid = ep.payment_id
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN tournaments e ON t.tournament_id = e.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-			WHERE t.reference = ? OR t.gateway_reference = ? OR t.uuid = ?
+			WHERE t.reference = ? OR t.gateway_reference = ? OR t.uuid = ? OR t.registration_id = ? OR ep.uuid = ?
+			LIMIT 1
 		`
-		err := db.Get(&transaction, query, reference, reference, reference)
+		err := db.Get(&transaction, query, reference, reference, reference, reference, reference)
 		if err != nil {
 			fmt.Printf("[DEBUG GetPaymentStatus] reference=%s, err=%v\n", reference, err)
 			// Fallback: Check in quota_purchases table
@@ -942,6 +943,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID           string     `json:"archer_id" db:"archer_id"`
 			ArcherName         string     `json:"archer_name" db:"athlete_name"`
 			AthleteName        string     `json:"athlete_name" db:"athlete_name"`
+			Email              *string    `json:"email" db:"email"`
 			Gender             *string    `json:"gender" db:"gender"`
 			ClubName           *string    `json:"club_name" db:"club_name"`
 			CategoryID         *string    `json:"category_id" db:"category_id"`
@@ -960,6 +962,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid,
 				tp.archer_id,
 				COALESCE(a.full_name, 'Peserta') as athlete_name,
+				a.email,
 				a.gender,
 				COALESCE(c.name, '') as club_name,
 				tp.category_id,
@@ -989,6 +992,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 					tp.uuid,
 					tp.archer_id,
 					COALESCE(a.full_name, 'Peserta') as athlete_name,
+					a.email,
 					a.gender,
 					COALESCE(c.name, '') as club_name,
 					tp.category_id,
@@ -1185,7 +1189,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				COALESCE(NULLIF(e.slug, ''), e.uuid) as id,
-				e.uuid, e.slug, e.name, COALESCE(e.location_type, 'Tournament') as category_label, 
+				e.uuid, e.slug, e.name, 'Tournament' as category_label, 
 				e.end_date,
 				COUNT(DISTINCT ep.uuid) as participant_count,
 				COALESCE(SUM(t.amount), 0) as total_amount
@@ -1193,7 +1197,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN tournament_participants ep ON e.uuid = ep.tournament_id
 			LEFT JOIN payment_transactions t ON ep.uuid = t.registration_id AND t.status = 'paid'
 			WHERE e.organizer_id = ?
-			GROUP BY e.uuid, e.slug, e.name, e.location_type, e.end_date
+			GROUP BY e.uuid, e.slug, e.name, e.end_date
 			HAVING COALESCE(SUM(t.amount), 0) > 0
 			ORDER BY e.created_at DESC
 		`
@@ -1386,7 +1390,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
-		merchantRef := fmt.Sprintf("PAY-REG-%s", strings.ToUpper(uuid.New().String()[:8]))
+		merchantRef := fmt.Sprintf("PAY-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 		var checkoutURL string
 		var externalTxID string
@@ -1447,6 +1451,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 		} else {
 			mayarClient := utils.NewMayarClient()
 			redirectURL := fmt.Sprintf("%s/payment/status/%s", strings.TrimSuffix(appURL, "/"), merchantRef)
+			expiryTime := time.Now().Add(24 * time.Hour)
 
 			paymentReq := utils.MayarPaymentReq{
 				Name:        fmt.Sprintf("Tournament Reg - %s", customerName),
@@ -1454,6 +1459,7 @@ func CreateParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 				Email:       customerEmail,
 				Mobile:      customerPhone,
 				Description: fmt.Sprintf("Pendaftaran Turnamen: %s", customerName),
+				ExpiredAt:   expiryTime.Format(time.RFC3339),
 				RedirectURL: redirectURL,
 			}
 
@@ -1731,7 +1737,7 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		transactionID := uuid.New().String()
-		merchantRef := fmt.Sprintf("PAY-MANUAL-%s", strings.ToUpper(uuid.New().String()[:8]))
+		merchantRef := fmt.Sprintf("PAY-%s", strings.ToUpper(uuid.New().String()[:8]))
 
 		transaction := models.PaymentTransaction{
 			UUID:               transactionID,
@@ -1745,8 +1751,8 @@ func CreateManualPayment(db *sqlx.DB) gin.HandlerFunc {
 			TotalAmount:        float64(amount),
 			PaymentMethod:      utils.StringPtr("manual"),
 			Months:             req.Months,
-			Status:             "pending",                                         // Will change to awaiting_verification after proof upload
-			ExpiredAt:          utils.TimePtr(time.Now().Add(7 * 24 * time.Hour)), // 7 days for manual payment
+			Status:             "pending", // Will change to awaiting_verification after proof upload
+			ExpiredAt:          nil,       // Manual payments have no expiration deadline
 		}
 
 		if transaction.Months <= 0 {
@@ -2333,7 +2339,7 @@ func GetEventManualPayments(db *sqlx.DB) gin.HandlerFunc {
 		var allParticipants []ParticipantDetail
 		partQuery := `
 			SELECT 
-				tp.uuid, tp.payment_id, COALESCE(tp.payment_status, 'unpaid') as payment_status,
+				tp.uuid, tp.payment_id, COALESCE(tp.payment_status, 'pending') as payment_status,
 				tp.payment_amount, tp.last_reregistration_at,
 				a.full_name as archer_name, a.gender,
 				COALESCE(c.name, '') as club_name,
@@ -2446,7 +2452,7 @@ func CancelPaymentTransaction(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Reset linked participants payment_status = 'unpaid', payment_id = NULL
+		// Reset linked participants payment_status = 'cancelled', payment_id = NULL
 		regID := ""
 		if tx.RegistrationID != nil {
 			regID = *tx.RegistrationID
@@ -2511,7 +2517,7 @@ func PerformPaymentCleanup(db *sqlx.DB) (int, error) {
 
 	_, err = tx.Exec(`
 		UPDATE payment_transactions
-		SET status = 'EXPIRED', updated_at = NOW()
+		SET status = 'expired', updated_at = NOW()
 		WHERE (status = 'pending' OR status = 'rejected') AND expired_at IS NOT NULL AND expired_at < NOW()
 	`)
 	if err != nil {
@@ -2525,9 +2531,9 @@ func PerformPaymentCleanup(db *sqlx.DB) (int, error) {
 		}
 		_, _ = tx.Exec(`
 			UPDATE tournament_participants 
-			SET payment_status = 'cancelled', updated_at = NOW() 
+			SET payment_status = 'expired', updated_at = NOW() 
 			WHERE (payment_id = ? OR (uuid = ? AND ? != '')) 
-			  AND payment_status IN ('pending', 'rejected', 'unpaid')
+			  AND payment_status IN ('pending', 'rejected')
 		`, t.UUID, regID, regID)
 		if regID != "" {
 			_, _ = tx.Exec(`DELETE FROM qualification_target_assignments WHERE participant_id = ?`, regID)

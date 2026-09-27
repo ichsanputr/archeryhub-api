@@ -36,17 +36,14 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		type SessionWithCount struct {
-			UUID             string          `db:"uuid" json:"uuid"`
-			EventUUID        string          `db:"tournament_uuid" json:"event_uuid"`
-			SessionCode      string          `db:"session_code" json:"session_code"`
-			SessionDate      *string         `db:"session_date" json:"session_date"`
-			Name             string          `db:"name" json:"name"`
-			StartTime        *string         `db:"start_time" json:"start_time"`
-			EndTime          *string         `db:"end_time" json:"end_time"`
-			TotalEnds        int             `db:"total_ends" json:"total_ends"`
-			ArrowsPerEnd     int             `db:"arrows_per_end" json:"arrows_per_end"`
-			CreatedAt        *string         `db:"created_at" json:"created_at"`
-			UpdatedAt        *string         `db:"updated_at" json:"updated_at"`
+			UUID                string          `db:"uuid" json:"uuid"`
+			EventUUID           string          `db:"tournament_uuid" json:"event_uuid"`
+			SessionCode         string          `db:"session_code" json:"session_code"`
+			Name                string          `db:"name" json:"name"`
+			TotalEnds           int             `db:"total_ends" json:"total_ends"`
+			ArrowsPerEnd        int             `db:"arrows_per_end" json:"arrows_per_end"`
+			CreatedAt           *string         `db:"created_at" json:"created_at"`
+			UpdatedAt           *string         `db:"updated_at" json:"updated_at"`
 			ParticipantCount    int             `db:"participant_count" json:"participant_count"`
 			CategoryIDs         string          `db:"category_ids" json:"-"`
 			CategoryList        []string        `json:"category_ids"`
@@ -61,10 +58,7 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 				qs.uuid,
 				qs.tournament_uuid,
 				qs.session_code,
-				qs.session_date,
 				qs.name,
-				qs.start_time,
-				qs.end_time,
 				qs.total_ends,
 				qs.arrows_per_end,
 				qs.created_at,
@@ -76,8 +70,8 @@ func GetQualificationSessions(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN qualification_target_assignments qta ON qs.uuid = qta.session_uuid
 			LEFT JOIN qualification_session_categories qsc ON qs.uuid = qsc.session_uuid
 			WHERE qs.tournament_uuid = ?
-			GROUP BY qs.uuid, qs.tournament_uuid, qs.session_code, qs.session_date, qs.name, qs.start_time, qs.end_time, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at, qs.is_locked
-			ORDER BY qs.session_date ASC, qs.start_time ASC, qs.created_at ASC
+			GROUP BY qs.uuid, qs.tournament_uuid, qs.session_code, qs.name, qs.total_ends, qs.arrows_per_end, qs.created_at, qs.updated_at, qs.is_locked
+			ORDER BY qs.created_at ASC
 		`, eventUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve session data", "details": err.Error()})
@@ -171,9 +165,6 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			Name         string   `json:"name" binding:"required"`
-			SessionDate  *string  `json:"session_date"`
-			StartTime    *string  `json:"start_time"`
-			EndTime      *string  `json:"end_time"`
 			TotalEnds    int      `json:"total_ends"`
 			ArrowsPerEnd int      `json:"arrows_per_end"`
 			Categories   []string `json:"category_ids"`
@@ -199,12 +190,12 @@ func CreateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		newUUID := uuid.New().String()
 		_, err = db.Exec(`
 			INSERT INTO qualification_sessions (
-				uuid, tournament_uuid, session_code, session_date, 
-				name, start_time, end_time, total_ends, arrows_per_end, is_locked
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+				uuid, tournament_uuid, session_code, 
+				name, total_ends, arrows_per_end, is_locked
+			) VALUES (?, ?, ?, ?, ?, ?, 0)
 		`,
-			newUUID, eventUUID, sessionCode, req.SessionDate,
-			req.Name, req.StartTime, req.EndTime, req.TotalEnds, req.ArrowsPerEnd,
+			newUUID, eventUUID, sessionCode,
+			req.Name, req.TotalEnds, req.ArrowsPerEnd,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create qualification session", "details": err.Error()})
@@ -243,9 +234,6 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 
 		var req struct {
 			Name         string   `json:"name"`
-			SessionDate  *string  `json:"session_date"`
-			StartTime    *string  `json:"start_time"`
-			EndTime      *string  `json:"end_time"`
 			TotalEnds    int      `json:"total_ends"`
 			ArrowsPerEnd int      `json:"arrows_per_end"`
 			Categories   []string `json:"category_ids"`
@@ -273,14 +261,11 @@ func UpdateQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 		_, err = tx.Exec(`
 			UPDATE qualification_sessions SET
 				name = COALESCE(NULLIF(?, ''), name),
-				session_date = ?,
-				start_time = ?,
-				end_time = ?,
 				total_ends = CASE WHEN ? > 0 THEN ? ELSE total_ends END,
 				arrows_per_end = CASE WHEN ? > 0 THEN ? ELSE arrows_per_end END,
 				updated_at = NOW()
 			WHERE uuid = ?
-		`, req.Name, req.SessionDate, req.StartTime, req.EndTime, req.TotalEnds, req.TotalEnds, req.ArrowsPerEnd, req.ArrowsPerEnd, sessionUUID)
+		`, req.Name, req.TotalEnds, req.TotalEnds, req.ArrowsPerEnd, req.ArrowsPerEnd, sessionUUID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session details", "details": err.Error()})
 			return
@@ -385,6 +370,7 @@ func ToggleLockQualificationSession(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session lock status"})
 			return
 		}
+		_, _ = db.Exec(`UPDATE qualification_session_categories SET is_locked = ? WHERE session_uuid = ?`, newLockState, sessionUUID)
 
 		msg := "Qualification session locked successfully"
 		if !newLockState {
@@ -1152,6 +1138,7 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			WHERE (e.uuid = ? OR e.slug = ?)
+			  AND ep.payment_status NOT IN ('cancelled', 'canceled', 'expired', 'failed')
 			  AND (
 					ep.archer_id = ? 
 					OR ep.archer_id = ?
@@ -1182,6 +1169,7 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 				WHERE (e.uuid = ? OR e.slug = ?)
+				  AND ep.payment_status NOT IN ('cancelled', 'canceled', 'expired', 'failed')
 				  AND ep.target_name IS NOT NULL AND ep.target_name != ''
 				  AND (
 						ep.archer_id = ? 

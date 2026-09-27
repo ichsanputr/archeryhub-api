@@ -11,7 +11,6 @@ type Archer struct {
 	FullName               string     `json:"full_name" db:"full_name"`
 	DateOfBirth            *time.Time `json:"date_of_birth" db:"date_of_birth"`
 	Gender                 *string    `json:"gender" db:"gender"` // M, F, X
-	HandDominance          *string    `json:"hand_dominance" db:"hand_dominance"`
 	Email                  *string    `json:"email" db:"email"`
 	Phone                  *string    `json:"phone" db:"phone"`
 	EmergencyContactName   *string    `json:"emergency_contact_name" db:"emergency_contact_name"`
@@ -78,7 +77,6 @@ type UpdateArcherRequest struct {
 	Username              *string       `json:"username"`
 	DateOfBirth           *FlexibleTime `json:"date_of_birth"`
 	Gender                *string       `json:"gender" binding:"omitempty,oneof=male female M F X"`
-	HandDominance         *string       `json:"hand_dominance" binding:"omitempty,oneof=right left"`
 	BowType               *string       `json:"bow_type" binding:"omitempty,oneof=recurve compound barebow traditional standard"`
 	Country               *string       `json:"country"`
 	City                  *string       `json:"city"`
@@ -144,7 +142,7 @@ type RegisterParticipantRequest struct {
 	BackNumber    *string  `json:"back_number"`
 	TargetName    *string  `json:"target_name"`
 	Session       *int     `json:"session"`
-	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=belum_lunas lunas paid pending unpaid"`
+	PaymentStatus *string  `json:"payment_status" binding:"omitempty,oneof=cancelled pending expired paid"`
 	PaymentAmount *float64 `json:"payment_amount"`
 	Notes         *string  `json:"notes"`
 }

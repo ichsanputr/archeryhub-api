@@ -54,8 +54,8 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{orgID}
 
 		if eventID := c.Query("event_id"); eventID != "" && eventID != "all" {
-			whereClause += " AND e.uuid = ?"
-			args = append(args, eventID)
+			whereClause += " AND (e.uuid = ? OR e.slug = ?)"
+			args = append(args, eventID, eventID)
 		}
 
 		if startDate := c.Query("start_date"); startDate != "" {
@@ -274,8 +274,8 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{orgID}
 
 		if eventID := c.Query("event_id"); eventID != "" && eventID != "all" {
-			whereClause += " AND e.uuid = ?"
-			args = append(args, eventID)
+			whereClause += " AND (e.uuid = ? OR e.slug = ?)"
+			args = append(args, eventID, eventID)
 		}
 
 		if startDate := c.Query("start_date"); startDate != "" {
@@ -307,7 +307,7 @@ func GetOrganizationFinanceReport(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&revSummary, fmt.Sprintf(`
 			SELECT 
 				COALESCE(SUM(CASE WHEN pt.status IN ('paid', 'success', 'settlement', 'completed') THEN pt.amount ELSE 0 END), 0) as total_paid,
-				COALESCE(SUM(CASE WHEN pt.status IN ('pending', 'awaiting_verification', 'unpaid') THEN pt.amount ELSE 0 END), 0) as total_pending,
+				COALESCE(SUM(CASE WHEN pt.status IN ('pending', 'awaiting_verification') THEN pt.amount ELSE 0 END), 0) as total_pending,
 				COALESCE(SUM(CASE WHEN pt.status IN ('expired', 'failed', 'cancelled') THEN pt.amount ELSE 0 END), 0) as total_failed
 			FROM payment_transactions pt
 			JOIN tournaments e ON pt.tournament_id = e.uuid
@@ -401,6 +401,11 @@ func GetOrganizationPerformanceReport(db *sqlx.DB) gin.HandlerFunc {
 		whereClause := "e.organizer_id = ?"
 		args := []interface{}{orgID}
 
+		if eventID := c.Query("event_id"); eventID != "" && eventID != "all" {
+			whereClause += " AND (e.uuid = ? OR e.slug = ?)"
+			args = append(args, eventID, eventID)
+		}
+
 		if startDate := c.Query("start_date"); startDate != "" {
 			whereClause += " AND e.start_date >= ?"
 			args = append(args, startDate+" 00:00:00")
@@ -491,8 +496,8 @@ func GetOrganizationAttendanceReport(db *sqlx.DB) gin.HandlerFunc {
 		args := []interface{}{orgID}
 
 		if eventID := c.Query("event_id"); eventID != "" && eventID != "all" {
-			whereClause += " AND e.uuid = ?"
-			args = append(args, eventID)
+			whereClause += " AND (e.uuid = ? OR e.slug = ?)"
+			args = append(args, eventID, eventID)
 		}
 
 		if startDate := c.Query("start_date"); startDate != "" {

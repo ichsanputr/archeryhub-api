@@ -407,8 +407,8 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			countArgs = append(countArgs, searchTerm, searchTerm, searchTerm)
 		}
 		if paymentStatus != "" && paymentStatus != "Semua" {
-			if paymentStatus == "pending" || paymentStatus == "unpaid" {
-				whereClause += " AND tp.payment_status IN ('pending', 'unpaid', 'belum_lunas', 'menunggu_acc', 'menunggu acc')"
+			if paymentStatus == "pending" {
+				whereClause += " AND tp.payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')"
 			} else if paymentStatus == "paid" {
 				whereClause += " AND tp.payment_status IN ('paid', 'lunas')"
 			} else {
@@ -673,6 +673,15 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		scanCode := strings.TrimSpace(req.Code)
+		if scanCode == "" {
+			scanCode = strings.TrimSpace(req.QRCode)
+		}
+		if scanCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Kode QR tidak boleh kosong"})
+			return
+		}
+
 		var resp MobileOrganizationScanRegistrationResponse
 		query := `
 			SELECT 
@@ -682,7 +691,7 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 				e.name as event_name,
 				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name,
 				cl.name as club_name,
-				COALESCE(ep.payment_status, 'unpaid') as payment_status,
+				COALESCE(ep.payment_status, 'pending') as payment_status,
 				ep.last_reregistration_at
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
@@ -690,10 +699,10 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN clubs cl ON a.club_id = cl.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
-			WHERE ep.qr_raw = ? AND e.organizer_id = ?
+			WHERE (ep.qr_raw = ? OR ep.uuid = ? OR CONCAT('REG-', ep.uuid) = ?) AND e.organizer_id = ?
 			LIMIT 1
 		`
-		err := db.Get(&resp, query, req.Code, organizationUUID)
+		err := db.Get(&resp, query, scanCode, scanCode, scanCode, organizationUUID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Data pendaftaran tidak ditemukan atau Anda tidak memiliki akses ke event ini"})
 			return
@@ -707,7 +716,7 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Update response timestamp to "now" for immediate feedback
-		now := time.Now().Format("2006-01-02T15:04:05Z")
+		now := time.Now()
 		resp.LastReregistrationAt = &now
 
 		utils.LogActivity(db, organizationUUID, "", "mobile_reregistration_scan", "organizer", organizationUUID, "Scanned QR for reregistration: "+resp.ParticipantUUID, c.ClientIP(), c.Request.UserAgent())

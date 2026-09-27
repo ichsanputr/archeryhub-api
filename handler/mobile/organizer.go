@@ -591,7 +591,7 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		eventID := c.Param("id")
 
 		var totalRevenue float64
-		var paidCount, pendingCount, unpaidCount int
+		var paidCount, pendingCount, expiredCount int
 
 		_ = db.Get(&totalRevenue, `
 			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
@@ -605,8 +605,8 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
 		`, eventID)
 
-		_ = db.Get(&unpaidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'failed')
+		_ = db.Get(&expiredCount, `
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'expired' OR status = 'cancelled')
 		`, eventID)
 
 		type TxnItem struct {
@@ -631,7 +631,7 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 			"stats": gin.H{
 				"paid":    paidCount,
 				"pending": pendingCount,
-				"unpaid":  unpaidCount,
+				"expired": expiredCount,
 			},
 			"transactions": items,
 		})
@@ -671,7 +671,7 @@ func MobileGetInvoiceDetail(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileManualApprovePayment marks an unpaid transaction as manually paid
+// MobileManualApprovePayment marks a pending transaction as manually paid
 func MobileManualApprovePayment(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		transactionID := c.Param("transactionId")
@@ -775,20 +775,20 @@ func MobileRefundPayment(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
-// MobileBroadcastReminderUnpaid sends reminder broadcasts to all unpaid athletes
+// MobileBroadcastReminderUnpaid sends reminder broadcasts to all pending athletes
 func MobileBroadcastReminderUnpaid(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
-		var unpaidCount int
-		_ = db.Get(&unpaidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'unpaid' OR status = 'pending')
+		var pendingCount int
+		_ = db.Get(&pendingCount, `
+			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
 		`, eventID)
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":      "Reminder pembayaran berhasil dikirim",
 			"event_id":     eventID,
-			"recipients":   unpaidCount,
+			"recipients":   pendingCount,
 			"sent_at":      time.Now().Format(time.RFC3339),
 		})
 	}

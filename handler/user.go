@@ -288,10 +288,6 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			query += ", gender = ?"
 			args = append(args, *req.Gender)
 		}
-		if req.HandDominance != nil {
-			query += ", hand_dominance = ?"
-			args = append(args, *req.HandDominance)
-		}
 		if req.EmergencyContactName != nil {
 			query += ", emergency_contact_name = ?"
 			args = append(args, *req.EmergencyContactName)

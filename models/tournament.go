@@ -76,8 +76,6 @@ type Event struct {
 	Description           *string    `json:"description" db:"description" example:"Kejuaraan terbuka nasional untuk kategori recurve, compound, dan barebow."`
 	BannerURL             *string    `json:"banner_url" db:"banner_url" example:"https://cdn.archeris.net/media/banner-jkt-open-2026.jpg"`
 	LogoURL               *string    `json:"logo_url" db:"logo_url" example:"https://cdn.archeris.net/media/logo-jkt-open-2026.png"`
-	Type                  *string    `json:"type" db:"type" example:"Outdoor"`                   // Indoor, Outdoor, Field, 3D (kept for backward compatibility)
-	LocationType          *string    `json:"location_type" db:"location_type" example:"Outdoor"` // Location type: Indoor, Outdoor, Field, 3D, etc.
 	NumDistances          *int       `json:"num_distances" db:"num_distances" example:"2"`
 	NumSessions           *int       `json:"num_sessions" db:"num_sessions" example:"4"`
 	EntryFee              float64    `json:"entry_fee" db:"entry_fee" example:"350000"`
@@ -142,7 +140,6 @@ type EventLocationDetail struct {
 	GmapLink     *string `json:"gmaps_link" example:"https://maps.google.com/?q=-6.2185,106.8022"`
 	Location     *string `json:"location" example:"Jakarta Selatan"`
 	City         *string `json:"city" example:"Jakarta"`
-	LocationType *string `json:"location_type" example:"Outdoor"`
 }
 
 type EventParticipantPreview struct {
@@ -191,8 +188,6 @@ type CreateEventRequest struct {
 	Description           *string                   `json:"description"`
 	BannerURL             *string                   `json:"banner_url"`
 	LogoURL               *string                   `json:"logo_url"`
-	Type                  *string                   `json:"type"` // Deprecated, use location_type
-	LocationType          *string                   `json:"location_type"`
 	NumDistances          *int                      `json:"num_distances"`
 	NumSessions           *int                      `json:"num_sessions"`
 	EntryFee              float64                   `json:"entry_fee"`
@@ -224,8 +219,6 @@ type UpdateEventRequest struct {
 	Description           *string       `json:"description"`
 	BannerURL             *string       `json:"banner_url"`
 	LogoURL               *string       `json:"logo_url"`
-	Type                  *string       `json:"type"` // Deprecated, use location_type
-	LocationType          *string       `json:"location_type"`
 	NumDistances          *int          `json:"num_distances"`
 	NumSessions           *int          `json:"num_sessions"`
 	Status                *string       `json:"status"`
@@ -377,15 +370,16 @@ type TeamRegistrationInput struct {
 
 // DelegationAthleteInput represents an athlete being registered by a club/delegation
 type DelegationAthleteInput struct {
-	ArcherID    string   `json:"archer_id"`
-	FullName    string   `json:"full_name"`
-	Gender      string   `json:"gender"`
-	Email       string   `json:"email"`
-	Phone       string   `json:"phone"`
-	DateOfBirth string   `json:"date_of_birth"`
-	ClubID      *string  `json:"club_id,omitempty"`
-	ClubName    *string  `json:"club_name,omitempty"`
-	CategoryIDs []string `json:"category_ids"`
+	ArcherID     string                 `json:"archer_id"`
+	FullName     string                 `json:"full_name"`
+	Gender       string                 `json:"gender"`
+	Email        string                 `json:"email"`
+	Phone        string                 `json:"phone"`
+	DateOfBirth  string                 `json:"date_of_birth"`
+	ClubID       *string                `json:"club_id,omitempty"`
+	ClubName     *string                `json:"club_name,omitempty"`
+	CategoryIDs  []string               `json:"category_ids"`
+	CustomFields map[string]interface{} `json:"custom_fields,omitempty"`
 }
 
 // DelegationTeamBookingInput represents reserved team slots for a club

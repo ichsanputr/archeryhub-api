@@ -1,0 +1,71 @@
+{
+  "slug": "qualification-scorecards",
+  "icon": "ph:file-text-bold",
+  "category": "qualification",
+  "order": 5,
+  "readTime": "4 min",
+  "en": {
+    "title": "Qualification Scorecards",
+    "excerpt": "Guide to official qualification documents in Archeris: physical blank scorecards, filled score sheets, and official rank result lists.",
+    "toc": [
+      {
+        "id": "overview",
+        "level": 2,
+        "text": "1. Overview of Qualification Scorecards"
+      },
+      {
+        "id": "blank-scorecards",
+        "level": 2,
+        "text": "2. Blank Field Scorecards"
+      },
+      {
+        "id": "filled-scorecards",
+        "level": 2,
+        "text": "3. Filled Scorecards with Signatures"
+      },
+      {
+        "id": "official-results",
+        "level": 2,
+        "text": "4. Official Qualification Result Sheets"
+      },
+      {
+        "id": "export-formats",
+        "level": 2,
+        "text": "5. PDF & Excel Export Formats"
+      }
+    ],
+    "content": "<p>Archeris provides official document templates designed according to World Archery standards. Organizers can generate printable PDF scorecards for field scorekeepers and official signed result sheets for the tournament notice board.</p>\n\n<h2 id=\"overview\">1. Overview of Qualification Scorecards</h2>\n<p>To access the qualification documents desk:</p>\n<ol>\n  <li>Log in to your <strong>Organizer Dashboard &gt; Tournaments</strong>.</li>\n  <li>Select your tournament workspace.</li>\n  <li>Click on <strong>Printout &gt; Qualification Printouts</strong> in the sidebar.</li>\n</ol>\n<p>All scorecard documents generate print-ready PDFs that open directly in your browser.</p>\n\n<h2 id=\"blank-scorecards\">2. Blank Field Scorecards</h2>\n<p>Before competition commences, organizers can prepare physical scorecards for each target butt:</p>\n<ul>\n  <li><strong>Prepopulated Athlete Details:</strong> Each card includes the athlete's full name, club, target butt number (e.g., <em>04B</em>), category, and shooting distance.</li>\n  <li><strong>Scoring Grids:</strong> Formatted with 6 or 12 ends containing individual arrow boxes, end subtotals, cumulative totals, and running 10s and Xs.</li>\n  <li><strong>Signature Lines:</strong> Designated verification signature lines for the archer, scorer, and target judge.</li>\n</ul>\n\n<h2 id=\"filled-scorecards\">3. Filled Scorecards with Signatures</h2>\n<p>After scores are entered into the platform, organizers can generate filled scorecards:</p>\n<ul>\n  <li>Displays all recorded arrow values, ten counts, and X counts submitted from the field.</li>\n  <li>Useful for dispute verification, judge records, and physical archiving.</li>\n</ul>\n\n<h2 id=\"official-results\">4. Official Qualification Result Sheets</h2>\n<p>The official qualification result document displays the complete ranking list for each category:</p>\n<ul>\n  <li><strong>Rank Number:</strong> Official seeded rank (1, 2, 3...).</li>\n  <li><strong>Athlete Data:</strong> Name, back number, and archery club.</li>\n  <li><strong>Session Breakdown:</strong> Score S1 (First Half), Score S2 (Second Half), Grand Total Score, Total 10s, and Total Xs.</li>\n  <li><strong>Official Letterhead:</strong> Formatted with championship title, venue name, date, and official federation branding.</li>\n</ul>\n\n<h2 id=\"export-formats\">5. PDF &amp; Excel Export Formats</h2>\n<p>All qualification reports can be downloaded in two formats:</p>\n<ul>\n  <li><strong>PDF:</strong> Print-ready document layout formatted for direct sending to venue printers.</li>\n  <li><strong>Excel / CSV:</strong> Raw tabular data ideal for media releases, official rankings submission to provincial sports federations, and post-event analytics.</li>\n</ul>"
+  },
+  "id": {
+    "title": "Lembar Skor Kualifikasi",
+    "excerpt": "Panduan format dan fungsi dokumen kualifikasi di Archeris: lembar skor fisik lapangan (scorecard), lembar skor terisi dengan tanda tangan, serta daftar hasil kualifikasi resmi.",
+    "toc": [
+      {
+        "id": "overview",
+        "level": 2,
+        "text": "1. Gambaran Lembar Skor Kualifikasi"
+      },
+      {
+        "id": "blank-scorecards",
+        "level": 2,
+        "text": "2. Lembar Skor Fisik Lapangan (Blank Scorecard)"
+      },
+      {
+        "id": "filled-scorecards",
+        "level": 2,
+        "text": "3. Lembar Skor Terisi dengan Tanda Tangan"
+      },
+      {
+        "id": "official-results",
+        "level": 2,
+        "text": "4. Lembar Hasil Kualifikasi Resmi"
+      },
+      {
+        "id": "export-formats",
+        "level": 2,
+        "text": "5. Format Ekspor PDF & Excel"
+      }
+    ],
+    "content": "<p>Archeris menyediakan format dokumen resmi standar World Archery dan Perpani. Panitia dapat membuat lembar skor fisik (scorecard) untuk cadangan di lapangan serta lembar hasil kualifikasi bertanda tangan resmi untuk papan pengumuman venue.</p>\n\n<h2 id=\"overview\">1. Gambaran Lembar Skor Kualifikasi</h2>\n<p>Untuk mengakses lembar dokumen kualifikasi:</p>\n<ol>\n  <li>Buka <strong>Dashboard Organizer &gt; Turnamen</strong>.</li>\n  <li>Pilih turnamen yang Anda kelola.</li>\n  <li>Klik menu <strong>Cetak Dokumen &gt; Dokumen Kualifikasi</strong> di sidebar navigasi.</li>\n</ol>\n<p>Semua dokumen siap diunduh dalam format PDF standar yang siap dicetak tanpa perlu diatur ulang layout-nya.</p>\n\n<h2 id=\"blank-scorecards\">2. Lembar Skor Fisik Lapangan (Blank Scorecard)</h2>\n<p>Sebelum pertandingan dimulai, panitia dapat menyiapkan lembar skor cetak untuk setiap bantalan target:</p>\n<ul>\n  <li><strong>Identitas Otomatis:</strong> Setiap lembar memuat nama pemanah, nama klub, nomor bantalan target (contoh: <em>04B</em>), divisi lomba, dan jarak tembak.</li>\n  <li><strong>Tabel Nilai:</strong> Kotak isian nilai per rambahan (1 sampai 6 panah), subtotal rambahan, skor kumulatif, serta jumlah hitungan 10 dan X.</li>\n  <li><strong>Kolom Tanda Tangan:</strong> Area tanda tangan atlet, pencatat skor, dan wasit target di bagian bawah lembar.</li>\n</ul>\n\n<h2 id=\"filled-scorecards\">3. Lembar Skor Terisi dengan Tanda Tangan</h2>\n<p>Setelah nilai diinput ke sistem, panitia dapat mengunduh lembar skor yang sudah terisi otomatis:</p>\n<ul>\n  <li>Memuat seluruh nilai panah, jumlah 10, dan jumlah X persis seperti yang diinput di lapangan.</li>\n  <li>Berguna untuk validasi sengketa nilai, arsip panitia, dan tanda tangan basah atlet/wasit.</li>\n</ul>\n\n<h2 id=\"official-results\">4. Lembar Hasil Kualifikasi Resmi</h2>\n<p>Dokumen hasil kualifikasi menyajikan daftar pemeringkatan lengkap per kategori lomba:</p>\n<ul>\n  <li><strong>Nomor Ranking:</strong> Peringkat resmi atlet (1, 2, 3...).</li>\n  <li><strong>Identitas Atlet:</strong> Nama lengkap, nomor punggung/BIB, dan klub asal.</li>\n  <li><strong>Rincian Sesi:</strong> Skor Sesi 1, Skor Sesi 2, Total Skor Akhir, Total 10s, dan Total Xs.</li>\n  <li><strong>Kop Resmi:</strong> Dilengkapi nama kejuaraan, lokasi, tanggal, dan logo organisasi.</li>\n</ul>\n\n<h2 id=\"export-formats\">5. Format Ekspor PDF &amp; Excel</h2>\n<p>Seluruh dokumen kualifikasi dapat diunduh dalam dua format:</p>\n<ul>\n  <li><strong>PDF:</strong> Format siap cetak yang rapi untuk dipasang di papan pengumuman venue.</li>\n  <li><strong>Excel / CSV:</strong> Data tabular mentah untuk kebutuhan rilis media, laporan ke Pengprov/KONI, atau arsip digital.</li>\n</ul>"
+  }
+}

@@ -800,19 +800,20 @@ type EliminationResultsResponse struct {
 
 // MobileOrganizationScanRegistrationRequest represents registration scan payload.
 type MobileOrganizationScanRegistrationRequest struct {
-	Code string `json:"code" binding:"required" example:"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	Code   string `json:"code" example:"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	QRCode string `json:"qr_code,omitempty" example:"REG-f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
 }
 
 // MobileOrganizationScanRegistrationResponse represents scan result.
 type MobileOrganizationScanRegistrationResponse struct {
-	ParticipantUUID      string  `json:"participant_uuid" example:"f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
-	FullName             string  `json:"full_name" example:"Rizky Pratama"`
-	AthleteCode          string  `json:"athlete_code" example:"ARC-0042"`
-	EventName            string  `json:"event_name" example:"Archeris Jakarta Open 2026"`
-	CategoryName         string  `json:"category_name" example:"Recurve Umum Putra"`
-	ClubName             *string `json:"club_name" example:"Archeris Club Jakarta"`
-	PaymentStatus        string  `json:"payment_status" example:"lunas"`
-	LastReregistrationAt *string `json:"last_reregistration_at" example:"2026-03-27T10:00:00Z"`
+	ParticipantUUID      string     `json:"participant_uuid" db:"participant_uuid" example:"f93c2a14-2b73-4a7f-8f7f-2ef1e6c1159a"`
+	FullName             string     `json:"full_name" db:"full_name" example:"Rizky Pratama"`
+	AthleteCode          string     `json:"athlete_code" db:"athlete_code" example:"ARC-0042"`
+	EventName            string     `json:"event_name" db:"event_name" example:"Archeris Jakarta Open 2026"`
+	CategoryName         string     `json:"category_name" db:"category_name" example:"Recurve Umum Putra"`
+	ClubName             *string    `json:"club_name" db:"club_name" example:"Archeris Club Jakarta"`
+	PaymentStatus        string     `json:"payment_status" db:"payment_status" example:"lunas"`
+	LastReregistrationAt *time.Time `json:"last_reregistration_at" db:"last_reregistration_at"`
 }
 type MobileUpcomingDeadline struct {
 	EventName string    `json:"event_name" db:"name"`
@@ -975,7 +976,6 @@ type MobileEventLocationResponse struct {
 	City                 string   `json:"city"`
 	Location             string   `json:"location"`
 	GmapLink             string   `json:"gmaps_link"`
-	LocationType         string   `json:"location_type"`
 	LocationAccessibility []string `json:"location_accessibility"`
 }
 

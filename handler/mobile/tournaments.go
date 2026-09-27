@@ -146,7 +146,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		// 1. Get Event Detail (same query as public detail)
 		query := `
 			SELECT 
-				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city, t.location_type,
+				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city,
 				t.start_date, t.end_date, t.registration_deadline,
 				CASE 
 					WHEN t.status = 'completed' OR (t.end_date IS NOT NULL AND t.end_date < NOW()) THEN 'completed'
@@ -190,12 +190,11 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 
 		// Manual populate nested objects for mobile model consistency
 		event.LocationDetail = models.EventLocationDetail{
-			Venue:        event.Venue,
-			Address:      event.Address,
-			GmapLink:     event.GmapLink,
-			Location:     event.Location,
-			City:         event.City,
-			LocationType: event.LocationType,
+			Venue:    event.Venue,
+			Address:  event.Address,
+			GmapLink: event.GmapLink,
+			Location: event.Location,
+			City:     event.City,
 		}
 
 		// 2. Get Archer Registration Status
@@ -249,7 +248,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city, t.location_type,
+				t.uuid, t.slug, t.name, t.venue, t.gmaps_link, t.location, t.address, t.city,
 				t.start_date, t.end_date, t.registration_deadline,
 				t.logo_url, t.banner_url, t.description, t.technical_guidebook_url,
 				COALESCE(u.full_name, '') as organizer_name,
@@ -286,12 +285,11 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 		if event.OrganizerAvatarURL != nil { *event.OrganizerAvatarURL = utils.MaskMediaURL(*event.OrganizerAvatarURL) }
 
 		event.LocationDetail = models.EventLocationDetail{
-			Venue:        event.Venue,
-			Address:      event.Address,
-			GmapLink:     event.GmapLink,
-			Location:     event.Location,
-			City:         event.City,
-			LocationType: event.LocationType,
+			Venue:    event.Venue,
+			Address:  event.Address,
+			GmapLink: event.GmapLink,
+			Location: event.Location,
+			City:     event.City,
 		}
 
 		// Check organizer subscription status for current user if authenticated
@@ -436,14 +434,13 @@ func MobileGetEventLocation(db *sqlx.DB) gin.HandlerFunc {
 			City         string  `db:"city"`
 			Location     string  `db:"location"`
 			GmapLink     string  `db:"gmaps_link"`
-			LocationType string  `db:"location_type"`
 			PageSettings *string `db:"page_settings"`
 		}
 
 		err := db.Get(&data, `
 			SELECT venue, COALESCE(address, '') as address, COALESCE(city, '') as city, 
 			       COALESCE(location, '') as location, COALESCE(gmaps_link, '') as gmaps_link, 
-			       COALESCE(location_type, '') as location_type, page_settings 
+			       page_settings 
 			FROM tournaments 
 			WHERE uuid = ? OR slug = ?
 		`, id, id)
@@ -461,12 +458,11 @@ func MobileGetEventLocation(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, MobileEventLocationResponse{
-			Venue:                data.Venue,
-			Address:              data.Address,
-			City:                 data.City,
-			Location:             data.Location,
-			GmapLink:             data.GmapLink,
-			LocationType:         data.LocationType,
+			Venue:                 data.Venue,
+			Address:               data.Address,
+			City:                  data.City,
+			Location:              data.Location,
+			GmapLink:              data.GmapLink,
 			LocationAccessibility: settings.Accessibility,
 		})
 	}
@@ -666,9 +662,9 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	defer tx.Rollback()
 
 	registrationDate := time.Now()
-	paymentStatus := "unpaid"
+	paymentStatus := "pending"
 	registrationMode := req.RegistrationMode
-	if registrationMode == "" {
+	if registrationMode == "" || registrationMode == "individual" {
 		registrationMode = "captain_team"
 	}
 
@@ -1103,7 +1099,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 		if appURL == "" {
 			appURL = "http://localhost:3003"
 		}
-		merchantRef := fmt.Sprintf("PAY-REG-%s", strings.ToUpper(uuid.New().String()[:8]))
+		merchantRef := fmt.Sprintf("PAY-%s", strings.ToUpper(uuid.New().String()[:8]))
 		transactionID := uuid.New().String()
 
 		if req.PaymentMethod == "paypal" {
@@ -1481,7 +1477,7 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 			_ = db.QueryRow(`
 				SELECT uuid, COALESCE(payment_status, 'pending') 
 				FROM tournament_participants 
-				WHERE archer_id = ? AND payment_status IN ('pending', 'unpaid', '') 
+				WHERE archer_id = ? AND payment_status IN ('pending', '') 
 				ORDER BY registration_date DESC LIMIT 1
 			`, userID).Scan(&regID, &paymentStatus)
 		}

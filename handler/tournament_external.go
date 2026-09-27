@@ -89,7 +89,6 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 			CategoryName string  `db:"category_name"`
 			Rank         int     `db:"rank"`
 			TargetLane   *string `db:"target_lane"`
-			BIB          *string `db:"bib"`
 			AthleteName  string  `db:"athlete_name"`
 			ClubCode     *string `db:"club_code"`
 			ClubName     *string `db:"club_name"`
@@ -106,7 +105,7 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 		var qualRows []qualRow
 		_ = db.Select(&qualRows, `
 			SELECT teq.id, teq.tournament_id, teq.category_id, tec.category_name,
-			       teq.rank, teq.target_lane, teq.bib, teq.athlete_name, teq.club_code, teq.club_name,
+			       teq.rank, teq.target_lane, teq.athlete_name, teq.club_code, teq.club_name,
 			       teq.d1_score, teq.d2_score, teq.d3_score, teq.d4_score, teq.total_score,
 			       teq.tens_count, teq.x_count, teq.is_team, teq.team_members
 			FROM tournament_external_qualifications teq
@@ -145,7 +144,6 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 					"rank":        q.Rank,
 					"target":      q.TargetLane,
 					"target_lane": q.TargetLane,
-					"bib":         q.BIB,
 					"name":        q.AthleteName,
 					"code":        q.ClubCode,
 					"club_code":   q.ClubCode,
@@ -316,7 +314,6 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 			TournamentID int64   `db:"tournament_id"`
 			CategoryID   *int64  `db:"category_id"`
 			CategoryName *string `db:"category_name"`
-			BIB          *string `db:"bib"`
 			Name         string  `db:"name"`
 			ClubCode     *string `db:"club_code"`
 			ClubName     *string `db:"club_name"`
@@ -327,7 +324,7 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 		var athletes []athleteRow
 		_ = db.Select(&athletes, `
 			SELECT tea.id, tea.tournament_id, tea.category_id, tec.category_name,
-			       tea.bib, tea.name, tea.club_code, tea.club_name, tea.country_code, tea.gender, tea.target_lane
+			       tea.name, tea.club_code, tea.club_name, tea.country_code, tea.gender, tea.target_lane
 			FROM tournament_external_athletes tea
 			LEFT JOIN tournament_external_categories tec ON tea.category_id = tec.id
 			WHERE tea.tournament_id = ?
@@ -338,7 +335,6 @@ func GetExternalTournamentDetail(db *sqlx.DB) gin.HandlerFunc {
 		for _, a := range athletes {
 			entries = append(entries, map[string]interface{}{
 				"id":           a.ID,
-				"bib":          a.BIB,
 				"name":         a.Name,
 				"club_code":    a.ClubCode,
 				"club":         a.ClubName,

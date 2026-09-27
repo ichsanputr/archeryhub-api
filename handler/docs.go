@@ -184,12 +184,13 @@ func ListDocs() gin.HandlerFunc {
 		}
 
 		categoryOrder := map[string]int{
-			"accounts":      1,
-			"tournaments":   2,
-			"scorekeeper":   3,
-			"qualification": 4,
-			"elimination":   5,
-			"reporting":     6,
+			"about":         1,
+			"accounts":      2,
+			"tournaments":   3,
+			"scorekeeper":   4,
+			"qualification": 5,
+			"elimination":   6,
+			"reporting":     7,
 		}
 
 		var list []DocResponse
@@ -276,6 +277,24 @@ func GetDocDetail() gin.HandlerFunc {
 		// Example: /docs/user-roles -> /docs/dashboard/account-types
 		if baseSlug == "user-roles" {
 			baseSlug = "account-types"
+		}
+		if baseSlug == "what-is-archers" {
+			baseSlug = "what-is-archeris"
+		}
+		if baseSlug == "organization-profile" {
+			baseSlug = "organizer-profile"
+		}
+		if baseSlug == "participant-reregistration-checkin" {
+			baseSlug = "participant-reregistration"
+		}
+		if baseSlug == "tournament-reporting" {
+			baseSlug = "tournament-reports"
+		}
+		if baseSlug == "shooting-line-scoring-input" {
+			baseSlug = "scorekeeper-field-scoring"
+		}
+		if baseSlug == "qualification-printouts-scorecards" {
+			baseSlug = "qualification-scorecards"
 		}
 
 		filePath := filepath.Join("data/docs", baseSlug+".json")

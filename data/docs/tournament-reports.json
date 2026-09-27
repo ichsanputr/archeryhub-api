@@ -1,0 +1,71 @@
+{
+  "slug": "tournament-reports",
+  "icon": "ph:chart-bar-bold",
+  "category": "tournaments",
+  "order": 11,
+  "readTime": "4 min",
+  "en": {
+    "title": "Tournament Reports",
+    "excerpt": "Comprehensive guide for tournament organizers on tracking participant attendance, analyzing revenue streams, filtering by date ranges, and exporting official CSV data.",
+    "toc": [
+      {
+        "id": "overview-reporting",
+        "level": 2,
+        "text": "1. Overview of Tournament Reports"
+      },
+      {
+        "id": "participants-report",
+        "level": 2,
+        "text": "2. Participants Report & Roster Tracking"
+      },
+      {
+        "id": "revenue-report",
+        "level": 2,
+        "text": "3. Revenue & Transaction Financial Ledger"
+      },
+      {
+        "id": "filtering-tools",
+        "level": 2,
+        "text": "4. Multi-Filter & Custom Date Range Tools"
+      },
+      {
+        "id": "exporting-csv",
+        "level": 2,
+        "text": "5. Exporting Data to CSV"
+      }
+    ],
+    "content": "<p>The <strong>Tournament Reports & Analytics</strong> dashboard in Archeris provides organizers with real-time operational visibility and financial transparency. Located under <strong>Dashboard &gt; Tournaments &gt; [Tournament] &gt; Reports</strong>, this module aggregates participant registration data, venue check-in records, and payment transactions into clean, filterable views ready for audit and committee reporting.</p>\n\n<h2 id=\"overview-reporting\">1. Overview of Tournament Reports</h2>\n<p>Running a successful archery competition requires continuous monitoring across two key operational pillars:</p>\n<ul>\n  <li><strong>Participant Operations:</strong> Tracking registered athletes, division distributions, club delegations, payment statuses, and on-site venue attendance.</li>\n  <li><strong>Financial Operations:</strong> Monitoring total entry fee collections, payment methods (QRIS, VA, bank transfer, cash on desk), verified receipts, and transaction reconciliation.</li>\n</ul>\n<p>Archeris organizes this information into two dedicated tabs: <strong>Participants (Peserta)</strong> and <strong>Revenue (Pendapatan)</strong>, with instant search, sorting, and flexible filtering controls.</p>\n\n<h2 id=\"participants-report\">2. Participants Report & Roster Tracking</h2>\n<p>The Participants tab gives you a unified master roster of every athlete registered for the tournament. The table displays:</p>\n<ul>\n  <li><strong>Archer Profile:</strong> Full name, gender, age category, and contact details.</li>\n  <li><strong>Category / Division:</strong> The competition event the archer is entered in (such as Recurve Men 70m, Barebow U-15).</li>\n  <li><strong>Club / Contingent:</strong> The archer's club or regional delegation name.</li>\n  <li><strong>Payment Status:</strong> Live payment badge (Paid, Pending, Unpaid, or Failed).</li>\n  <li><strong>Venue Check-in:</strong> Real-time attendance indicator showing whether the archer has presented their QR code and completed on-site re-registration.</li>\n  <li><strong>Registration Date:</strong> Timestamp of when the entry was submitted.</li>\n</ul>\n<p>Organizers can click the detail icon on any row to inspect individual athlete records, payment histories, and uploaded transfer proofs.</p>\n\n<h2 id=\"revenue-report\">3. Revenue & Transaction Financial Ledger</h2>\n<p>The Revenue tab serves as the official transaction ledger for the tournament. Each entry represents an individual invoice or payment record:</p>\n<ul>\n  <li><strong>Reference / Invoice No:</strong> Unique alphanumeric transaction reference (such as <code>TRX-INV-2026-001</code>).</li>\n  <li><strong>Payer / Archer:</strong> Name of the individual athlete or club manager who completed the transaction.</li>\n  <li><strong>Payment Method:</strong> Breakdown of channel used (Automated QRIS, Virtual Account, PayPal, Manual Bank Transfer, or Cash on Desk).</li>\n  <li><strong>Amount:</strong> Total nominal amount in IDR or tournament currency.</li>\n  <li><strong>Status:</strong> Settlement verification status (Paid/Lunas, Awaiting Verification, Pending, or Refunded).</li>\n  <li><strong>Payment Date:</strong> Exact timestamp when funds were settled or verified.</li>\n</ul>\n\n<h2 id=\"filtering-tools\">4. Multi-Filter & Custom Date Range Tools</h2>\n<p>Both report tables come equipped with a comprehensive filter dialog triggered by the <strong>Filter</strong> button:</p>\n<ul>\n  <li><strong>Date Range:</strong> Filter records between specific start and end dates using the integrated calendar picker.</li>\n  <li><strong>Category:</strong> Narrow down to specific tournament divisions.</li>\n  <li><strong>Payment Status:</strong> Isolate paid entries from pending or unpaid registrations.</li>\n  <li><strong>Check-in Status:</strong> Filter for checked-in athletes versus pending arrivals on competition day.</li>\n</ul>\n\n<h2 id=\"exporting-csv\">5. Exporting Data to CSV</h2>\n<p>Organizers can export report datasets at any time by clicking the <strong>Export CSV</strong> button located in the top toolbar:</p>\n<ul>\n  <li><strong>Participants Export:</strong> Generates a full CSV file directly from Archeris, containing complete participant profile details, athlete codes, division classifications, and payment timestamps.</li>\n  <li><strong>Revenue Export:</strong> Downloads a spreadsheet with all invoice line items, payment channels, transaction references, and settlement timestamps for bookkeeping reconciliation.</li>\n</ul>\n<p>Exported CSV files can be opened directly in Microsoft Excel, Google Sheets, or custom tournament software.</p>"
+  },
+  "id": {
+    "title": "Laporan Turnamen",
+    "excerpt": "Panduan lengkap panitia turnamen dalam memantau presensi kehadiran peserta, audit transaksi keuangan, filter rentang tanggal, dan ekspor data CSV resmi.",
+    "toc": [
+      {
+        "id": "overview-reporting",
+        "level": 2,
+        "text": "1. Gambaran Umum Laporan Turnamen"
+      },
+      {
+        "id": "participants-report",
+        "level": 2,
+        "text": "2. Rekapitulasi Data Peserta & Kehadiran"
+      },
+      {
+        "id": "revenue-report",
+        "level": 2,
+        "text": "3. Laporan Pendapatan & Mutasi Keuangan"
+      },
+      {
+        "id": "filtering-tools",
+        "level": 2,
+        "text": "4. Filter Rentang Tanggal & Kategori Lomba"
+      },
+      {
+        "id": "exporting-csv",
+        "level": 2,
+        "text": "5. Ekspor Data Laporan ke CSV"
+      }
+    ],
+    "content": "<p>Modul <strong>Laporan Turnamen</strong> di Archeris menyediakan visibilitas operasional dan transparansi keuangan secara real-time untuk panitia pelaksana. Dapat diakses melalui <strong>Dashboard &gt; Turnamen &gt; [Turnamen] &gt; Laporan</strong>, modul ini menyatukan data registrasi atlet, status kehadiran fisik di venue lomba, serta seluruh mutasi pembayaran dalam tampilan tabel terpadu yang siap diaudit.</p>\n\n<h2 id=\"overview-reporting\">1. Gambaran Umum Laporan Turnamen</h2>\n<p>Penyelenggaraan kejuaraan panahan membutuhkan monitoring berkelanjutan pada dua pilar utama:</p>\n<ul>\n  <li><strong>Operasional Peserta:</strong> Memantau atlet yang terdaftar, persebaran kategori lomba, asal klub/kontingen, status pembayaran, serta presensi kehadiran atlet di lapangan.</li>\n  <li><strong>Operasional Finansial:</strong> Memantau total akumulasi biaya pendaftaran, kanal pembayaran (QRIS, VA, transfer bank, tunai meja panitia), serta rekonsiliasi invoice resmi.</li>\n</ul>\n<p>Archeris memisahkan kedua alur kerja ini ke dalam dua tab khusus, yaitu <strong>Peserta</strong> dan <strong>Pendapatan</strong>, lengkap dengan pencarian instan, pengurutan kolom fleksibel, dan dialog filter rentang tanggal.</p>\n\n<h2 id=\"participants-report\">2. Rekapitulasi Data Peserta & Kehadiran</h2>\n<p>Tab Peserta menyajikan daftar induk seluruh atlet yang terdaftar dalam turnamen dengan rincian:</p>\n<ul>\n  <li><strong>Profil Atlet:</strong> Nama lengkap pemanah, jenis kelamin, kelompok usia, dan kontak.</li>\n  <li><strong>Kategori Lomba:</strong> Divisi tanding yang diikuti (contoh: Recurve Umum 70m, Barebow U-15).</li>\n  <li><strong>Klub / Kontingen:</strong> Nama klub panahan atau pengcab asal atlet.</li>\n  <li><strong>Status Pembayaran:</strong> Badge status pembayaran aktual (Lunas, Menunggu Verifikasi, Belum Bayar, Gagal).</li>\n  <li><strong>Presensi Venue:</strong> Indikator kehadiran langsung yang mencatat apakah atlet telah melakukan scan QR check-in di lokasi kejuaraan.</li>\n  <li><strong>Tanggal Daftar:</strong> Waktu pengajuan pendaftaran atlet.</li>\n</ul>\n<p>Panitia dapat mengeklik tombol ikon mata di setiap baris untuk membuka rincian lengkap atlet, riwayat transaksi pembayaran, serta bukti transfer yang diunggah.</p>\n\n<h2 id=\"revenue-report\">3. Laporan Pendapatan & Mutasi Keuangan</h2>\n<p>Tab Pendapatan berfungsi sebagai buku kas digital turnamen. Setiap baris mencatat invoice atau riwayat transaksi pembayaran:</p>\n<ul>\n  <li><strong>No. Referensi / Invoice:</strong> Kode unik transaksi pendaftaran (contoh: <code>TRX-INV-2026-001</code>).</li>\n  <li><strong>Nama Pembayar / Atlet:</strong> Nama pemesan atau manajer klub yang melakukan pembayaran.</li>\n  <li><strong>Metode Pembayaran:</strong> Kanal pembayaran yang digunakan (QRIS Otomatis, Virtual Account, PayPal, Transfer Bank Manual, atau Tunai).</li>\n  <li><strong>Nominal:</strong> Total nilai transaksi dalam rupiah.</li>\n  <li><strong>Status Pembayaran:</strong> Status verifikasi dana (Lunas, Menunggu, Belum Bayar, atau Dikembalikan).</li>\n  <li><strong>Tanggal Bayar:</strong> Waktu terverifikasinya pembayaran oleh sistem atau panitia.</li>\n</ul>\n\n<h2 id=\"filtering-tools\">4. Filter Rentang Tanggal & Kategori Lomba</h2>\n<p>Kedua tab tabel dilengkapi dengan dialog filter komprehensif melalui tombol <strong>Filter</strong>:</p>\n<ul>\n  <li><strong>Rentang Tanggal:</strong> Menyaring data berdasarkan tanggal mulai dan tanggal akhir menggunakan komponen pemilih kalender Archeris.</li>\n  <li><strong>Kategori:</strong> Memfokuskan data pada divisi lomba tertentu.</li>\n  <li><strong>Status Pembayaran:</strong> Memisahkan pendaftar yang sudah lunas dengan yang masih tertunda.</li>\n  <li><strong>Status Presensi:</strong> Memfilter peserta yang sudah hadir di lapangan vs yang belum registrasi ulang.</li>\n</ul>\n<p>Filter yang aktif akan muncul sebagai filter chips di atas tabel, yang dapat dihapus per kriteria atau direset seluruhnya dengan 1 klik.</p>\n\n<h2 id=\"exporting-csv\">5. Ekspor Data Laporan ke CSV</h2>\n<p>Panitia dapat mengunduh seluruh data laporan kapan saja dengan mengeklik tombol <strong>Ekspor CSV</strong>:</p>\n<ul>\n  <li><strong>Ekspor Peserta:</strong> Mengunduh data CSV lengkap langsung dari server backend Archeris, memuat kode atlet, identitas lengkap, nomor bantalan, dan riwayat presensi.</li>\n  <li><strong>Ekspor Pendapatan:</strong> Mengunduh lembar rekapitulasi mutasi finansial dengan seluruh nomor referensi invoice, kanal bayar, dan nominal untuk kebutuhan pelaporan kas panitia.</li>\n</ul>\n<p>File CSV hasil unduhan dapat langsung dibuka menggunakan Microsoft Excel, Google Sheets, atau aplikasi pengolah data lainnya.</p>"
+  }
+}

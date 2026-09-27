@@ -1,0 +1,61 @@
+{
+  "slug": "archery-scoring",
+  "icon": "ph:chart-line-up-bold",
+  "category": "about",
+  "readTime": "4 min",
+  "order": 3,
+  "en": {
+    "title": "Archery Scoring System",
+    "excerpt": "How Archeris eliminates manual scoring bottlenecks: fast mobile entry at target butts, automated ranking math, instant elimination brackets, and real-time live leaderboards.",
+    "toc": [
+      {
+        "id": "masalah-skoring-manual",
+        "level": 2,
+        "text": "1. Challenges of Manual Field Scoring"
+      },
+      {
+        "id": "input-skor-bantalan",
+        "level": 2,
+        "text": "2. Fast Mobile Scoring at Target Butts"
+      },
+      {
+        "id": "otomatisasi-ranking-bagan",
+        "level": 2,
+        "text": "3. Automated Rankings & Match Brackets"
+      },
+      {
+        "id": "papan-skor-live",
+        "level": 2,
+        "text": "4. Real-Time Live Leaderboards for Everyone"
+      }
+    ],
+    "content": "<p>Score tracking is often the most demanding part of running an archery competition. From rain-damaged paper scorecards and manual calculation errors to long delays while participants wait for elimination brackets, traditional methods create unnecessary stress. Archeris solves these field bottlenecks with a digital scoring platform that is fast, accurate, and completely automated.</p>\n\n<h2 id=\"masalah-skoring-manual\">1. Challenges of Manual Field Scoring</h2>\n<p>In traditional tournaments, field volunteers must physically collect paper scorecards after every few ends, walk them back to the secretariat desk, and retype every number into a spreadsheet. This manual process takes hours, leads to data entry mistakes, and causes disputes among competitors.</p>\n<p>Because organizers must calculate rankings and tie-breakers by hand before drawing elimination trees, event schedules often run late into the evening.</p>\n\n<h2 id=\"input-skor-bantalan\">2. Fast Mobile Scoring at Target Butts</h2>\n<p>Archeris simplifies how judges and archers record arrow values right at the target line:</p>\n<ul>\n  <li><strong>Zero App Installation:</strong> Field scorekeepers or athletes simply open their mobile phone browser and enter a 5-character target access code.</li>\n  <li><strong>Sunlight-Friendly Interface:</strong> Large, high-contrast touch buttons allow quick arrow value logging even in bright outdoor sunlight.</li>\n  <li><strong>Automatic Data Sync:</strong> Scores are instantly saved and locked once an end is approved, preventing lost score sheets or illegible handwriting.</li>\n</ul>\n\n<h2 id=\"otomatisasi-ranking-bagan\">3. Automated Rankings &amp; Match Brackets</h2>\n<p>The moment the final qualification end is submitted, Archeris calculates the complete ranking order and tie-breakers (10s and Xs count) in seconds. Organizers no longer need to spend time sorting spreadsheets or double-checking math.</p>\n<p>The platform immediately generates head-to-head elimination match brackets, automatically applying the Set Play System for Recurve and Barebow or Cumulative Scoring for Compound, complete with official seeding byes.</p>\n\n<h2 id=\"papan-skor-live\">4. Real-Time Live Leaderboards for Everyone</h2>\n<p>Every arrow recorded at the target line updates the public live leaderboard instantly. Archers, coaches in contingent tents, and spectators at home can follow rank standings in real time without crowding physical notice boards.</p>\n<p>When the tournament wraps up, organizers can download verified PDF scorebooks and distribute official digital certificates in one click.</p>"
+  },
+  "id": {
+    "title": "Sistem Skoring Panahan",
+    "excerpt": "Bagaimana Archeris menyelesaikan kendala skoring manual: input nilai cepat di bantalan sasaran, hitung ranking otomatis, bagan eliminasi instan, dan papan klasemen live.",
+    "toc": [
+      {
+        "id": "masalah-skoring-manual",
+        "level": 2,
+        "text": "1. Masalah Skoring Manual di Lapangan"
+      },
+      {
+        "id": "input-skor-bantalan",
+        "level": 2,
+        "text": "2. Solusi Input Skor Cepat di Bantalan"
+      },
+      {
+        "id": "otomatisasi-ranking-bagan",
+        "level": 2,
+        "text": "3. Hitungan Peringkat & Bagan Otomatis"
+      },
+      {
+        "id": "papan-skor-live",
+        "level": 2,
+        "text": "4. Papan Klasemen Live untuk Semua"
+      }
+    ],
+    "content": "<p>Pencatatan skor sering kali menjadi bagian paling melelahkan dalam kejuaraan panahan. Mulai dari tumpukan kertas skor yang basah terkena hujan, risiko salah hitung total poin, sampai lamanya waktu tunggu peserta untuk mengetahui siapa yang lolos ke babak eliminasi. Archeris hadir untuk menyelesaikan masalah ini dengan sistem skoring digital yang praktis, akurat, dan serba otomatis.</p>\n\n<h2 id=\"masalah-skoring-manual\">1. Masalah Skoring Manual di Lapangan</h2>\n<p>Pada turnamen tradisional, petugas lapangan harus mengumpulkan lembar kertas skor setiap beberapa rambahan, lalu membawanya ke tenda panitia untuk dihitung ulang dan diketik manual ke spreadsheet. Proses ini bukan hanya memakan waktu berjam-jam, tetapi juga rawan kesalahan input yang dapat memicu protes antar peserta.</p>\n<p>Keterlambatan ini sering membuat jadwal pertandingan molor hingga sore hari karena panitia harus menghitung tie-break secara manual sebelum bisa menggambar bagan tanding aduan.</p>\n\n<h2 id=\"input-skor-bantalan\">2. Solusi Input Skor Cepat di Bantalan</h2>\n<p>Archeris mengubah cara juri dan pemanah mencatat nilai panah di lapangan:</p>\n<ul>\n  <li><strong>Tanpa Instal Aplikasi:</strong> Petugas skor atau atlet cukup membuka browser ponsel dan memasukkan 5 digit kode akses bantalan sasaran.</li>\n  <li><strong>Tombol Sentuh Ramah Lapangan:</strong> Tampilan angka berukuran besar memudahkan input skor per anak panah dengan cepat di bawah terik matahari.</li>\n  <li><strong>Validasi Otomatis:</strong> Nilai langsung tersimpan dan terkunci begitu rambahan disetujui, menghilangkan risiko kertas hilang atau coretan nilai yang membingungkan.</li>\n</ul>\n\n<h2 id=\"otomatisasi-ranking-bagan\">3. Hitungan Peringkat &amp; Bagan Otomatis</h2>\n<p>Begitu rambahan kualifikasi terakhir selesai, sistem langsung menghitung total skor seluruh atlet beserta penentu tie-break (jumlah 10 dan X) dalam hitungan detik. Panitia tidak perlu lagi pusing memilah peringkat secara manual.</p>\n<p>Sistem kemudian langsung menyusun bagan pertandingan eliminasi satu lawan satu secara otomatis, baik menggunakan Sistem Set untuk divisi Recurve, Barebow, dan Standar maupun Skor Kumulatif untuk Compound, lengkap dengan penempatan posisi bye resmi.</p>\n\n<h2 id=\"papan-skor-live\">4. Papan Klasemen Live untuk Semua</h2>\n<p>Setiap anak panah yang diinput di samping bantalan langsung terhubung ke papan klasemen online. Atlet, pelatih di tenda kontingen, maupun orang tua dan penonton di rumah dapat memantau pergerakan peringkat secara real-time tanpa harus berkerumun di papan pengumuman fisik.</p>\n<p>Setelah kompetisi berakhir, panitia dapat langsung mengunduh scorebook resmi lengkap dan menerbitkan e-sertifikat pemenang dalam satu klik.</p>"
+  }
+}

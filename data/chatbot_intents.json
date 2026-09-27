@@ -276,8 +276,8 @@
       "participant qr ticket",
       "registration pass"
     ],
-    "answer": "Setiap pendaftaran yang telah lunas otomatis mendapatkan E-Tiket Digital dilengkapi QR Code verifikasi. Saat tiba di lokasi turnamen, atlet cukup menunjukkan QR Code ini pada smartphone ke panitia meja registrasi untuk absensi instan dan pengambilan nomor dada / ID card.",
-    "answer_en": "Every confirmed tournament registration automatically generates a verified Digital E-Ticket with a unique QR Code. Upon arriving at the competition venue, archers present this QR code on their smartphone to the desk committee for instant check-in and bib number collection."
+    "answer": "Setiap pendaftaran yang telah lunas otomatis mendapatkan E-Tiket Digital dilengkapi QR Code verifikasi. Saat tiba di lokasi turnamen, atlet cukup menunjukkan QR Code ini pada smartphone ke panitia meja registrasi untuk absensi instan dan verifikasi ID card atlet.",
+    "answer_en": "Every confirmed tournament registration automatically generates a verified Digital E-Ticket with a unique QR Code. Upon arriving at the competition venue, archers present this QR code on their smartphone to the desk committee for instant check-in and athlete ID card verification."
   },
   {
     "name": "score_tracking",

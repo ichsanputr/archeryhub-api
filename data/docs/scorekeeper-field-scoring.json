@@ -1,0 +1,71 @@
+{
+  "slug": "scorekeeper-field-scoring",
+  "icon": "ph:calculator-bold",
+  "category": "scorekeeper",
+  "order": 1,
+  "readTime": "4 min",
+  "en": {
+    "title": "Field Scoring Guide for Scorekeepers",
+    "excerpt": "A practical step-by-step guide for target scorekeepers to enter arrow values per end, understand color buttons, correct mistakes, and submit scores to the live leaderboard.",
+    "toc": [
+      {
+        "id": "keypad-color-layout",
+        "level": 2,
+        "text": "1. Keypad Color Buttons & Values"
+      },
+      {
+        "id": "recording-end-scores",
+        "level": 2,
+        "text": "2. How to Record Scores Each End"
+      },
+      {
+        "id": "fixing-misclicked-arrows",
+        "level": 2,
+        "text": "3. Correcting Misclicked Arrow Values"
+      },
+      {
+        "id": "athlete-verification-submit",
+        "level": 2,
+        "text": "4. Athlete Verification & Saving the End"
+      },
+      {
+        "id": "shooting-line-field-tips",
+        "level": 2,
+        "text": "5. Essential Target Line Tips"
+      }
+    ],
+    "content": "<p>Once you are logged in and standing at your assigned target butt, the scoring interface is ready for arrow input. Your job is to enter the value of each arrow as the athletes call them out. The system handles all the math automatically, including running totals, 10s and Xs counts, and live leaderboard updates.</p>\n\n<h2 id=\"keypad-color-layout\">1. Keypad Color Buttons &amp; Values</h2>\n<p>The Archeris keypad matches official World Archery target face ring colors for quick and mistake-free input:</p>\n<ul>\n  <li><strong>Gold Buttons (X &amp; 10):</strong> 10 points. <code>X</code> (inner center ring) is tracked separately for tie-breaker calculations.</li>\n  <li><strong>Gold Button (9):</strong> 9 points.</li>\n  <li><strong>Red Buttons (8 &amp; 7):</strong> 8 and 7 points.</li>\n  <li><strong>Blue Buttons (6 &amp; 5):</strong> 6 and 5 points.</li>\n  <li><strong>Black Buttons (4 &amp; 3):</strong> 4 and 3 points.</li>\n  <li><strong>White Buttons (2 &amp; 1):</strong> 2 and 1 points.</li>\n  <li><strong>Green Button (M):</strong> <em>Miss</em> (0 points) if an arrow misses the scoring face entirely.</li>\n</ul>\n<p>You do not need to enter arrows in any specific order. The system automatically sorts values from highest to lowest once the end is saved, matching official World Archery scorecard format.</p>\n\n<h2 id=\"recording-end-scores\">2. How to Record Scores Each End</h2>\n<p>Follow these quick steps after each shooting end:</p>\n<ol>\n  <li>Tap the tab for the archer calling their arrows (for example, <strong>Archer 1A</strong>).</li>\n  <li>Tap the keypad buttons corresponding to the arrows in the target (e.g., <code>X</code>, <code>10</code>, <code>9</code>, <code>8</code>, <code>8</code>, <code>7</code>). The arrow boxes fill in automatically.</li>\n  <li>Switch to the next archer tabs (<strong>1B</strong>, <strong>1C</strong>, and <strong>1D</strong>) and enter their arrows until all archers at the target butt are complete.</li>\n</ol>\n<p>Take turns with archers calling out their scores. Enter one archer at a time rather than trying to remember all values at once to keep scoring accurate.</p>\n\n<h2 id=\"fixing-misclicked-arrows\">3. Correcting Misclicked Arrow Values</h2>\n<p>If you accidentally tap the wrong button before saving the end:</p>\n<ul>\n  <li>Simply <strong>tap on the specific arrow box</strong> that contains the wrong score, then tap the correct number on the keypad to replace it.</li>\n  <li>Tap the <strong>Backspace (⌫)</strong> button to erase the last arrow value entered.</li>\n</ul>\n<p>Corrections can also be made by the organizer from the dashboard after an end is saved, so if you notice an error after submitting, notify the tournament director to update the value.</p>\n\n<h2 id=\"athlete-verification-submit\">4. Athlete Verification &amp; Saving the End</h2>\n<p>Before leaving the target butt, always confirm scores with the athletes:</p>\n<ol>\n  <li>Show the phone screen to all archers at the target so they can double-check their end score and cumulative total.</li>\n  <li>Once everyone agrees, tap the <strong>Save &amp; Next End</strong> button at the bottom of the screen.</li>\n  <li>The scores immediately sync with the main tournament server and the public leaderboard updates in real time.</li>\n</ol>\n<p>Never pull arrows from the target before all archers have confirmed the scores on screen. Once arrows are pulled, disputed values cannot be verified physically.</p>\n\n<h2 id=\"shooting-line-field-tips\">5. Essential Target Line Tips</h2>\n<p>Keep these points in mind throughout the session:</p>\n<ul>\n  <li><strong>Line Cutters:</strong> If an arrow touches a dividing ring line and archers disagree on the value, do not guess and do not pull the arrow. Call a <strong>Line Judge / Referee</strong> for an official ruling before arrows are removed.</li>\n  <li><strong>Disputed Arrows:</strong> Never override an athlete's called score unless a judge has ruled. Your role is to record accurately.</li>\n  <li><strong>Connection drops:</strong> If your connection drops during scoring, finish entering the current end and tap Save. The app will sync automatically once connection is restored.</li>\n</ul>"
+  },
+  "id": {
+    "title": "Cara Input Skor Lapangan oleh Scorekeeper",
+    "excerpt": "Panduan praktis petugas skor bantalan dalam memasukkan nilai anak panah per rambahan, memahami warna tombol keypad, memperbaiki kesalahan, dan mengirim skor ke leaderboard live.",
+    "toc": [
+      {
+        "id": "keypad-color-layout",
+        "level": 2,
+        "text": "1. Warna Tombol & Nilai Poin Keypad"
+      },
+      {
+        "id": "recording-end-scores",
+        "level": 2,
+        "text": "2. Cara Mencatat Skor Setiap Rambahan"
+      },
+      {
+        "id": "fixing-misclicked-arrows",
+        "level": 2,
+        "text": "3. Memperbaiki Salah Klik Nilai Panah"
+      },
+      {
+        "id": "athlete-verification-submit",
+        "level": 2,
+        "text": "4. Verifikasi Atlet & Menyimpan Rambahan"
+      },
+      {
+        "id": "shooting-line-field-tips",
+        "level": 2,
+        "text": "5. Tips Penting di Bantalan Sasaran"
+      }
+    ],
+    "content": "<p>Setelah memasukkan kode akses dan berada di depan bantalan sasaran, layar scoring sudah siap digunakan. Tugas Anda adalah mencatat nilai setiap anak panah saat atlet memanggil nilainya. Sistem akan menghitung total skor, jumlah 10 dan X, serta mengupdate papan klasemen live secara otomatis.</p>\n\n<h2 id=\"keypad-color-layout\">1. Warna Tombol &amp; Nilai Poin Keypad</h2>\n<p>Tombol angka di aplikasi Archeris mengikuti warna lingkaran target sasaran resmi World Archery agar mudah dikenali:</p>\n<ul>\n  <li><strong>Tombol Emas (X &amp; 10):</strong> 10 poin. Nilai <code>X</code> (lingkaran tengah) dicatat terpisah untuk penentu tie-break.</li>\n  <li><strong>Tombol Emas (9):</strong> 9 poin.</li>\n  <li><strong>Tombol Merah (8 &amp; 7):</strong> 8 dan 7 poin.</li>\n  <li><strong>Tombol Biru (6 &amp; 5):</strong> 6 dan 5 poin.</li>\n  <li><strong>Tombol Hitam (4 &amp; 3):</strong> 4 dan 3 poin.</li>\n  <li><strong>Tombol Putih (2 &amp; 1):</strong> 2 dan 1 poin.</li>\n  <li><strong>Tombol Hijau (M):</strong> <em>Miss</em> (0 poin) untuk anak panah yang meleset dari bidang sasaran.</li>\n</ul>\n<p>Anda tidak perlu repot mengurutkan nilai dari yang terbesar saat mengetik. Sistem otomatis mengurutkannya dari nilai tertinggi ke terendah begitu rambahan disimpan.</p>\n\n<h2 id=\"recording-end-scores\">2. Cara Mencatat Skor Setiap Rambahan</h2>\n<p>Berikut langkah praktis mencatat skor di setiap rambahan:</p>\n<ol>\n  <li>Pilih tab nama atlet yang sedang memanggil nilainya (contoh: <strong>Atlet 1A</strong>).</li>\n  <li>Ketuk tombol nilai sesuai anak panah yang tertancap di bantalan (contoh: <code>X</code>, <code>10</code>, <code>9</code>, <code>8</code>, <code>8</code>, <code>7</code>). Kolom nilai akan terisi otomatis.</li>\n  <li>Pindah ke tab atlet berikutnya (<strong>1B</strong>, <strong>1C</strong>, dan <strong>1D</strong>) sampai seluruh pemanah di bantalan tersebut selesai diinput.</li>\n</ol>\n<p>Catat atlet satu per satu sesuai panggilan skor untuk mencegah salah dengar atau tertukar nilai antar pemanah.</p>\n\n<h2 id=\"fixing-misclicked-arrows\">3. Memperbaiki Salah Klik Nilai Panah</h2>\n<p>Jika Anda tidak sengaja salah menekan tombol angka sebelum data disimpan:</p>\n<ul>\n  <li>Cukup <strong>ketuk kotak nilai panah yang salah</strong>, lalu ketuk angka yang benar pada keypad untuk menggantinya.</li>\n  <li>Gunakan tombol <strong>Backspace (⌫)</strong> untuk menghapus nilai panah terakhir.</li>\n</ul>\n<p>Jika kesalahan baru disadari setelah rambahan disimpan, laporkan ke panitia atau direktur pertandingan agar nilai bisa diedit melalui dashboard skoring panitia.</p>\n\n<h2 id=\"athlete-verification-submit\">4. Verifikasi Atlet &amp; Menyimpan Rambahan</h2>\n<p>Sebelum mencabut anak panah, selalu lakukan konfirmasi dengan seluruh pemanah di bantalan:</p>\n<ol>\n  <li>Tunjukkan layar ponsel kepada seluruh atlet agar mereka bisa memeriksa nilai rambahan dan total skor berjalan.</li>\n  <li>Setelah semua atlet sepakat, ketuk tombol <strong>Simpan &amp; Lanjut Rambahan Berikutnya</strong>.</li>\n  <li>Skor langsung terkirim ke server utama dan papan klasemen live otomatis terupdate.</li>\n</ol>\n<p>Pastikan panah tidak dicabut sebelum nilai diverifikasi di layar ponsel agar tidak terjadi sengketa nilai.</p>\n\n<h2 id=\"shooting-line-field-tips\">5. Tips Penting di Bantalan Sasaran</h2>\n<p>Perhatikan beberapa hal berikut saat bertugas di lapangan:</p>\n<ul>\n  <li><strong>Panah Garis (Line Cutter):</strong> Jika anak panah menyentuh garis pembatas dua warna dan atlet ragu nilainya, jangan menebak dan jangan mencabut panah. Panggil <strong>Wasit / Judge Lapangan</strong> untuk memutuskan nilai resmi.</li>\n  <li><strong>Peran Pencatat:</strong> Scorekeeper bertugas mencatat nilai yang dipanggil atlet secara netral dan jujur. Jika ada perselisihan nilai, serahkan keputusannya kepada wasit.</li>\n  <li><strong>Koneksi Internet Lemah:</strong> Jika koneksi terputus saat bertugas, tetap selesaikan input rambahan dan klik Simpan. Aplikasi akan mengirimkan data secara otomatis begitu ponsel terhubung kembali ke jaringan.</li>\n</ul>"
+  }
+}
