@@ -121,25 +121,25 @@ VALUES (
 -- ============================================================
 
 -- Categories for POPDA (Event 1)
-INSERT IGNORE INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, max_participants, status)
+INSERT IGNORE INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, status)
 VALUES
-  ('13817e7f-694a-47d7-add7-e1fd38511e1d', '7247378c-b3cb-46d7-9ea3-78526733e7a7', '33502405-e5ff-4725-a882-d279666fe35c', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 50, 'active'),
-  ('248b8f80-5a6b-4c8e-add8-e2fd48622e2e', '7247378c-b3cb-46d7-9ea3-78526733e7a7', '33502405-e5ff-4725-a882-d279666fe35c', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 50, 'active'),
-  ('359c9f91-6b7c-4d9f-bee9-e3fd49733f3f', '7247378c-b3cb-46d7-9ea3-78526733e7a7', '33502405-e5ff-4725-a882-d279666fe35c', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 50, 'active');
+  ('13817e7f-694a-47d7-add7-e1fd38511e1d', '7247378c-b3cb-46d7-9ea3-78526733e7a7', '33502405-e5ff-4725-a882-d279666fe35c', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active'),
+  ('248b8f80-5a6b-4c8e-add8-e2fd48622e2e', '7247378c-b3cb-46d7-9ea3-78526733e7a7', '33502405-e5ff-4725-a882-d279666fe35c', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active'),
+  ('359c9f91-6b7c-4d9f-bee9-e3fd49733f3f', '7247378c-b3cb-46d7-9ea3-78526733e7a7', '33502405-e5ff-4725-a882-d279666fe35c', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active');
 
 -- Categories for Kejurda DIY (Event 2)
-INSERT IGNORE INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, max_participants, status)
+INSERT IGNORE INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, status)
 VALUES
-  ('46ad0a02-7c8d-4e0a-ff0a-f4fe50844a4a', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 40, 'active'),
-  ('57be1b13-8d9e-4f1b-001b-f5af61955b5b', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 40, 'active'),
-  ('68cf2c24-9eaf-4a2c-112c-f6b630726c6c', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 40, 'active'),
-  ('79d03d35-afb0-4b3d-223d-f7c741837d7d', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 40, 'active');
+  ('46ad0a02-7c8d-4e0a-ff0a-f4fe50844a4a', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active'),
+  ('57be1b13-8d9e-4f1b-001b-f5af61955b5b', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active'),
+  ('68cf2c24-9eaf-4a2c-112c-f6b630726c6c', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active'),
+  ('79d03d35-afb0-4b3d-223d-f7c741837d7d', '8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e', '331b52a7-812d-4dde-aeaf-978e79bf293a', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active');
 
 -- Categories for Latber (Event 3)
-INSERT IGNORE INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, max_participants, status)
+INSERT IGNORE INTO event_categories (uuid, event_id, division_uuid, category_uuid, event_type_uuid, gender_division_uuid, status)
 VALUES
-  ('8ae14e46-afb0-4c3e-334e-f8d852948e8e', '9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f', '33502405-e5ff-4725-a882-d279666fe35c', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 30, 'active'),
-  ('9bf25f57-bf0c-4d4f-445f-f9e96395a9af', '9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f', '33502405-e5ff-4725-a882-d279666fe35c', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 30, 'active');
+  ('8ae14e46-afb0-4c3e-334e-f8d852948e8e', '9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f', '33502405-e5ff-4725-a882-d279666fe35c', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active'),
+  ('9bf25f57-bf0c-4d4f-445f-f9e96395a9af', '9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f', '33502405-e5ff-4725-a882-d279666fe35c', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active');
 
 -- 5. INSERT EVENT IMAGES
 -- ============================================================

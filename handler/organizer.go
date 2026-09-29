@@ -32,7 +32,6 @@ type Organizer struct {
 	Address            *string `db:"address" json:"address"`
 	City               *string `db:"city" json:"city"`
 	Country            *string `db:"country" json:"country"`
-	RegistrationNumber *string `db:"registration_number" json:"registration_number"`
 	EstablishedDate    *string `db:"established_date" json:"established_date"`
 	ContactPersonName  *string `db:"contact_person_name" json:"contact_person_name"`
 	ContactPersonEmail *string `db:"contact_person_email" json:"contact_person_email"`
@@ -121,7 +120,7 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&orgData, `
 			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
 				   avatar_url, banner_url, address, city, country,
-				   registration_number, established_date, contact_person_name,
+				   established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
 				   status, created_at, updated_at, page_settings,
@@ -202,7 +201,6 @@ func GetOrganizationBySlug(db *sqlx.DB) gin.HandlerFunc {
 				"address":              org.Address,
 				"city":                 org.City,
 				"country":              org.Country,
-				"registration_number":  org.RegistrationNumber,
 				"established_date":     org.EstablishedDate,
 				"contact_person_name":  org.ContactPersonName,
 				"contact_person_email": org.ContactPersonEmail,
@@ -270,7 +268,7 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&org, `
 			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
 				   avatar_url, banner_url, address, city, country,
-				   registration_number, established_date, contact_person_name,
+				   established_date, contact_person_name,
 				   contact_person_email, contact_person_phone,
 				   social_facebook, social_instagram, social_twitter, social_media,
 				   status, created_at, updated_at,
@@ -316,7 +314,6 @@ func GetOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			"address":                 org.Address,
 			"city":                    org.City,
 			"country":                 org.Country,
-			"registration_number":     org.RegistrationNumber,
 			"established_date":        org.EstablishedDate,
 			"contact_person_name":     org.ContactPersonName,
 			"contact_person_email":    org.ContactPersonEmail,
@@ -366,7 +363,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 			Address            *string     `json:"address"`
 			City               *string     `json:"city"`
 			Country            *string     `json:"country"`
-			RegistrationNumber *string     `json:"registration_number"`
 			EstablishedDate    *string     `json:"established_date"`
 			ContactPersonName  *string     `json:"contact_person_name"`
 			ContactPersonEmail *string     `json:"contact_person_email"`
@@ -441,10 +437,6 @@ func UpdateOrganizationProfile(db *sqlx.DB) gin.HandlerFunc {
 		if req.Country != nil {
 			query += ", country = ?"
 			args = append(args, *req.Country)
-		}
-		if req.RegistrationNumber != nil {
-			query += ", registration_number = ?"
-			args = append(args, *req.RegistrationNumber)
 		}
 		if req.EstablishedDate != nil {
 			query += ", established_date = ?"

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -620,11 +621,11 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 		EntryFee             float64    `db:"entry_fee"`
 		Status               string     `db:"status"`
 		RegistrationDeadline *time.Time `db:"registration_deadline"`
-		QuotaMaxParticipants *int       `db:"quota_max_participants"`
 	}
-	err := db.Get(&event, `SELECT uuid, organizer_id, COALESCE(entry_fee, 0.0) as entry_fee, status, registration_deadline, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, req.EventID, req.EventID)
+	err := db.Get(&event, `SELECT uuid, organizer_id, COALESCE(entry_fee, 0.0) as entry_fee, status, registration_deadline FROM tournaments WHERE uuid = ? OR slug = ? OR code = ? LIMIT 1`, req.EventID, req.EventID, req.EventID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
+		log.Printf("[processMobileRegistration] Tournament lookup failed for '%s': %v", req.EventID, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan", "details": err.Error()})
 		return
 	}
 
@@ -643,10 +644,10 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	userID := c.GetString("user_id")
 	var captainArcherUUID string
 	if req.AthleteID != "" {
-		_ = db.Get(&captainArcherUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ?", req.AthleteID, req.AthleteID)
+		_ = db.Get(&captainArcherUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR username = ? LIMIT 1", req.AthleteID, req.AthleteID, req.AthleteID)
 	}
 	if captainArcherUUID == "" {
-		_ = db.Get(&captainArcherUUID, "SELECT uuid FROM archers WHERE uuid = ?", userID)
+		_ = db.Get(&captainArcherUUID, "SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR username = ? LIMIT 1", userID, userID, userID)
 	}
 	if captainArcherUUID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Profil pemanah tidak ditemukan atau tidak valid"})
@@ -656,6 +657,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	// 3. Transaction
 	tx, err := db.Beginx()
 	if err != nil {
+		log.Printf("[MobileRegisterEvent] Gagal db.Beginx: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 		return
 	}
@@ -673,18 +675,17 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	var calculatedTotalFee float64 = 0
 
 	type CategoryMeta struct {
-		UUID            string  `db:"uuid"`
-		TournamentID    string  `db:"tournament_id"`
-		MaxParticipants *int    `db:"max_participants"`
-		Fee             float64 `db:"fee"`
-		GenderCode      string  `db:"gender_code"`
-		AgeCode         string  `db:"age_code"`
+		UUID         string  `db:"uuid"`
+		TournamentID string  `db:"tournament_id"`
+		Fee          float64 `db:"fee"`
+		GenderCode   string  `db:"gender_code"`
+		AgeCode      string  `db:"age_code"`
 	}
 
 	getCatMeta := func(catUUID string) (*CategoryMeta, error) {
 		var meta CategoryMeta
 		err := tx.Get(&meta, `
-			SELECT tc.uuid, tc.tournament_id, tc.max_participants,
+			SELECT tc.uuid, tc.tournament_id,
 			       COALESCE(
 				       NULLIF(tc.fee, 0.0),
 				       CASE
@@ -699,28 +700,17 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 			       COALESCE(rgd.code, 'mixed') as gender_code,
 			       COALESCE(rag.code, 'umum') as age_code
 			FROM tournament_categories tc
-			JOIN tournaments t ON tc.tournament_id = t.uuid
+			JOIN tournaments t ON (tc.tournament_id = t.uuid OR tc.tournament_id = ?)
 			LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
 			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
 			LEFT JOIN ref_tournament_types rtt ON tc.tournament_type_uuid = rtt.uuid
-			WHERE tc.uuid = ? AND tc.tournament_id = ?
-		`, catUUID, actualEventID)
+			WHERE tc.uuid = ? AND (tc.tournament_id = ? OR t.uuid = ?)
+			LIMIT 1
+		`, actualEventID, catUUID, actualEventID, actualEventID)
 		if err != nil {
 			return nil, err
 		}
 		return &meta, nil
-	}
-
-	checkQuota := func(meta *CategoryMeta) bool {
-		if meta.MaxParticipants == nil || *meta.MaxParticipants <= 0 {
-			return true
-		}
-		var currentCount int
-		_ = tx.Get(&currentCount, `
-			SELECT COUNT(*) FROM tournament_participants 
-			WHERE tournament_id = ? AND category_id = ? AND payment_status != 'cancelled'
-		`, actualEventID, meta.UUID)
-		return currentCount < *meta.MaxParticipants
 	}
 
 	if registrationMode == "captain_team" {
@@ -749,17 +739,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 
 		// Register captain for individual categories
 		for _, catID := range allCategoryIDs {
-			catMeta, errCat := getCatMeta(catID)
-			if errCat == nil && catMeta != nil {
-				if !checkQuota(catMeta) {
-					c.JSON(http.StatusConflict, gin.H{
-						"error":       "Kuota untuk kategori ini sudah penuh",
-						"code":        "quota_exceeded",
-						"category_id": catMeta.UUID,
-					})
-					return
-				}
-			}
+			catMeta, _ := getCatMeta(catID)
 
 			catFee := event.EntryFee
 			if catMeta != nil && catMeta.Fee > 0 {
@@ -786,9 +766,10 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 					registration_date, payment_status, payment_amount,
 					registration_source
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			`, partUUID, actualEventID, captainArcherUUID, catID, registrationDate, paymentStatus, catFee, "self_register")
+			`, partUUID, actualEventID, captainArcherUUID, catID, registrationDate, paymentStatus, catFee, "self_registration")
 
 			if err != nil {
+				log.Printf("[MobileRegisterEvent] Gagal insert tournament_participants (captain): %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan peserta", "details": err.Error()})
 				return
 			}
@@ -821,6 +802,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 				VALUES (?, ?, ?, ?, ?, 'active')
 			`, teamUUID, actualEventID, teamInput.CategoryID, teamInput.CategoryID, teamName)
 			if err != nil {
+				log.Printf("[MobileRegisterEvent] Gagal insert teams: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat tim", "details": err.Error()})
 				return
 			}
@@ -866,12 +848,14 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 								registration_date, payment_status, payment_amount,
 								registration_source
 							) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-						`, memberPartUUID, actualEventID, memberArcherUUID, teamInput.CategoryID, registrationDate, paymentStatus, memberFee, "self_register")
+						`, memberPartUUID, actualEventID, memberArcherUUID, teamInput.CategoryID, registrationDate, paymentStatus, memberFee, "self_registration")
 						if err == nil {
 							allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, memberPartUUID)
 							if member.NeedsIndividualRegistration {
 								calculatedTotalFee += memberFee
 							}
+						} else {
+							log.Printf("[MobileRegisterEvent] Warning: Gagal insert member tournament_participants: %v", err)
 						}
 					}
 				}
@@ -972,18 +956,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 					continue
 				}
 
-				catMeta, errCat := getCatMeta(trimmed)
-				if errCat == nil && catMeta != nil {
-					if !checkQuota(catMeta) {
-						c.JSON(http.StatusConflict, gin.H{
-							"error":       fmt.Sprintf("Kuota untuk kategori pilihan atlet %s sudah penuh", ath.FullName),
-							"code":        "quota_exceeded",
-							"category_id": catMeta.UUID,
-						})
-						return
-					}
-				}
-
+				catMeta, _ := getCatMeta(trimmed)
 				catFee := event.EntryFee
 				if catMeta != nil && catMeta.Fee > 0 {
 					catFee = catMeta.Fee
@@ -1008,8 +981,9 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 						registration_date, payment_status, payment_amount,
 						registration_source
 					) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				`, partUUID, actualEventID, athArcherUUID, trimmed, registrationDate, paymentStatus, catFee, "invited")
+				`, partUUID, actualEventID, athArcherUUID, trimmed, registrationDate, paymentStatus, catFee, "delegation")
 				if err != nil {
+					log.Printf("[MobileRegisterEvent] Gagal insert tournament_participants (delegation): %v", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan atlet delegasi", "details": err.Error()})
 					return
 				}
@@ -1043,6 +1017,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 					VALUES (?, ?, ?, ?, ?, 'active')
 				`, teamUUID, actualEventID, teamBooking.CategoryID, teamBooking.CategoryID, teamName)
 				if err != nil {
+					log.Printf("[MobileRegisterEvent] Gagal insert delegation teams: %v", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat reservasi tim", "details": err.Error()})
 					return
 				}
@@ -1057,6 +1032,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 	}
 
 	if err := tx.Commit(); err != nil {
+		log.Printf("[MobileRegisterEvent] Gagal tx.Commit: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan pendaftaran"})
 		return
 	}
@@ -1154,9 +1130,11 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 				)
 			`
 			_, err = db.NamedExec(query, transaction)
-			if err == nil {
+			if err != nil {
+				log.Printf("[MobileRegisterEvent] Gagal insert payment_transactions (paypal): %v", err)
+			} else {
 				for _, pID := range allCreatedParticipantUUIDs {
-					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = 'paypal' WHERE uuid = ?", transactionID, pID)
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, pID)
 				}
 				gatewayReference = transaction.GatewayReference
 				checkoutURL = &checkoutURLVal
@@ -1209,9 +1187,11 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 				)
 			`
 			_, err = db.NamedExec(query, transaction)
-			if err == nil {
+			if err != nil {
+				log.Printf("[MobileRegisterEvent] Gagal insert payment_transactions (manual): %v", err)
+			} else {
 				for _, pID := range allCreatedParticipantUUIDs {
-					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = ?, payment_method = 'manual' WHERE uuid = ?", transactionID, statusVal, pID)
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, pID)
 				}
 				paymentStatus = statusVal
 				refVal := merchantRef
@@ -1273,9 +1253,11 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 				)
 			`
 			_, err = db.NamedExec(query, transaction)
-			if err == nil {
+			if err != nil {
+				log.Printf("[MobileRegisterEvent] Gagal insert payment_transactions (mayar): %v", err)
+			} else {
 				for _, pID := range allCreatedParticipantUUIDs {
-					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending', payment_method = ? WHERE uuid = ?", transactionID, req.PaymentMethod, pID)
+					_, _ = db.Exec("UPDATE tournament_participants SET payment_id = ?, payment_status = 'pending' WHERE uuid = ?", transactionID, pID)
 				}
 				qrURL = transaction.QRURL
 				gatewayReference = &merchantRef
@@ -1520,6 +1502,9 @@ func MobileCancelPayment(db *sqlx.DB) gin.HandlerFunc {
 func MobileSubscribeOrganizer(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slug := c.Param("slug")
+		if slug == "" {
+			slug = c.Param("id")
+		}
 		var req struct {
 			Email string `json:"email" binding:"required,email"`
 		}
@@ -1535,12 +1520,20 @@ func MobileSubscribeOrganizer(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&event, `
 			SELECT COALESCE(o.name, 'Organizer') as organizer_name, COALESCE(t.user_id, '') as created_by
 			FROM tournaments t
-			LEFT JOIN organizations o ON t.organization_id = o.id
+			LEFT JOIN organizers o ON t.organizer_id = o.uuid
 			WHERE t.uuid = ? OR t.slug = ?
 		`, slug, slug)
 
-		if err != nil {
-			_ = db.Get(&event, `SELECT 'Penyelenggara Turnamen' as organizer_name, '' as created_by FROM tournaments WHERE uuid = ? OR slug = ?`, slug, slug)
+		if err != nil || event.OrganizerName == "" {
+			// Check if slug is an organizer directly
+			errOrg := db.Get(&event, `
+				SELECT COALESCE(name, 'Organizer') as organizer_name, COALESCE(user_id, uuid) as created_by
+				FROM organizers
+				WHERE uuid = ? OR slug = ?
+			`, slug, slug)
+			if errOrg != nil {
+				event.OrganizerName = "Penyelenggara Turnamen"
+			}
 		}
 
 		userID, _ := c.Get("user_id")

@@ -48,13 +48,11 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Dynamic entry fee and quota from event categories or event default
 		var cat struct {
-			UUID                string  `db:"uuid"`
-			Fee                 float64 `db:"fee"`
-			Quota               int     `db:"quota"`
-			CurrentParticipants int     `db:"current_participants"`
+			UUID string  `db:"uuid"`
+			Fee  float64 `db:"fee"`
 		}
 		catErr := db.Get(&cat, `
-			SELECT uuid, COALESCE(fee, 0) as fee, COALESCE(quota, 0) as quota, COALESCE(current_participants, 0) as current_participants 
+			SELECT uuid, COALESCE(fee, 0) as fee 
 			FROM tournament_categories 
 			WHERE (event_id = ? OR event_id = ?) AND (category_name = ? OR name = ? OR CONCAT(division_name, ' ', category_name) = ?)
 			LIMIT 1
@@ -63,10 +61,6 @@ func RegisterEvent(db *sqlx.DB) gin.HandlerFunc {
 		entryFee := event.EntryFee
 		if catErr == nil && cat.Fee > 0 {
 			entryFee = cat.Fee
-		}
-		if catErr == nil && cat.Quota > 0 && cat.CurrentParticipants >= cat.Quota {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Kuota untuk kategori ini sudah penuh"})
-			return
 		}
 
 		adminFee := 5000.0

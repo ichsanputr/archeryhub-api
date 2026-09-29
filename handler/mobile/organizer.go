@@ -590,24 +590,30 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		var eventUUID string
+		_ = db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if eventUUID == "" {
+			eventUUID = eventID
+		}
+
 		var totalRevenue float64
 		var paidCount, pendingCount, expiredCount int
 
 		_ = db.Get(&totalRevenue, `
-			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
-		`, eventID)
+			SELECT COALESCE(SUM(amount), 0) FROM payment_transactions WHERE tournament_id = ? AND status = 'paid'
+		`, eventUUID)
 
 		_ = db.Get(&paidCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'paid'
-		`, eventID)
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'paid'
+		`, eventUUID)
 
 		_ = db.Get(&pendingCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
-		`, eventID)
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'pending'
+		`, eventUUID)
 
 		_ = db.Get(&expiredCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND (status = 'expired' OR status = 'cancelled')
-		`, eventID)
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND (status = 'expired' OR status = 'cancelled')
+		`, eventUUID)
 
 		type TxnItem struct {
 			ID            string    `json:"id" db:"id"`
@@ -621,10 +627,14 @@ func MobileGetEventPayments(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Select(&items, `
 			SELECT uuid as id, amount, status, payment_method, created_at
 			FROM payment_transactions
-			WHERE event_id = ?
+			WHERE tournament_id = ?
 			ORDER BY created_at DESC
 			LIMIT 50
-		`, eventID)
+		`, eventUUID)
+
+		if items == nil {
+			items = []TxnItem{}
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"total_revenue": totalRevenue,
@@ -653,7 +663,7 @@ func MobileGetInvoiceDetail(db *sqlx.DB) gin.HandlerFunc {
 			CreatedAt     time.Time  `json:"created_at" db:"created_at"`
 		}
 
-		err := db.Get(&txn, "SELECT uuid as id, event_id, amount, status, payment_method, paid_at, created_at FROM payment_transactions WHERE uuid = ? OR reference = ?", transactionID, transactionID)
+		err := db.Get(&txn, "SELECT uuid as id, tournament_id as event_id, amount, status, payment_method, paid_at, created_at FROM payment_transactions WHERE uuid = ? OR reference = ? LIMIT 1", transactionID, transactionID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Invoice tidak ditemukan"})
 			return
@@ -759,7 +769,7 @@ func MobileRefundPayment(db *sqlx.DB) gin.HandlerFunc {
 		var pUUID string
 		_ = tx.Get(&pUUID, "SELECT uuid FROM payment_transactions WHERE uuid = ? OR reference = ? LIMIT 1", transactionID, transactionID)
 		if pUUID != "" {
-			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'refunded' WHERE payment_id = ?", pUUID)
+			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'cancelled' WHERE payment_id = ?", pUUID)
 		}
 
 		if err := tx.Commit(); err != nil {
@@ -780,14 +790,20 @@ func MobileBroadcastReminderUnpaid(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
 
+		var eventUUID string
+		_ = db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", eventID, eventID)
+		if eventUUID == "" {
+			eventUUID = eventID
+		}
+
 		var pendingCount int
 		_ = db.Get(&pendingCount, `
-			SELECT COUNT(*) FROM payment_transactions WHERE event_id = ? AND status = 'pending'
-		`, eventID)
+			SELECT COUNT(*) FROM payment_transactions WHERE tournament_id = ? AND status = 'pending'
+		`, eventUUID)
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":      "Reminder pembayaran berhasil dikirim",
-			"event_id":     eventID,
+			"event_id":     eventUUID,
 			"recipients":   pendingCount,
 			"sent_at":      time.Now().Format(time.RFC3339),
 		})
@@ -817,11 +833,20 @@ func MobileGlobalSearch(db *sqlx.DB) gin.HandlerFunc {
 
 		var athletes []AthleteResult
 		_ = db.Select(&athletes, `
-			SELECT id, name, category, (checked_in_at IS NOT NULL) as checked_in
-			FROM tournament_participants
-			WHERE name LIKE ? OR id LIKE ?
+			SELECT tp.uuid as id, COALESCE(a.full_name, 'Peserta') as name,
+			       COALESCE(tc.category_name_custom, rag.name, 'Umum') as category,
+			       (tp.last_reregistration_at IS NOT NULL) as checked_in
+			FROM tournament_participants tp
+			JOIN archers a ON tp.archer_id = a.uuid
+			LEFT JOIN tournament_categories tc ON tp.category_id = tc.uuid
+			LEFT JOIN ref_age_groups rag ON tc.category_uuid = rag.uuid
+			WHERE a.full_name LIKE ? OR tp.uuid LIKE ? OR a.id LIKE ?
 			LIMIT 10
-		`, likeQuery, likeQuery)
+		`, likeQuery, likeQuery, likeQuery)
+
+		if athletes == nil {
+			athletes = []AthleteResult{}
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"query":    query,

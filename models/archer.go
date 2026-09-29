@@ -118,7 +118,7 @@ type EventParticipant struct {
 	RegistrationDate     time.Time  `json:"registration_date" db:"registration_date"`
 	PaymentStatus        string     `json:"payment_status" db:"payment_status"` // menunggu_acc, belum_lunas, lunas
 	PaymentAmount        float64    `json:"payment_amount" db:"payment_amount"`
-	RegistrationSource   string     `json:"registration_source" db:"registration_source"`   // invited, admin_created, self_register
+	RegistrationSource   string     `json:"registration_source" db:"registration_source"`   // self_registration, invitation, delegation
 	Notes                *string    `json:"notes" db:"notes"`
 }
 

@@ -3,12 +3,15 @@ package mobile
 import (
 	"Archeris-api/utils"
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -178,6 +181,12 @@ func MobileVerifyScorekeeperCode(db *sqlx.DB) gin.HandlerFunc {
 // MobileGetScorekeeperRecentScans returns recently scanned target boards (03-scanner.html)
 func MobileGetScorekeeperRecentScans(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		orgID, _ := c.Get("org_id")
+		orgIDStr := fmt.Sprintf("%v", orgID)
+		if orgID == nil || orgIDStr == "<nil>" {
+			orgIDStr = ""
+		}
+
 		type RecentScanItem struct {
 			ScoresheetCode string `json:"scoresheet_code"`
 			TargetName     string `json:"target_name"`
@@ -189,27 +198,82 @@ func MobileGetScorekeeperRecentScans(db *sqlx.DB) gin.HandlerFunc {
 			ScannedAt      string `json:"scanned_at"`
 		}
 
-		items := []RecentScanItem{
-			{
-				ScoresheetCode: "SS-9406126",
-				TargetName:     "Target 1A",
-				ArcherName:     "Yudhy Kristianto",
-				Status:         "done",
-				TotalScore:     328,
-				EndsCompleted:  6,
-				TotalEnds:      6,
-				ScannedAt:      "09:14",
-			},
-			{
-				ScoresheetCode: "SS-0414201",
-				TargetName:     "Target 1B",
-				ArcherName:     "Adam",
-				Status:         "in_progress",
-				TotalScore:     158,
-				EndsCompleted:  3,
-				TotalEnds:      6,
-				ScannedAt:      "09:05",
-			},
+		var dbRows []struct {
+			AssignmentUUID string         `db:"assignment_uuid"`
+			BoardCode      sql.NullString `db:"board_code"`
+			TargetName     string         `db:"target_name"`
+			ArcherName     sql.NullString `db:"archer_name"`
+			TotalScore     int            `db:"total_score"`
+			EndsCompleted  int            `db:"ends_completed"`
+			TotalEnds      int            `db:"total_ends"`
+			LastUpdated    *time.Time     `db:"last_updated"`
+		}
+
+		query := `
+			SELECT 
+				qta.uuid as assignment_uuid,
+				tbq.code as board_code,
+				et.target_name,
+				a.full_name as archer_name,
+				COALESCE(SUM(qes.total_score_end), 0) as total_score,
+				COUNT(qes.uuid) as ends_completed,
+				COALESCE(qs.total_ends, 6) as total_ends,
+				MAX(COALESCE(qes.updated_at, qta.updated_at)) as last_updated
+			FROM qualification_target_assignments qta
+			JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			JOIN tournaments t ON qs.tournament_uuid = t.uuid
+			LEFT JOIN target_board_qualification tbq ON (qta.target_board_id = tbq.uuid OR (tbq.session_uuid = qta.session_uuid AND tbq.board_number = et.board_number))
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
+			WHERE (? = '' OR t.organizer_id = ?)
+			GROUP BY qta.uuid, tbq.code, et.target_name, a.full_name, qs.total_ends, qta.updated_at
+			ORDER BY MAX(COALESCE(qes.updated_at, qta.updated_at)) DESC
+			LIMIT 20
+		`
+
+		err := db.Select(&dbRows, query, orgIDStr, orgIDStr)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data scan terkini", "details": err.Error()})
+			return
+		}
+
+		items := make([]RecentScanItem, 0, len(dbRows))
+		for _, r := range dbRows {
+			maxLen := 7
+			if len(r.AssignmentUUID) < maxLen {
+				maxLen = len(r.AssignmentUUID)
+			}
+			code := fmt.Sprintf("SS-%s", strings.ToUpper(r.AssignmentUUID[:maxLen]))
+			if r.BoardCode.Valid && r.BoardCode.String != "" {
+				code = r.BoardCode.String
+			}
+			archer := "Archer"
+			if r.ArcherName.Valid && r.ArcherName.String != "" {
+				archer = r.ArcherName.String
+			}
+
+			status := "in_progress"
+			if r.EndsCompleted >= r.TotalEnds && r.TotalEnds > 0 {
+				status = "done"
+			}
+
+			scannedAt := time.Now().Format("15:04")
+			if r.LastUpdated != nil {
+				scannedAt = r.LastUpdated.Format("15:04")
+			}
+
+			items = append(items, RecentScanItem{
+				ScoresheetCode: code,
+				TargetName:     fmt.Sprintf("Target %s", r.TargetName),
+				ArcherName:     archer,
+				Status:         status,
+				TotalScore:     r.TotalScore,
+				EndsCompleted:  r.EndsCompleted,
+				TotalEnds:      r.TotalEnds,
+				ScannedAt:      scannedAt,
+			})
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -222,6 +286,11 @@ func MobileGetScorekeeperRecentScans(db *sqlx.DB) gin.HandlerFunc {
 func MobileGetScorekeeperHistory(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		statusFilter := c.DefaultQuery("status", "all")
+		orgID, _ := c.Get("org_id")
+		orgIDStr := fmt.Sprintf("%v", orgID)
+		if orgID == nil || orgIDStr == "<nil>" {
+			orgIDStr = ""
+		}
 
 		type HistoryEntry struct {
 			Code      string `json:"code"`
@@ -234,13 +303,95 @@ func MobileGetScorekeeperHistory(db *sqlx.DB) gin.HandlerFunc {
 			Progress  string `json:"progress,omitempty"`
 		}
 
-		allEntries := []HistoryEntry{
-			{Code: "SS-9406126", Target: "1A", Name: "Yudhy Kristianto", Score: 306, Time: "Hari ini · 10:32", Synced: true, IsPartial: false},
-			{Code: "SS-9406126", Target: "1C", Name: "Unggul Saputro", Score: 328, Time: "Hari ini · 09:45", Synced: true, IsPartial: false},
-			{Code: "SS-0414201", Target: "1B", Name: "Adam", Score: 158, Time: "Hari ini · 09:14", Synced: false, IsPartial: true, Progress: "3/6"},
-			{Code: "SS-1222324", Target: "2A", Name: "Bagus Wibowo", Score: 289, Time: "Kemarin · 15:20", Synced: true, IsPartial: false},
-			{Code: "SS-1222324", Target: "2B", Name: "Cahyo Nugroho", Score: 274, Time: "Kemarin · 14:52", Synced: true, IsPartial: false},
-			{Code: "SS-9406483", Target: "2C", Name: "Deni Firmansyah", Score: 298, Time: "Kemarin · 14:15", Synced: true, IsPartial: false},
+		var dbRows []struct {
+			AssignmentUUID string         `db:"assignment_uuid"`
+			BoardCode      sql.NullString `db:"board_code"`
+			TargetName     string         `db:"target_name"`
+			ArcherName     sql.NullString `db:"archer_name"`
+			TotalScore     int            `db:"total_score"`
+			EndsCompleted  int            `db:"ends_completed"`
+			TotalEnds      int            `db:"total_ends"`
+			LastUpdated    *time.Time     `db:"last_updated"`
+		}
+
+		query := `
+			SELECT 
+				qta.uuid as assignment_uuid,
+				tbq.code as board_code,
+				et.target_name,
+				a.full_name as archer_name,
+				COALESCE(SUM(qes.total_score_end), 0) as total_score,
+				COUNT(qes.uuid) as ends_completed,
+				COALESCE(qs.total_ends, 6) as total_ends,
+				MAX(COALESCE(qes.updated_at, qta.updated_at)) as last_updated
+			FROM qualification_target_assignments qta
+			JOIN tournament_targets et ON qta.target_uuid = et.uuid
+			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+			JOIN tournaments t ON qs.tournament_uuid = t.uuid
+			LEFT JOIN target_board_qualification tbq ON (qta.target_board_id = tbq.uuid OR (tbq.session_uuid = qta.session_uuid AND tbq.board_number = et.board_number))
+			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
+			WHERE (? = '' OR t.organizer_id = ?)
+			GROUP BY qta.uuid, tbq.code, et.target_name, a.full_name, qs.total_ends, qta.updated_at
+			ORDER BY MAX(COALESCE(qes.updated_at, qta.updated_at)) DESC
+			LIMIT 50
+		`
+
+		err := db.Select(&dbRows, query, orgIDStr, orgIDStr)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data riwayat", "details": err.Error()})
+			return
+		}
+
+		allEntries := make([]HistoryEntry, 0, len(dbRows))
+		now := time.Now()
+		todayDate := now.Format("2006-01-02")
+		yesterdayDate := now.AddDate(0, 0, -1).Format("2006-01-02")
+
+		for _, r := range dbRows {
+			maxLen := 7
+			if len(r.AssignmentUUID) < maxLen {
+				maxLen = len(r.AssignmentUUID)
+			}
+			code := fmt.Sprintf("SS-%s", strings.ToUpper(r.AssignmentUUID[:maxLen]))
+			if r.BoardCode.Valid && r.BoardCode.String != "" {
+				code = r.BoardCode.String
+			}
+			archer := "Archer"
+			if r.ArcherName.Valid && r.ArcherName.String != "" {
+				archer = r.ArcherName.String
+			}
+
+			isDone := r.EndsCompleted >= r.TotalEnds && r.TotalEnds > 0
+			isPartial := !isDone
+			synced := isDone
+
+			timeStr := "Hari ini · " + now.Format("15:04")
+			if r.LastUpdated != nil {
+				updateDate := r.LastUpdated.Format("2006-01-02")
+				timePart := r.LastUpdated.Format("15:04")
+				if updateDate == todayDate {
+					timeStr = "Hari ini · " + timePart
+				} else if updateDate == yesterdayDate {
+					timeStr = "Kemarin · " + timePart
+				} else {
+					timeStr = r.LastUpdated.Format("02 Jan") + " · " + timePart
+				}
+			}
+
+			progress := fmt.Sprintf("%d/%d", r.EndsCompleted, r.TotalEnds)
+
+			allEntries = append(allEntries, HistoryEntry{
+				Code:      code,
+				Target:    r.TargetName,
+				Name:      archer,
+				Score:     r.TotalScore,
+				Time:      timeStr,
+				Synced:    synced,
+				IsPartial: isPartial,
+				Progress:  progress,
+			})
 		}
 
 		filtered := []HistoryEntry{}
@@ -270,6 +421,8 @@ func MobileGetScorekeeperHistory(db *sqlx.DB) gin.HandlerFunc {
 				"draft_count":    draftCount,
 			},
 			"sessions": filtered,
+			"items":    filtered,
+			"history":  filtered,
 		})
 	}
 }

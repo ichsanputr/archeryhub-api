@@ -245,9 +245,7 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			var categoryID string
 			_ = tx.Get(&categoryID, "SELECT category_id FROM tournament_participants WHERE uuid = ?", req.ParticipantUUID)
 
-			var targetBoardUUID sql.NullString
-			_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
-				req.SessionUUID, categoryID, boardNumber)
+			targetBoardUUID := getOrCreateTargetBoardQualification(tx, req.SessionUUID, categoryID, boardNumber)
 
 			_, err = tx.Exec(`
 					UPDATE qualification_target_assignments 
@@ -279,9 +277,7 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			var categoryID string
 			_ = tx.Get(&categoryID, "SELECT category_id FROM tournament_participants WHERE uuid = ?", req.ParticipantUUID)
 
-			var targetBoardUUID sql.NullString
-			_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
-				req.SessionUUID, categoryID, boardNumber)
+			targetBoardUUID := getOrCreateTargetBoardQualification(tx, req.SessionUUID, categoryID, boardNumber)
 
 			_, err = tx.Exec(`
 				UPDATE qualification_target_assignments 
@@ -311,9 +307,7 @@ func UpdateQualificationAssignment(db *sqlx.DB) gin.HandlerFunc {
 			var categoryID string
 			_ = tx.Get(&categoryID, "SELECT category_id FROM tournament_participants WHERE uuid = ?", req.ParticipantUUID)
 
-			var targetBoardUUID sql.NullString
-			_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?", 
-				req.SessionUUID, categoryID, boardNumber)
+			targetBoardUUID := getOrCreateTargetBoardQualification(tx, req.SessionUUID, categoryID, boardNumber)
 
 			newUUID := uuid.New().String()
 			_, err = tx.Exec(`

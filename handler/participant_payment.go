@@ -229,7 +229,7 @@ func AddParticipantPayment(db *sqlx.DB) gin.HandlerFunc {
 										uuid, tournament_id, archer_id, category_id, payment_amount, 
 										payment_status, target_name, back_number, qr_raw, 
 										registration_source, registration_date, created_at, updated_at
-									) VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?, 'organizer_added', NOW(), NOW(), NOW())
+									) VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?, 'invitation', NOW(), NOW(), NOW())
 								`, newParticipantUUID, actualEventID, archerUUID, catID, 0, pInfo.TargetName, pInfo.BackNumber, pInfo.QRRaw)
 
 								if err != nil {

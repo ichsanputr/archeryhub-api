@@ -10,7 +10,6 @@ type EventCategory struct {
 	CategoryUUID       string    `json:"category_id" db:"category_uuid"`
 	EventTypeUUID      string    `json:"event_type_id" db:"tournament_type_uuid"`
 	GenderDivisionUUID *string   `json:"gender_division_id" db:"gender_division_uuid"`
-	MaxParticipants    *int      `json:"max_participants" db:"max_participants"`
 	Status             string    `json:"status" db:"status"`
 	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`

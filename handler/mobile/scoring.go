@@ -161,10 +161,10 @@ func MobileScanTarget(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN ref_bow_types bt ON ec.division_uuid = bt.uuid
 				LEFT JOIN ref_age_groups ag ON ec.category_uuid = ag.uuid
 				LEFT JOIN qualification_end_scores qes ON qes.participant_uuid = ep.uuid AND qes.session_uuid = qta.session_uuid
-				WHERE qta.target_board_id = ? AND qta.session_uuid = ?
+				WHERE qta.session_uuid = ? AND (qta.target_board_id = ? OR et.board_number = ?)
 				GROUP BY qta.uuid, qta.participant_uuid, et.target_name, a.full_name, bt.name, ag.name, qs.total_ends, a.avatar_url
 				ORDER BY et.target_name ASC
-			`, board.UUID, board.SessionUUID)
+			`, board.SessionUUID, board.UUID, board.BoardNumber)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data atlet", "details": err.Error()})
 				return

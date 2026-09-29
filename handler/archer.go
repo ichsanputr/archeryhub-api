@@ -24,6 +24,11 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		status := c.Query("status")
 		search := c.Query("search") // search by name, code, or club
 		bowType := c.Query("bow_type")
+		gender := c.Query("gender")
+		clubID := c.Query("club_id")
+		if clubID == "" {
+			clubID = c.Query("club")
+		}
 
 		whereParams := []interface{}{}
 		whereClause := "WHERE 1=1"
@@ -42,6 +47,23 @@ func GetArchers(db *sqlx.DB) gin.HandlerFunc {
 		if bowType != "" && bowType != "all" {
 			whereClause += " AND a.bow_type = ?"
 			whereParams = append(whereParams, bowType)
+		}
+
+		if gender != "" && gender != "all" && gender != "Semua" {
+			gLower := strings.ToLower(gender)
+			if gLower == "male" || gLower == "men" || gLower == "m" || gLower == "putra" || gLower == "laki-laki" {
+				whereClause += " AND (LOWER(a.gender) IN ('male', 'men', 'm', 'putra', 'laki-laki') OR a.gender = 'M')"
+			} else if gLower == "female" || gLower == "women" || gLower == "f" || gLower == "putri" || gLower == "perempuan" {
+				whereClause += " AND (LOWER(a.gender) IN ('female', 'women', 'f', 'putri', 'perempuan') OR a.gender = 'F')"
+			} else {
+				whereClause += " AND a.gender = ?"
+				whereParams = append(whereParams, gender)
+			}
+		}
+
+		if clubID != "" && clubID != "all" && clubID != "Semua" {
+			whereClause += " AND (a.club_id = ? OR c.uuid = ? OR c.id = ? OR c.name = ?)"
+			whereParams = append(whereParams, clubID, clubID, clubID, clubID)
 		}
 
 		// Get total count
@@ -427,15 +449,12 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 
 		// Generate archer code removed as athlete_code column is deleted
 
-		// Normalize gender (M/F to male/female)
-		gender := req.Gender
-		if gender != nil {
-			if *gender == "M" {
-				g := "male"
-				gender = &g
-			} else if *gender == "F" {
-				g := "female"
-				gender = &g
+		// Normalize gender to standardized 'male' or 'female'
+		var gender *string
+		if req.Gender != nil {
+			norm := utils.NormalizeGender(*req.Gender)
+			if norm != "" {
+				gender = &norm
 			}
 		}
 
@@ -620,8 +639,9 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.DateOfBirth)
 		}
 		if req.Gender != nil {
+			norm := utils.NormalizeGender(*req.Gender)
 			query += ", gender = ?"
-			args = append(args, *req.Gender)
+			args = append(args, norm)
 		}
 		if req.Country != nil {
 			truncateStr(req.Country, archerCountryLen)

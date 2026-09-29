@@ -64,13 +64,15 @@ func MobileGetMyRegistration(db *sqlx.DB) gin.HandlerFunc {
 				pt.va_number,
 				pt.pay_code,
 				pt.qr_url,
+				pt.proof_url,
+				pt.sender_name,
 				ep.registration_date
 			FROM tournament_participants ep
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
-			LEFT JOIN payment_transactions pt ON pt.registration_id = ep.uuid AND pt.status = 'pending'
+			LEFT JOIN payment_transactions pt ON (pt.uuid = ep.payment_id OR pt.registration_id = ep.uuid)
 			WHERE ep.tournament_id = ? AND ep.archer_id = ? AND ep.payment_status NOT IN ('cancelled', 'failed', 'expired', 'batal')
 			ORDER BY ep.registration_date DESC
 		`, eventUUID, archerUUID)
@@ -107,10 +109,18 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 
-		var archerUUID string
-		if err := db.Get(&archerUUID, `SELECT uuid FROM archers WHERE uuid = ?`, fmt.Sprintf("%v", userID)); err != nil {
+		var archer struct {
+			UUID string  `db:"uuid"`
+			ID   *string `db:"id"`
+		}
+		if err := db.Get(&archer, `SELECT uuid, id FROM archers WHERE uuid = ? OR id = ? LIMIT 1`, fmt.Sprintf("%v", userID), fmt.Sprintf("%v", userID)); err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Atlet tidak ditemukan"})
 			return
+		}
+
+		archerIDStr := ""
+		if archer.ID != nil {
+			archerIDStr = *archer.ID
 		}
 
 		var tournaments []MobileMyEventItem
@@ -136,9 +146,9 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN payment_transactions pt ON (ep.payment_id = pt.uuid OR pt.registration_id = ep.uuid)
-			WHERE ep.archer_id = ? AND ep.payment_status != 'cancelled'
+			WHERE (ep.archer_id = ? OR (? != '' AND ep.archer_id = ?)) AND ep.payment_status != 'cancelled'
 			ORDER BY e.start_date DESC
-		`, archerUUID)
+		`, archer.UUID, archerIDStr, archerIDStr)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data event"})
 			return
@@ -163,9 +173,10 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			tournaments[i].QRCodeDataURL = buildMobileQRCodeDataURL(tournaments[i].QRRaw)
 		}
 
-		c.JSON(http.StatusOK, MobileMyEventsResponse{
-			Events: tournaments,
-			Total:  len(tournaments),
+		c.JSON(http.StatusOK, gin.H{
+			"tournaments": tournaments,
+			"events":      tournaments,
+			"total":       len(tournaments),
 		})
 	}
 }

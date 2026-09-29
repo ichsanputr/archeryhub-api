@@ -263,26 +263,26 @@ VALUES
 -- ref_tournament_types: Individual=da2740c8, Team=3bfbc4ad, MixedTeam=160f7979
 -- ============================================================
 
-INSERT IGNORE INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, tournament_type_uuid, gender_division_uuid, max_participants, status, created_at, updated_at)
+INSERT IGNORE INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, tournament_type_uuid, gender_division_uuid, status, created_at, updated_at)
 VALUES
 -- Kejurda DIY — 8 categories
-('tcat-kjd-01', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 40, 'active', NOW(), NOW()), -- Recurve U-15 Putra
-('tcat-kjd-02', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 40, 'active', NOW(), NOW()), -- Recurve U-15 Putri
-('tcat-kjd-03', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 40, 'active', NOW(), NOW()), -- Recurve U-18 Putra
-('tcat-kjd-04', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 40, 'active', NOW(), NOW()), -- Recurve U-18 Putri
-('tcat-kjd-05', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 40, 'active', NOW(), NOW()), -- Recurve Umum Putra
-('tcat-kjd-06', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 40, 'active', NOW(), NOW()), -- Recurve Umum Putri
-('tcat-kjd-07', 'tourn-kejurda-diy-2026', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 30, 'active', NOW(), NOW()), -- Compound Umum Putra
-('tcat-kjd-08', 'tourn-kejurda-diy-2026', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 30, 'active', NOW(), NOW()), -- Barebow Umum Putra
+('tcat-kjd-01', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Recurve U-15 Putra
+('tcat-kjd-02', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active', NOW(), NOW()), -- Recurve U-15 Putri
+('tcat-kjd-03', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Recurve U-18 Putra
+('tcat-kjd-04', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active', NOW(), NOW()), -- Recurve U-18 Putri
+('tcat-kjd-05', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Recurve Umum Putra
+('tcat-kjd-06', 'tourn-kejurda-diy-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active', NOW(), NOW()), -- Recurve Umum Putri
+('tcat-kjd-07', 'tourn-kejurda-diy-2026', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Compound Umum Putra
+('tcat-kjd-08', 'tourn-kejurda-diy-2026', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Barebow Umum Putra
 
 -- POPDA Sleman — 4 categories
-('tcat-ppd-01', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 25, 'active', NOW(), NOW()), -- Recurve U-15 Putra
-('tcat-ppd-02', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 25, 'active', NOW(), NOW()), -- Recurve U-15 Putri
-('tcat-ppd-03', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 25, 'active', NOW(), NOW()), -- Recurve U-18 Putra
-('tcat-ppd-04', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 25, 'active', NOW(), NOW()), -- Recurve U-18 Putri
+('tcat-ppd-01', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Recurve U-15 Putra
+('tcat-ppd-02', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active', NOW(), NOW()), -- Recurve U-15 Putri
+('tcat-ppd-03', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Recurve U-18 Putra
+('tcat-ppd-04', 'tourn-popda-sleman-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f0ab19a5-efe2-4ceb-b177-57966249af04', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'active', NOW(), NOW()), -- Recurve U-18 Putri
 
 -- Latber SAC — 2 categories (for scoring test)
-('tcat-lat-01', 'tourn-latber-sac-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 20, 'active', NOW(), NOW()), -- Recurve Umum Putra
+('tcat-lat-01', 'tourn-latber-sac-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'active', NOW(), NOW()), -- Recurve Umum Putra
 ('tcat-lat-02', 'tourn-latber-sac-2026', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 20, 'active', NOW(), NOW()); -- Recurve Umum Putri
 
 -- ============================================================

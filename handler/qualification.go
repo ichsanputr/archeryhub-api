@@ -1684,11 +1684,7 @@ func AutoAssignParticipants(db *sqlx.DB) gin.HandlerFunc {
 		for _, fa := range finalAssignments {
 			boardNumber := targetUUIDToBoardNumber[fa.TargetUUID]
 			
-			var targetBoardUUID sql.NullString
-			if uuidVal, ok := boardNumberToBoardUUID[boardNumber]; ok {
-				targetBoardUUID.String = uuidVal
-				targetBoardUUID.Valid = true
-			}
+			targetBoardUUID := getOrCreateTargetBoardQualification(tx, sessionUUID, req.CategoryID, boardNumber)
 
 			assignmentUUID := uuid.New().String()
 			_, err := tx.Exec(`
@@ -1893,9 +1889,7 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			var boardNumber int
 			tx.Get(&boardNumber, "SELECT board_number FROM tournament_targets WHERE uuid = ?", assignment.TargetID)
 
-			var targetBoardUUID sql.NullString
-			tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
-				sessionUUID, req.CategoryID, boardNumber)
+			targetBoardUUID := getOrCreateTargetBoardQualification(tx, sessionUUID, req.CategoryID, boardNumber)
 
 			_, err = tx.Exec(`
 				INSERT INTO qualification_target_assignments 
@@ -2106,9 +2100,7 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var categoryIDB string
 		tx.Get(&categoryIDB, "SELECT ep.category_id FROM tournament_participants ep WHERE ep.uuid = ?", req.ParticipantB)
 
-		var targetBoardUUIDB sql.NullString
-		tx.Get(&targetBoardUUIDB, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
-			sessionUUID, categoryIDB, boardNumberA)
+		targetBoardUUIDB := getOrCreateTargetBoardQualification(tx, sessionUUID, categoryIDB, boardNumberA)
 
 		_, err = tx.Exec("UPDATE qualification_target_assignments SET target_uuid = ?, target_board_id = ? WHERE session_uuid = ? AND participant_uuid = ?",
 			targetA, targetBoardUUIDB, sessionUUID, req.ParticipantB)
@@ -2124,9 +2116,7 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		var categoryID string
 		tx.Get(&categoryID, "SELECT ep.category_id FROM tournament_participants ep WHERE ep.uuid = ?", req.ParticipantA)
 
-		var targetBoardUUIDA sql.NullString
-		tx.Get(&targetBoardUUIDA, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ?",
-			sessionUUID, categoryID, boardNumberB)
+		targetBoardUUIDA := getOrCreateTargetBoardQualification(tx, sessionUUID, categoryID, boardNumberB)
 
 		assignmentUUID := uuid.New().String()
 		_, err = tx.Exec(`
@@ -2315,6 +2305,55 @@ func makeRange(start, end int) []int {
 		result[i] = start + i
 	}
 	return result
+}
+
+func getOrCreateTargetBoardQualification(tx *sqlx.Tx, sessionUUID string, categoryID string, boardNumber int) sql.NullString {
+	var targetBoardUUID sql.NullString
+	if boardNumber <= 0 {
+		return targetBoardUUID
+	}
+
+	_ = tx.Get(&targetBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND category_uuid = ? AND board_number = ? LIMIT 1",
+		sessionUUID, categoryID, boardNumber)
+	if targetBoardUUID.Valid && targetBoardUUID.String != "" {
+		return targetBoardUUID
+	}
+
+	// Try finding by session and board number regardless of category
+	var sessionBoardUUID sql.NullString
+	_ = tx.Get(&sessionBoardUUID, "SELECT uuid FROM target_board_qualification WHERE session_uuid = ? AND board_number = ? LIMIT 1",
+		sessionUUID, boardNumber)
+	if sessionBoardUUID.Valid && sessionBoardUUID.String != "" {
+		return sessionBoardUUID
+	}
+
+	// Suffix for target_board_qualification codes
+	var suffix string
+	_ = tx.Get(&suffix, `
+		SELECT RIGHT(code, 3) 
+		FROM target_board_qualification tbq
+		JOIN qualification_sessions qs ON tbq.session_uuid = qs.uuid
+		WHERE qs.tournament_uuid = (SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ? LIMIT 1) AND CHAR_LENGTH(code) >= 3 LIMIT 1
+	`, sessionUUID)
+
+	if suffix == "" {
+		const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+		b := make([]byte, 3)
+		for j := range b {
+			b[j] = charset[rand.Intn(len(charset))]
+		}
+		suffix = string(b)
+	}
+
+	newUUID := uuid.New().String()
+	code := fmt.Sprintf("%03d%s", boardNumber, suffix)
+	_, err := tx.Exec("INSERT INTO target_board_qualification (uuid, session_uuid, category_uuid, board_number, code) VALUES (?, ?, ?, ?, ?)",
+		newUUID, sessionUUID, categoryID, boardNumber, code)
+	if err == nil {
+		targetBoardUUID.String = newUUID
+		targetBoardUUID.Valid = true
+	}
+	return targetBoardUUID
 }
 
 

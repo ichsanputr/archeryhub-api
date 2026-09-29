@@ -99,7 +99,6 @@ type Event struct {
 	WhatsAppNumber        *string    `json:"whatsapp_number" db:"whatsapp_number"`
 	VenueType             *string    `json:"venue_type" db:"venue_type"`
 	QuotaType             *string    `json:"quota_type" db:"quota_type"`
-	QuotaMaxParticipants *int       `json:"quota_max_participants" db:"quota_max_participants"`
 	QuotaMaxCategories   *int       `json:"quota_max_categories" db:"quota_max_categories"`
 	QuotaMaxScorekeepers *int       `json:"quota_max_scorekeepers" db:"quota_max_scorekeepers"`
 	QuotaMaxMediaMB      *int       `json:"quota_max_media_mb" db:"quota_max_media_mb"`
@@ -237,7 +236,6 @@ type EventEvent struct {
 	EventID             string    `json:"event_id" db:"tournament_id"`
 	DivisionUUID        string    `json:"division_id" db:"division_uuid"`
 	CategoryUUID        string    `json:"category_id" db:"category_uuid"`
-	MaxParticipants     int       `json:"max_participants" db:"max_participants"`
 	TeamSize            int       `json:"team_size" db:"team_size"`
 	QualificationArrows int       `json:"qualification_arrows" db:"qualification_arrows"`
 	EliminationFormat   string    `json:"elimination_format" db:"elimination_format"`

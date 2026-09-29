@@ -240,7 +240,7 @@ type MobileRegistrationItem struct {
 	PaymentStatus    string  `db:"payment_status" json:"payment_status"`
 	PaymentAmount    float64 `db:"payment_amount" json:"payment_amount"`
 	QRRaw            *string `db:"qr_raw" json:"qr_raw"`
-	QRCodeDataURL      *string `json:"qr_code_data_url" db:"-" example:"data:image/png;base64,iVBORw0KGgoAAA..."`
+	QRCodeDataURL    *string `json:"qr_code_data_url" db:"-" example:"data:image/png;base64,iVBORw0KGgoAAA..."`
 	PaymentMethod    *string `db:"payment_method" json:"payment_method"`
 	GatewayReference *string `db:"gateway_reference" json:"gateway_reference"`
 	CheckoutURL      *string `db:"checkout_url" json:"checkout_url"`
@@ -248,6 +248,8 @@ type MobileRegistrationItem struct {
 	VANumber         *string `db:"va_number" json:"va_number"`
 	PayCode          *string `db:"pay_code" json:"pay_code"`
 	QRURL            *string `db:"qr_url" json:"qr_url"`
+	ProofURL         *string `db:"proof_url" json:"payment_proof_url,omitempty"`
+	SenderName       *string `db:"sender_name" json:"sender_name,omitempty"`
 	RegistrationDate string  `db:"registration_date" json:"registration_date"`
 }
 
@@ -508,7 +510,6 @@ type MobileOrganizationProfileData struct {
 	Address               *string                `json:"address" example:"Jl. Stadion Utama No. 1, Jakarta"`
 	City                  *string                `json:"city" example:"Jakarta"`
 	Country               *string                `json:"country" example:"Indonesia"`
-	RegistrationNumber    *string                `json:"registration_number" example:"AHJ-2026-001"`
 	EstablishedDate       *string                `json:"established_date" example:"2020-08-17"`
 	ContactPersonName     *string                `json:"contact_person_name" example:"Budi Santoso"`
 	ContactPersonEmail    *string                `json:"contact_person_email" example:"budi@archeris.net"`
@@ -638,7 +639,6 @@ type MobileUpdateOrganizationProfileRequest struct {
 	Address            *string     `json:"address"`
 	City               *string     `json:"city"`
 	Country            *string     `json:"country"`
-	RegistrationNumber *string     `json:"registration_number"`
 	EstablishedDate    *string     `json:"established_date"`
 	ContactPersonName  *string     `json:"contact_person_name"`
 	ContactPersonEmail *string     `json:"contact_person_email"`

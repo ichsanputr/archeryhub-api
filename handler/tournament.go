@@ -21,6 +21,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// NormalizeRegistrationSource maps various legacy strings to the strict enum: 'self_registration', 'invitation', 'delegation'
+func NormalizeRegistrationSource(src string) string {
+	src = strings.ToLower(strings.TrimSpace(src))
+	switch src {
+	case "invitation", "invited", "admin_created", "organizer_added":
+		return "invitation"
+	case "delegation", "club_delegation":
+		return "delegation"
+	default:
+		return "self_registration"
+	}
+}
+
 // GetEvents returns a list of tournaments
 func GetEvents(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -400,7 +413,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			quotaType = "free"
 		}
 
-		var maxParticipants, maxCategories, maxScorekeepers, maxMediaMB *int
+		var maxCategories, maxScorekeepers, maxMediaMB *int
 		if quotaType == "standard" {
 			var qStandard int
 			err = tx.Get(&qStandard, "SELECT quota_standard FROM organizers WHERE (uuid = ? OR user_id = ?) FOR UPDATE", userID, userID)
@@ -423,8 +436,8 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				})
 				return
 			}
-			mp, mm := 200, 500
-			maxParticipants, maxMediaMB = &mp, &mm
+			mm := 500
+			maxMediaMB = &mm
 			// maxCategories & maxScorekeepers are nil (Unlimited)
 		} else if quotaType == "elite" {
 			var qElite int
@@ -450,7 +463,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			}
 			mm := 5120
 			maxMediaMB = &mm
-			// maxParticipants, maxCategories, maxScorekeepers are nil (Unlimited)
+			// maxCategories & maxScorekeepers are nil (Unlimited)
 		} else {
 			// Free tier (initial 20 welcome bonus)
 			var qFree int
@@ -474,8 +487,8 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				})
 				return
 			}
-			mp, mm := 50, 100
-			maxParticipants, maxMediaMB = &mp, &mm
+			mm := 100
+			maxMediaMB = &mm
 			// maxCategories & maxScorekeepers are nil (Unlimited)
 		}
 
@@ -493,11 +506,11 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 				description, banner_url, logo_url, num_distances, num_sessions, 
 				entry_fee, status, organizer_id, created_at, updated_at,
 				total_prize, technical_guidebook_url, page_settings, faq,
-				quota_type, quota_max_participants, quota_max_categories, quota_max_scorekeepers, quota_max_media_mb,
+				quota_type, quota_max_categories, quota_max_scorekeepers, quota_max_media_mb,
 				visibility
 			) VALUES (
 				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?
+				?, ?, ?, ?, ?, ?
 			)
 		`
 
@@ -519,7 +532,7 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			status, userID, now, now,
 			req.TotalPrize, utils.ExtractFilename(models.FromPtr(req.TechnicalGuidebookURL)), req.PageSettings,
 			models.ToJSON(req.FAQ),
-			quotaType, maxParticipants, maxCategories, maxScorekeepers, maxMediaMB,
+			quotaType, maxCategories, maxScorekeepers, maxMediaMB,
 			visibility,
 		)
 
@@ -535,9 +548,8 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 					catEventID := uuid.New().String()
 					_, err = tx.Exec(`
 						INSERT INTO tournament_categories (
-							uuid, tournament_id, division_uuid, category_uuid, 
-							max_participants
-						) VALUES (?, ?, ?, ?, NULL)
+							uuid, tournament_id, division_uuid, category_uuid
+						) VALUES (?, ?, ?, ?)
 					`, catEventID, eventUUID, divUUID, catUUID)
 					if err != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan kategori event", "details": err.Error()})
@@ -994,7 +1006,6 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 			EventTypeID        string  `db:"event_type_id" json:"event_type_id"`
 			GenderDivisionName string  `db:"gender_division_name" json:"gender_division_name"`
 			GenderDivisionID   string  `db:"gender_division_id" json:"gender_division_id"`
-			MaxParticipants    *int    `db:"max_participants" json:"max_participants"`
 			TeamSize           int     `db:"team_size" json:"team_size"`
 			ParticipantCount   int     `db:"participant_count" json:"participant_count"`
 			TeamCount          int     `db:"team_count" json:"team_count"`
@@ -1032,7 +1043,7 @@ func GetEventEvents(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				te.uuid as id, te.tournament_id as event_id, te.tournament_id,
-				te.max_participants, te.status, te.created_at, te.category_name_custom,
+				te.status, te.created_at, te.category_name_custom,
 				CASE 
 					WHEN et.code = 'mixed_team' THEN 2 
 					WHEN et.code = 'team' THEN 3 
@@ -1258,13 +1269,14 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if genderFilter := c.Query("gender"); genderFilter != "" && genderFilter != "Semua" {
-				if strings.EqualFold(genderFilter, "male") || strings.EqualFold(genderFilter, "men") || strings.EqualFold(genderFilter, "putra") {
-					whereClause += " AND (gd.code = 'men' OR gd.name LIKE '%Putra%' OR gd.name LIKE '%Men%')"
-				} else if strings.EqualFold(genderFilter, "female") || strings.EqualFold(genderFilter, "women") || strings.EqualFold(genderFilter, "putri") {
-					whereClause += " AND (gd.code = 'women' OR gd.name LIKE '%Putri%' OR gd.name LIKE '%Women%')"
+				gLower := strings.ToLower(strings.TrimSpace(genderFilter))
+				if gLower == "male" || gLower == "men" || gLower == "m" || gLower == "putra" || gLower == "laki-laki" {
+					whereClause += " AND (LOWER(a.gender) IN ('male', 'men', 'm', 'putra', 'laki-laki') OR a.gender = 'M' OR gd.code = 'men' OR gd.name LIKE '%Putra%' OR gd.name LIKE '%Men%')"
+				} else if gLower == "female" || gLower == "women" || gLower == "f" || gLower == "putri" || gLower == "perempuan" {
+					whereClause += " AND (LOWER(a.gender) IN ('female', 'women', 'f', 'putri', 'perempuan') OR a.gender = 'F' OR gd.code = 'women' OR gd.name LIKE '%Putri%' OR gd.name LIKE '%Women%')"
 				} else {
-					whereClause += " AND (gd.uuid = ? OR gd.name = ?)"
-					args = append(args, genderFilter, genderFilter)
+					whereClause += " AND (LOWER(a.gender) = ? OR gd.uuid = ? OR gd.name = ?)"
+					args = append(args, gLower, genderFilter, genderFilter)
 				}
 			}
 
@@ -1295,6 +1307,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				ArcherID             string     `db:"archer_id" json:"archer_id"`
 				AthleteCode          *string    `db:"athlete_code" json:"athlete_code"`
 				FullName             string     `db:"full_name" json:"full_name"`
+				Gender               string     `db:"gender" json:"gender"`
 				Email                string     `db:"email" json:"email"`
 				AvatarURL            *string    `db:"avatar_url" json:"avatar_url"`
 				ClubName             *string    `db:"club_name" json:"club_name"`
@@ -1318,6 +1331,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					a.uuid as archer_id,
 					a.id as athlete_code,
 					a.full_name,
+					COALESCE(a.gender, 'male') as gender,
 					COALESCE(a.email, '') as email,
 					a.avatar_url,
 					COALESCE(cl.name, '') as club_name,
@@ -1329,7 +1343,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					COALESCE(et.name, '') as event_type_name,
 					COALESCE(gd.name, '') as gender_division_name,
 					COALESCE(tp.payment_status, 'pending') as payment_status,
-					COALESCE(tp.registration_source, 'self_register') as registration_source,
+					COALESCE(tp.registration_source, 'self_registration') as registration_source,
 					tp.qr_raw,
 					tp.registration_date,
 					tp.last_reregistration_at
@@ -1355,11 +1369,13 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				ArcherID             string                   `json:"archer_id"`
 				AthleteCode          *string                  `json:"athlete_code"`
 				FullName             string                   `json:"full_name"`
+				Gender               string                   `json:"gender"`
 				Email                string                   `json:"email"`
 				AvatarURL            *string                  `json:"avatar_url"`
 				ClubName             *string                  `json:"club_name"`
 				City                 *string                  `json:"city"`
 				PaymentStatus        *string                  `json:"payment_status"`
+				RegistrationDate     *time.Time               `json:"registration_date"`
 				LastReregistrationAt *time.Time               `json:"last_reregistration_at"`
 				CategoryList         []map[string]interface{} `json:"categories"`
 			}
@@ -1379,18 +1395,27 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 						ArcherID:             r.ArcherID,
 						AthleteCode:          r.AthleteCode,
 						FullName:             r.FullName,
+						Gender:               r.Gender,
 						Email:                r.Email,
 						AvatarURL:            avatar,
 						ClubName:             r.ClubName,
 						City:                 r.City,
 						PaymentStatus:        r.PaymentStatus,
+						RegistrationDate:     r.RegistrationDate,
 						LastReregistrationAt: r.LastReregistrationAt,
 						CategoryList:         []map[string]interface{}{},
 					}
 					groupedMap[r.ArcherID] = g
 					orderedKeys = append(orderedKeys, r.ArcherID)
-				} else if r.LastReregistrationAt != nil && g.LastReregistrationAt == nil {
-					g.LastReregistrationAt = r.LastReregistrationAt
+				} else {
+					if r.RegistrationDate != nil {
+						if g.RegistrationDate == nil || r.RegistrationDate.After(*g.RegistrationDate) {
+							g.RegistrationDate = r.RegistrationDate
+						}
+					}
+					if r.LastReregistrationAt != nil && g.LastReregistrationAt == nil {
+						g.LastReregistrationAt = r.LastReregistrationAt
+					}
 				}
 
 				catItem := map[string]interface{}{
@@ -1419,8 +1444,12 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 
-			sortBy := strings.ToLower(c.DefaultQuery("sort_by", "name"))
-			sortDir := strings.ToLower(c.DefaultQuery("order", c.DefaultQuery("sort_dir", "asc")))
+			sortBy := strings.ToLower(c.DefaultQuery("sort_by", "date"))
+			defaultOrder := "desc"
+			if sortBy == "name" || sortBy == "club" {
+				defaultOrder = "asc"
+			}
+			sortDir := strings.ToLower(c.DefaultQuery("order", c.DefaultQuery("sort_dir", defaultOrder)))
 
 			// Sort orderedKeys
 			sort.SliceStable(orderedKeys, func(i, j int) bool {
@@ -1466,8 +1495,38 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 					} else {
 						cmp = 0
 					}
-				default: // "name"
+				case "date", "registration_date", "created_at":
+					var tA, tB int64
+					if a.RegistrationDate != nil {
+						tA = a.RegistrationDate.Unix()
+					}
+					if b.RegistrationDate != nil {
+						tB = b.RegistrationDate.Unix()
+					}
+					if tA < tB {
+						cmp = -1
+					} else if tA > tB {
+						cmp = 1
+					} else {
+						cmp = 0
+					}
+				case "name":
 					cmp = strings.Compare(strings.ToLower(a.FullName), strings.ToLower(b.FullName))
+				default:
+					var tA, tB int64
+					if a.RegistrationDate != nil {
+						tA = a.RegistrationDate.Unix()
+					}
+					if b.RegistrationDate != nil {
+						tB = b.RegistrationDate.Unix()
+					}
+					if tA < tB {
+						cmp = -1
+					} else if tA > tB {
+						cmp = 1
+					} else {
+						cmp = 0
+					}
 				}
 				if cmp == 0 {
 					cmp = strings.Compare(strings.ToLower(a.FullName), strings.ToLower(b.FullName))
@@ -1639,7 +1698,7 @@ func GetEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.tournament_id as event_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_status, tp.registration_date, tp.last_reregistration_at,
-				COALESCE(tp.registration_source, 'self_register') as registration_source,
+				COALESCE(tp.registration_source, 'self_registration') as registration_source,
 				a.id as athlete_code,
 				a.username as username,
 				a.full_name as full_name,
@@ -1822,7 +1881,7 @@ func GetEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			SELECT 
 				tp.uuid as id, tp.archer_id, tp.tournament_id as event_id, tp.tournament_id, tp.category_id, tp.target_name, tp.qr_raw,
 				tp.payment_amount, tp.payment_status,
-				COALESCE(tp.registration_source, 'self_register') as registration_source,
+				COALESCE(tp.registration_source, 'self_registration') as registration_source,
 				tp.registration_date,
 				tp.last_reregistration_at,
 				(tp.last_reregistration_at IS NOT NULL) as reregistered,
@@ -2814,12 +2873,11 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 
 		// Get plan limits from subscription_plans
 		var limits struct {
-			MaxParticipants  *int `db:"max_participants"`
 			MaxCategories    *int `db:"max_categories"`
 			MaxScorekeepers  *int `db:"max_scorekeepers"`
 			MaxMediaMB       *int `db:"max_media_mb"`
 		}
-		db.Get(&limits, "SELECT max_participants, max_categories, max_scorekeepers, max_media_mb FROM subscription_plans WHERE type='quota' AND target_type='organization' AND quota_type=? ORDER BY id DESC LIMIT 1", quotaType)
+		db.Get(&limits, "SELECT max_categories, max_scorekeepers, max_media_mb FROM subscription_plans WHERE type='quota' AND target_type='organization' AND quota_type=? ORDER BY id DESC LIMIT 1", quotaType)
 
 		tx, err := db.Beginx()
 		if err != nil {
@@ -2840,8 +2898,8 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		// Set event quota metadata
-		_, err = tx.Exec("UPDATE tournaments SET quota_type = ?, quota_max_participants = ?, quota_max_categories = ?, quota_max_scorekeepers = ?, quota_max_media_mb = ? WHERE uuid = ?",
-			quotaType, limits.MaxParticipants, limits.MaxCategories, limits.MaxScorekeepers, limits.MaxMediaMB, eventID)
+		_, err = tx.Exec("UPDATE tournaments SET quota_type = ?, quota_max_categories = ?, quota_max_scorekeepers = ?, quota_max_media_mb = ? WHERE uuid = ?",
+			quotaType, limits.MaxCategories, limits.MaxScorekeepers, limits.MaxMediaMB, eventID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui metadata kuota turnamen"})
 			return
@@ -2903,9 +2961,8 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			Status               string     `db:"status"`
 			RegistrationDeadline *time.Time `db:"registration_deadline"`
 			StartDate            *time.Time `db:"start_date"`
-			QuotaMaxParticipants *int       `db:"quota_max_participants"`
 		}
-		err := db.Get(&event, `SELECT uuid, organizer_id, entry_fee, fee_mode, fee_individual, fee_team, fee_mixed_team, status, registration_deadline, start_date, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
+		err := db.Get(&event, `SELECT uuid, organizer_id, entry_fee, fee_mode, fee_individual, fee_team, fee_mixed_team, status, registration_deadline, start_date FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
@@ -2947,19 +3004,6 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check overall event quota
-		if !isPrivileged && event.QuotaMaxParticipants != nil && *event.QuotaMaxParticipants > 0 {
-			var currentTotal int
-			_ = db.Get(&currentTotal, "SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND payment_status != 'cancelled'", event.UUID)
-			if currentTotal >= *event.QuotaMaxParticipants {
-				c.JSON(http.StatusConflict, gin.H{
-					"error": "Kuota keseluruhan turnamen ini telah penuh",
-					"code":  "event_quota_exceeded",
-				})
-				return
-			}
-		}
-
 		// Determine payment status
 		paymentStatus := "pending"
 		if isPrivileged {
@@ -2970,12 +3014,15 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		registrationSource := "self_register"
+		registrationSource := "self_registration"
+		if req.RegistrationMode == "club_delegation" {
+			registrationSource = "delegation"
+		}
 		if isPrivileged {
 			if req.RegistrationSource != "" {
-				registrationSource = req.RegistrationSource
+				registrationSource = NormalizeRegistrationSource(req.RegistrationSource)
 			} else {
-				registrationSource = "organizer_added"
+				registrationSource = "invitation"
 			}
 		}
 
@@ -2990,7 +3037,6 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		type CategoryMeta struct {
 			UUID            string  `db:"uuid"`
 			TournamentID    string  `db:"tournament_id"`
-			MaxParticipants *int    `db:"max_participants"`
 			Fee             float64 `db:"fee"`
 			TypeCode        string  `db:"type_code"`
 			GenderCode      string  `db:"gender_code"`
@@ -3000,7 +3046,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		getCatMeta := func(catUUID string) (*CategoryMeta, error) {
 			var meta CategoryMeta
 			err := tx.Get(&meta, `
-				SELECT tc.uuid, tc.tournament_id, tc.max_participants,
+				SELECT tc.uuid, tc.tournament_id,
 				       COALESCE(tc.fee, 0) as fee,
 				       COALESCE(rtt.code, 'individual') as type_code,
 				       COALESCE(rgd.code, 'mixed') as gender_code,
@@ -3069,26 +3115,18 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 		validateEligibility := func(catMeta *CategoryMeta, archerGender string, archerDOB *time.Time) (string, string) {
 			gender := strings.ToLower(strings.TrimSpace(archerGender))
 			catGender := strings.ToLower(strings.TrimSpace(catMeta.GenderCode))
-			if catGender == "men" && gender != "" && gender != "male" && gender != "men" {
+
+			isMale := gender == "male" || gender == "men" || gender == "m" || gender == "putra" || gender == "laki-laki"
+			isFemale := gender == "female" || gender == "women" || gender == "f" || gender == "putri" || gender == "perempuan"
+
+			if catGender == "men" && gender != "" && !isMale {
 				return "Atlet perempuan tidak dapat mendaftar di kategori putra (Men)", "gender_ineligible"
 			}
-			if catGender == "women" && gender != "" && gender != "female" && gender != "women" {
+			if catGender == "women" && gender != "" && !isFemale {
 				return "Atlet laki-laki tidak dapat mendaftar di kategori putri (Women)", "gender_ineligible"
 			}
 
 			return "", ""
-		}
-
-		checkQuota := func(catMeta *CategoryMeta) bool {
-			if isPrivileged || catMeta.MaxParticipants == nil || *catMeta.MaxParticipants <= 0 {
-				return true
-			}
-			var currentCount int
-			_ = tx.Get(&currentCount, `
-				SELECT COUNT(*) FROM tournament_participants 
-				WHERE category_id = ? AND payment_status != 'cancelled'
-			`, catMeta.UUID)
-			return currentCount < *catMeta.MaxParticipants
 		}
 
 		registrationDate := time.Now()
@@ -3141,14 +3179,6 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 			for _, catID := range allCategoryIDs {
 				catMeta, errCat := getCatMeta(catID)
 				if errCat == nil && catMeta != nil {
-					if !checkQuota(catMeta) {
-						c.JSON(http.StatusConflict, gin.H{
-							"error":       "Kuota untuk kategori ini sudah penuh",
-							"code":        "quota_exceeded",
-							"category_id": catMeta.UUID,
-						})
-						return
-					}
 					errMsg, errCode := validateEligibility(catMeta, captainData.Gender, captainData.DOB)
 					if errMsg != "" {
 						c.JSON(http.StatusBadRequest, gin.H{
@@ -3302,7 +3332,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 									registration_date, payment_status, payment_amount,
 									registration_source
 								) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-							`, memberPartUUID, actualEventID, memberArcherUUID, indivCatID, registrationDate, paymentStatus, memberPartFee, "self_register")
+							`, memberPartUUID, actualEventID, memberArcherUUID, indivCatID, registrationDate, paymentStatus, memberPartFee, "self_registration")
 							if err != nil {
 								c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan anggota tim", "details": err.Error()})
 								return
@@ -3428,14 +3458,6 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 
 					catMeta, errCat := getCatMeta(trimmed)
 					if errCat == nil && catMeta != nil {
-						if !checkQuota(catMeta) {
-							c.JSON(http.StatusConflict, gin.H{
-								"error":       fmt.Sprintf("Kuota untuk kategori pilihan atlet %s sudah penuh", ath.FullName),
-								"code":        "quota_exceeded",
-								"category_id": catMeta.UUID,
-							})
-							return
-						}
 						var athDOB *time.Time
 						if ath.DateOfBirth != "" {
 							if t, err := time.Parse("2006-01-02", strings.TrimSpace(ath.DateOfBirth)); err == nil {
@@ -3474,7 +3496,7 @@ func RegisterParticipant(db *sqlx.DB) gin.HandlerFunc {
 							registration_date, payment_status, payment_amount,
 							registration_source
 						) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					`, partUUID, actualEventID, athArcherUUID, trimmed, registrationDate, paymentStatus, partFee, "invited")
+					`, partUUID, actualEventID, athArcherUUID, trimmed, registrationDate, paymentStatus, partFee, "delegation")
 					if err != nil {
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendaftarkan atlet delegasi", "details": err.Error()})
 						return
@@ -3607,13 +3629,12 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Resolve event
 		var event struct {
-			UUID                 string     `db:"uuid"`
-			OrganizerID          string     `db:"organizer_id"`
-			StartDate            *time.Time `db:"start_date"`
-			QuotaMaxParticipants *int       `db:"quota_max_participants"`
+			UUID        string     `db:"uuid"`
+			OrganizerID string     `db:"organizer_id"`
+			StartDate   *time.Time `db:"start_date"`
 		}
-		if err := db.Get(&event, `SELECT uuid, organizer_id, start_date, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+		if err := db.Get(&event, `SELECT uuid, organizer_id, start_date FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event tidak ditemukan"})
 			return
 		}
 		actualEventID := event.UUID
@@ -3626,7 +3647,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		isPrivileged := userRole == "admin" || userRole == "superadmin" || (userRole == "organizer" && (orgID == nil || fmt.Sprintf("%v", orgID) == event.OrganizerID || event.OrganizerID == ""))
 
 		paymentStatus := "pending"
-		registrationSource := "self_register"
+		registrationSource := "invitation"
 
 		if isPrivileged {
 			if req.PaymentStatus != "" {
@@ -3636,9 +3657,9 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 			}
 
 			if req.RegistrationSource != "" {
-				registrationSource = req.RegistrationSource
+				registrationSource = NormalizeRegistrationSource(req.RegistrationSource)
 			} else {
-				registrationSource = "invited"
+				registrationSource = "invitation"
 			}
 		}
 
@@ -3703,15 +3724,14 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 		// Pre-fetch category metadata for eligibility & quota checking
 		type catMetaRow struct {
-			UUID            string  `db:"uuid"`
-			MaxParticipants *int    `db:"max_participants"`
-			GenderCode      *string `db:"gender_code"`
-			AgeCode         *string `db:"age_code"`
-			CategoryName    string  `db:"category_name"`
+			UUID         string  `db:"uuid"`
+			GenderCode   *string `db:"gender_code"`
+			AgeCode      *string `db:"age_code"`
+			CategoryName string  `db:"category_name"`
 		}
 		var catMetaRows []catMetaRow
 		catQuery, catArgs, catErr := sqlx.In(`
-			SELECT tc.uuid, tc.max_participants,
+			SELECT tc.uuid,
 			       COALESCE(rgd.code, 'mixed') as gender_code,
 			       COALESCE(rag.code, 'umum') as age_code,
 			       COALESCE(tc.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' ', COALESCE(rag.name, ''), ' ', COALESCE(rgd.name, ''))) as category_name
@@ -3728,21 +3748,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		catMap := make(map[string]catMetaRow)
 		for _, cm := range catMetaRows {
 			catMap[cm.UUID] = cm
-		}
-
-		// Pre-fetch current counts for quotas
-		var currentTotalParticipants int
-		_ = db.Get(&currentTotalParticipants, `SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND payment_status != 'cancelled'`, actualEventID)
-
-		type catCountRow struct {
-			CategoryID string `db:"category_id"`
-			Count      int    `db:"c"`
-		}
-		var catCounts []catCountRow
-		_ = db.Select(&catCounts, `SELECT category_id, COUNT(*) as c FROM tournament_participants WHERE tournament_id = ? AND payment_status != 'cancelled' GROUP BY category_id`, actualEventID)
-		catCountMap := make(map[string]int)
-		for _, cc := range catCounts {
-			catCountMap[cc.CategoryID] = cc.Count
 		}
 
 		type RejectedEntry struct {
@@ -3799,34 +3804,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 					continue
 				}
 
-				// 1. Check overall tournament quota
-				if event.QuotaMaxParticipants != nil && *event.QuotaMaxParticipants > 0 {
-					if currentTotalParticipants >= *event.QuotaMaxParticipants {
-						rejectedEntries = append(rejectedEntries, RejectedEntry{
-							ArcherUUID:   archerUUID,
-							ArcherName:   archer.FullName,
-							CategoryID:   catID,
-							CategoryName: catName,
-							Reason:       "Kuota keseluruhan turnamen telah penuh",
-						})
-						continue
-					}
-				}
-
-				// 2. Check category quota
-				if catExists && cat.MaxParticipants != nil && *cat.MaxParticipants > 0 {
-					if catCountMap[catID] >= *cat.MaxParticipants {
-						rejectedEntries = append(rejectedEntries, RejectedEntry{
-							ArcherUUID:   archerUUID,
-							ArcherName:   archer.FullName,
-							CategoryID:   catID,
-							CategoryName: catName,
-							Reason:       fmt.Sprintf("Kuota kategori '%s' telah penuh (maks. %d peserta)", catName, *cat.MaxParticipants),
-						})
-						continue
-					}
-				}
-
 				// 3. Gender eligibility check
 				if catExists && cat.GenderCode != nil {
 					catGender := strings.ToLower(strings.TrimSpace(*cat.GenderCode))
@@ -3834,7 +3811,10 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 					if archer.Gender != nil {
 						archerGender = strings.ToLower(strings.TrimSpace(*archer.Gender))
 					}
-					if catGender == "men" && archerGender != "" && archerGender != "male" && archerGender != "men" {
+					isMale := archerGender == "male" || archerGender == "men" || archerGender == "m" || archerGender == "putra" || archerGender == "laki-laki"
+					isFemale := archerGender == "female" || archerGender == "women" || archerGender == "f" || archerGender == "putri" || archerGender == "perempuan"
+
+					if catGender == "men" && archerGender != "" && !isMale {
 						rejectedEntries = append(rejectedEntries, RejectedEntry{
 							ArcherUUID:   archerUUID,
 							ArcherName:   archer.FullName,
@@ -3844,7 +3824,7 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 						})
 						continue
 					}
-					if catGender == "women" && archerGender != "" && archerGender != "female" && archerGender != "women" {
+					if catGender == "women" && archerGender != "" && !isFemale {
 						rejectedEntries = append(rejectedEntries, RejectedEntry{
 							ArcherUUID:   archerUUID,
 							ArcherName:   archer.FullName,
@@ -3931,8 +3911,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 
 				utils.LogActivity(tx, fmt.Sprintf("%v", userID), actualEventID, "participant_registered", "event_participant", participantUUID, "Batch registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
 				registeredCount++
-				currentTotalParticipants++
-				catCountMap[catID]++
 			}
 		}
 
@@ -4264,7 +4242,7 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 					if catExists {
 						newUUID := uuid.New().String()
 						_, _ = tx.Exec(`INSERT INTO tournament_participants (uuid, tournament_id, archer_id, category_id, registration_date, payment_status, payment_amount, qr_raw, registration_source) 
-						VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, 'admin_created')`,
+						VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, 'invitation')`,
 							newUUID, actualEventID, *archerID, catID,
 							models.FromPtr(req.PaymentStatus), models.FromPtrFloat(req.PaymentAmount), existingQrRaw)
 					}
@@ -4518,7 +4496,6 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 			Categories         []string `json:"categories" binding:"required"`
 			EventTypeUUID      string   `json:"event_type_uuid" binding:"required"`
 			GenderDivisionUUID string   `json:"gender_division_uuid"`
-			MaxParticipants    int      `json:"max_participants"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -4571,10 +4548,9 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 				catEventID := uuid.New().String()
 				_, err = db.Exec(`
 					INSERT INTO tournament_categories (
-						uuid, tournament_id, division_uuid, category_uuid, tournament_type_uuid, gender_division_uuid,
-						max_participants
-					) VALUES (?, ?, ?, ?, ?, ?, ?)
-				`, catEventID, eventID, divUUID, catUUID, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants)
+						uuid, tournament_id, division_uuid, category_uuid, tournament_type_uuid, gender_division_uuid
+					) VALUES (?, ?, ?, ?, ?, ?)
+				`, catEventID, eventID, divUUID, catUUID, req.EventTypeUUID, req.GenderDivisionUUID)
 
 				if err == nil {
 					count++
@@ -4604,8 +4580,6 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			CategoryNameCustom *string `json:"category_name_custom"`
 			EventTypeUUID      string  `json:"event_type_uuid" binding:"required"`
 			GenderDivisionUUID string  `json:"gender_division_uuid"`
-			MaxParticipants    *int    `json:"max_participants"`
-			Status             string  `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -4736,18 +4710,13 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		status := req.Status
-		if status == "" {
-			status = "active"
-		}
-
 		catEventID := uuid.New().String()
 		_, err = db.Exec(`
 			INSERT INTO tournament_categories (
 				uuid, tournament_id, division_uuid, category_uuid, category_name_custom, tournament_type_uuid, gender_division_uuid,
-				max_participants, status
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.CategoryNameCustom, req.EventTypeUUID, req.GenderDivisionUUID, req.MaxParticipants, status)
+				status
+			) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+		`, catEventID, actualEventID, req.DivisionUUID, req.CategoryUUID, req.CategoryNameCustom, req.EventTypeUUID, req.GenderDivisionUUID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category", "details": err.Error()})
@@ -4777,8 +4746,6 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			CategoryNameCustom *string `json:"category_name_custom"`
 			EventTypeUUID      *string `json:"event_type_uuid"`
 			GenderDivisionUUID *string `json:"gender_division_uuid"`
-			MaxParticipants    *int    `json:"max_participants"`
-			Status             *string `json:"status"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -4846,14 +4813,6 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 		if req.GenderDivisionUUID != nil {
 			query += ", gender_division_uuid = ?"
 			args = append(args, *req.GenderDivisionUUID)
-		}
-		if req.MaxParticipants != nil {
-			query += ", max_participants = ?"
-			args = append(args, *req.MaxParticipants)
-		}
-		if req.Status != nil {
-			query += ", status = ?"
-			args = append(args, *req.Status)
 		}
 
 		query += " WHERE uuid = ? AND tournament_id = ?"
@@ -5665,7 +5624,7 @@ func ExportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(cl.name, '') as club_name,
 				'' as city,
 				COALESCE(MAX(tp.payment_status), 'pending') as payment_status,
-				COALESCE(MAX(tp.registration_source), 'self_register') as registration_source,
+				COALESCE(MAX(tp.registration_source), 'self_registration') as registration_source,
 				COALESCE(DATE_FORMAT(MIN(tp.registration_date), '%Y-%m-%d %H:%i:%s'), '') as registration_date,
 				GROUP_CONCAT(DISTINCT COALESCE(tp.target_name, '') ORDER BY tp.target_name SEPARATOR ', ') as target_names,
 				GROUP_CONCAT(
@@ -6286,42 +6245,6 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Check Tournament Level Participant Quota (Anti-Bypass Protection)
-		var tourQuota struct {
-			UUID                  string  `db:"uuid"`
-			QuotaType             *string `db:"quota_type"`
-			QuotaMaxParticipants *int    `db:"quota_max_participants"`
-		}
-		if err := db.Get(&tourQuota, `SELECT uuid, quota_type, quota_max_participants FROM tournaments WHERE uuid = ? OR slug = ?`, eventID, eventID); err == nil {
-			var maxTourParticipants *int = tourQuota.QuotaMaxParticipants
-			if maxTourParticipants == nil && tourQuota.QuotaType != nil {
-				switch strings.ToLower(*tourQuota.QuotaType) {
-				case "free":
-					fifty := 50
-					maxTourParticipants = &fifty
-				case "standard":
-					twoHundred := 200
-					maxTourParticipants = &twoHundred
-				case "elite":
-					maxTourParticipants = nil
-				}
-			}
-
-			if maxTourParticipants != nil && *maxTourParticipants > 0 {
-				var currentUniqueAthletes int
-				_ = db.Get(&currentUniqueAthletes, `SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE tournament_id = ? AND status != 'cancelled'`, tourQuota.UUID)
-
-				remainingQuota := *maxTourParticipants - currentUniqueAthletes
-				if remainingQuota <= 0 {
-					c.JSON(http.StatusForbidden, gin.H{
-						"error": fmt.Sprintf("Batas kapasitas peserta turnamen ini telah mencapai batas paket (%d peserta).", *maxTourParticipants),
-						"code":  "QUOTA_PARTICIPANT_EXCEEDED",
-					})
-					return
-				}
-			}
-		}
-
 		var importedCount int
 		var skippedCount int
 		var errorsList []string
@@ -6344,15 +6267,9 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 
 			email := getValue("email")
 			phone := getValue("phone")
-			gender := strings.ToUpper(getValue("gender"))
-			if gender != "M" && gender != "F" {
-				if strings.HasPrefix(strings.ToLower(gender), "l") || strings.HasPrefix(strings.ToLower(gender), "m") {
-					gender = "M"
-				} else if strings.HasPrefix(strings.ToLower(gender), "p") || strings.HasPrefix(strings.ToLower(gender), "f") {
-					gender = "F"
-				} else {
-					gender = "M"
-				}
+			gender := utils.NormalizeGender(getValue("gender"))
+			if gender == "" {
+				gender = "male"
 			}
 
 			bowType := strings.ToLower(getValue("bow_type"))
@@ -6467,7 +6384,7 @@ func ImportParticipantsCSV(db *sqlx.DB) gin.HandlerFunc {
 
 				_, err = db.Exec(`
 					INSERT INTO tournament_participants (uuid, tournament_id, archer_id, payment_status, payment_amount, registration_source, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, 'organizer_added', NOW(), NOW())
+					VALUES (?, ?, ?, ?, ?, 'invitation', NOW(), NOW())
 				`, participantUUID, eventID, archerID, paymentStatus, amount)
 
 				if err != nil {

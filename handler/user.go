@@ -285,8 +285,9 @@ func UpdateUserProfile(db *sqlx.DB) gin.HandlerFunc {
 			args = append(args, *req.DateOfBirth)
 		}
 		if req.Gender != nil {
+			norm := utils.NormalizeGender(*req.Gender)
 			query += ", gender = ?"
-			args = append(args, *req.Gender)
+			args = append(args, norm)
 		}
 		if req.EmergencyContactName != nil {
 			query += ", emergency_contact_name = ?"

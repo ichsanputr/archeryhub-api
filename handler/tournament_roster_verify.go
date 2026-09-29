@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"Archeris-api/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -156,12 +157,8 @@ func VerifyTournamentRoster(db *sqlx.DB) gin.HandlerFunc {
 			club := strings.TrimSpace(ath.ClubName)
 
 			// Normalize gender
-			gender := strings.ToLower(strings.TrimSpace(ath.Gender))
-			if gender == "m" || gender == "l" || gender == "male" || gender == "men" || gender == "man" || gender == "boy" || gender == "putra" || gender == "laki-laki" || gender == "laki" || gender == "pria" {
-				gender = "male"
-			} else if gender == "f" || gender == "w" || gender == "female" || gender == "women" || gender == "woman" || gender == "girl" || gender == "putri" || gender == "perempuan" || gender == "wanita" || (gender == "p" && !strings.HasPrefix(strings.ToLower(strings.TrimSpace(ath.Gender)), "pri")) {
-				gender = "female"
-			} else {
+			gender := utils.NormalizeGender(ath.Gender)
+			if gender == "" {
 				gender = "male" // default fallback
 			}
 

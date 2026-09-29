@@ -52,11 +52,11 @@ func main() {
 
 	// 3. Categories
 	_, err = db.Exec(`
-		INSERT INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, gender_division_uuid, category_name_custom, max_participants, status) VALUES
-		('cat-soac-recurve-men', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Recurve Men 70m Umum', 64, 'active'),
-		('cat-soac-compound-men', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Compound Men 50m Umum', 64, 'active'),
-		('cat-soac-barebow-men', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Barebow Men 50m Umum', 64, 'active'),
-		('cat-soac-standard-u15', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'd3fc4532-fde0-11f0-87db-c3c8a1ce2650', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Standard Bow 30m U-15', 32, 'active')
+		INSERT INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, gender_division_uuid, category_name_custom, status) VALUES
+		('cat-soac-recurve-men', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Recurve Men 70m Umum', 'active'),
+		('cat-soac-compound-men', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Compound Men 50m Umum', 'active'),
+		('cat-soac-barebow-men', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Barebow Men 50m Umum', 'active'),
+		('cat-soac-standard-u15', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'd3fc4532-fde0-11f0-87db-c3c8a1ce2650', 'f879b964-0929-45d3-9a6a-7d80f3cf708f', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'Standard Bow 30m U-15', 'active')
 		ON DUPLICATE KEY UPDATE division_uuid=VALUES(division_uuid), category_uuid=VALUES(category_uuid), gender_division_uuid=VALUES(gender_division_uuid), category_name_custom=VALUES(category_name_custom);
 	`)
 	if err != nil {

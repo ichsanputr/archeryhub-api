@@ -63,7 +63,7 @@ func main() {
 			uuid, slug, code, name, short_name, venue, location, address, city,
 			start_date, end_date, registration_deadline, description,
 			banner_url, logo_url, type, num_distances, num_sessions, entry_fee, total_prize,
-			status, organizer_id, whatsapp_number, venue_type, location_type, quota_type, quota_max_participants
+			status, organizer_id, whatsapp_number, venue_type, location_type, quota_type
 		) VALUES (
 			't-soac-2026-full',
 			'sleman-open-archery-championship-2026',
@@ -90,8 +90,7 @@ func main() {
 			'081234567890',
 			'outdoor',
 			'stadium',
-			'unlimited',
-			256
+			'unlimited'
 		)
 		ON DUPLICATE KEY UPDATE 
 			name=VALUES(name), 
@@ -105,20 +104,20 @@ func main() {
 
 	// 4. Categories (Individual + Teams + Mixed Teams)
 	_, err = db.Exec(`
-		INSERT INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, gender_division_uuid, tournament_type_uuid, category_name_custom, max_participants, status) VALUES
+		INSERT INTO tournament_categories (uuid, tournament_id, division_uuid, category_uuid, gender_division_uuid, tournament_type_uuid, category_name_custom, status) VALUES
 		-- Individual Categories
-		('cat-soac-rec-men', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Recurve Men 70m Umum', 64, 'active'),
-		('cat-soac-rec-women', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Recurve Women 70m Umum', 64, 'active'),
-		('cat-soac-comp-men', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Compound Men 50m Umum', 64, 'active'),
-		('cat-soac-comp-women', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Compound Women 50m Umum', 64, 'active'),
-		('cat-soac-bare-men', 't-soac-2026-full', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Barebow Men 50m Umum', 64, 'active'),
+		('cat-soac-rec-men', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Recurve Men 70m Umum', 'active'),
+		('cat-soac-rec-women', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Recurve Women 70m Umum', 'active'),
+		('cat-soac-comp-men', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Compound Men 50m Umum', 'active'),
+		('cat-soac-comp-women', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'afbded2f-705c-480f-84d2-6962bcb4b2ef', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Compound Women 50m Umum', 'active'),
+		('cat-soac-bare-men', 't-soac-2026-full', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', 'da2740c8-f7ac-460f-a8c2-46f0c6ec844f', 'Barebow Men 50m Umum', 'active'),
 
 		-- Team Categories
-		('cat-soac-rec-team-men', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '3bfbc4ad-afb2-44b2-a686-8d5fd46e5e2f', 'Recurve Men Team 70m', 16, 'active'),
-		('cat-soac-rec-mixed', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '160f7979-706c-41bb-ba42-111186ad31ab', 'Recurve Mixed Team 70m', 16, 'active'),
-		('cat-soac-comp-team-men', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '3bfbc4ad-afb2-44b2-a686-8d5fd46e5e2f', 'Compound Men Team 50m', 16, 'active'),
-		('cat-soac-comp-mixed', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '160f7979-706c-41bb-ba42-111186ad31ab', 'Compound Mixed Team 50m', 16, 'active'),
-		('cat-soac-bare-team-men', 't-soac-2026-full', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '3bfbc4ad-afb2-44b2-a686-8d5fd46e5e2f', 'Barebow Men Team 50m', 16, 'active')
+		('cat-soac-rec-team-men', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '3bfbc4ad-afb2-44b2-a686-8d5fd46e5e2f', 'Recurve Men Team 70m', 'active'),
+		('cat-soac-rec-mixed', 't-soac-2026-full', '5c95a503-4fd4-465f-9dd3-b08568181792', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '160f7979-706c-41bb-ba42-111186ad31ab', 'Recurve Mixed Team 70m', 'active'),
+		('cat-soac-comp-team-men', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '3bfbc4ad-afb2-44b2-a686-8d5fd46e5e2f', 'Compound Men Team 50m', 'active'),
+		('cat-soac-comp-mixed', 't-soac-2026-full', '349a5218-fed0-4305-ab16-e636501bb5df', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '160f7979-706c-41bb-ba42-111186ad31ab', 'Compound Mixed Team 50m', 'active'),
+		('cat-soac-bare-team-men', 't-soac-2026-full', '94bf104d-8ef2-4dd0-a1b1-2d82b46a1bdc', 'f235b870-724b-44ac-8683-b665df0c0548', 'd60f4939-4d88-4ded-bf4d-6d8cff4de5ae', '3bfbc4ad-afb2-44b2-a686-8d5fd46e5e2f', 'Barebow Men Team 50m', 'active')
 		ON DUPLICATE KEY UPDATE 
 			category_name_custom=VALUES(category_name_custom),
 			tournament_type_uuid=VALUES(tournament_type_uuid),

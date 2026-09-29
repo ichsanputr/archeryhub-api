@@ -113,7 +113,6 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 			Address               *string `db:"address"`
 			City                  *string `db:"city"`
 			Country               *string `db:"country"`
-			RegistrationNumber    *string `db:"registration_number"`
 			EstablishedDate       *string `db:"established_date"`
 			ContactPersonName     *string `db:"contact_person_name"`
 			ContactPersonEmail    *string `db:"contact_person_email"`
@@ -137,7 +136,7 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 		err := db.Get(&org, `
 			SELECT uuid, slug, name, acronym, description, website, email, whatsapp_no,
 			       avatar_url, banner_url, address, city, country,
-			       registration_number, established_date, contact_person_name,
+			       established_date, contact_person_name,
 			       contact_person_email, contact_person_phone,
 			       social_facebook, social_instagram, social_twitter, social_media,
 			       status, created_at, updated_at,
@@ -178,7 +177,6 @@ func MobileGetOrganizationMe(db *sqlx.DB) gin.HandlerFunc {
 				Address:               org.Address,
 				City:                  org.City,
 				Country:               org.Country,
-				RegistrationNumber:    org.RegistrationNumber,
 				EstablishedDate:       org.EstablishedDate,
 				ContactPersonName:     org.ContactPersonName,
 				ContactPersonEmail:    org.ContactPersonEmail,

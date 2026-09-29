@@ -155,7 +155,7 @@ func GetOrganizationParticipantsReport(db *sqlx.DB) gin.HandlerFunc {
 		// 5. registration source split
 		sourceSplit := make([]splitcount, 0)
 		_ = db.Select(&sourceSplit, fmt.Sprintf(`
-			SELECT COALESCE(ep.registration_source, 'self_register') as label, COUNT(*) as count
+			SELECT COALESCE(ep.registration_source, 'self_registration') as label, COUNT(*) as count
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
@@ -445,8 +445,8 @@ func GetOrganizationPerformanceReport(db *sqlx.DB) gin.HandlerFunc {
 		_ = db.Select(&list, fmt.Sprintf(`
 			SELECT 
 				e.uuid, e.name, e.status, e.start_date, e.end_date,
-				(SELECT COUNT(*) FROM tournament_categories ec WHERE ec.tournament_id = e.uuid AND ec.status = 'active') as total_categories,
-				COALESCE((SELECT SUM(ec.max_participants) FROM tournament_categories ec WHERE ec.tournament_id = e.uuid AND ec.status = 'active'), 0) as total_capacity,
+				(SELECT COUNT(*) FROM tournament_categories ec WHERE ec.tournament_id = e.uuid) as total_categories,
+				0 as total_capacity,
 				(SELECT COUNT(*) FROM tournament_participants ep WHERE ep.tournament_id = e.uuid) as total_participants
 			FROM tournaments e
 			WHERE %s
