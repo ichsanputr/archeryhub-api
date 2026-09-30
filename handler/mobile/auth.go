@@ -216,8 +216,6 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogScorekeeperAction(db, sk.UUID, sk.OrganizationUUID, "", "mobile_login", "Logged in via mobile app", c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, MobileLoginResponse{
 			Token:     token,
 			IsNewUser: false,

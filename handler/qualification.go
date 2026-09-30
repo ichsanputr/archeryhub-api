@@ -2,7 +2,6 @@ package handler
 
 import (
 	"Archeris-api/models"
-	"Archeris-api/utils"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -630,19 +629,6 @@ func UpdateQualificationScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-			details, _ := json.Marshal(raw)
-
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ?", sessionUUID, sessionUUID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_qualification_score", string(details), c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, gin.H{"message": "Scores updated successfully"})
 	}
 }
@@ -1098,11 +1084,44 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		userEmailVal, _ := c.Get("email")
 		userEmail := fmt.Sprintf("%v", userEmailVal)
 
-		// Get archer UUID for this user (if any)
-		var archerID string
-		_ = db.Get(&archerID, `SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?) LIMIT 1`, userIDStr, userIDStr, userEmail)
-		if archerID == "" {
-			archerID = userIDStr
+		// Resolve actual event UUID
+		var eventUUID string
+		_ = db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1`, eventID, eventID)
+		if eventUUID == "" {
+			eventUUID = eventID
+		}
+
+		// Collect all possible archer identifiers
+		archerIDSet := make(map[string]bool)
+		archerIDSet[userIDStr] = true
+
+		var archerIDs []string
+		_ = db.Select(&archerIDs, `
+			SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?)
+		`, userIDStr, userIDStr, userEmail)
+		for _, aid := range archerIDs {
+			if aid != "" {
+				archerIDSet[aid] = true
+			}
+		}
+
+		var idList []string
+		for id := range archerIDSet {
+			idList = append(idList, id)
+		}
+
+		// Find all participant UUIDs for this archer in this tournament
+		var participantUUIDs []string
+		queryParts, args, errIn := sqlx.In(`
+			SELECT tp.uuid 
+			FROM tournament_participants tp
+			WHERE (tp.tournament_id = ? OR tp.tournament_id = ? OR tp.tournament_id IN (SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?))
+			  AND tp.payment_status NOT IN ('cancelled', 'canceled', 'expired', 'failed')
+			  AND (tp.archer_id IN (?) OR tp.uuid = ?)
+		`, eventUUID, eventID, eventUUID, eventID, idList, userIDStr)
+		if errIn == nil {
+			queryParts = db.Rebind(queryParts)
+			_ = db.Select(&participantUUIDs, queryParts, args...)
 		}
 
 		type SessionTarget struct {
@@ -1118,69 +1137,60 @@ func GetMyEventTarget(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var targets []SessionTarget
-		query := `
-			SELECT
-				qs.uuid        AS session_id,
-				qs.name        AS session_name,
-				COALESCE(qs.session_code, 'S1') AS session_order,
-				DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
-				DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
-				COALESCE(NULLIF(et.target_name, ''), NULLIF(ep.target_name, ''), '') AS target_name,
-				COALESCE(REGEXP_SUBSTR(et.target_name, '[A-Za-z]+$'), NULLIF(ep.back_number, ''), '') AS target_board,
-				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
-				qta.uuid AS assignment_id
-			FROM qualification_target_assignments qta
-			JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
-			JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
-			JOIN tournaments e ON (e.uuid = ep.tournament_id OR e.slug = ep.tournament_id)
-			LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
-			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
-			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
-			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-			WHERE (e.uuid = ? OR e.slug = ?)
-			  AND ep.payment_status NOT IN ('cancelled', 'canceled', 'expired', 'failed')
-			  AND (
-					ep.archer_id = ? 
-					OR ep.archer_id = ?
-					OR ep.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
-					OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
-					OR ep.uuid = ?
-			  )
-			ORDER BY qs.start_time ASC
-		`
-		err := db.Select(&targets, query, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr)
-		if err != nil || len(targets) == 0 {
-			// Fallback: check if participant has direct target_name assigned
-			fallbackQuery := `
+
+		if len(participantUUIDs) > 0 {
+			queryQTA, argsQTA, errQ := sqlx.In(`
 				SELECT
-					COALESCE(qs.uuid, ep.uuid) AS session_id,
+					qs.uuid        AS session_id,
 					COALESCE(qs.name, 'Sesi Kualifikasi') AS session_name,
 					COALESCE(qs.session_code, 'S1') AS session_order,
 					DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
 					DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
-					ep.target_name AS target_name,
-					COALESCE(NULLIF(ep.back_number, ''), '') AS target_board,
+					COALESCE(NULLIF(et.target_name, ''), NULLIF(ep.target_name, ''), '') AS target_name,
+					COALESCE(REGEXP_SUBSTR(et.target_name, '[A-Za-z]+$'), NULLIF(ep.back_number, ''), '') AS target_board,
 					COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
-					ep.uuid AS assignment_id
-				FROM tournament_participants ep
-				JOIN tournaments e ON (e.uuid = ep.tournament_id OR e.slug = ep.tournament_id)
-				LEFT JOIN qualification_sessions qs ON qs.tournament_uuid = e.uuid
+					qta.uuid AS assignment_id
+				FROM qualification_target_assignments qta
+				JOIN qualification_sessions qs ON qta.session_uuid = qs.uuid
+				JOIN tournament_participants ep ON qta.participant_uuid = ep.uuid
+				LEFT JOIN tournament_targets et ON qta.target_uuid = et.uuid
 				LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 				LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
 				LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
-				WHERE (e.uuid = ? OR e.slug = ?)
-				  AND ep.payment_status NOT IN ('cancelled', 'canceled', 'expired', 'failed')
-				  AND ep.target_name IS NOT NULL AND ep.target_name != ''
-				  AND (
-						ep.archer_id = ? 
-						OR ep.archer_id = ?
-						OR ep.archer_id IN (SELECT uuid FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
-						OR ep.archer_id IN (SELECT id FROM archers WHERE uuid = ? OR id = ? OR (email != '' AND email = ?))
-						OR ep.uuid = ?
-				  )
-				LIMIT 1
-			`
-			_ = db.Select(&targets, fallbackQuery, eventID, eventID, archerID, userIDStr, userIDStr, userIDStr, userEmail, userIDStr, userIDStr, userEmail, userIDStr)
+				WHERE qta.participant_uuid IN (?)
+				ORDER BY qs.start_time ASC, et.board_number ASC
+			`, participantUUIDs)
+			if errQ == nil {
+				queryQTA = db.Rebind(queryQTA)
+				_ = db.Select(&targets, queryQTA, argsQTA...)
+			}
+
+			// Fallback if no target assignments in qta but target_name exists in tournament_participants
+			if len(targets) == 0 {
+				queryFB, argsFB, errFB := sqlx.In(`
+					SELECT
+						COALESCE(qs.uuid, ep.uuid) AS session_id,
+						COALESCE(qs.name, 'Sesi Kualifikasi') AS session_name,
+						COALESCE(qs.session_code, 'S1') AS session_order,
+						DATE_FORMAT(qs.start_time, '%H:%i') AS start_time,
+						DATE_FORMAT(qs.end_time, '%H:%i') AS end_time,
+						ep.target_name AS target_name,
+						COALESCE(NULLIF(ep.back_number, ''), '') AS target_board,
+						COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name, ''), ' - ', COALESCE(rag.name, ''))) AS category_name,
+						ep.uuid AS assignment_id
+					FROM tournament_participants ep
+					LEFT JOIN qualification_sessions qs ON (qs.tournament_uuid = ep.tournament_id OR qs.tournament_uuid = ?)
+					LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
+					LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+					LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+					WHERE ep.uuid IN (?)
+					  AND ep.target_name IS NOT NULL AND ep.target_name != ''
+				`, eventUUID, participantUUIDs)
+				if errFB == nil {
+					queryFB = db.Rebind(queryFB)
+					_ = db.Select(&targets, queryFB, argsFB...)
+				}
+			}
 		}
 
 		if targets == nil {
@@ -1924,18 +1934,6 @@ func CreateBulkTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT tournament_uuid FROM qualification_sessions WHERE uuid = ?", sessionUUID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "auto_assign_participants", "Auto-assigned participants in session: "+sessionID, c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, gin.H{
 			"message":       "Assignments created successfully",
 			"success_count": successCount,
@@ -1949,17 +1947,12 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
 
-		var sessionInfo struct {
-			UUID           string `db:"uuid"`
-			TournamentUUID string `db:"tournament_uuid"`
-		}
-		err := db.Get(&sessionInfo, `SELECT uuid, tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
+		var sessionUUID string
+		err := db.Get(&sessionUUID, `SELECT uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
 			return
 		}
-		sessionUUID := sessionInfo.UUID
-		eventUUID := sessionInfo.TournamentUUID
 
 		var req struct {
 			CategoryID string `json:"category_id" binding:"required"`
@@ -2011,15 +2004,6 @@ func ResetSessionAssignments(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_session_assignments", "Resetting assignments for session: "+sessionUUID, c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, gin.H{
 			"message":        "Assignments reset successfully",
 			"reset_count":    rowsAffected,
@@ -2033,17 +2017,12 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sessionID := c.Param("sessionId")
 
-		var sessionInfo struct {
-			UUID           string `db:"uuid"`
-			TournamentUUID string `db:"tournament_uuid"`
-		}
-		err := db.Get(&sessionInfo, `SELECT uuid, tournament_uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
+		var sessionUUID string
+		err := db.Get(&sessionUUID, `SELECT uuid FROM qualification_sessions WHERE uuid = ? OR session_code = ? LIMIT 1`, sessionID, sessionID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
 			return
 		}
-		sessionUUID := sessionInfo.UUID
-		eventUUID := sessionInfo.TournamentUUID
 
 		var req struct {
 			ParticipantA string `json:"participant_a" binding:"required"`
@@ -2131,15 +2110,6 @@ func SwapTargetAssignments(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
-		}
-
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "swap_assignments", "Swapped targets in session: "+sessionUUID, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Targets swapped successfully"})

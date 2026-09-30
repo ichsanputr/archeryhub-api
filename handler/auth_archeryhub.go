@@ -528,10 +528,6 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Set Cookie using helper
 		setAuthCookie(c, token, 60*60*24*60) // 60 days
 
-		if user.Type == "scorekeeper" {
-			utils.LogScorekeeperAction(db, user.UUID, user.OrgUUID, "", "web_login", "Logged in via web", c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, AuthResponse{
 			Token: token,
 			User: gin.H{

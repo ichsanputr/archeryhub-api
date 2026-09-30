@@ -331,8 +331,7 @@ func RootDeleteTournament(db *sqlx.DB) gin.HandlerFunc {
 		_, _ = tx.Exec(`DELETE FROM tournament_schedule_items WHERE tournament_id = ?`, actualID)
 		_, _ = tx.Exec(`DELETE FROM tournament_schedules WHERE tournament_id = ?`, actualID)
 
-		// 18. Scorekeeper logs, reset codes
-		_, _ = tx.Exec(`DELETE FROM scorekeeper_logs WHERE tournament_uuid = ?`, actualID)
+		// 18. Reset codes
 		_, _ = tx.Exec(`DELETE FROM event_reset_codes WHERE event_id = ?`, actualID)
 
 		// 19. Payment transactions associated with this tournament or participant registrations

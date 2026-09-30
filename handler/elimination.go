@@ -3,8 +3,8 @@ package handler
 import (
 	"Archeris-api/models"
 	"Archeris-api/utils"
+	"bytes"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -1456,8 +1456,8 @@ func UpdateMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		updated := 0
 		for _, assignment := range req.Assignments {
 			if assignment.MatchID != "" {
-				// Update by Match UUID or Human-Readable Match ID
-				res, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, updated_at = NOW() WHERE (uuid = ? OR match_id = ?) AND bracket_uuid = ?`,
+				// Update by Match UUID or Human-Readable Match ID (only if not finished)
+				res, err := tx.Exec(`UPDATE elimination_matches SET target_uuid = ?, updated_at = NOW() WHERE (uuid = ? OR match_id = ?) AND bracket_uuid = ? AND status != 'finished'`,
 					assignment.TargetID, assignment.MatchID, assignment.MatchID, bracket.UUID)
 				if err != nil {
 					logrus.WithError(err).WithField("match_id", assignment.MatchID).Error("Failed to update match target")
@@ -1504,6 +1504,7 @@ func GetBracketTeamMembers(db *sqlx.DB) gin.HandlerFunc {
 
 		type MemberRow struct {
 			EntryUUID   string  `db:"entry_uuid"`
+			TeamUUID    string  `db:"team_uuid"`
 			FullName    string  `db:"full_name"`
 			AvatarURL   *string `db:"avatar_url"`
 			MemberOrder int     `db:"member_order"`
@@ -1512,6 +1513,7 @@ func GetBracketTeamMembers(db *sqlx.DB) gin.HandlerFunc {
 		db.Select(&rows, `
 			SELECT
 				ee.uuid as entry_uuid,
+				t.uuid as team_uuid,
 				COALESCE(a.full_name, '') as full_name,
 				a.avatar_url,
 				tm.member_order
@@ -1536,6 +1538,9 @@ func GetBracketTeamMembers(db *sqlx.DB) gin.HandlerFunc {
 				member["avatar_url"] = masked
 			}
 			result[row.EntryUUID] = append(result[row.EntryUUID], member)
+			if row.TeamUUID != "" && row.TeamUUID != row.EntryUUID {
+				result[row.TeamUUID] = append(result[row.TeamUUID], member)
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"members": result})
@@ -1569,7 +1574,7 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get active matches in this round that are not BYEs
+		// Get active matches in this round that are not BYEs and not finished
 		type MatchInfo struct {
 			UUID    string `db:"uuid"`
 			MatchNo int    `db:"match_no"`
@@ -1578,7 +1583,7 @@ func AutoAssignMatchTargets(db *sqlx.DB) gin.HandlerFunc {
 		err = db.Select(&matches, `
 			SELECT uuid, match_no 
 			FROM elimination_matches 
-			WHERE bracket_uuid = ? AND round_no = ? AND is_bye = 0 
+			WHERE bracket_uuid = ? AND round_no = ? AND is_bye = 0 AND status != 'finished'
 			ORDER BY match_no ASC`,
 			bracket.UUID, roundNo)
 
@@ -1746,11 +1751,125 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			arrowsPerEnd = 3
 		}
 
-		// Map to participant objects for frontend legacy compatibility
+		// Map to participant objects with rich team and club details
+		type TeamMemberInfo struct {
+			Name   string `json:"name"`
+			Gender string `json:"gender,omitempty"`
+			Avatar string `json:"avatar,omitempty"`
+		}
+
 		type Participant struct {
-			EntryUUID string `json:"entry_id"`
-			Name      string `json:"name"`
-			Seed      int    `json:"seed"`
+			EntryUUID string           `json:"entry_id"`
+			Name      string           `json:"name"`
+			Seed      int              `json:"seed"`
+			Club      string           `json:"club"`
+			Avatar    string           `json:"avatar"`
+			IsTeam    bool             `json:"is_team"`
+			Members   []TeamMemberInfo `json:"members,omitempty"`
+		}
+
+		getParticipantInfo := func(entryUUID string, fallbackName string, seed int) *Participant {
+			p := &Participant{
+				EntryUUID: entryUUID,
+				Name:      fallbackName,
+				Seed:      seed,
+				Club:      "",
+				Avatar:    "",
+				IsTeam:    false,
+				Members:   []TeamMemberInfo{},
+			}
+
+			// 1. Check if this entry is a team
+			var teamData struct {
+				TeamUUID string `db:"team_uuid"`
+				TeamName string `db:"team_name"`
+			}
+			err := db.Unsafe().Get(&teamData, `
+				SELECT t.uuid as team_uuid, t.team_name
+				FROM elimination_entries ee
+				JOIN teams t ON ee.participant_uuid = t.uuid
+				WHERE ee.uuid = ?
+			`, entryUUID)
+
+			if err == nil && teamData.TeamUUID != "" {
+				p.IsTeam = true
+				if teamData.TeamName != "" {
+					p.Name = teamData.TeamName
+				}
+
+				// Fetch team members
+				var members []struct {
+					FullName  string  `db:"full_name"`
+					AvatarURL *string `db:"avatar_url"`
+					Gender    *string `db:"gender"`
+					ClubName  *string `db:"club_name"`
+				}
+				_ = db.Unsafe().Select(&members, `
+					SELECT 
+						COALESCE(a.full_name, '') as full_name,
+						a.avatar_url,
+						COALESCE(a.gender, '') as gender,
+						COALESCE(c.name, '') as club_name
+					FROM team_members tm
+					JOIN tournament_participants tp ON tm.participant_id = tp.uuid
+					JOIN archers a ON tp.archer_id = a.uuid
+					LEFT JOIN clubs c ON a.club_id = c.uuid
+					WHERE tm.team_id = ?
+					ORDER BY tm.member_order ASC
+				`, teamData.TeamUUID)
+
+				for _, m := range members {
+					av := ""
+					if m.AvatarURL != nil {
+						av = *m.AvatarURL
+					}
+					g := ""
+					if m.Gender != nil {
+						g = *m.Gender
+					}
+					p.Members = append(p.Members, TeamMemberInfo{
+						Name:   m.FullName,
+						Avatar: av,
+						Gender: g,
+					})
+					if p.Club == "" && m.ClubName != nil && *m.ClubName != "" {
+						p.Club = *m.ClubName
+					}
+					if p.Avatar == "" && av != "" {
+						p.Avatar = av
+					}
+				}
+			} else {
+				// 2. Individual participant
+				var indivData struct {
+					FullName  string  `db:"full_name"`
+					AvatarURL *string `db:"avatar_url"`
+					ClubName  *string `db:"club_name"`
+				}
+				_ = db.Unsafe().Get(&indivData, `
+					SELECT 
+						COALESCE(a.full_name, '') as full_name,
+						a.avatar_url,
+						COALESCE(c.name, '') as club_name
+					FROM elimination_entries ee
+					JOIN tournament_participants tp ON ee.participant_uuid = tp.uuid
+					JOIN archers a ON tp.archer_id = a.uuid
+					LEFT JOIN clubs c ON a.club_id = c.uuid
+					WHERE ee.uuid = ?
+				`, entryUUID)
+
+				if indivData.FullName != "" {
+					p.Name = indivData.FullName
+				}
+				if indivData.AvatarURL != nil {
+					p.Avatar = *indivData.AvatarURL
+				}
+				if indivData.ClubName != nil {
+					p.Club = *indivData.ClubName
+				}
+			}
+
+			return p
 		}
 
 		var participantA, participantB *Participant
@@ -1763,11 +1882,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			if match.EntryASeed != nil {
 				seed = *match.EntryASeed
 			}
-			participantA = &Participant{
-				EntryUUID: *match.EntryAUUID,
-				Name:      name,
-				Seed:      seed,
-			}
+			participantA = getParticipantInfo(*match.EntryAUUID, name, seed)
 		}
 		if match.EntryBUUID != nil {
 			name := "TBD"
@@ -1778,11 +1893,7 @@ func GetMatch(db *sqlx.DB) gin.HandlerFunc {
 			if match.EntryBSeed != nil {
 				seed = *match.EntryBSeed
 			}
-			participantB = &Participant{
-				EntryUUID: *match.EntryBUUID,
-				Name:      name,
-				Seed:      seed,
-			}
+			participantB = getParticipantInfo(*match.EntryBUUID, name, seed)
 		}
 
 		// Get scoring ends
@@ -2213,19 +2324,6 @@ func UpdateMatchScore(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-			details, _ := json.Marshal(req)
-
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "update_match_score", string(details), c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, gin.H{"message": "Skor berhasil diperbarui"})
 	}
 }
@@ -2379,19 +2477,6 @@ func FinishMatch(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
-		}
-
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-			details, _ := json.Marshal(req)
-
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "finish_match", string(details), c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -2768,18 +2853,6 @@ func EndMatch(db *sqlx.DB) gin.HandlerFunc {
 			WHERE ee.uuid = ?`, winnerID)
 
 		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-			details, _ := json.Marshal(req)
-
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "end_match", string(details), c.ClientIP(), c.Request.UserAgent())
-		}
-
 		respScoreA := totalScoreA
 		respScoreB := totalScoreB
 		if match.Format == "recurve_set" {
@@ -2928,18 +3001,6 @@ func ResetMatch(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
-		}
-
-		// Log for scorekeeper audit
-		userTypeContext, _ := c.Get("user_type")
-		if userTypeContext == "scorekeeper" {
-			userID, _ := c.Get("user_id")
-			orgID, _ := c.Get("org_id")
-
-			var eventUUID string
-			_ = db.Get(&eventUUID, "SELECT eb.tournament_uuid FROM elimination_matches em JOIN elimination_brackets eb ON em.bracket_uuid = eb.uuid WHERE em.uuid = ?", matchID)
-
-			utils.LogScorekeeperAction(db, userID.(string), orgID.(string), eventUUID, "reset_match", "Match reset to in_progress", c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -3307,7 +3368,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 
 			// 2. Round & Match Info Ribbon
 			roundName := getPrintElimRoundLabel(bracket.BracketSize, m.RoundNo, m.MatchNo)
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(248, 249, 250)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
 			pdf.SetLineWidth(0.2)
@@ -3330,9 +3391,9 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			infoText := fmt.Sprintf(" %s - %s | %s%s", catName, roundName, targetInfo, schedInfo)
 			pdf.CellFormat(190, 5.5, infoText, "1", 1, "L", true, 0, "")
 
-			// 3. Archer A Card (Left) & Archer B Card (Right)
-			cardW := 92.0
-			cardH := 18.0
+			// 3. Archer A Card (Left), Center QR Code, Archer B Card (Right)
+			cardW := 85.0
+			cardH := 19.0
 			yCards := y + 17.0
 
 			// Archer A Box
@@ -3343,7 +3404,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			if m.SeedA.Valid && m.SeedA.Int64 > 0 {
 				seedATxt = fmt.Sprintf("#%d", m.SeedA.Int64)
 			}
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(245, 245, 245)
 			pdf.Rect(11.5, yCards+1.5, 9, 4.5, "FD")
 			pdf.SetFont("Arial", "B", 7)
 			pdf.SetXY(11.5, yCards+1.5)
@@ -3355,7 +3416,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			if blankMode || nameA == "" {
 				nameA = "ARCHER A: ...................................."
 			}
-			pdf.CellFormat(78, 4.5, nameA, "", 1, "L", false, 0, "")
+			pdf.CellFormat(71, 4.5, nameA, "", 1, "L", false, 0, "")
 
 			pdf.SetTextColor(60, 60, 60)
 			pdf.SetFont("Arial", "", 6.8)
@@ -3365,25 +3426,57 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 				clubAName = "-"
 			}
 			nocA := generateNocCode(clubAName)
-			pdf.CellFormat(88, 3.2, fmt.Sprintf("Club / Contingent: [%s] %s", nocA, clubAName), "", 1, "L", false, 0, "")
+			pdf.CellFormat(81, 3.2, fmt.Sprintf("Club / Contingent: [%s] %s", nocA, clubAName), "", 1, "L", false, 0, "")
 
 			if m.BoardCode.Valid && m.BoardCode.String != "" && !blankMode {
 				pdf.SetFont("Arial", "B", 6.5)
 				pdf.SetXY(12, yCards+10.5)
-				pdf.CellFormat(88, 3.2, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
+				pdf.CellFormat(81, 3.2, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
+			}
+
+			// Center Match QR Code Box (IanSeo Standard)
+			qrX := 97.0
+			qrY := yCards
+			qrW := 16.0
+			qrH := 19.0
+			pdf.SetFillColor(255, 255, 255)
+			pdf.SetDrawColor(160, 160, 160)
+			pdf.SetLineWidth(0.18)
+			pdf.Rect(qrX, qrY, qrW, qrH, "FD")
+
+			boardCodeVal := m.BoardCode.String
+			if boardCodeVal == "" {
+				boardCodeVal = fmt.Sprintf("%s-M%d", bracket.BracketID, m.MatchNo)
+			}
+
+			if !blankMode && boardCodeVal != "" {
+				qrPng, err := utils.GenerateQRCode(boardCodeVal, 256)
+				if err == nil && len(qrPng) > 0 {
+					imgName := fmt.Sprintf("qr_elim_%s_%s_%s", m.MatchUUID, copyBadge, boardCodeVal)
+					opt := gofpdf.ImageOptions{ImageType: "PNG", ReadDpi: true}
+					pdf.RegisterImageOptionsReader(imgName, opt, bytes.NewReader(qrPng))
+					pdf.ImageOptions(imgName, qrX+1.5, qrY+1.0, 13.0, 13.0, false, opt, 0, "")
+
+					pdf.SetFont("Arial", "B", 5.5)
+					pdf.SetTextColor(50, 50, 50)
+					pdf.SetXY(qrX, qrY+14.5)
+					pdf.CellFormat(qrW, 3.5, boardCodeVal, "0", 0, "C", false, 0, "")
+				}
 			}
 
 			// Archer B Box
-			xCardB := 108.0
+			xCardB := 115.0
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetXY(xCardB, yCards)
+			pdf.SetDrawColor(0, 0, 0)
+			pdf.SetLineWidth(0.2)
 			pdf.Rect(xCardB, yCards, cardW, cardH, "D")
 
 			seedBTxt := "-"
 			if m.SeedB.Valid && m.SeedB.Int64 > 0 {
 				seedBTxt = fmt.Sprintf("#%d", m.SeedB.Int64)
 			}
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(245, 245, 245)
 			pdf.Rect(xCardB+1.5, yCards+1.5, 9, 4.5, "FD")
 			pdf.SetFont("Arial", "B", 7)
 			pdf.SetXY(xCardB+1.5, yCards+1.5)
@@ -3395,7 +3488,7 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			if blankMode || nameB == "" {
 				nameB = "ARCHER B: ...................................."
 			}
-			pdf.CellFormat(78, 4.5, nameB, "", 1, "L", false, 0, "")
+			pdf.CellFormat(71, 4.5, nameB, "", 1, "L", false, 0, "")
 
 			pdf.SetTextColor(60, 60, 60)
 			pdf.SetFont("Arial", "", 6.8)
@@ -3405,19 +3498,19 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 				clubBName = "-"
 			}
 			nocB := generateNocCode(clubBName)
-			pdf.CellFormat(88, 3.2, fmt.Sprintf("Club / Contingent: [%s] %s", nocB, clubBName), "", 1, "L", false, 0, "")
+			pdf.CellFormat(81, 3.2, fmt.Sprintf("Club / Contingent: [%s] %s", nocB, clubBName), "", 1, "L", false, 0, "")
 
 			if m.BoardCode.Valid && m.BoardCode.String != "" && !blankMode {
 				pdf.SetFont("Arial", "B", 6.5)
 				pdf.SetXY(xCardB+2, yCards+10.5)
-				pdf.CellFormat(88, 3.2, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
+				pdf.CellFormat(81, 3.2, fmt.Sprintf("Board Code: %s", m.BoardCode.String), "", 1, "L", false, 0, "")
 			}
 
 			// 4. Scoresheet Table (World Archery / IanSeo Standard)
 			yTable := yCards + cardH + 2.5
 			pdf.SetY(yTable)
 			pdf.SetX(10)
-			pdf.SetFillColor(232, 232, 232)
+			pdf.SetFillColor(245, 245, 245)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
 			pdf.SetLineWidth(0.2)
@@ -3457,29 +3550,33 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			pdf.CellFormat(arrowColW, 4.2, "3", "1", 0, "C", true, 0, "")
 			pdf.CellFormat(wEnd, 4.2, "Set", "1", 1, "C", true, 0, "")
 
-			// Sets / Ends Rows
+			// Sets / Ends Rows (Clean white data cells)
 			rowH := 5.2
 			for setNum := 1; setNum <= numEnds; setNum++ {
 				pdf.SetX(10)
 				pdf.SetFont("Arial", "B", 7.5)
-				pdf.SetFillColor(240, 240, 240)
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wEnd, rowH, fmt.Sprintf("%d", setNum), "1", 0, "C", true, 0, "")
 
+				pdf.SetFillColor(255, 255, 255)
 				for a := 1; a <= 3; a++ {
-					pdf.CellFormat(arrowColW, rowH, "", "1", 0, "C", false, 0, "")
+					pdf.CellFormat(arrowColW, rowH, "", "1", 0, "C", true, 0, "")
 				}
 				pdf.CellFormat(wTot, rowH, "", "1", 0, "C", true, 0, "")
-				pdf.CellFormat(wSet, rowH, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(wSet, rowH, "", "1", 0, "C", true, 0, "")
 				pdf.CellFormat(wRun, rowH, "", "1", 0, "C", true, 0, "")
 
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wCenter, rowH, fmt.Sprintf("S%d", setNum), "1", 0, "C", true, 0, "")
 
+				pdf.SetFillColor(255, 255, 255)
 				pdf.CellFormat(wRun, rowH, "", "1", 0, "C", true, 0, "")
-				pdf.CellFormat(wSet, rowH, "", "1", 0, "C", false, 0, "")
+				pdf.CellFormat(wSet, rowH, "", "1", 0, "C", true, 0, "")
 				pdf.CellFormat(wTot, rowH, "", "1", 0, "C", true, 0, "")
 				for a := 1; a <= 3; a++ {
-					pdf.CellFormat(arrowColW, rowH, "", "1", 0, "C", false, 0, "")
+					pdf.CellFormat(arrowColW, rowH, "", "1", 0, "C", true, 0, "")
 				}
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wEnd, rowH, fmt.Sprintf("%d", setNum), "1", 1, "C", true, 0, "")
 			}
 
@@ -3487,31 +3584,44 @@ func GetEliminationScoresheet(db *sqlx.DB) gin.HandlerFunc {
 			soH := 5.2
 			pdf.SetX(10)
 			pdf.SetFont("Arial", "B", 7)
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(248, 249, 250)
 			pdf.CellFormat(wEnd, soH, "S.O.", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, soH, "", "1", 0, "C", false, 0, "")
+
+			pdf.SetFillColor(255, 255, 255)
+			pdf.CellFormat(arrowColW, soH, "", "1", 0, "C", true, 0, "")
+			pdf.SetFillColor(248, 249, 250)
 			pdf.CellFormat(arrowColW*2+wTot, soH, "Closest to Center: [   ]", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(wSet, soH, "", "1", 0, "C", false, 0, "")
+			pdf.SetFillColor(255, 255, 255)
+			pdf.CellFormat(wSet, soH, "", "1", 0, "C", true, 0, "")
 			pdf.CellFormat(wRun, soH, "", "1", 0, "C", true, 0, "")
 
+			pdf.SetFillColor(248, 249, 250)
 			pdf.CellFormat(wCenter, soH, "TIE", "1", 0, "C", true, 0, "")
 
+			pdf.SetFillColor(255, 255, 255)
 			pdf.CellFormat(wRun, soH, "", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(wSet, soH, "", "1", 0, "C", false, 0, "")
+			pdf.CellFormat(wSet, soH, "", "1", 0, "C", true, 0, "")
+			pdf.SetFillColor(248, 249, 250)
 			pdf.CellFormat(arrowColW*2+wTot, soH, "Closest to Center: [   ]", "1", 0, "C", true, 0, "")
-			pdf.CellFormat(arrowColW, soH, "", "1", 0, "C", false, 0, "")
+			pdf.SetFillColor(255, 255, 255)
+			pdf.CellFormat(arrowColW, soH, "", "1", 0, "C", true, 0, "")
+			pdf.SetFillColor(248, 249, 250)
 			pdf.CellFormat(wEnd, soH, "S.O.", "1", 1, "C", true, 0, "")
 
 			// 5. Final Result Box
 			pdf.SetX(10)
-			pdf.SetFillColor(232, 232, 232)
+			pdf.SetFillColor(245, 245, 245)
 			pdf.SetFont("Arial", "B", 7)
 			pdf.CellFormat(wEnd+arrowColW*3+wTot, 5.5, "TOTAL SET POINTS / SCORE", "1", 0, "R", true, 0, "")
+			pdf.SetFillColor(255, 255, 255)
 			pdf.CellFormat(wSet+wRun, 5.5, "", "1", 0, "C", true, 0, "")
 
+			pdf.SetFillColor(245, 245, 245)
 			pdf.CellFormat(wCenter, 5.5, "WINNER", "1", 0, "C", true, 0, "")
 
+			pdf.SetFillColor(255, 255, 255)
 			pdf.CellFormat(wSet+wRun, 5.5, "", "1", 0, "C", true, 0, "")
+			pdf.SetFillColor(245, 245, 245)
 			pdf.CellFormat(wEnd+arrowColW*3+wTot, 5.5, "TOTAL SET POINTS / SCORE", "1", 1, "L", true, 0, "")
 
 			// 6. Signatures Section

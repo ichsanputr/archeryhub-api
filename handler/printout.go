@@ -2834,6 +2834,7 @@ type EliminationMatchTeamRow struct {
 	ScheduledAt  sql.NullTime   `db:"scheduled_at"`
 	TargetName   sql.NullString `db:"target_name"`
 	BoardNumber  sql.NullInt64  `db:"board_number"`
+	BoardCode    sql.NullString `db:"board_code"`
 	TypeA        sql.NullString `db:"type_a"`
 	SeedA        sql.NullInt64  `db:"seed_a"`
 	TeamUUIDA    sql.NullString `db:"team_uuid_a"`
@@ -2913,6 +2914,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				em.scheduled_at,
 				COALESCE(et.target_name, '') AS target_name,
 				COALESCE(et.board_number, 0) AS board_number,
+				COALESCE(tbe.code, '') AS board_code,
 				eeA.participant_type AS type_a,
 				COALESCE(eeA.seed, 0) AS seed_a,
 				CASE
@@ -2942,6 +2944,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN tournament_targets et ON em.target_uuid = et.uuid
+			LEFT JOIN target_board_elimination tbe ON tbe.bracket_uuid = em.bracket_uuid AND tbe.board_number = et.board_number
 			LEFT JOIN elimination_entries eeA ON em.entry_a_uuid = eeA.uuid
 			LEFT JOIN teams tA ON eeA.participant_type = 'team' AND eeA.participant_uuid = tA.uuid
 			LEFT JOIN archers aA ON eeA.participant_type = 'archer' AND eeA.participant_uuid = aA.uuid
@@ -3075,7 +3078,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 
 			// 2. Round & Match Info Ribbon
 			roundName := getPrintElimRoundLabel(m.BracketSize, m.RoundNo, m.MatchNo)
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(248, 249, 250)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
 			pdf.SetLineWidth(0.2)
@@ -3094,8 +3097,8 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			infoText := fmt.Sprintf(" %s - %s | %s%s", m.CategoryName, roundName, targetInfo, schedInfo)
 			pdf.CellFormat(190, 5.5, infoText, "1", 1, "L", true, 0, "")
 
-			// 3. Team A Card (Left) & Team B Card (Right)
-			cardW := 92.0
+			// 3. Team A Card (Left), Match QR Code (Center), Team B Card (Right)
+			cardW := 85.0
 			cardH := 20.0
 			yCards := y + 17.0
 
@@ -3107,7 +3110,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			if m.SeedA.Valid && m.SeedA.Int64 > 0 {
 				seedATxt = fmt.Sprintf("#%d", m.SeedA.Int64)
 			}
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(245, 245, 245)
 			pdf.Rect(11.5, yCards+1.5, 9, 4.5, "FD")
 			pdf.SetFont("Arial", "B", 7)
 			pdf.SetXY(11.5, yCards+1.5)
@@ -3119,7 +3122,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			if blankMode || teamAName == "" {
 				teamAName = "TEAM A: ...................................."
 			}
-			pdf.CellFormat(78, 4.5, teamAName, "", 1, "L", false, 0, "")
+			pdf.CellFormat(71, 4.5, teamAName, "", 1, "L", false, 0, "")
 
 			pdf.SetTextColor(60, 60, 60)
 			pdf.SetFont("Arial", "", 6.5)
@@ -3128,7 +3131,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			if blankMode || clubAName == "" {
 				clubAName = "-"
 			}
-			pdf.CellFormat(88, 3.2, fmt.Sprintf("Club / Contingent: %s", clubAName), "", 1, "L", false, 0, "")
+			pdf.CellFormat(81, 3.2, fmt.Sprintf("Club / Contingent: %s", clubAName), "", 1, "L", false, 0, "")
 
 			// Member names A
 			memsA := teamMembersMap[m.TeamUUIDA.String]
@@ -3144,12 +3147,44 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				if i < len(memsA) && !blankMode {
 					athName = strings.ToUpper(memsA[i])
 				}
-				pdf.CellFormat(88, memberLineH, fmt.Sprintf("%d. %s", i+1, athName), "", 1, "L", false, 0, "")
+				pdf.CellFormat(81, memberLineH, fmt.Sprintf("%d. %s", i+1, athName), "", 1, "L", false, 0, "")
 			}
 
-			// Team B Box
-			xCardB := 108.0
+			// Center Match QR Code Box (IanSeo Standard)
+			qrX := 97.0
+			qrY := yCards
+			qrW := 16.0
+			qrH := 20.0
+			pdf.SetFillColor(255, 255, 255)
+			pdf.SetDrawColor(160, 160, 160)
+			pdf.SetLineWidth(0.18)
+			pdf.Rect(qrX, qrY, qrW, qrH, "FD")
+
+			boardCodeVal := m.BoardCode.String
+			if boardCodeVal == "" {
+				boardCodeVal = fmt.Sprintf("TEAM-M%d", m.MatchNo)
+			}
+
+			if !blankMode && boardCodeVal != "" {
+				qrPng, err := utils.GenerateQRCode(boardCodeVal, 256)
+				if err == nil && len(qrPng) > 0 {
+					imgName := fmt.Sprintf("qr_elim_team_%s_%s_%s", m.MatchUUID, copyBadge, boardCodeVal)
+					pdf.RegisterImageOptionsReader(imgName, gofpdf.ImageOptions{ImageType: "PNG"}, bytes.NewReader(qrPng))
+					pdf.ImageOptions(imgName, qrX+1.0, qrY+1.0, 14.0, 14.0, false, gofpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+				}
+			}
+
+			// Board Code Label under QR
+			pdf.SetFont("Arial", "B", 6)
 			pdf.SetTextColor(0, 0, 0)
+			pdf.SetXY(qrX, qrY+15.5)
+			pdf.CellFormat(qrW, 3.8, boardCodeVal, "", 0, "C", false, 0, "")
+
+			// Team B Box
+			xCardB := 115.0
+			pdf.SetTextColor(0, 0, 0)
+			pdf.SetDrawColor(0, 0, 0)
+			pdf.SetLineWidth(0.2)
 			pdf.SetXY(xCardB, yCards)
 			pdf.Rect(xCardB, yCards, cardW, cardH, "D")
 
@@ -3157,7 +3192,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			if m.SeedB.Valid && m.SeedB.Int64 > 0 {
 				seedBTxt = fmt.Sprintf("#%d", m.SeedB.Int64)
 			}
-			pdf.SetFillColor(240, 240, 240)
+			pdf.SetFillColor(245, 245, 245)
 			pdf.Rect(xCardB+1.5, yCards+1.5, 9, 4.5, "FD")
 			pdf.SetFont("Arial", "B", 7)
 			pdf.SetXY(xCardB+1.5, yCards+1.5)
@@ -3169,7 +3204,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			if blankMode || teamBName == "" {
 				teamBName = "TEAM B: ...................................."
 			}
-			pdf.CellFormat(78, 4.5, teamBName, "", 1, "L", false, 0, "")
+			pdf.CellFormat(71, 4.5, teamBName, "", 1, "L", false, 0, "")
 
 			pdf.SetTextColor(60, 60, 60)
 			pdf.SetFont("Arial", "", 6.5)
@@ -3178,7 +3213,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 			if blankMode || clubBName == "" {
 				clubBName = "-"
 			}
-			pdf.CellFormat(88, 3.2, fmt.Sprintf("Club / Contingent: %s", clubBName), "", 1, "L", false, 0, "")
+			pdf.CellFormat(81, 3.2, fmt.Sprintf("Club / Contingent: %s", clubBName), "", 1, "L", false, 0, "")
 
 			// Member names B
 			memsB := teamMembersMap[m.TeamUUIDB.String]
@@ -3190,14 +3225,14 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				if i < len(memsB) && !blankMode {
 					athName = strings.ToUpper(memsB[i])
 				}
-				pdf.CellFormat(88, memberLineH, fmt.Sprintf("%d. %s", i+1, athName), "", 1, "L", false, 0, "")
+				pdf.CellFormat(81, memberLineH, fmt.Sprintf("%d. %s", i+1, athName), "", 1, "L", false, 0, "")
 			}
 
 			// 4. Scoresheet Table (Exact IanSeo Standard)
 			yTable := yCards + cardH + 2.5
 			pdf.SetY(yTable)
 			pdf.SetX(10)
-			pdf.SetFillColor(232, 232, 232)
+			pdf.SetFillColor(248, 249, 250)
 			pdf.SetTextColor(0, 0, 0)
 			pdf.SetDrawColor(0, 0, 0)
 			pdf.SetLineWidth(0.2)
@@ -3240,7 +3275,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				for setNum := 1; setNum <= 4; setNum++ {
 					pdf.SetX(10)
 					pdf.SetFont("Arial", "B", 7.5)
-					pdf.SetFillColor(240, 240, 240)
+					pdf.SetFillColor(248, 249, 250)
 					pdf.CellFormat(wEnd, rowH, fmt.Sprintf("%d", setNum), "1", 0, "C", true, 0, "")
 
 					for a := 1; a <= 6; a++ {
@@ -3262,7 +3297,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				// Shoot-Off Row (3 arrows for 3-person team)
 				pdf.SetX(10)
 				pdf.SetFont("Arial", "B", 7)
-				pdf.SetFillColor(240, 240, 240)
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wEnd, 5.8, "S.O", "1", 0, "C", true, 0, "")
 				for a := 1; a <= 3; a++ {
 					pdf.CellFormat(arrowColW, 5.8, "", "1", 0, "C", false, 0, "")
@@ -3284,7 +3319,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				// Match Final Result Summary Row
 				pdf.SetX(10)
 				pdf.SetFont("Arial", "B", 7.5)
-				pdf.SetFillColor(232, 232, 232)
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wEnd+arrowColW*6, 6.0, " TOTAL SET POINTS / SCORE", "1", 0, "R", true, 0, "")
 				pdf.CellFormat(wTot, 6.0, "", "1", 0, "C", true, 0, "")
 				pdf.CellFormat(wSet, 6.0, "", "1", 0, "C", true, 0, "")
@@ -3326,7 +3361,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				for setNum := 1; setNum <= 4; setNum++ {
 					pdf.SetX(10)
 					pdf.SetFont("Arial", "B", 7.5)
-					pdf.SetFillColor(240, 240, 240)
+					pdf.SetFillColor(248, 249, 250)
 					pdf.CellFormat(wEnd, rowH, fmt.Sprintf("%d", setNum), "1", 0, "C", true, 0, "")
 
 					for a := 1; a <= 4; a++ {
@@ -3348,7 +3383,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				// Shoot-Off Row (2 arrows for Mixed Team)
 				pdf.SetX(10)
 				pdf.SetFont("Arial", "B", 7)
-				pdf.SetFillColor(240, 240, 240)
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wEnd, 5.8, "S.O", "1", 0, "C", true, 0, "")
 				for a := 1; a <= 2; a++ {
 					pdf.CellFormat(arrowColW, 5.8, "", "1", 0, "C", false, 0, "")
@@ -3370,7 +3405,7 @@ func GetTeamEliminationScoresheetPrintout(db *sqlx.DB) gin.HandlerFunc {
 				// Match Final Result Summary Row
 				pdf.SetX(10)
 				pdf.SetFont("Arial", "B", 7.5)
-				pdf.SetFillColor(232, 232, 232)
+				pdf.SetFillColor(248, 249, 250)
 				pdf.CellFormat(wEnd+arrowColW*4, 6.0, " TOTAL SET POINTS / SCORE", "1", 0, "R", true, 0, "")
 				pdf.CellFormat(wTot, 6.0, "", "1", 0, "C", true, 0, "")
 				pdf.CellFormat(wSet, 6.0, "", "1", 0, "C", true, 0, "")
