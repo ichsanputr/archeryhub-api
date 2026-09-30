@@ -137,9 +137,11 @@ func handlePayPalCaptureCompleted(db *sqlx.DB, resource map[string]interface{}, 
 		UUID           string  `db:"uuid"`
 		EventID        *string `db:"event_id"`
 		RegistrationID *string `db:"registration_id"`
+		Amount         float64 `db:"amount"`
+		Reference      string  `db:"reference"`
 		Status         string  `db:"status"`
 	}
-	err = tx.Get(&payment, "SELECT uuid, event_id, registration_id, status FROM payment_transactions WHERE reference = ? OR gateway_reference = ?", customID, customID)
+	err = tx.Get(&payment, "SELECT uuid, tournament_id as event_id, registration_id, amount, reference, status FROM payment_transactions WHERE reference = ? OR gateway_reference = ?", customID, customID)
 	if err == nil {
 		if payment.Status != "paid" {
 			_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW(), callback_data = ? WHERE uuid = ?", string(rawBytes), payment.UUID)
@@ -149,6 +151,16 @@ func handlePayPalCaptureCompleted(db *sqlx.DB, resource map[string]interface{}, 
 				_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
 			}
 			_, _ = tx.Exec("UPDATE orders SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
+
+			// Record wallet credit mutation for organizer
+			if payment.EventID != nil && payment.Amount > 0 {
+				var organizerID string
+				_ = tx.Get(&organizerID, "SELECT organizer_id FROM tournaments WHERE uuid = ?", *payment.EventID)
+				if organizerID != "" {
+					_ = RecordWalletCreditTx(tx, organizerID, payment.Amount, payment.Reference, "tournament_registration", "Pendaftaran turnamen via PayPal ("+payment.Reference+")")
+				}
+			}
+
 			_ = tx.Commit()
 			fmt.Printf("[PayPal Webhook] Payment transaction %s marked as paid!\n", customID)
 		}
@@ -239,10 +251,13 @@ func CapturePayPalPayment(db *sqlx.DB) gin.HandlerFunc {
 		// 2. Regular payment check
 		var payment struct {
 			UUID           string  `db:"uuid"`
+			EventID        *string `db:"event_id"`
 			RegistrationID *string `db:"registration_id"`
+			Amount         float64 `db:"amount"`
+			Reference      string  `db:"reference"`
 			Status         string  `db:"status"`
 		}
-		err = tx.Get(&payment, "SELECT uuid, registration_id, status FROM payment_transactions WHERE reference = ? OR gateway_reference = ?", req.Reference, req.OrderID)
+		err = tx.Get(&payment, "SELECT uuid, tournament_id as event_id, registration_id, amount, reference, status FROM payment_transactions WHERE reference = ? OR gateway_reference = ?", req.Reference, req.OrderID)
 		if err == nil {
 			if payment.Status != "paid" {
 				_, _ = tx.Exec("UPDATE payment_transactions SET status = 'paid', payment_method = 'paypal', paid_at = NOW() WHERE uuid = ?", payment.UUID)
@@ -252,6 +267,15 @@ func CapturePayPalPayment(db *sqlx.DB) gin.HandlerFunc {
 					_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
 				}
 				_, _ = tx.Exec("UPDATE orders SET payment_status = 'paid' WHERE payment_id = ?", payment.UUID)
+
+				// Record wallet credit mutation for organizer
+				if payment.EventID != nil && payment.Amount > 0 {
+					var organizerID string
+					_ = tx.Get(&organizerID, "SELECT organizer_id FROM tournaments WHERE uuid = ?", *payment.EventID)
+					if organizerID != "" {
+						_ = RecordWalletCreditTx(tx, organizerID, payment.Amount, payment.Reference, "tournament_registration", "Pendaftaran turnamen via PayPal ("+payment.Reference+")")
+					}
+				}
 			}
 			_ = tx.Commit()
 			c.JSON(http.StatusOK, gin.H{

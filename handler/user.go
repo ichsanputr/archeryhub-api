@@ -513,9 +513,6 @@ func VerifyEmailChange(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log activity
-		utils.LogActivity(db, userID.(string), "", "email_changed", otpRecord.UserType, userID.(string), "User changed email to: "+req.NewEmail, c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Email berhasil diperbarui. Silakan gunakan email baru untuk login berikutnya."})
 	}
 }

@@ -404,18 +404,6 @@ func TerminateUser(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Audit log: track every suspend/activate action by root admin
-		adminID, _ := c.Get("user_id")
-		adminIDStr := fmt.Sprintf("%v", adminID)
-		ipAddr := c.ClientIP()
-		ua := c.Request.UserAgent()
-		action := "TERMINATE_USER_SUSPEND"
-		if req.Action == "activate" {
-			action = "TERMINATE_USER_ACTIVATE"
-		}
-		description := fmt.Sprintf("Admin %s %s user %s (%s). Reason: %s", adminIDStr, req.Action, userUUID, userType, req.Reason)
-		utils.LogActivity(db, adminIDStr, "", action, "user_account", userUUID, description, ipAddr, ua)
-
 		c.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("Akun berhasil di-%s", req.Action),
 			"uuid":    userUUID,
@@ -574,14 +562,6 @@ func RootChangeUserPassword(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
 			return
 		}
-
-		// Log activity for audit trail
-		adminID, _ := c.Get("user_id")
-		adminIDStr := ""
-		if adminID != nil {
-			adminIDStr = fmt.Sprintf("%v", adminID)
-		}
-		utils.LogActivity(db, adminIDStr, "", "root_change_user_password", table, userUUID, "Root admin changed user password", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Password user berhasil diperbarui",

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"Archeris-api/models"
-	"Archeris-api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,7 +17,6 @@ import (
 func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("eventId")
-		userID, _ := c.Get("user_id")
 
 		var req models.CreateTeamRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -148,9 +146,6 @@ func CreateTeam(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan data tim"})
 			return
 		}
-
-		utils.LogActivity(db, userID.(string), eventUUID, "team_created", "team", teamID,
-			fmt.Sprintf("Created team: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
 			"id":      teamID,
@@ -1037,7 +1032,6 @@ func GetMixedTeamQualificationRankings(db *sqlx.DB) gin.HandlerFunc {
 func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tournamentID := c.Param("eventId") // The main event UUID
-		userID, _ := c.Get("user_id")
 
 		var req struct {
 			CategoryID string `json:"category_id" binding:"required"`
@@ -1130,9 +1124,6 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogActivity(db, userID.(string), eventUUID, "teams_regenerated", "event", eventUUID,
-			fmt.Sprintf("Regenerated %d teams for category %s", len(req.Teams), req.CategoryID), c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil disinkronisasi", "count": len(req.Teams)})
 	}
 }
@@ -1141,7 +1132,6 @@ func AutoCreateTeams(db *sqlx.DB) gin.HandlerFunc {
 func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("eventId")
-		userID, _ := c.Get("user_id")
 
 		// Resolve event UUID (allow slug)
 		var eventUUID string
@@ -1532,9 +1522,6 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogActivity(db, userID.(string), eventUUID, "teams_synced_directly", "event", eventUUID,
-			fmt.Sprintf("Directly synced %d teams for category %s", syncCount, req.CategoryID), c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Teams synchronized successfully", "count": syncCount, "details": syncDetails})
 	}
 }
@@ -1543,7 +1530,6 @@ func SyncTeams(db *sqlx.DB) gin.HandlerFunc {
 func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		teamID := c.Param("teamId")
-		userID, _ := c.Get("user_id")
 
 		var req models.CreateTeamRequest // Reuse CreateTeamRequest for update
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1680,9 +1666,6 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogActivity(db, userID.(string), "", "team_updated", "team", teamID,
-			fmt.Sprintf("Memperbarui tim: %s", req.TeamName), c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil diperbarui"})
 	}
 }
@@ -1691,7 +1674,6 @@ func UpdateTeam(db *sqlx.DB) gin.HandlerFunc {
 func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		teamID := c.Param("teamId")
-		userID, _ := c.Get("user_id")
 
 		// 1. Check if team is part of an elimination bracket match
 		var matchCount int
@@ -1731,9 +1713,6 @@ func DeleteTeam(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan penghapusan"})
 			return
 		}
-
-		utils.LogActivity(db, userID.(string), "", "team_deleted", "team", teamID,
-			"Menghapus tim", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Tim berhasil dihapus"})
 	}

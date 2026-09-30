@@ -398,39 +398,3 @@ func IncrementBlogArticleViews(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Analitik diperbarui untuk " + slug})
 	}
 }
-
-// SubscribeNewsletter registers an email address for newsletter updates
-func SubscribeNewsletter(db *sqlx.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req struct {
-			Email string `json:"email"`
-		}
-
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
-			return
-		}
-
-		email := strings.ToLower(strings.TrimSpace(req.Email))
-		if email == "" || !strings.Contains(email, "@") || !strings.Contains(email, ".") || len(email) < 5 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Format email tidak valid. Masukkan alamat email yang benar."})
-			return
-		}
-
-		_, err := db.Exec(`
-			INSERT INTO news_subscribers (email, is_active, created_at, updated_at)
-			VALUES (?, 1, NOW(), NOW())
-			ON DUPLICATE KEY UPDATE is_active = 1, updated_at = NOW()
-		`, email)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses langganan newsletter", "details": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Terima kasih! Email Anda telah terdaftar untuk menerima newsletter Archeris.",
-			"email":   email,
-		})
-	}
-}

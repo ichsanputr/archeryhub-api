@@ -331,10 +331,8 @@ func RootDeleteTournament(db *sqlx.DB) gin.HandlerFunc {
 		_, _ = tx.Exec(`DELETE FROM tournament_schedule_items WHERE tournament_id = ?`, actualID)
 		_, _ = tx.Exec(`DELETE FROM tournament_schedules WHERE tournament_id = ?`, actualID)
 
-		// 18. Assignment history, scorekeeper logs, activity logs, reset codes
-		_, _ = tx.Exec(`DELETE FROM assignment_history WHERE tournament_uuid = ?`, actualID)
+		// 18. Scorekeeper logs, reset codes
 		_, _ = tx.Exec(`DELETE FROM scorekeeper_logs WHERE tournament_uuid = ?`, actualID)
-		_, _ = tx.Exec(`DELETE FROM activity_logs WHERE tournament_id = ?`, actualID)
 		_, _ = tx.Exec(`DELETE FROM event_reset_codes WHERE event_id = ?`, actualID)
 
 		// 19. Payment transactions associated with this tournament or participant registrations
@@ -391,12 +389,6 @@ func RootDeleteTournament(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi penghapusan"})
 			return
 		}
-
-		// Audit Log
-		adminID, _ := c.Get("user_id")
-		adminIDStr := fmt.Sprintf("%v", adminID)
-		logMsg := fmt.Sprintf("Root admin deleted tournament '%s' (UUID: %s) and refunded 1 %s package credit to organizer '%s'", eventInfo.Name, actualID, quotaTypeStr, orgName)
-		utils.LogActivity(db, adminIDStr, "", "root_delete_tournament", "tournament", actualID, logMsg, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":              fmt.Sprintf("Turnamen '%s' berhasil dihapus dan 1 kuota kredit (%s) berhasil dikembalikan ke akun EO", eventInfo.Name, strings.ToUpper(quotaTypeStr)),

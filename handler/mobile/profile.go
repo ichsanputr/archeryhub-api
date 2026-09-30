@@ -318,9 +318,9 @@ func MobileGetOrganizationEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN (
 				SELECT
 					tournament_id,
-					COUNT(*) as participant_count,
-					SUM(CASE WHEN payment_status IN ('paid', 'lunas') THEN 1 ELSE 0 END) as verified_count,
-					SUM(CASE WHEN payment_status IN ('pending', 'menunggu_acc', 'menunggu acc') THEN 1 ELSE 0 END) as pending_count
+					COUNT(DISTINCT archer_id) as participant_count,
+					COUNT(DISTINCT CASE WHEN payment_status IN ('paid', 'lunas') THEN archer_id END) as verified_count,
+					COUNT(DISTINCT CASE WHEN payment_status IN ('pending', 'menunggu_acc', 'menunggu acc') THEN archer_id END) as pending_count
 				FROM tournament_participants
 				GROUP BY tournament_id
 			) ps ON ps.tournament_id = e.uuid
@@ -422,7 +422,7 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var total int
-		countQuery := "SELECT COUNT(*) FROM tournament_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
+		countQuery := "SELECT COUNT(DISTINCT tp.archer_id) FROM tournament_participants tp LEFT JOIN archers a ON tp.archer_id = a.uuid LEFT JOIN clubs cl ON a.club_id = cl.uuid " + whereClause
 		if err := db.Get(&total, countQuery, countArgs...); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah peserta", "details": err.Error()})
 			return
@@ -486,8 +486,8 @@ func MobileGetOrganizationEventParticipants(db *sqlx.DB) gin.HandlerFunc {
 			statusArgs = append(statusArgs, categoryID)
 		}
 		var verifiedCount, pendingCount int
-		_ = db.Get(&verifiedCount, "SELECT COUNT(*) FROM tournament_participants "+statusWhere+" AND payment_status IN ('paid', 'lunas')", statusArgs...)
-		_ = db.Get(&pendingCount, "SELECT COUNT(*) FROM tournament_participants "+statusWhere+" AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", statusArgs...)
+		_ = db.Get(&verifiedCount, "SELECT COUNT(DISTINCT archer_id) FROM tournament_participants "+statusWhere+" AND payment_status IN ('paid', 'lunas')", statusArgs...)
+		_ = db.Get(&pendingCount, "SELECT COUNT(DISTINCT archer_id) FROM tournament_participants "+statusWhere+" AND payment_status IN ('pending', 'menunggu_acc', 'menunggu acc')", statusArgs...)
 
 		c.JSON(http.StatusOK, MobileOrganizationEventParticipantsResponse{
 			Participants:  participants,
@@ -638,8 +638,6 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogActivity(db, userID, "", "mobile_profile_updated", "archer", userID, "Updated profile via mobile", c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui"})
 	}
 }
@@ -706,8 +704,14 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Update reregistration time
-		_, err = db.Exec(`UPDATE tournament_participants SET last_reregistration_at = NOW() WHERE uuid = ?`, resp.ParticipantUUID)
+		// Update reregistration time for all categories of this archer in this event
+		var archerID, tID string
+		_ = db.QueryRow(`SELECT archer_id, tournament_id FROM tournament_participants WHERE uuid = ?`, resp.ParticipantUUID).Scan(&archerID, &tID)
+		if archerID != "" && tID != "" {
+			_, err = db.Exec(`UPDATE tournament_participants SET last_reregistration_at = NOW() WHERE tournament_id = ? AND archer_id = ?`, tID, archerID)
+		} else {
+			_, err = db.Exec(`UPDATE tournament_participants SET last_reregistration_at = NOW() WHERE uuid = ?`, resp.ParticipantUUID)
+		}
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data pendaftaran", "details": err.Error()})
 			return
@@ -716,8 +720,6 @@ func MobileOrganizationScanRegistration(db *sqlx.DB) gin.HandlerFunc {
 		// Update response timestamp to "now" for immediate feedback
 		now := time.Now()
 		resp.LastReregistrationAt = &now
-
-		utils.LogActivity(db, organizationUUID, "", "mobile_reregistration_scan", "organizer", organizationUUID, "Scanned QR for reregistration: "+resp.ParticipantUUID, c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, resp)
 	}
@@ -832,26 +834,28 @@ func MobileGetScanHistory(db *sqlx.DB) gin.HandlerFunc {
 
 		query := `
 			SELECT 
-				al.created_at,
-				ep.uuid as participant_uuid,
-				COALESCE(a.full_name, '') as full_name,
-				COALESCE(a.id, '') as athlete_code,
+				ep.last_reregistration_at as created_at,
+				COALESCE(
+					NULLIF(ep.qr_raw, ''),
+					NULLIF(a.id, ''),
+					CONCAT('ARC-', UPPER(SUBSTRING(REPLACE(ep.uuid, '-', ''), 1, 6)))
+				) as athlete_code,
 				COALESCE(ec.category_name_custom, r_ag.name, '') as category_name
-			FROM activity_logs al
-			JOIN tournament_participants ep ON al.description = CONCAT('Scanned QR for reregistration: ', ep.uuid)
+			FROM tournament_participants ep
+			JOIN tournaments t ON ep.tournament_id = t.uuid
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_age_groups r_ag ON ec.category_uuid = r_ag.uuid
-			WHERE al.action = 'mobile_reregistration_scan' AND al.user_id = ?
-			ORDER BY al.created_at DESC
+			WHERE t.organizer_id = ? AND ep.last_reregistration_at IS NOT NULL
+			ORDER BY ep.last_reregistration_at DESC
 			LIMIT 50
 		`
 		type ScanHistoryItem struct {
-			ScannedAt       string `json:"scanned_at" db:"created_at"`
-			ParticipantUUID string `json:"participant_uuid" db:"participant_uuid"`
-			FullName        string `json:"full_name" db:"full_name"`
-			AthleteCode     string `json:"athlete_code" db:"athlete_code"`
-			CategoryName    string `json:"category_name" db:"category_name"`
+			ScannedAt       *time.Time `json:"scanned_at" db:"created_at"`
+			ParticipantUUID string     `json:"participant_uuid" db:"participant_uuid"`
+			FullName        string     `json:"full_name" db:"full_name"`
+			AthleteCode     string     `json:"athlete_code" db:"athlete_code"`
+			CategoryName    string     `json:"category_name" db:"category_name"`
 		}
 
 		var history []ScanHistoryItem

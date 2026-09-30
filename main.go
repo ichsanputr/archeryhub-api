@@ -576,9 +576,7 @@ func main() {
 		api.GET("/cities", handler.GetCities())
 		api.POST("/contact", handler.SubmitContactMessage(db))
 
-		// Blog & Newsletter routes
-		api.POST("/newsletter/subscribe", handler.SubscribeNewsletter(db))
-		
+		// Blog routes
 		blog := api.Group("/blog")
 		{
 			blog.GET("/articles", handler.ListBlogArticles(db))
@@ -588,7 +586,6 @@ func main() {
 			blog.GET("/:slug/comments", handler.ListBlogComments(db))
 			blog.POST("/:slug/comments", middleware.OptionalAuthMiddleware(), handler.AddBlogComment(db))
 			blog.POST("/:slug/views", handler.IncrementBlogArticleViews(db))
-			blog.POST("/subscribe", handler.SubscribeNewsletter(db))
 		}
 
 		// Docs routes
@@ -599,12 +596,6 @@ func main() {
 			// Use wildcard so docs can be nested by category, e.g. /docs/archer/archer-profile
 			docs.GET("/*slug", handler.GetDocDetail())
 			docs.DELETE("/*slug", handler.DeleteDoc(db))
-		}
-
-		docsComments := api.Group("/docs-comments")
-		{
-			docsComments.GET("/*slug", handler.ListDocsComments(db))
-			docsComments.POST("/*slug", middleware.OptionalAuthMiddleware(), handler.AddDocsComment(db))
 		}
 
 		// Team Management
@@ -849,6 +840,7 @@ func main() {
 
 				// Check-in & Search
 				mobileOrganizer.GET("/tournaments/:id/checkin-summary", mobilehandler.MobileGetCheckinSummary(db))
+				mobileOrganizer.GET("/tournaments/:id/checkin-history", mobilehandler.MobileGetCheckinHistory(db))
 				mobileOrganizer.POST("/tournaments/:id/participants/:participantId/manual-checkin", mobilehandler.MobileManualCheckin(db))
 				mobileOrganizer.GET("/search-global", mobilehandler.MobileGlobalSearch(db))
 
@@ -902,7 +894,6 @@ func main() {
 				sk.GET("/events", mobilehandler.MobileGetScorekeeperEvents(db))
 				sk.POST("/verify-code", mobilehandler.MobileVerifyScorekeeperCode(db))
 				sk.GET("/recent-scans", mobilehandler.MobileGetScorekeeperRecentScans(db))
-				sk.GET("/history", mobilehandler.MobileGetScorekeeperHistory(db))
 				sk.POST("/scan-ocr", mobilehandler.MobileScorekeeperScanOCR(db))
 			}
 

@@ -735,9 +735,11 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 			RegistrationID     *string `db:"registration_id"`
 			SubscriptionPlanID *int    `db:"subscription_plan_id"`
 			Months             int     `db:"months"`
+			Amount             float64 `db:"amount"`
+			Reference          string  `db:"reference"`
 			Status             string  `db:"status"`
 		}
-		err = db.Get(&transaction, "SELECT uuid, user_id, tournament_id, registration_id, subscription_plan_id, months, status FROM payment_transactions WHERE gateway_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
+		err = db.Get(&transaction, "SELECT uuid, user_id, tournament_id, registration_id, subscription_plan_id, months, amount, reference, status FROM payment_transactions WHERE gateway_reference = ? OR reference = ? OR uuid = ? OR (? != '' AND (reference = ? OR gateway_reference = ?))", txID, txID, txID, extraRef, extraRef, extraRef)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Transaction not found locally, ignored"})
 			return
@@ -760,6 +762,15 @@ func MayarWebhookCallback(db *sqlx.DB) gin.HandlerFunc {
 
 		if transaction.RegistrationID != nil && *transaction.RegistrationID != "" {
 			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE uuid = ? OR payment_id = ?", *transaction.RegistrationID, transaction.UUID)
+
+			// Record credit mutation in organizer wallet
+			if transaction.EventID != nil && transaction.Amount > 0 {
+				var organizerID string
+				_ = tx.Get(&organizerID, "SELECT organizer_id FROM tournaments WHERE uuid = ?", *transaction.EventID)
+				if organizerID != "" {
+					_ = RecordWalletCreditTx(tx, organizerID, transaction.Amount, transaction.Reference, "tournament_registration", "Pendaftaran turnamen ("+transaction.Reference+")")
+				}
+			}
 		}
 
 		if transaction.RegistrationID == nil && transaction.EventID != nil && transaction.SubscriptionPlanID == nil {
@@ -799,12 +810,15 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 
 		type EnrichedTransaction struct {
 			models.PaymentTransaction
-			Description *string `json:"description" db:"description"`
-			PlanName    *string `json:"plan_name" db:"plan_name"`
-			EventName   *string `json:"event_name" db:"event_name"`
-			AthleteName *string `json:"athlete_name" db:"athlete_name"`
-			Division    *string `json:"division" db:"division"`
-			Category    *string `json:"category" db:"category"`
+			Description   *string `json:"description" db:"description"`
+			PlanName      *string `json:"plan_name" db:"plan_name"`
+			EventName     *string `json:"event_name" db:"event_name"`
+			EventCurrency *string `json:"event_currency" db:"event_currency"`
+			AthleteName   *string `json:"athlete_name" db:"athlete_name"`
+			ClubName      *string `json:"club_name" db:"club_name"`
+			ArcherAvatar  *string `json:"archer_avatar" db:"archer_avatar"`
+			Division      *string `json:"division" db:"division"`
+			Category      *string `json:"category" db:"category"`
 		}
 
 		var transaction EnrichedTransaction
@@ -819,13 +833,17 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				END as description,
 				p.name as plan_name,
 				e.name as event_name,
+				COALESCE(e.currency, 'IDR') as event_currency,
 				a.full_name as athlete_name,
+				COALESCE(c.name, '') as club_name,
+				COALESCE(a.avatar_url, '') as archer_avatar,
 				rbt.name as division,
 				COALESCE(ec.category_name_custom, rag.name) as category
 			FROM payment_transactions t
 			LEFT JOIN subscription_plans p ON t.subscription_plan_id = p.id
 			LEFT JOIN tournament_participants ep ON t.registration_id = ep.uuid OR t.uuid = ep.payment_id
 			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
 			LEFT JOIN tournaments e ON t.tournament_id = e.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
 			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
@@ -937,6 +955,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			ArcherID           string     `json:"archer_id" db:"archer_id"`
 			ArcherName         string     `json:"archer_name" db:"athlete_name"`
 			AthleteName        string     `json:"athlete_name" db:"athlete_name"`
+			ArcherAvatar       *string    `json:"archer_avatar" db:"archer_avatar"`
 			Email              *string    `json:"email" db:"email"`
 			Gender             *string    `json:"gender" db:"gender"`
 			ClubName           *string    `json:"club_name" db:"club_name"`
@@ -956,6 +975,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				tp.uuid,
 				tp.archer_id,
 				COALESCE(a.full_name, 'Peserta') as athlete_name,
+				COALESCE(a.avatar_url, '') as archer_avatar,
 				a.email,
 				a.gender,
 				COALESCE(c.name, '') as club_name,
@@ -986,6 +1006,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 					tp.uuid,
 					tp.archer_id,
 					COALESCE(a.full_name, 'Peserta') as athlete_name,
+					COALESCE(a.avatar_url, '') as archer_avatar,
 					a.email,
 					a.gender,
 					COALESCE(c.name, '') as club_name,
@@ -1067,6 +1088,11 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			teams = []TeamItem{}
 		}
 
+		currency := "IDR"
+		if transaction.EventCurrency != nil && *transaction.EventCurrency != "" {
+			currency = *transaction.EventCurrency
+		}
+
 		res := gin.H{
 			"uuid":                 transaction.UUID,
 			"reference":            transaction.Reference,
@@ -1079,6 +1105,7 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			"amount":               transaction.Amount,
 			"fee_amount":           transaction.FeeAmount,
 			"total_amount":         transaction.TotalAmount,
+			"currency":             currency,
 			"payment_method":       transaction.PaymentMethod,
 			"payment_channel":      transaction.PaymentChannel,
 			"va_number":            transaction.VANumber,
@@ -1094,12 +1121,15 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			"proof_url":            transaction.ProofURL,
 			"proof_uploaded_at":    transaction.ProofUploadedAt,
 			"verified_at":          transaction.VerifiedAt,
+			"verified_by":          transaction.VerifiedBy,
 			"sender_name":          transaction.SenderName,
 			"rejection_reason":     transaction.RejectionReason,
 			"registered_by_name":   transaction.RegisteredByName,
 			"registered_by_email":  transaction.RegisteredByEmail,
 			"payer_name":           transaction.PayerName,
 			"payer_email":          transaction.PayerEmail,
+			"club_name":            transaction.ClubName,
+			"archer_avatar":        transaction.ArcherAvatar,
 			"description":          transaction.Description,
 			"plan_name":            transaction.PlanName,
 			"event_name":           transaction.EventName,
@@ -1177,6 +1207,7 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 			EndDate      string  `json:"date" db:"end_date"`
 			Participants int     `json:"participants" db:"participant_count"`
 			TotalAmount  float64 `json:"amount" db:"total_amount"`
+			Currency     string  `json:"currency" db:"currency"`
 		}
 
 		summaries := []EventSummary{}
@@ -1185,13 +1216,14 @@ func GetOrganizationEarningsSummary(db *sqlx.DB) gin.HandlerFunc {
 				COALESCE(NULLIF(e.slug, ''), e.uuid) as id,
 				e.uuid, e.slug, e.name, 'Tournament' as category_label, 
 				e.end_date,
+				COALESCE(e.currency, 'IDR') as currency,
 				COUNT(DISTINCT ep.uuid) as participant_count,
 				COALESCE(SUM(t.amount), 0) as total_amount
 			FROM tournaments e
 			LEFT JOIN tournament_participants ep ON e.uuid = ep.tournament_id
 			LEFT JOIN payment_transactions t ON ep.uuid = t.registration_id AND t.status = 'paid'
 			WHERE e.organizer_id = ?
-			GROUP BY e.uuid, e.slug, e.name, e.end_date
+			GROUP BY e.uuid, e.slug, e.name, e.end_date, e.currency
 			HAVING COALESCE(SUM(t.amount), 0) > 0
 			ORDER BY e.created_at DESC
 		`
@@ -1213,34 +1245,46 @@ func GetOrganizationEarningsDetail(db *sqlx.DB) gin.HandlerFunc {
 
 		// Verify event belongs to organizer (lookup by slug or uuid)
 		var event struct {
-			UUID string `db:"uuid"`
-			Name string `db:"name"`
+			UUID     string `db:"uuid"`
+			Name     string `db:"name"`
+			Currency string `db:"currency"`
 		}
-		err := db.Get(&event, "SELECT uuid, name FROM tournaments WHERE (uuid = ? OR slug = ?) AND organizer_id = ?", eventIdentifier, eventIdentifier, userID)
+		err := db.Get(&event, "SELECT uuid, name, COALESCE(currency, 'IDR') as currency FROM tournaments WHERE (uuid = ? OR slug = ?) AND organizer_id = ?", eventIdentifier, eventIdentifier, userID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Turnamen tidak ditemukan atau tidak diizinkan"})
 			return
 		}
 
 		type PaymentDetail struct {
-			UUID          string    `json:"id" db:"uuid"`
-			ArcherName    string    `json:"archerName" db:"full_name"`
-			ArcherEmail   string    `json:"archerEmail" db:"email"`
-			Amount        float64   `json:"amount" db:"amount"`
-			Status        string    `json:"status" db:"status"`
-			CreatedAt     time.Time `json:"createdAt" db:"created_at"`
-			PaymentMethod string    `json:"method" db:"payment_method"`
-			Reference     string    `json:"reference" db:"reference"`
+			UUID          string     `json:"id" db:"uuid"`
+			ArcherName    string     `json:"archerName" db:"full_name"`
+			ArcherEmail   string     `json:"archerEmail" db:"email"`
+			ArcherAvatar  *string    `json:"archerAvatar" db:"avatar_url"`
+			ArcherPhone   *string    `json:"archerPhone" db:"phone"`
+			ClubName      *string    `json:"clubName" db:"club_name"`
+			Amount        float64    `json:"amount" db:"amount"`
+			FeeAmount     float64    `json:"feeAmount" db:"fee_amount"`
+			TotalAmount   float64    `json:"totalAmount" db:"total_amount"`
+			Status        string     `json:"status" db:"status"`
+			CreatedAt     time.Time  `json:"createdAt" db:"created_at"`
+			PaidAt        *time.Time `json:"paidAt" db:"paid_at"`
+			PaymentMethod string     `json:"method" db:"payment_method"`
+			Reference     string     `json:"reference" db:"reference"`
+			ProofURL      *string    `json:"proofUrl" db:"proof_url"`
+			SenderName    *string    `json:"senderName" db:"sender_name"`
 		}
 
 		var details []PaymentDetail
 		query := `
 			SELECT 
-				pt.uuid, a.full_name, COALESCE(a.email, '-') as email, pt.amount, pt.status, pt.created_at, 
-				COALESCE(pt.payment_method, '-') as payment_method, pt.reference
+				pt.uuid, a.full_name, COALESCE(a.email, '-') as email, a.avatar_url, a.phone,
+				c.name as club_name, pt.amount, pt.fee_amount, pt.total_amount, pt.status, pt.created_at, 
+				pt.paid_at, COALESCE(pt.payment_method, '-') as payment_method, pt.reference,
+				pt.proof_url, pt.sender_name
 			FROM payment_transactions pt
 			JOIN tournament_participants ep ON pt.registration_id = ep.uuid
 			JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE ep.tournament_id = ? AND pt.status = 'paid'
 			ORDER BY pt.created_at DESC
 		`
@@ -1252,6 +1296,7 @@ func GetOrganizationEarningsDetail(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"eventName": event.Name,
+			"currency":  event.Currency,
 			"payments":  details,
 		})
 	}
@@ -1917,6 +1962,7 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 			RegistrationID     *string `db:"registration_id"`
 			SubscriptionPlanID *int    `db:"subscription_plan_id"`
 			PaymentMethod      *string `db:"payment_method"`
+			Amount             float64 `db:"amount"`
 			Status             string  `db:"status"`
 			Months             int     `db:"months"`
 			OrganizerID        *string `db:"organizer_id"`
@@ -1924,7 +1970,7 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 		query := `
 			SELECT 
 				pt.uuid, pt.user_id, pt.tournament_id as event_id, pt.registration_id, pt.subscription_plan_id,
-				pt.payment_method, pt.status, pt.months, e.organizer_id
+				pt.payment_method, pt.amount, pt.status, pt.months, e.organizer_id
 			FROM payment_transactions pt
 			LEFT JOIN tournaments e ON pt.tournament_id = e.uuid
 			WHERE pt.reference = ?
@@ -1974,6 +2020,8 @@ func VerifyManualPayment(db *sqlx.DB) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status transaksi"})
 				return
 			}
+
+			// Note: Manual payment is transferred directly to organizer bank account, so it does NOT credit the platform wallet.
 
 			// Update linked participants
 			regID := ""
@@ -2815,6 +2863,15 @@ func SimulatePaymentSuccess(db *sqlx.DB) gin.HandlerFunc {
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui status peserta"})
 				return
+			}
+
+			// Record credit mutation in organizer wallet
+			if transaction.EventID != nil && transaction.Amount > 0 {
+				var organizerID string
+				_ = tx.Get(&organizerID, "SELECT organizer_id FROM tournaments WHERE uuid = ?", *transaction.EventID)
+				if organizerID != "" {
+					_ = RecordWalletCreditTx(tx, organizerID, transaction.Amount, reference, "tournament_registration", "Pendaftaran turnamen ("+reference+")")
+				}
 			}
 		}
 

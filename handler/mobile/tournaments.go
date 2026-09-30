@@ -169,7 +169,7 @@ func MobileArcherGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, NULL as phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
-				SELECT tournament_id, COUNT(*) as participant_count
+				SELECT tournament_id, COUNT(DISTINCT archer_id) as participant_count
 				FROM tournament_participants
 				GROUP BY tournament_id
 			) active_target_stats ON t.uuid = active_target_stats.tournament_id
@@ -265,7 +265,7 @@ func MobileGetEventDetail(db *sqlx.DB) gin.HandlerFunc {
 				SELECT uuid as id, name as full_name, logo_url as avatar_url, slug, NULL as phone FROM clubs
 			) u ON t.organizer_id = u.id
 			LEFT JOIN (
-				SELECT tournament_id, COUNT(*) as participant_count
+				SELECT tournament_id, COUNT(DISTINCT archer_id) as participant_count
 				FROM tournament_participants
 				GROUP BY tournament_id
 			) active_target_stats ON t.uuid = active_target_stats.tournament_id

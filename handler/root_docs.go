@@ -373,10 +373,6 @@ func RootUpdateDoc(db *sqlx.DB) gin.HandlerFunc {
 		// If slug changed, remove the old file
 		if newSlug != currentBaseSlug {
 			_ = os.Remove(currentFilePath)
-			// Update comment references in DB
-			if db != nil {
-				_, _ = db.Exec("UPDATE docs_comments SET doc_slug = ? WHERE doc_slug = ?", newSlug, currentBaseSlug)
-			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{

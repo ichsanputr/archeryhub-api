@@ -116,8 +116,6 @@ func handleMobileEmailPasswordLogin(c *gin.Context, db *sqlx.DB, query string, r
 		return
 	}
 
-	utils.LogActivity(db, user.UUID, "", "mobile_login", userType, user.UUID, "User logged in via mobile", c.ClientIP(), c.Request.UserAgent())
-
 	c.JSON(http.StatusOK, MobileLoginResponse{
 		Token:     token,
 		IsNewUser: false,
@@ -218,7 +216,6 @@ func MobileScorekeeperLogin(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		utils.LogActivity(db, sk.UUID, "", "mobile_login", "scorekeeper", sk.UUID, "Scorekeeper logged in via mobile", c.ClientIP(), c.Request.UserAgent())
 		utils.LogScorekeeperAction(db, sk.UUID, sk.OrganizationUUID, "", "mobile_login", "Logged in via mobile app", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, MobileLoginResponse{
@@ -709,8 +706,6 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			user.AvatarURL = &avatarURL
 			user.Status = "active"
 			user.TokenVersion = 1
-
-			utils.LogActivity(db, userID, "", "mobile_register_google", "archer", userID, "User registered via Google on mobile", c.ClientIP(), c.Request.UserAgent())
 		} else {
 			// Download and update profile picture from Google callback
 			downloadedAvatar, dlErr := utils.DownloadAndSaveGoogleAvatar(googleInfo.Picture, user.UUID)
@@ -739,8 +734,6 @@ func MobileGoogleLogin(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
 			return
 		}
-
-		utils.LogActivity(db, user.UUID, "", "mobile_login_google", "archer", user.UUID, "User logged in via Google mobile", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, MobileLoginResponse{
 			Token:     token,
@@ -938,13 +931,6 @@ func MobileResetPassword(db *sqlx.DB) gin.HandlerFunc {
 // @Router /mobile/auth/logout [post]
 func MobileLogout(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := c.Get("user_id")
-		userType, _ := c.Get("user_type")
-
-		if exists && userID != nil {
-			utils.LogActivity(db, userID.(string), "", "mobile_logout", userType.(string), userID.(string), "User logged out via mobile", c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "success",
 			"message": "Berhasil logout",

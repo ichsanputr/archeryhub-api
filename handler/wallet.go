@@ -54,7 +54,63 @@ func GetMyWallet(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, wallet)
+		// Calculate total earnings per currency from tournament paid payments
+		type CurrencyTotal struct {
+			Currency string  `db:"currency"`
+			Total    float64 `db:"total"`
+		}
+		var earnings []CurrencyTotal
+		_ = db.Select(&earnings, `
+			SELECT 
+				COALESCE(e.currency, 'IDR') as currency,
+				COALESCE(SUM(pt.amount), 0) as total
+			FROM tournaments e
+			JOIN tournament_participants ep ON e.uuid = ep.tournament_id
+			JOIN payment_transactions pt ON ep.uuid = pt.registration_id AND pt.status = 'paid'
+			WHERE e.organizer_id = ?
+			GROUP BY e.currency
+		`, userID)
+
+		// Calculate total withdrawals (currently IDR)
+		var totalWithdrawnIDR float64
+		_ = db.Get(&totalWithdrawnIDR, "SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = ? AND status != 'failed'", userID)
+
+		balances := map[string]float64{
+			"IDR": 0,
+			"USD": 0,
+		}
+		totalEarningsMap := map[string]float64{
+			"IDR": 0,
+			"USD": 0,
+		}
+
+		for _, item := range earnings {
+			curr := strings.ToUpper(item.Currency)
+			totalEarningsMap[curr] = item.Total
+			if curr == "IDR" {
+				net := item.Total - totalWithdrawnIDR
+				if net < 0 {
+					net = 0
+				}
+				balances[curr] = net
+			} else {
+				balances[curr] = item.Total
+			}
+		}
+
+		// Sync IDR balance into wallets table
+		idrBalance := balances["IDR"]
+		wallet.Balance = idrBalance
+		_, _ = db.Exec("UPDATE wallets SET balance = ?, updated_at = NOW() WHERE uuid = ?", idrBalance, wallet.UUID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"id":              wallet.UUID,
+			"user_id":         wallet.UserID,
+			"balance":         wallet.Balance,
+			"balances":        balances,
+			"total_earnings":  totalEarningsMap,
+			"total_withdrawn": map[string]float64{"IDR": totalWithdrawnIDR},
+		})
 	}
 }
 
@@ -239,5 +295,71 @@ func GetWalletMutations(db *sqlx.DB) gin.HandlerFunc {
 		meta := utils.CalculatePagination(totalCount, limit, offset, page)
 		c.JSON(http.StatusOK, gin.H{"data": mutations, "meta": meta})
 	}
+}
+
+// RecordWalletCreditTx records a credit mutation into wallet_mutations and updates wallet balance inside an existing transaction
+func RecordWalletCreditTx(tx *sqlx.Tx, organizerID string, amount float64, referenceNo string, referenceType string, description string) error {
+	if organizerID == "" || amount <= 0 {
+		return nil
+	}
+	if referenceType == "" {
+		referenceType = "tournament_registration"
+	}
+
+	// 1. Check idempotency: if credit for referenceNo already exists, do nothing
+	var exists bool
+	_ = tx.Get(&exists, "SELECT EXISTS(SELECT 1 FROM wallet_mutations WHERE reference_id = ? AND mutation_type = 'credit')", referenceNo)
+	if exists {
+		return nil
+	}
+
+	// 2. Ensure wallet exists FOR UPDATE
+	var walletInfo struct {
+		UUID    string  `db:"uuid"`
+		Balance float64 `db:"balance"`
+	}
+	err := tx.Get(&walletInfo, "SELECT uuid, balance FROM wallets WHERE user_id = ? FOR UPDATE", organizerID)
+	if err != nil {
+		// Create wallet if not exists
+		walletUUID := uuid.New().String()
+		_, err = tx.Exec("INSERT INTO wallets (uuid, user_id, balance) VALUES (?, ?, ?)", walletUUID, organizerID, amount)
+		if err != nil {
+			return err
+		}
+		walletInfo.UUID = walletUUID
+		walletInfo.Balance = 0
+	} else {
+		// Update balance
+		_, err = tx.Exec("UPDATE wallets SET balance = balance + ?, updated_at = NOW() WHERE uuid = ?", amount, walletInfo.UUID)
+		if err != nil {
+			return err
+		}
+	}
+
+	balanceBefore := walletInfo.Balance
+	balanceAfter := balanceBefore + amount
+
+	// 3. Insert mutation record
+	mutationID := uuid.New().String()
+	_, err = tx.Exec(`
+		INSERT INTO wallet_mutations (uuid, wallet_id, user_id, mutation_type, amount, balance_before, balance_after, reference_type, reference_id, description, created_at)
+		VALUES (?, ?, ?, 'credit', ?, ?, ?, ?, ?, ?, NOW())
+	`, mutationID, walletInfo.UUID, organizerID, amount, balanceBefore, balanceAfter, referenceType, referenceNo, description)
+
+	return err
+}
+
+// RecordWalletCredit is a standalone wrapper around RecordWalletCreditTx
+func RecordWalletCredit(db *sqlx.DB, organizerID string, amount float64, referenceNo string, referenceType string, description string) error {
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := RecordWalletCreditTx(tx, organizerID, amount, referenceNo, referenceType, description); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 

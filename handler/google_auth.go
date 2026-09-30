@@ -504,9 +504,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 				}
 				return
 			}
-
-			// Log activity
-			utils.LogActivity(db, userID, "", "user_registered", userType, userID, "User registered via Google: "+userInfo.Email, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		// Fetch updated avatar_url from database to populate JWT and response
@@ -536,9 +533,6 @@ func GoogleCallback(db *sqlx.DB) gin.HandlerFunc {
 			}
 			return
 		}
-
-		// Log activity
-		utils.LogActivity(db, userID, "", "user_logged_in", userType, userID, "User logged in via Google", c.ClientIP(), c.Request.UserAgent())
 
 		// Set cookie
 		isProduction := os.Getenv("ENV") == "production"

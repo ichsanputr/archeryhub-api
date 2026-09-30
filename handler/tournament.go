@@ -595,10 +595,6 @@ func CreateEvent(db *sqlx.DB) gin.HandlerFunc {
 			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", eventUUID, cleanName, "%"+cleanName)
 		}
 
-		// Log activity (after successful commit)
-		userID, _ = c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventUUID, "Event_created", "Event", eventUUID, "Created new Event: "+req.Name, c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Event berhasil dibuat",
 			"id":      eventUUID,
@@ -903,10 +899,6 @@ func UpdateEvent(db *sqlx.DB) gin.HandlerFunc {
 			_, _ = db.Exec("UPDATE media SET tournament_id = ? WHERE (url = ? OR url LIKE ?) AND tournament_id IS NULL", id, cleanName, "%"+cleanName)
 		}
 
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), id, "Event_updated", "Event", id, "Updated Event", c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Data event berhasil diperbarui"})
 	}
 }
@@ -963,10 +955,6 @@ func DeleteEvent(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi"})
 			return
 		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), "", "Event_deleted", "Event", id, "Deleted Event", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Data event berhasil dihapus"})
 	}
@@ -2916,9 +2904,6 @@ func PublishEvent(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log activity
-		utils.LogActivity(db, userID.(string), eventID, "event_published", "event", eventID, "Published event", c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Event berhasil dipublikasikan"})
 	}
 }
@@ -3640,7 +3625,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 		actualEventID := event.UUID
 
 		// Determine privileges
-		userID, _ := c.Get("user_id")
 		userRole, _ := c.Get("role")
 		orgID, _ := c.Get("org_id")
 
@@ -3909,7 +3893,6 @@ func BatchRegisterParticipants(db *sqlx.DB) gin.HandlerFunc {
 					_ = SaveParticipantCustomFields(tx, actualEventID, participantUUID, cfMap)
 				}
 
-				utils.LogActivity(tx, fmt.Sprintf("%v", userID), actualEventID, "participant_registered", "event_participant", participantUUID, "Batch registered participant for event category: "+catID, c.ClientIP(), c.Request.UserAgent())
 				registeredCount++
 			}
 		}
@@ -4437,12 +4420,6 @@ func UpdateEventParticipant(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log activity
-		userID, _ := c.Get("user_id")
-		if userID != nil {
-			utils.LogActivity(db, userID.(string), actualEventID, "participant_updated", "event_participant", actualParticipantID, "Updated participant", c.ClientIP(), c.Request.UserAgent())
-		}
-
 		// If payment_status was updated to paid/lunas, send confirmation email asynchronously
 		if req.PaymentStatus != nil {
 			sVal := strings.ToLower(*req.PaymentStatus)
@@ -4557,10 +4534,6 @@ func CreateEventCategories(db *sqlx.DB) gin.HandlerFunc {
 				}
 			}
 		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventID, "categories_created", "event", eventID, fmt.Sprintf("Created %d categories in batch", count), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusCreated, gin.H{
 			"message": fmt.Sprintf("Berhasil membuat %d kategori", count),
@@ -4723,10 +4696,6 @@ func CreateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventID, "category_created", "event_category", catEventID, "Created event category", c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusCreated, gin.H{
 			"id":      catEventID,
 			"message": "Kategori berhasil dibuat",
@@ -4823,10 +4792,6 @@ func UpdateEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update category", "details": err.Error()})
 			return
 		}
-
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventID, "category_updated", "event_category", categoryID, "Updated event category", c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{"message": "Kategori berhasil diperbarui"})
 	}
@@ -5066,10 +5031,6 @@ func DeleteEventCategory(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log activity
-		userID, _ := c.Get("user_id")
-		utils.LogActivity(db, userID.(string), eventID, "category_deleted_destructive", "event_category", categoryID, "Permanently deleted category and all related data", c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusOK, gin.H{"message": "Kategori dan seluruh data terkait berhasil dihapus secara permanen"})
 	}
 }
@@ -5125,7 +5086,6 @@ func GetEventImages(db *sqlx.DB) gin.HandlerFunc {
 func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		eventID := c.Param("id")
-		userID, _ := c.Get("user_id")
 
 		var eventUUID string
 		err := db.Get(&eventUUID, "SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ?", eventID, eventID)
@@ -5188,9 +5148,6 @@ func UpdateEventImages(db *sqlx.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar event", "details": err.Error()})
 			return
 		}
-
-		// Log activity
-		utils.LogActivity(db, userID.(string), eventUUID, "event_images_updated", "event", eventUUID, fmt.Sprintf("Updated %d event images", len(req.Images)), c.ClientIP(), c.Request.UserAgent())
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Gambar event berhasil diperbarui",
@@ -6102,11 +6059,6 @@ func ResetEventData(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan reset"})
 			return
-		}
-
-		// Log activity
-		if userID != nil {
-			utils.LogActivity(db, userID.(string), actualEventID, "event_reset", "event", actualEventID, "Reset target data: "+req.Target, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Data event berhasil direset!"})

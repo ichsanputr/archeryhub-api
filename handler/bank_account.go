@@ -15,6 +15,9 @@ type BankAccount struct {
 	BankName      string     `json:"bank_name" db:"bank_name"`
 	AccountNumber string     `json:"account_number" db:"account_number"`
 	AccountName   string     `json:"account_name" db:"account_name"`
+	SwiftCode     *string    `json:"swift_code" db:"swift_code"`
+	CountryCode   *string    `json:"country_code" db:"country_code"`
+	Currency      *string    `json:"currency" db:"currency"`
 	IsPrimary     bool       `json:"is_primary" db:"is_primary"`
 	Status        string     `json:"status" db:"status"`
 	CustomName    *string    `json:"custom_name" db:"custom_name"`
@@ -47,6 +50,9 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 			BankName      string  `json:"bank_name" binding:"required"`
 			AccountNumber string  `json:"account_number" binding:"required"`
 			AccountName   string  `json:"account_name" binding:"required"`
+			SwiftCode     *string `json:"swift_code"`
+			CountryCode   *string `json:"country_code"`
+			Currency      *string `json:"currency"`
 			IsPrimary     bool    `json:"is_primary"`
 			CustomName    *string `json:"custom_name"`
 			Type          string  `json:"type"`
@@ -85,11 +91,19 @@ func CreateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		if req.Type == "" {
 			req.Type = "bank"
 		}
+		countryCode := "ID"
+		if req.CountryCode != nil && *req.CountryCode != "" {
+			countryCode = *req.CountryCode
+		}
+		currency := "IDR"
+		if req.Currency != nil && *req.Currency != "" {
+			currency = *req.Currency
+		}
 
 		_, err = tx.Exec(`
-			INSERT INTO bank_accounts (uuid, user_id, bank_name, account_number, account_name, is_primary, custom_name, type, instructions)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, accountID, userID, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary, req.CustomName, req.Type, req.Instructions)
+			INSERT INTO bank_accounts (uuid, user_id, bank_name, account_number, account_name, swift_code, country_code, currency, is_primary, custom_name, type, instructions)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, accountID, userID, req.BankName, req.AccountNumber, req.AccountName, req.SwiftCode, countryCode, currency, req.IsPrimary, req.CustomName, req.Type, req.Instructions)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat rekening bank: " + err.Error()})
@@ -114,6 +128,9 @@ func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 			BankName      string  `json:"bank_name" binding:"required"`
 			AccountNumber string  `json:"account_number" binding:"required"`
 			AccountName   string  `json:"account_name" binding:"required"`
+			SwiftCode     *string `json:"swift_code"`
+			CountryCode   *string `json:"country_code"`
+			Currency      *string `json:"currency"`
 			IsPrimary     bool    `json:"is_primary"`
 			CustomName    *string `json:"custom_name"`
 			Type          string  `json:"type"`
@@ -157,12 +174,20 @@ func UpdateBankAccount(db *sqlx.DB) gin.HandlerFunc {
 		if req.Type == "" {
 			req.Type = "bank"
 		}
+		countryCode := "ID"
+		if req.CountryCode != nil && *req.CountryCode != "" {
+			countryCode = *req.CountryCode
+		}
+		currency := "IDR"
+		if req.Currency != nil && *req.Currency != "" {
+			currency = *req.Currency
+		}
 
 		_, err = tx.Exec(`
 			UPDATE bank_accounts 
-			SET bank_name = ?, account_number = ?, account_name = ?, is_primary = ?, custom_name = ?, type = ?, instructions = ?, updated_at = NOW()
+			SET bank_name = ?, account_number = ?, account_name = ?, swift_code = ?, country_code = ?, currency = ?, is_primary = ?, custom_name = ?, type = ?, instructions = ?, updated_at = NOW()
 			WHERE uuid = ? AND user_id = ?
-		`, req.BankName, req.AccountNumber, req.AccountName, req.IsPrimary, req.CustomName, req.Type, req.Instructions, accountID, userID)
+		`, req.BankName, req.AccountNumber, req.AccountName, req.SwiftCode, countryCode, currency, req.IsPrimary, req.CustomName, req.Type, req.Instructions, accountID, userID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui rekening bank: " + err.Error()})
@@ -222,6 +247,9 @@ func SyncBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 			BankName      string  `json:"bank_name"`
 			AccountNumber string  `json:"account_number"`
 			AccountName   string  `json:"account_name"`
+			SwiftCode     *string `json:"swift_code"`
+			CountryCode   *string `json:"country_code"`
+			Currency      *string `json:"currency"`
 			IsPrimary     bool    `json:"is_primary"`
 			CustomName    *string `json:"custom_name"`
 			Type          string  `json:"type"`
@@ -291,15 +319,23 @@ func SyncBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 			if itemType == "" {
 				itemType = "bank"
 			}
+			countryCode := "ID"
+			if item.CountryCode != nil && *item.CountryCode != "" {
+				countryCode = *item.CountryCode
+			}
+			currency := "IDR"
+			if item.Currency != nil && *item.Currency != "" {
+				currency = *item.Currency
+			}
 
 			// Check if this is an existing account
 			if item.UUID != "" && len(item.UUID) == 36 && existingMap[item.UUID] {
 				// Update
 				_, err = tx.Exec(`
 					UPDATE bank_accounts 
-					SET bank_name = ?, account_number = ?, account_name = ?, is_primary = ?, custom_name = ?, type = ?, instructions = ?, updated_at = NOW()
+					SET bank_name = ?, account_number = ?, account_name = ?, swift_code = ?, country_code = ?, currency = ?, is_primary = ?, custom_name = ?, type = ?, instructions = ?, updated_at = NOW()
 					WHERE uuid = ? AND user_id = ?
-				`, item.BankName, item.AccountNumber, item.AccountName, item.IsPrimary, item.CustomName, itemType, item.Instructions, item.UUID, userID)
+				`, item.BankName, item.AccountNumber, item.AccountName, item.SwiftCode, countryCode, currency, item.IsPrimary, item.CustomName, itemType, item.Instructions, item.UUID, userID)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui rekening bank: " + err.Error()})
 					return
@@ -309,9 +345,9 @@ func SyncBankAccounts(db *sqlx.DB) gin.HandlerFunc {
 				// Insert new
 				newUUID := uuid.New().String()
 				_, err = tx.Exec(`
-					INSERT INTO bank_accounts (uuid, user_id, bank_name, account_number, account_name, is_primary, custom_name, type, instructions)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-				`, newUUID, userID, item.BankName, item.AccountNumber, item.AccountName, item.IsPrimary, item.CustomName, itemType, item.Instructions)
+					INSERT INTO bank_accounts (uuid, user_id, bank_name, account_number, account_name, swift_code, country_code, currency, is_primary, custom_name, type, instructions)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`, newUUID, userID, item.BankName, item.AccountNumber, item.AccountName, item.SwiftCode, countryCode, currency, item.IsPrimary, item.CustomName, itemType, item.Instructions)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat rekening bank: " + err.Error()})
 					return

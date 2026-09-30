@@ -281,9 +281,6 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 		// Set Cookie using helper
 		setAuthCookie(c, token, 60*60*24*60) // 60 days
 
-		// Log activity (silently fail if log table doesn't exist yet)
-		utils.LogActivity(db, userID, "", "user_registered", req.UserType, userID, "User registered: "+req.Username, c.ClientIP(), c.Request.UserAgent())
-
 		c.JSON(http.StatusCreated, AuthResponse{
 			Token: token,
 			User: gin.H{
@@ -531,8 +528,6 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 		// Set Cookie using helper
 		setAuthCookie(c, token, 60*60*24*60) // 60 days
 
-		// Log activity
-		utils.LogActivity(db, user.UUID, "", "user_logged_in", user.Type, user.UUID, "User logged in: "+user.Username, c.ClientIP(), c.Request.UserAgent())
 		if user.Type == "scorekeeper" {
 			utils.LogScorekeeperAction(db, user.UUID, user.OrgUUID, "", "web_login", "Logged in via web", c.ClientIP(), c.Request.UserAgent())
 		}

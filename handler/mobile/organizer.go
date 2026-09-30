@@ -1,6 +1,7 @@
 package mobile
 
 import (
+	"Archeris-api/utils"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,7 +32,7 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 
 		// Participants
 		_ = db.Get(&dashboard.Stats.TotalParticipants, `
-			SELECT COUNT(ep.uuid) 
+			SELECT COUNT(DISTINCT ep.archer_id) 
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ?
@@ -61,7 +62,7 @@ func MobileGetOrganizationDashboard(db *sqlx.DB) gin.HandlerFunc {
 		`, userID)
 
 		_ = db.Get(&dashboard.Stats.CheckedInParticipants, `
-			SELECT COUNT(ep.uuid) 
+			SELECT COUNT(DISTINCT ep.archer_id) 
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			WHERE e.organizer_id = ? AND ep.last_reregistration_at IS NOT NULL
@@ -527,11 +528,11 @@ func MobileGetCheckinSummary(db *sqlx.DB) gin.HandlerFunc {
 		var checkedInParticipants int
 
 		_ = db.Get(&totalParticipants, `
-			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ?
+			SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE tournament_id = ?
 		`, eventUUID)
 
 		_ = db.Get(&checkedInParticipants, `
-			SELECT COUNT(*) FROM tournament_participants WHERE tournament_id = ? AND last_reregistration_at IS NOT NULL
+			SELECT COUNT(DISTINCT archer_id) FROM tournament_participants WHERE tournament_id = ? AND last_reregistration_at IS NOT NULL
 		`, eventUUID)
 
 		percentage := 0.0
@@ -548,6 +549,103 @@ func MobileGetCheckinSummary(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+// MobileGetCheckinHistory returns the list of checked-in participants for an event
+func MobileGetCheckinHistory(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		eventID := c.Param("id")
+
+		var eventUUID string
+		if err := db.Get(&eventUUID, `SELECT uuid FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1`, eventID, eventID); err != nil {
+			eventUUID = eventID
+		}
+
+		limitStr := c.DefaultQuery("limit", "100")
+		limit, _ := strconv.Atoi(limitStr)
+		if limit <= 0 || limit > 500 {
+			limit = 100
+		}
+
+		categoryFilter := c.Query("category")
+		searchQuery := c.Query("q")
+
+		query := `
+			SELECT 
+				ep.uuid as participant_id,
+				COALESCE(ep.archer_id, '') as archer_id,
+				COALESCE(NULLIF(a.full_name, ''), NULLIF(a.username, ''), 'Peserta') as full_name,
+				COALESCE(a.avatar_url, '') as avatar_url,
+				COALESCE(cl.name, 'Independen') as club_name,
+				COALESCE(ec.category_name_custom, CONCAT_WS(' - ', rbt.name, rag.name, rgd.name), '-') as category_name,
+				COALESCE(
+					NULLIF(ep.qr_raw, ''),
+					CONCAT('ARC-', UPPER(SUBSTRING(REPLACE(ep.uuid, '-', ''), 1, 6)))
+				) as athlete_code,
+				ep.payment_status,
+				ep.last_reregistration_at as scanned_at
+			FROM tournament_participants ep
+			JOIN tournaments e ON ep.tournament_id = e.uuid
+			LEFT JOIN archers a ON ep.archer_id = a.uuid
+			LEFT JOIN clubs cl ON a.club_id = cl.uuid
+			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
+			LEFT JOIN ref_bow_types rbt ON ec.division_uuid = rbt.uuid
+			LEFT JOIN ref_age_groups rag ON ec.category_uuid = rag.uuid
+			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
+			WHERE ep.tournament_id = ? AND ep.last_reregistration_at IS NOT NULL
+		`
+		args := []interface{}{eventUUID}
+
+		if categoryFilter != "" && categoryFilter != "all" {
+			query += " AND (ec.category_name_custom = ? OR rbt.name = ? OR rag.name = ? OR CONCAT_WS(' - ', rbt.name, rag.name, rgd.name) = ?)"
+			args = append(args, categoryFilter, categoryFilter, categoryFilter, categoryFilter)
+		}
+
+		if searchQuery != "" {
+			qLike := "%" + searchQuery + "%"
+			query += " AND (a.full_name LIKE ? OR a.username LIKE ? OR cl.name LIKE ? OR ep.qr_raw LIKE ? OR ep.uuid LIKE ?)"
+			args = append(args, qLike, qLike, qLike, qLike, qLike)
+		}
+
+		query += " ORDER BY ep.last_reregistration_at DESC LIMIT ?"
+		args = append(args, limit)
+
+		type CheckinHistoryItem struct {
+			ParticipantID string     `json:"participant_id" db:"participant_id"`
+			ArcherID      string     `json:"archer_id" db:"archer_id"`
+			FullName      string     `json:"full_name" db:"full_name"`
+			AvatarURL     string     `json:"avatar_url" db:"avatar_url"`
+			ClubName      string     `json:"club_name" db:"club_name"`
+			CategoryName  string     `json:"category_name" db:"category_name"`
+			AthleteCode   string     `json:"athlete_code" db:"athlete_code"`
+			PaymentStatus string     `json:"payment_status" db:"payment_status"`
+			ScannedAt     *time.Time `json:"scanned_at" db:"scanned_at"`
+		}
+
+		var items []CheckinHistoryItem
+		if err := db.Select(&items, query, args...); err != nil {
+			items = []CheckinHistoryItem{}
+		}
+
+		for i := range items {
+			if items[i].AvatarURL != "" {
+				items[i].AvatarURL = utils.MaskMediaURL(items[i].AvatarURL)
+			}
+		}
+
+		var totalCheckedIn int
+		_ = db.Get(&totalCheckedIn, `
+			SELECT COUNT(DISTINCT archer_id) 
+			FROM tournament_participants 
+			WHERE tournament_id = ? AND last_reregistration_at IS NOT NULL
+		`, eventUUID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"event_id":         eventUUID,
+			"total_checked_in": totalCheckedIn,
+			"history":          items,
+		})
+	}
+}
+
 // MobileManualCheckin allows organizer to manually check-in a participant
 func MobileManualCheckin(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -560,18 +658,37 @@ func MobileManualCheckin(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		now := time.Now()
-		res, err := db.Exec(`
-			UPDATE tournament_participants 
-			SET last_reregistration_at = ?
-			WHERE tournament_id = ? AND (uuid = ? OR qr_raw = ?)
-		`, now, eventUUID, participantID, participantID)
+		var targetArcherID string
+		_ = db.Get(&targetArcherID, `
+			SELECT archer_id FROM tournament_participants 
+			WHERE tournament_id = ? AND (uuid = ? OR qr_raw = ?) 
+			LIMIT 1
+		`, eventUUID, participantID, participantID)
 
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal check-in manual", "details": err.Error()})
-			return
+		var rows int64
+		if targetArcherID != "" {
+			res, err := db.Exec(`
+				UPDATE tournament_participants 
+				SET last_reregistration_at = ?
+				WHERE tournament_id = ? AND archer_id = ?
+			`, now, eventUUID, targetArcherID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal check-in manual", "details": err.Error()})
+				return
+			}
+			rows, _ = res.RowsAffected()
+		} else {
+			res, err := db.Exec(`
+				UPDATE tournament_participants 
+				SET last_reregistration_at = ?
+				WHERE tournament_id = ? AND (uuid = ? OR qr_raw = ?)
+			`, now, eventUUID, participantID, participantID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal check-in manual", "details": err.Error()})
+				return
+			}
+			rows, _ = res.RowsAffected()
 		}
-
-		rows, _ := res.RowsAffected()
 		if rows == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Peserta tidak ditemukan pada turnamen ini"})
 			return
@@ -711,12 +828,18 @@ func MobileManualApprovePayment(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Also update linked tournament_participants
-		var pUUID string
-		_ = tx.Get(&pUUID, "SELECT uuid FROM payment_transactions WHERE uuid = ? OR reference = ? LIMIT 1", transactionID, transactionID)
-		if pUUID != "" {
-			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", pUUID)
+		// Also update linked tournament_participants and record wallet credit
+		var txInfo struct {
+			UUID         string  `db:"uuid"`
+			Amount       float64 `db:"amount"`
+			Reference    string  `db:"reference"`
+			TournamentID *string `db:"tournament_id"`
 		}
+		_ = tx.Get(&txInfo, "SELECT uuid, amount, reference, tournament_id FROM payment_transactions WHERE uuid = ? OR reference = ? LIMIT 1", transactionID, transactionID)
+		if txInfo.UUID != "" {
+			_, _ = tx.Exec("UPDATE tournament_participants SET payment_status = 'paid' WHERE payment_id = ?", txInfo.UUID)
+		}
+		// Note: Manual payment is transferred directly to organizer bank account, so it does NOT credit the platform wallet.
 
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan pembayaran"})

@@ -60,17 +60,7 @@ func InitDB() (*sqlx.DB, error) {
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 	`)
 
-	// Ensure blog and newsletter tables exist
-	_, _ = db.Exec(`
-		CREATE TABLE IF NOT EXISTS news_subscribers (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			email VARCHAR(255) NOT NULL UNIQUE,
-			is_active TINYINT(1) DEFAULT 1,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			INDEX idx_email (email)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-	`)
+	// Ensure blog articles table exists
 
 	_, _ = db.Exec(`
 		CREATE TABLE IF NOT EXISTS blog_articles (

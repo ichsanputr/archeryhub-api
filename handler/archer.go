@@ -415,8 +415,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		userID, _ := c.Get("user_id")
-
 		// Truncate string fields to DB limits to avoid "Data too long" errors
 		truncateStr(req.Phone, archerPhoneLen)
 		truncateStr(req.Email, archerEmailLen)
@@ -571,11 +569,6 @@ func CreateArcher(db *sqlx.DB) gin.HandlerFunc {
 			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data pemanah", "details": err.Error()})
 			return
-		}
-
-		// Log activity
-		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "archer_created", "archer", archerID, "Created new archer: "+req.FullName, c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
@@ -766,12 +759,6 @@ func UpdateArcher(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Log activity
-		userID, _ = c.Get("user_id")
-		if userID != nil {
-			utils.LogActivity(db, userID.(string), "", "archer_updated", "archer", id, "Updated archer", c.ClientIP(), c.Request.UserAgent())
-		}
-
 		c.JSON(http.StatusOK, gin.H{"message": "Pemanah berhasil diperbarui"})
 	}
 }
@@ -845,12 +832,6 @@ func deleteArchersByUUIDs(tx *sqlx.Tx, archerUUIDs []string) error {
 		tx.Exec(tx.Rebind(qNotif), aNotif...)
 	}
 
-	// Delete activity logs (FK constraint)
-	qAct, aAct, err := sqlx.In(`DELETE FROM activity_logs WHERE user_id IN (?)`, archerUUIDs)
-	if err == nil && qAct != "" {
-		tx.Exec(tx.Rebind(qAct), aAct...)
-	}
-
 	// Delete archers
 	qArch, aArch, err := sqlx.In(`DELETE FROM archers WHERE uuid IN (?)`, archerUUIDs)
 	if err != nil {
@@ -896,11 +877,6 @@ func DeleteArcher(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan", "details": err.Error()})
 			return
-		}
-
-		// Log activity
-		if userID != nil {
-			utils.LogActivity(db, userIDStr, "", "archer_deleted", "archer", targetUUID, "Deleted archer", c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Pemanah berhasil dihapus"})
@@ -951,12 +927,6 @@ func BulkDeleteArchers(db *sqlx.DB) gin.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan perubahan", "details": err.Error()})
 			return
-		}
-
-		userID, _ := c.Get("user_id")
-		userIDStr := fmt.Sprintf("%v", userID)
-		if userID != nil {
-			utils.LogActivity(db, userIDStr, "", "archers_bulk_deleted", "archer", "", fmt.Sprintf("Bulk deleted %d archers", len(resolvedUUIDs)), c.ClientIP(), c.Request.UserAgent())
 		}
 
 		c.JSON(http.StatusOK, gin.H{
