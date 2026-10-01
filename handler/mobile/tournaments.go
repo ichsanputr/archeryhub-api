@@ -1,6 +1,7 @@
 package mobile
 
 import (
+	"Archeris-api/handler"
 	"Archeris-api/models"
 	"Archeris-api/utils"
 	"context"
@@ -777,6 +778,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 			allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, partUUID)
 			registeredCats = append(registeredCats, catID)
 			calculatedTotalFee += catFee
+			_ = handler.SaveParticipantCustomFields(tx, actualEventID, partUUID, req.CustomFields)
 		}
 
 		// Process Team Registrations
@@ -990,6 +992,7 @@ func processMobileRegistration(c *gin.Context, db *sqlx.DB, req MobileRegisterEv
 				allCreatedParticipantUUIDs = append(allCreatedParticipantUUIDs, partUUID)
 				registeredCats = append(registeredCats, trimmed)
 				calculatedTotalFee += catFee
+				_ = handler.SaveParticipantCustomFields(tx, actualEventID, partUUID, ath.CustomFields)
 			}
 		}
 

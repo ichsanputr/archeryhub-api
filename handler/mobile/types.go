@@ -112,6 +112,7 @@ type MobileRegisterEventRequest struct {
 	DelegationAthletes []models.DelegationAthleteInput     `json:"delegation_athletes"`
 	DelegationTeams    []models.DelegationTeamBookingInput `json:"delegation_teams"`
 	TeamRegistrations  []models.TeamRegistrationInput      `json:"team_registrations"`
+	CustomFields       map[string]interface{}              `json:"custom_fields"`
 	RegistrationSource string                              `json:"registration_source"`
 }
 
@@ -656,21 +657,36 @@ type MobileUpdateOrganizationProfileRequest struct {
 
 // MobileArcherProfileData represents archer profile data for mobile.
 type MobileArcherProfileData struct {
-	ID          string  `json:"id" example:"ARC-0042"`
-	UUID        string  `json:"uuid" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
-	Username    *string `json:"username" example:"rizky-pratama"`
-	FullName    string  `json:"full_name" example:"Rizky Pratama"`
-	Email       *string `json:"email" example:"rizky@example.com"`
-	AvatarURL   *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
-	Phone       *string `json:"phone" example:"081234567890"`
-	Gender      *string `json:"gender" example:"male"`
-	DateOfBirth *string `json:"date_of_birth" example:"1995-05-18"`
-	City        *string `json:"city" example:"Jakarta"`
-	Address     *string `json:"address" example:"Jl. Panahan No. 10"`
-	BowType     *string `json:"bow_type" example:"recurve"`
-	ClubID      *string `json:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
-	ClubName    *string `json:"club_name" example:"Archeris Club Jakarta"`
-	UserType    string  `json:"user_type" example:"archer"`
+	ID                   string  `json:"id" example:"ARC-0042"`
+	UUID                 string  `json:"uuid" example:"arc-a49ee7d7-9d7b-4be7-8652-342f2fca23f9"`
+	Username             *string `json:"username" example:"rizky-pratama"`
+	FullName             string  `json:"full_name" example:"Rizky Pratama"`
+	Email                *string `json:"email" example:"rizky@example.com"`
+	AvatarURL            *string `json:"avatar_url" example:"https://cdn.archeris.net/media/archers/rizky.jpg"`
+	BannerURL            *string `json:"banner_url"`
+	Phone                *string `json:"phone" example:"081234567890"`
+	Gender               *string `json:"gender" example:"male"`
+	DateOfBirth          *string `json:"date_of_birth" example:"1995-05-18"`
+	City                 *string `json:"city" example:"Jakarta"`
+	Country              *string `json:"country"`
+	Address              *string `json:"address" example:"Jl. Panahan No. 10"`
+	EmergencyContactName *string `json:"emergency_contact_name"`
+	BowType              *string `json:"bow_type" example:"recurve"`
+	ClubID               *string `json:"club_id" example:"club-1b5d0f48-f3dc-43f3-8ec0-f1fc8805fd29"`
+	ClubName             *string `json:"club_name" example:"Archeris Club Jakarta"`
+	UserType             string  `json:"user_type" example:"archer"`
+	Nickname             *string `json:"nickname"`
+	Bio                  *string `json:"bio"`
+	Achievements         *string `json:"achievements"`
+	Equipment            *string `json:"equipment"`
+	SocialInstagram      *string `json:"social_instagram"`
+	SocialTiktok         *string `json:"social_tiktok"`
+	SocialWhatsapp       *string `json:"social_whatsapp"`
+	SocialFacebook       *string `json:"social_facebook"`
+	SocialTwitter        *string `json:"social_twitter"`
+	SocialYoutube        *string `json:"social_youtube"`
+	SocialWebsite        *string `json:"social_website"`
+	SocialLinkedin       *string `json:"social_linkedin"`
 }
 
 // MobileArcherProfileResponse represents /mobile/archer/me response.
@@ -680,29 +696,30 @@ type MobileArcherProfileResponse struct {
 
 // MobileUpdateArcherProfileRequest represents archer profile update payload.
 type MobileUpdateArcherProfileRequest struct {
-	FullName        *string `json:"full_name"`
-	Phone           *string `json:"phone"`
-	Gender          *string `json:"gender"`
-	DateOfBirth     *string `json:"date_of_birth"`
-	City            *string `json:"city"`
-	Address         *string `json:"address"`
-	BowType         *string `json:"bow_type"`
-	AvatarURL       *string `json:"avatar_url"`
-	Nickname        *string `json:"nickname"`
-	Bio             *string `json:"bio"`
-	BannerURL       *string `json:"banner_url"`
-	SocialInstagram *string `json:"social_instagram"`
-	SocialTiktok    *string `json:"social_tiktok"`
-	SocialWhatsapp  *string `json:"social_whatsapp"`
-	SocialFacebook  *string `json:"social_facebook"`
-	SocialTwitter   *string `json:"social_twitter"`
-	SocialYoutube   *string `json:"social_youtube"`
-	SocialWebsite   *string `json:"social_website"`
-	SocialLinkedin  *string `json:"social_linkedin"`
-	Achievements    *string `json:"achievements"`
-	Equipment       *string `json:"equipment"`
-	ClubID          *string `json:"club_id"`
-	Country         *string `json:"country"`
+	FullName             *string `json:"full_name"`
+	Phone                *string `json:"phone"`
+	Gender               *string `json:"gender"`
+	DateOfBirth          *string `json:"date_of_birth"`
+	City                 *string `json:"city"`
+	Country              *string `json:"country"`
+	Address              *string `json:"address"`
+	EmergencyContactName *string `json:"emergency_contact_name"`
+	BowType              *string `json:"bow_type"`
+	AvatarURL            *string `json:"avatar_url"`
+	Nickname             *string `json:"nickname"`
+	Bio                  *string `json:"bio"`
+	BannerURL            *string `json:"banner_url"`
+	SocialInstagram      *string `json:"social_instagram"`
+	SocialTiktok         *string `json:"social_tiktok"`
+	SocialWhatsapp       *string `json:"social_whatsapp"`
+	SocialFacebook       *string `json:"social_facebook"`
+	SocialTwitter        *string `json:"social_twitter"`
+	SocialYoutube        *string `json:"social_youtube"`
+	SocialWebsite        *string `json:"social_website"`
+	SocialLinkedin       *string `json:"social_linkedin"`
+	Achievements         *string `json:"achievements"`
+	Equipment            *string `json:"equipment"`
+	ClubID               *string `json:"club_id"`
 }
 
 // ChatConversation represents a chat between archer and seller.

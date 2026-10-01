@@ -126,19 +126,19 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 		var tournaments []MobileMyEventItem
 		err := db.Select(&tournaments, `
 			SELECT
-				ep.uuid as registration_id,
+				MIN(ep.uuid) as registration_id,
 				e.uuid as event_uuid, e.name as event_name, e.slug as event_slug,
 				COALESCE(NULLIF(e.location, ''), NULLIF(e.venue, ''), NULLIF(e.city, ''), 'Lokasi Belum Diatur') as location,
 				e.start_date, e.end_date, e.logo_url, e.banner_url,
-				ep.qr_raw,
-				COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) as category_name,
-				ep.payment_status,
-				pt.payment_method,
-				COALESCE(pt.pay_code, pt.va_number) as pay_code,
-				pt.va_number,
-				COALESCE(pt.gateway_reference, pt.reference) as gateway_reference,
-				COALESCE(pt.total_amount, pt.amount, ep.payment_amount, 0) as payment_amount,
-				ep.registration_date
+				MIN(ep.qr_raw) as qr_raw,
+				GROUP_CONCAT(DISTINCT COALESCE(ec.category_name_custom, CONCAT(COALESCE(rbt.name,''), ' ', COALESCE(rag.name,''), ' ', COALESCE(rgd.name,''))) SEPARATOR ' • ') as category_name,
+				MAX(ep.payment_status) as payment_status,
+				MAX(pt.payment_method) as payment_method,
+				MAX(COALESCE(pt.pay_code, pt.va_number)) as pay_code,
+				MAX(pt.va_number) as va_number,
+				MAX(COALESCE(pt.gateway_reference, pt.reference)) as gateway_reference,
+				SUM(COALESCE(pt.total_amount, pt.amount, ep.payment_amount, 0)) as payment_amount,
+				MIN(ep.registration_date) as registration_date
 			FROM tournament_participants ep
 			JOIN tournaments e ON ep.tournament_id = e.uuid
 			LEFT JOIN tournament_categories ec ON ep.category_id = ec.uuid
@@ -147,6 +147,7 @@ func MobileGetMyEvents(db *sqlx.DB) gin.HandlerFunc {
 			LEFT JOIN ref_gender_divisions rgd ON ec.gender_division_uuid = rgd.uuid
 			LEFT JOIN payment_transactions pt ON (ep.payment_id = pt.uuid OR pt.registration_id = ep.uuid)
 			WHERE (ep.archer_id = ? OR (? != '' AND ep.archer_id = ?)) AND ep.payment_status != 'cancelled'
+			GROUP BY e.uuid, e.name, e.slug, e.location, e.venue, e.city, e.start_date, e.end_date, e.logo_url, e.banner_url
 			ORDER BY e.start_date DESC
 		`, archer.UUID, archerIDStr, archerIDStr)
 		if err != nil {

@@ -516,28 +516,46 @@ func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 
 		userID := c.GetString("user_id")
 		var archer struct {
-			UUID        string  `db:"uuid"`
-			ID          string  `db:"id"`
-			Username    *string `db:"username"`
-			FullName    string  `db:"full_name"`
-			Email       *string `db:"email"`
-			AvatarURL   *string `db:"avatar_url"`
-			Phone       *string `db:"phone"`
-			Gender      *string `db:"gender"`
-			DateOfBirth *string `db:"date_of_birth"`
-			City        *string `db:"city"`
-			Address     *string `db:"address"`
-			BowType     *string `db:"bow_type"`
-			ClubID      *string `db:"club_id"`
-			ClubName    *string `db:"club_name"`
+			UUID                 string  `db:"uuid"`
+			ID                   string  `db:"id"`
+			Username             *string `db:"username"`
+			FullName             string  `db:"full_name"`
+			Email                *string `db:"email"`
+			AvatarURL            *string `db:"avatar_url"`
+			BannerURL            *string `db:"banner_url"`
+			Phone                *string `db:"phone"`
+			Gender               *string `db:"gender"`
+			DateOfBirth          *string `db:"date_of_birth"`
+			City                 *string `db:"city"`
+			Country              *string `db:"country"`
+			Address              *string `db:"address"`
+			EmergencyContactName *string `db:"emergency_contact_name"`
+			BowType              *string `db:"bow_type"`
+			ClubID               *string `db:"club_id"`
+			ClubName             *string `db:"club_name"`
+			Nickname             *string `db:"nickname"`
+			Bio                  *string `db:"bio"`
+			Achievements         *string `db:"achievements"`
+			Equipment            *string `db:"equipment"`
+			SocialInstagram      *string `db:"social_instagram"`
+			SocialTiktok         *string `db:"social_tiktok"`
+			SocialWhatsapp       *string `db:"social_whatsapp"`
+			SocialFacebook       *string `db:"social_facebook"`
+			SocialTwitter        *string `db:"social_twitter"`
+			SocialYoutube        *string `db:"social_youtube"`
+			SocialWebsite        *string `db:"social_website"`
+			SocialLinkedin       *string `db:"social_linkedin"`
 		}
 
 		query := `
 			SELECT 
 				a.uuid, COALESCE(a.id, '') as id, a.username, a.full_name, a.email, a.avatar_url,
-				a.phone, a.gender, CAST(a.date_of_birth AS CHAR) as date_of_birth,
-				'' as city, a.address, a.bow_type,
-				a.club_id, c.name as club_name
+				a.banner_url, a.phone, a.gender, CAST(a.date_of_birth AS CHAR) as date_of_birth,
+				a.city, a.country, a.address, a.emergency_contact_name, a.bow_type,
+				a.club_id, c.name as club_name,
+				a.nickname, a.bio, a.achievements, a.equipment,
+				a.social_instagram, a.social_tiktok, a.social_whatsapp, a.social_facebook,
+				a.social_twitter, a.social_youtube, a.social_website, a.social_linkedin
 			FROM archers a
 			LEFT JOIN clubs c ON a.club_id = c.uuid
 			WHERE a.uuid = ?
@@ -555,21 +573,36 @@ func MobileGetArcherMe(db *sqlx.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, MobileArcherProfileResponse{
 			Data: MobileArcherProfileData{
-				ID:          archer.ID,
-				UUID:        archer.UUID,
-				Username:    archer.Username,
-				FullName:    archer.FullName,
-				Email:       archer.Email,
-				AvatarURL:   archer.AvatarURL,
-				Phone:       archer.Phone,
-				Gender:      archer.Gender,
-				DateOfBirth: archer.DateOfBirth,
-				City:        archer.City,
-				Address:     archer.Address,
-				BowType:     archer.BowType,
-				ClubID:      archer.ClubID,
-				ClubName:    archer.ClubName,
-				UserType:    "archer",
+				ID:                   archer.ID,
+				UUID:                 archer.UUID,
+				Username:             archer.Username,
+				FullName:             archer.FullName,
+				Email:                archer.Email,
+				AvatarURL:            archer.AvatarURL,
+				BannerURL:            archer.BannerURL,
+				Phone:                archer.Phone,
+				Gender:               archer.Gender,
+				DateOfBirth:          archer.DateOfBirth,
+				City:                 archer.City,
+				Country:              archer.Country,
+				Address:              archer.Address,
+				EmergencyContactName: archer.EmergencyContactName,
+				BowType:              archer.BowType,
+				ClubID:               archer.ClubID,
+				ClubName:             archer.ClubName,
+				UserType:             "archer",
+				Nickname:             archer.Nickname,
+				Bio:                  archer.Bio,
+				Achievements:         archer.Achievements,
+				Equipment:            archer.Equipment,
+				SocialInstagram:      archer.SocialInstagram,
+				SocialTiktok:         archer.SocialTiktok,
+				SocialWhatsapp:       archer.SocialWhatsapp,
+				SocialFacebook:       archer.SocialFacebook,
+				SocialTwitter:        archer.SocialTwitter,
+				SocialYoutube:        archer.SocialYoutube,
+				SocialWebsite:        archer.SocialWebsite,
+				SocialLinkedin:       archer.SocialLinkedin,
 			},
 		})
 	}
@@ -605,7 +638,10 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 		if req.Phone != nil { query += ", phone = ?"; args = append(args, *req.Phone) }
 		if req.Gender != nil { query += ", gender = ?"; args = append(args, *req.Gender) }
 		if req.DateOfBirth != nil { query += ", date_of_birth = ?"; args = append(args, *req.DateOfBirth) }
+		if req.City != nil { query += ", city = ?"; args = append(args, *req.City) }
+		if req.Country != nil { query += ", country = ?"; args = append(args, *req.Country) }
 		if req.Address != nil { query += ", address = ?"; args = append(args, *req.Address) }
+		if req.EmergencyContactName != nil { query += ", emergency_contact_name = ?"; args = append(args, *req.EmergencyContactName) }
 		if req.BowType != nil { query += ", bow_type = ?"; args = append(args, *req.BowType) }
 		if req.AvatarURL != nil { query += ", avatar_url = ?"; args = append(args, *req.AvatarURL) }
 		if req.Nickname != nil { query += ", nickname = ?"; args = append(args, *req.Nickname) }
@@ -622,7 +658,6 @@ func MobileUpdateArcherMe(db *sqlx.DB) gin.HandlerFunc {
 		if req.Achievements != nil { query += ", achievements = ?"; args = append(args, *req.Achievements) }
 		if req.Equipment != nil { query += ", equipment = ?"; args = append(args, *req.Equipment) }
 		if req.ClubID != nil { query += ", club_id = ?"; args = append(args, *req.ClubID) }
-		if req.Country != nil { query += ", country = ?"; args = append(args, *req.Country) }
 
 		if len(args) == 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "Tidak ada data yang diperbarui"})

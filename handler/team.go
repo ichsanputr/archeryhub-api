@@ -459,9 +459,16 @@ func GetEligiblePartners(db *sqlx.DB) gin.HandlerFunc {
 			categoryID, categoryID,
 		)
 
-		// 5. Query non-registered archers if searching or club provided
+		// 5. Query non-registered archers if searching, club provided, or to fill initial recommendations (up to 10)
 		var nonRegisteredPartners []models.EligiblePartner
-		if search != "" || clubID != "" {
+		if search != "" || clubID != "" || len(registeredPartners) < 10 {
+			limitArchers := 25
+			if search == "" && clubID == "" {
+				limitArchers = 10 - len(registeredPartners)
+				if limitArchers <= 0 {
+					limitArchers = 10
+				}
+			}
 			queryArchers := `
 				SELECT 
 					a.uuid as archer_id,
@@ -484,7 +491,7 @@ func GetEligiblePartners(db *sqlx.DB) gin.HandlerFunc {
 					  WHERE tournament_id = ? AND payment_status != 'cancelled'
 				  )
 				ORDER BY a.full_name ASC
-				LIMIT 25
+				LIMIT ?
 			`
 			_ = db.Select(&nonRegisteredPartners, queryArchers,
 				tour.EntryFee,
@@ -493,6 +500,7 @@ func GetEligiblePartners(db *sqlx.DB) gin.HandlerFunc {
 				clubID, clubID,
 				search, searchPattern, searchPattern, searchPattern,
 				tour.UUID,
+				limitArchers,
 			)
 		}
 

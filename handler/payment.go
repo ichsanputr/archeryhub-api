@@ -1049,15 +1049,27 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 			}
 		}
 
-		type TeamItem struct {
+		type TeamMemberDetail struct {
 			UUID         string  `json:"uuid" db:"uuid"`
-			TeamName     string  `json:"team_name" db:"team_name"`
-			CategoryID   string  `json:"category_id" db:"category_id"`
-			CategoryName string  `json:"category_name" db:"category_name"`
-			DivisionName string  `json:"division_name" db:"division_name"`
-			Fee          float64 `json:"fee" db:"fee"`
-			Status       string  `json:"status" db:"status"`
-			MemberCount  int     `json:"member_count" db:"member_count"`
+			TeamID       string  `json:"team_id" db:"team_id"`
+			ArcherID     *string `json:"archer_id" db:"archer_id"`
+			AthleteName  string  `json:"athlete_name" db:"athlete_name"`
+			ArcherAvatar *string `json:"archer_avatar" db:"archer_avatar"`
+			ClubName     *string `json:"club_name" db:"club_name"`
+			Gender       *string `json:"gender" db:"gender"`
+			MemberOrder  int     `json:"member_order" db:"member_order"`
+		}
+
+		type TeamItem struct {
+			UUID         string             `json:"uuid" db:"uuid"`
+			TeamName     string             `json:"team_name" db:"team_name"`
+			CategoryID   string             `json:"category_id" db:"category_id"`
+			CategoryName string             `json:"category_name" db:"category_name"`
+			DivisionName string             `json:"division_name" db:"division_name"`
+			Fee          float64            `json:"fee" db:"fee"`
+			Status       string             `json:"status" db:"status"`
+			MemberCount  int                `json:"member_count" db:"member_count"`
+			Members      []TeamMemberDetail `json:"members"`
 		}
 
 		var teams []TeamItem
@@ -1078,11 +1090,42 @@ func GetPaymentStatus(db *sqlx.DB) gin.HandlerFunc {
 				LEFT JOIN ref_bow_types rbt ON tc.division_uuid = rbt.uuid
 				LEFT JOIN ref_gender_divisions rgd ON tc.gender_division_uuid = rgd.uuid
 				WHERE t.tournament_id = ? AND (
-					t.uuid IN (SELECT DISTINCT team_id FROM team_members tm WHERE tm.archer_id IN (SELECT archer_id FROM tournament_participants WHERE payment_id = ? OR uuid = ?))
+					t.uuid IN (
+						SELECT DISTINCT tm.team_id FROM team_members tm
+						LEFT JOIN tournament_participants tp ON tm.participant_id = tp.uuid
+						WHERE (tp.payment_id = ? OR tp.payment_id = ? OR tp.uuid = ?)
+						   OR (tm.archer_id IN (SELECT archer_id FROM tournament_participants WHERE payment_id = ? OR payment_id = ? OR uuid = ?))
+					)
 				)
 				ORDER BY t.created_at ASC
 			`
-			_ = db.Select(&teams, teamQuery, *transaction.EventID, transaction.UUID, transaction.RegistrationID)
+			_ = db.Select(&teams, teamQuery, *transaction.EventID, transaction.UUID, transaction.Reference, transaction.RegistrationID, transaction.UUID, transaction.Reference, transaction.RegistrationID)
+
+			for i := range teams {
+				var members []TeamMemberDetail
+				memberQuery := `
+					SELECT 
+						tm.uuid,
+						tm.team_id,
+						COALESCE(tm.archer_id, tp.archer_id) as archer_id,
+						COALESCE(a.full_name, 'Anggota Tim') as athlete_name,
+						COALESCE(a.avatar_url, '') as archer_avatar,
+						COALESCE(c.name, '') as club_name,
+						a.gender,
+						COALESCE(tm.member_order, 1) as member_order
+					FROM team_members tm
+					LEFT JOIN tournament_participants tp ON tm.participant_id = tp.uuid
+					LEFT JOIN archers a ON (tm.archer_id = a.uuid OR tp.archer_id = a.uuid)
+					LEFT JOIN clubs c ON a.club_id = c.uuid
+					WHERE tm.team_id = ?
+					ORDER BY tm.member_order ASC, tm.created_at ASC
+				`
+				_ = db.Select(&members, memberQuery, teams[i].UUID)
+				if members == nil {
+					members = []TeamMemberDetail{}
+				}
+				teams[i].Members = members
+			}
 		}
 		if teams == nil {
 			teams = []TeamItem{}

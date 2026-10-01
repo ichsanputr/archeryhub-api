@@ -764,6 +764,8 @@ func main() {
 			mobile.GET("/tournaments/:slug/results/qualification", handler.GetPublicQualificationResults(db))
 			mobile.GET("/tournaments/:slug/results/elimination", handler.GetPublicEliminationResults(db))
 			mobile.GET("/tournaments/:slug/results/files", handler.GetEventResultFiles(db))
+			mobile.GET("/tournaments/:slug/custom-fields/public", handler.GetPublicTournamentCustomFields(db))
+			mobile.GET("/events/:slug/custom-fields/public", handler.GetPublicTournamentCustomFields(db))
 			mobile.POST("/tournaments/:slug/subscribe", middleware.OptionalAuthMiddleware(), mobilehandler.MobileSubscribeOrganizer(db))
 
 			mobile.GET("/clubs", mobilehandler.MobileListClubs(db))

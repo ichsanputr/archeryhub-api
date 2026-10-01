@@ -20,7 +20,7 @@ func resolveTournamentUUID(db *sqlx.DB, idOrSlug string) (string, string, error)
 		UUID        string `db:"uuid"`
 		OrganizerID string `db:"organizer_id"`
 	}
-	err := db.Get(&tour, "SELECT uuid, COALESCE(organizer_id, '') as organizer_id FROM tournaments WHERE uuid = ? OR slug = ? LIMIT 1", idOrSlug, idOrSlug)
+	err := db.Get(&tour, "SELECT uuid, COALESCE(organizer_id, '') as organizer_id FROM tournaments WHERE uuid = ? OR slug = ? OR code = ? LIMIT 1", idOrSlug, idOrSlug, idOrSlug)
 	if err != nil {
 		return "", "", err
 	}
@@ -48,6 +48,9 @@ func checkOrganizerAuth(c *gin.Context, organizerID string) bool {
 func GetTournamentCustomFields(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tournamentParam := c.Param("id")
+		if tournamentParam == "" {
+			tournamentParam = c.Param("slug")
+		}
 		tourUUID, _, err := resolveTournamentUUID(db, tournamentParam)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Turnamen tidak ditemukan"})
@@ -87,6 +90,9 @@ func GetTournamentCustomFields(db *sqlx.DB) gin.HandlerFunc {
 func GetPublicTournamentCustomFields(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tournamentParam := c.Param("id")
+		if tournamentParam == "" {
+			tournamentParam = c.Param("slug")
+		}
 		tourUUID, _, err := resolveTournamentUUID(db, tournamentParam)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Turnamen tidak ditemukan"})
